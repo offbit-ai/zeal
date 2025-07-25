@@ -37,6 +37,7 @@ import { WorkflowStorageService } from '@/services/workflowStorage'
 const nodes: NodeMetadata[] = [
   {
     id: '1',
+    templateId: 'tpl_postgresql',
     type: 'database',
     title: 'Get Database',
     subtitle: 'getAll: databasePage',
@@ -73,6 +74,7 @@ const nodes: NodeMetadata[] = [
   },
   {
     id: '2',
+    templateId: 'tpl_python_script',
     type: 'code',
     title: 'Update CRM',
     icon: Code,
@@ -101,6 +103,7 @@ const nodes: NodeMetadata[] = [
   },
   {
     id: '3',
+    templateId: 'tpl_gpt4',
     type: 'service',
     title: 'Claude',
     icon: Bot,
@@ -137,6 +140,7 @@ const nodes: NodeMetadata[] = [
   },
   {
     id: '4',
+    templateId: 'tpl_branch',
     type: 'condition',
     title: 'Branch',
     icon: GitBranch,
@@ -164,6 +168,7 @@ const nodes: NodeMetadata[] = [
   },
   {
     id: '5',
+    templateId: 'tpl_data_transformer',
     type: 'transformer',
     title: 'Data Transformer',
     subtitle: 'Transform & Process Data',
@@ -247,30 +252,44 @@ export default function Home() {
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
   
   // Check for missing environment variables
-  const checkMissingEnvVars = () => {
+  const checkMissingEnvVars = async () => {
     console.log('=== CHECKING MISSING ENV VARS ===')
+    console.log('Initialized:', initialized)
     console.log('Store nodes:', storeNodes.length)
-    console.log('Nodes with required vars:', storeNodes.filter(n => n.metadata.requiredEnvVars).map(n => ({ 
+    console.log('Store nodes details:', storeNodes.map(n => ({ 
       id: n.metadata.id, 
       title: n.metadata.title,
+      templateId: n.metadata.templateId,
       requiredEnvVars: n.metadata.requiredEnvVars 
     })))
     
-    const missing = EnvVarService.getMissingEnvVars(storeNodes)
-    console.log('Missing vars found:', missing)
-    
-    setMissingEnvVars(missing)
-    
-    if (missing.length > 0) {
-      console.log('SHOWING WARNING for missing vars:', missing)
-      // Auto-add missing variables to config
-      EnvVarService.addMissingVarsToConfig(missing)
-      // Always show warning when there are missing vars
-      setShowEnvVarWarning(true)
-    } else {
-      console.log('NO MISSING VARS - hiding warning')
-      // No missing vars, so hide warning
+    if (storeNodes.length === 0) {
+      console.log('No nodes in store - skipping env var check')
       setShowEnvVarWarning(false)
+      setMissingEnvVars([])
+      return
+    }
+    
+    try {
+      const missing = await EnvVarService.getMissingEnvVars(storeNodes)
+      console.log('Missing vars found:', missing)
+      
+      setMissingEnvVars(missing)
+      
+      if (missing.length > 0) {
+        console.log('SHOWING WARNING for missing vars:', missing)
+        // Just show the warning - don't persist anything
+        setShowEnvVarWarning(true)
+      } else {
+        console.log('NO MISSING VARS - hiding warning')
+        // No missing vars, so hide warning
+        setShowEnvVarWarning(false)
+      }
+    } catch (error) {
+      console.error('Failed to check missing environment variables:', error)
+      // On error, don't show warning to avoid false positives
+      setShowEnvVarWarning(false)
+      setMissingEnvVars([])
     }
   }
 
@@ -292,12 +311,59 @@ export default function Home() {
     }
   }, [initialized, storeNodes.length, setInitialized, loadFromStorage, createNewWorkflow])
 
+  // Keyboard shortcut to test environment variable warning (Cmd+Shift+T)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 't') {
+        e.preventDefault()
+        console.log('TESTING: Adding PostgreSQL node to trigger env var check')
+        const { addNode } = useWorkflowStore.getState()
+        addNode({
+          id: `test-postgresql-${Date.now()}`,
+          templateId: 'tpl_postgresql',
+          type: 'database',
+          title: 'Test PostgreSQL',
+          icon: Database,
+          variant: 'black',
+          shape: 'rectangle',
+          size: 'medium',
+          requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
+          properties: [],
+          propertyValues: {}
+        }, { x: 300 + Math.random() * 100, y: 200 + Math.random() * 100 })
+        ToastManager.info('Test node added - checking for environment variables...')
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [])
+
   // Check for missing environment variables when nodes change
   useEffect(() => {
+    console.log('ENV VAR CHECK EFFECT:', { initialized, nodeCount: storeNodes.length })
     if (initialized) {
-      checkMissingEnvVars()
+      // Always run the check, even with 0 nodes for debugging
+      checkMissingEnvVars().catch(error => {
+        console.error('Failed to check missing environment variables:', error)
+      })
     }
   }, [initialized, storeNodes])
+
+  // Force check environment variables every 5 seconds for debugging
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (initialized && storeNodes.length > 0) {
+        console.log('FORCE CHECK: Running environment variable check...')
+        checkMissingEnvVars().catch(error => {
+          console.error('Force check failed:', error)
+        })
+      }
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [initialized, storeNodes.length])
+  
   
   useEffect(() => {
     const updateViewportSize = () => {
@@ -428,7 +494,9 @@ export default function Home() {
   // Handle environment variable configuration
   const handleVariableConfigured = () => {
     // Re-check missing vars after configuration
-    checkMissingEnvVars()
+    checkMissingEnvVars().catch(error => {
+      console.error('Failed to check missing environment variables after configuration:', error)
+    })
   }
 
   // Handle dismissing env var warning (no persistent dismissal)
@@ -554,7 +622,9 @@ export default function Home() {
         if (e.key === 'e' && e.shiftKey) {
           e.preventDefault()
           EnvVarService.clearStorage()
-          checkMissingEnvVars()
+          checkMissingEnvVars().catch(error => {
+            console.error('Failed to check missing environment variables after clearing storage:', error)
+          })
           ToastManager.info('Environment variable storage cleared')
         }
       }
@@ -688,21 +758,23 @@ export default function Home() {
 
         {/* Property Pane */}
         {isPropertyPaneVisible && (
-          <div className="absolute inset-0 z-30 flex">
+          <>
             {/* Backdrop */}
             <div 
-              className={`flex-1 bg-black/20 transition-opacity duration-300 ${
+              className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-300 ${
                 isPropertyPaneClosing ? 'opacity-0' : 'opacity-100'
               }`}
               onClick={handlePropertyPaneClose}
             />
             {/* Property Pane */}
-            <PropertyPane
-              selectedNodeId={selectedNodeId}
-              onClose={handlePropertyPaneClose}
-              isClosing={isPropertyPaneClosing}
-            />
-          </div>
+            <div className="fixed right-0 top-0 h-full z-55">
+              <PropertyPane
+                selectedNodeId={selectedNodeId}
+                onClose={handlePropertyPaneClose}
+                isClosing={isPropertyPaneClosing}
+              />
+            </div>
+          </>
         )}
       </div>
 

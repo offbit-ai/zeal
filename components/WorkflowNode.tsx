@@ -135,7 +135,10 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
     'gray-600': 'bg-gray-600',
     'gray-800': 'bg-gray-800',
     'gray-900': 'bg-gray-900',
-    'blue-600': 'bg-blue-600'
+    'blue-600': 'bg-blue-600',
+    'green-600': 'bg-green-600',
+    'orange-600': 'bg-orange-600',
+    'orange-700': 'bg-orange-700'
   }
 
   const shapeStyles: Record<NodeShape, string> = {

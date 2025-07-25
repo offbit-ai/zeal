@@ -7,6 +7,7 @@ import { useWorkflowStore } from '@/store/workflowStore'
 import { RuleEditorModal } from './RuleEditorModal'
 import { DataOperationModal } from './DataOperationModal'
 import { ModalPortal } from './ModalPortal'
+import { CodeEditor } from './CodeEditor'
 
 interface PropertyPaneProps {
   selectedNodeId: string | null
@@ -140,6 +141,21 @@ function PropertyField({
             <Database className="w-4 h-4 text-gray-400" />
           </div>
         </button>
+      )
+
+    case 'code-editor':
+      return (
+        <CodeEditor
+          value={value || ''}
+          onChange={handleChange}
+          language={property.language || 'javascript'}
+          placeholder={property.placeholder}
+          height={property.height || 200}
+          lineNumbers={property.lineNumbers !== false}
+          wordWrap={property.wordWrap !== false}
+          minimap={property.minimap || false}
+          theme="light"
+        />
       )
 
     default:

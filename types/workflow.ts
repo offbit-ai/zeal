@@ -2,7 +2,7 @@ import { LucideIcon } from 'lucide-react'
 
 export type NodeShape = 'rectangle' | 'circle' | 'diamond'
 
-export type NodeVariant = 'black' | 'gray-700' | 'gray-600' | 'gray-800' | 'gray-900' | 'blue-600'
+export type NodeVariant = 'black' | 'gray-700' | 'gray-600' | 'gray-800' | 'gray-900' | 'blue-600' | 'green-600' | 'orange-600' | 'orange-700'
 
 export interface Port {
   id: string
@@ -11,7 +11,7 @@ export interface Port {
   position: 'top' | 'right' | 'bottom' | 'left'
 }
 
-export type PropertyType = 'text' | 'number' | 'select' | 'boolean' | 'textarea' | 'rules' | 'dataOperations'
+export type PropertyType = 'text' | 'number' | 'select' | 'boolean' | 'textarea' | 'rules' | 'dataOperations' | 'code-editor'
 
 export type RuleOperator = 'is' | 'is_not' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'greater_equal' | 'less_equal' | 'between' | 'empty' | 'not_empty'
 
@@ -91,10 +91,17 @@ export interface PropertyDefinition {
   // For rules type
   availableFields?: string[] // Fields that can be used in rules/data operations
   availableOperators?: RuleOperator[] // Operators available for this rule set
+  // For code-editor type
+  language?: 'javascript' | 'python' | 'sql' | 'json' | 'yaml' | 'shell' | 'graphql' // Programming language for syntax highlighting
+  lineNumbers?: boolean // Show line numbers in code editor
+  wordWrap?: boolean // Enable word wrap in code editor
+  height?: number // Height of the code editor in pixels
+  minimap?: boolean // Show minimap in code editor
 }
 
 export interface NodeMetadata {
   id: string
+  templateId: string // Reference to the node template schema
   type: string
   title: string
   subtitle?: string
