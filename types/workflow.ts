@@ -105,6 +105,7 @@ export interface NodeMetadata {
   ports?: Port[]
   properties?: PropertyDefinition[]
   propertyValues?: Record<string, any>
+  requiredEnvVars?: string[]
 }
 
 export interface WorkflowNodeData {

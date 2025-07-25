@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { NodeMetadata, Connection, WorkflowNodeData } from '@/types/workflow'
+import { WorkflowStorageService } from '@/services/workflowStorage'
+import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/workflowSerializer'
 
 // Extended node data that includes position
 interface WorkflowNode extends WorkflowNodeData {
@@ -10,6 +12,8 @@ interface WorkflowNode extends WorkflowNodeData {
 
 // Workflow state interface
 interface WorkflowState {
+  workflowId: string | null
+  workflowName: string
   nodes: WorkflowNode[]
   connections: Connection[]
   history: WorkflowSnapshot[]
@@ -49,6 +53,14 @@ interface WorkflowActions {
   clearWorkflow: () => void
   loadWorkflow: (nodes: WorkflowNode[], connections: Connection[]) => void
   setInitialized: (initialized: boolean) => void
+  
+  // Storage actions
+  saveToStorage: () => void
+  loadFromStorage: (workflowId: string) => void
+  createNewWorkflow: (name?: string) => void
+  setWorkflowName: (name: string) => void
+  publishWorkflow: () => void
+  rollbackToVersion: (versionTimestamp: string) => void
 }
 
 // Combine state and actions
@@ -85,6 +97,8 @@ const generateConnectionId = (): string => `conn-${Date.now()}-${Math.random().t
 export const useWorkflowStore = create<WorkflowStore>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
+    workflowId: null,
+    workflowName: 'Untitled Workflow',
     nodes: [],
     connections: [],
     history: [],
@@ -354,6 +368,120 @@ export const useWorkflowStore = create<WorkflowStore>()(
         ...state,
         initialized
       }))
+    },
+
+    // Storage actions
+    saveToStorage: () => {
+      const state = get()
+      if (!state.workflowId) {
+        // Create new workflow if no ID exists
+        const snapshot = WorkflowStorageService.createDraftWorkflow(state.workflowName)
+        set({ workflowId: snapshot.id })
+        
+        // Update with current state
+        const updatedSnapshot = createWorkflowSnapshot(
+          state.nodes,
+          state.connections,
+          state.workflowName,
+          snapshot.id,
+          snapshot
+        )
+        WorkflowStorageService.saveWorkflow(updatedSnapshot)
+      } else {
+        // Update existing workflow
+        const existingSnapshot = WorkflowStorageService.getWorkflow(state.workflowId)
+        const snapshot = createWorkflowSnapshot(
+          state.nodes,
+          state.connections,
+          state.workflowName,
+          state.workflowId,
+          existingSnapshot || undefined
+        )
+        WorkflowStorageService.saveWorkflow(snapshot)
+      }
+    },
+
+    loadFromStorage: (workflowId: string) => {
+      const snapshot = WorkflowStorageService.getWorkflow(workflowId)
+      if (!snapshot) {
+        console.error('Workflow not found:', workflowId)
+        return
+      }
+
+      const { nodes, connections } = restoreWorkflowFromSnapshot(snapshot)
+      
+      set({
+        workflowId: snapshot.id,
+        workflowName: snapshot.name,
+        nodes,
+        connections,
+        history: [],
+        historyIndex: -1
+      })
+      
+      // Save initial snapshot for undo/redo
+      setTimeout(() => get().saveSnapshot(), 0)
+    },
+
+    createNewWorkflow: (name?: string) => {
+      const snapshot = WorkflowStorageService.createDraftWorkflow(name)
+      
+      set({
+        workflowId: snapshot.id,
+        workflowName: snapshot.name,
+        nodes: [],
+        connections: [],
+        history: [],
+        historyIndex: -1
+      })
+      
+      // Save initial snapshot
+      setTimeout(() => get().saveSnapshot(), 0)
+    },
+
+    setWorkflowName: (name: string) => {
+      set({ workflowName: name })
+    },
+
+    publishWorkflow: () => {
+      const state = get()
+      if (!state.workflowId) {
+        console.error('No workflow to publish')
+        return
+      }
+      
+      // Save current state first
+      get().saveToStorage()
+      
+      // Publish the workflow
+      const publishedSnapshot = WorkflowStorageService.publishWorkflow(state.workflowId)
+      if (publishedSnapshot) {
+        console.log('Workflow published successfully:', publishedSnapshot.publishedAt)
+      }
+    },
+
+    rollbackToVersion: (versionTimestamp: string) => {
+      const state = get()
+      if (!state.workflowId) {
+        console.error('No workflow to rollback')
+        return
+      }
+      
+      const rolledBackSnapshot = WorkflowStorageService.rollbackToVersion(state.workflowId, versionTimestamp)
+      if (rolledBackSnapshot) {
+        // Load the rolled back version
+        const { nodes, connections } = restoreWorkflowFromSnapshot(rolledBackSnapshot)
+        
+        set({
+          nodes,
+          connections,
+          history: [],
+          historyIndex: -1
+        })
+        
+        // Save initial snapshot for undo/redo
+        setTimeout(() => get().saveSnapshot(), 0)
+      }
     }
   }))
 )

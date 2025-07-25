@@ -9,6 +9,10 @@ interface InteractiveCanvasProps {
   dotColor?: string
   offset?: { x: number; y: number }
   onOffsetChange?: (offset: { x: number; y: number }) => void
+  zoom?: number
+  onZoomChange?: (zoom: number) => void
+  minZoom?: number
+  maxZoom?: number
 }
 
 export function InteractiveCanvas({ 
@@ -17,14 +21,20 @@ export function InteractiveCanvas({
   dotSize = 1,
   dotColor = '#d1d5db',
   offset: externalOffset,
-  onOffsetChange
+  onOffsetChange,
+  zoom: externalZoom,
+  onZoomChange,
+  minZoom = 0.1,
+  maxZoom = 3
 }: InteractiveCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 })
   const [internalOffset, setInternalOffset] = useState({ x: 0, y: 0 })
+  const [internalZoom, setInternalZoom] = useState(1)
   
   const offset = externalOffset || internalOffset
+  const zoom = externalZoom || internalZoom
 
   // Generate SVG pattern for infinite grid
   const patternId = 'dot-pattern'
@@ -75,15 +85,52 @@ export function InteractiveCanvas({
   }
 
   const handleWheel = (e: WheelEvent) => {
-    // Pan with mouse wheel
-    const newOffset = {
-      x: offset.x - e.deltaX,
-      y: offset.y - e.deltaY
-    }
-    if (onOffsetChange) {
-      onOffsetChange(newOffset)
+    e.preventDefault()
+    
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom with Ctrl/Cmd + wheel
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+      
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+      
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+      const newZoom = Math.max(minZoom, Math.min(maxZoom, zoom * zoomFactor))
+      
+      if (newZoom !== zoom) {
+        // Calculate zoom point to maintain mouse position
+        const zoomPointX = (mouseX - offset.x) / zoom
+        const zoomPointY = (mouseY - offset.y) / zoom
+        
+        const newOffset = {
+          x: mouseX - zoomPointX * newZoom,
+          y: mouseY - zoomPointY * newZoom
+        }
+        
+        if (onZoomChange) {
+          onZoomChange(newZoom)
+        } else {
+          setInternalZoom(newZoom)
+        }
+        
+        if (onOffsetChange) {
+          onOffsetChange(newOffset)
+        } else {
+          setInternalOffset(newOffset)
+        }
+      }
     } else {
-      setInternalOffset(newOffset)
+      // Pan with mouse wheel
+      const newOffset = {
+        x: offset.x - e.deltaX,
+        y: offset.y - e.deltaY
+      }
+      if (onOffsetChange) {
+        onOffsetChange(newOffset)
+      } else {
+        setInternalOffset(newOffset)
+      }
     }
   }
 
@@ -93,9 +140,10 @@ export function InteractiveCanvas({
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
   }, [])
 
-  // Calculate background position for infinite scrolling effect
-  const backgroundPositionX = offset.x % gridSize
-  const backgroundPositionY = offset.y % gridSize
+  // Calculate background position for infinite scrolling effect with zoom
+  const scaledGridSize = gridSize * zoom
+  const backgroundPositionX = offset.x % scaledGridSize
+  const backgroundPositionY = offset.y % scaledGridSize
 
   return (
     <div 
@@ -115,16 +163,17 @@ export function InteractiveCanvas({
         style={{
           backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svgPattern)}")`,
           backgroundPosition: `${backgroundPositionX}px ${backgroundPositionY}px`,
-          backgroundSize: `${gridSize}px ${gridSize}px`,
+          backgroundSize: `${scaledGridSize}px ${scaledGridSize}px`,
           opacity: 0.7
         }}
       />
       
-      {/* Content container that moves with pan */}
+      {/* Content container that moves with pan and scales with zoom */}
       <div 
         className="absolute inset-0"
         style={{
-          transform: `translate(${offset.x}px, ${offset.y}px)`
+          transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+          transformOrigin: '0 0'
         }}
       >
         {children}

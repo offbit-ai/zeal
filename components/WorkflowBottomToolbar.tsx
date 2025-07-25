@@ -1,14 +1,16 @@
-import { History, ListRestart } from 'lucide-react'
+import { History, ListRestart, KeyRound } from 'lucide-react'
 import { Tooltip } from './Tooltip'
 
 interface WorkflowBottomToolbarProps {
   onHistoryClick?: () => void
   onDebuggerClick?: () => void
+  onConfigClick?: () => void
 }
 
 export function WorkflowBottomToolbar({ 
   onHistoryClick,
-  onDebuggerClick 
+  onDebuggerClick,
+  onConfigClick
 }: WorkflowBottomToolbarProps) {
   return (
     <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 flex items-center gap-3 z-20 w-fit">
@@ -29,6 +31,17 @@ export function WorkflowBottomToolbar({
           onClick={onDebuggerClick}
         >
           <ListRestart className="w-4 h-4" strokeWidth={1.5} />
+        </button>
+      </Tooltip>
+      
+      <div className="w-px h-4 bg-gray-300"></div>
+      
+      <Tooltip content="Configuration" position="top">
+        <button 
+          className="flex items-center justify-center w-8 h-8 text-gray-900 hover:text-black transition-colors cursor-pointer"
+          onClick={onConfigClick}
+        >
+          <KeyRound className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
     </div>

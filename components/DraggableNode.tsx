@@ -13,6 +13,7 @@ interface DraggableNodeProps {
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onClick?: (nodeId: string) => void
+  isHighlighted?: boolean
 }
 
 export function DraggableNode({ 
@@ -23,7 +24,8 @@ export function DraggableNode({
   onPortPositionUpdate,
   onPortDragStart,
   onPortDragEnd,
-  onClick
+  onClick,
+  isHighlighted = false
 }: DraggableNodeProps) {
   const [position, setPosition] = useState(initialPosition)
   const [isDragging, setIsDragging] = useState(false)
@@ -121,7 +123,7 @@ export function DraggableNode({
       }}
       onMouseDown={handleMouseDown}
     >
-      <WorkflowNode metadata={metadata} isDragging={isDragging} onPortPositionUpdate={onPortPositionUpdate} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
+      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} onPortPositionUpdate={onPortPositionUpdate} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
     </div>
   )
 }

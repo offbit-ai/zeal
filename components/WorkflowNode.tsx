@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 interface WorkflowNodeProps {
   metadata: NodeMetadata
   isDragging?: boolean
+  isHighlighted?: boolean
   onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
@@ -124,7 +125,7 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
   )
 }
 
-export function WorkflowNode({ metadata, isDragging = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
+export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
   const { title, subtitle, icon: Icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
 
@@ -170,7 +171,7 @@ export function WorkflowNode({ metadata, isDragging = false, onPortPositionUpdat
   if (shape === 'circle') {
     return (
       <div className="flex flex-col items-center relative select-none" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-        <div className={`${variantStyles[variant]} text-white ${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''}`}>
+        <div className={`${variantStyles[variant]} text-white ${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
           <Icon className="w-7 h-7" strokeWidth={1.5} />
           {/* Render ports */}
           {ports.map(port => (
@@ -191,7 +192,7 @@ export function WorkflowNode({ metadata, isDragging = false, onPortPositionUpdat
   if (shape === 'diamond') {
     return (
       <div className="flex flex-col items-center relative select-none" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-        <div className={`${variantStyles[variant]} text-white ${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''}`}>
+        <div className={`${variantStyles[variant]} text-white ${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
           <Icon className="w-5 h-5 -rotate-45" strokeWidth={1.5} />
           {/* Render ports */}
           {ports.map(port => (
@@ -211,7 +212,7 @@ export function WorkflowNode({ metadata, isDragging = false, onPortPositionUpdat
   // Default rectangle shape
   return (
     <div 
-      className={`${variantStyles[variant]} text-white ${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''}`}
+      className={`${variantStyles[variant]} text-white ${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}
       onMouseEnter={() => setIsHovered(true)} 
       onMouseLeave={() => setIsHovered(false)}
     >

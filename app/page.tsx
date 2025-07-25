@@ -5,11 +5,21 @@ import { InteractiveCanvas } from '@/components/InteractiveCanvas'
 import { WorkflowSidebar } from '@/components/WorkflowSidebar'
 import { WorkflowBottomToolbar } from '@/components/WorkflowBottomToolbar'
 import { SearchButton } from '@/components/SearchButton'
+import { NodeBrowserButton } from '@/components/NodeBrowserButton'
 import { UndoRedoButtons } from '@/components/UndoRedoButtons'
 import { SearchModal } from '@/components/SearchModal'
+import { NodeBrowserPanel } from '@/components/NodeBrowserPanel'
+import { HistoryBrowser } from '@/components/HistoryBrowser'
+import { FlowTracer } from '@/components/FlowTracer'
+import { Configuration } from '@/components/Configuration'
+import { MissingEnvVarWarning } from '@/components/MissingEnvVarWarning'
+import { EnvVarService } from '@/services/envVarService'
 import { DraggableNode } from '@/components/DraggableNode'
 import { Minimap } from '@/components/Minimap'
+import { ZoomControls } from '@/components/ZoomControls'
 import { Save, Upload, Play } from 'lucide-react'
+import { ToastManager } from '@/components/Toast'
+import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import type { NodeMetadata, Connection } from '@/types/workflow'
 import { Database, Code, Bot, Cloud, Zap, GitBranch, Shuffle } from 'lucide-react'
 import { useNodeBounds } from '@/hooks/useNodeBounds'
@@ -21,6 +31,7 @@ import { DeleteConnectionDialog } from '@/components/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/PropertyPane'
 import { ModalPortal } from '@/components/ModalPortal'
 import { useWorkflowStore } from '@/store/workflowStore'
+import { WorkflowStorageService } from '@/services/workflowStorage'
 
 // Sample nodes metadata
 const nodes: NodeMetadata[] = [
@@ -51,6 +62,7 @@ const nodes: NodeMetadata[] = [
         description: 'Advanced filtering rules for database queries'
       }
     ],
+    requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
     propertyValues: {
       table: 'databasePage',
       operation: 'getAll',
@@ -79,6 +91,7 @@ const nodes: NodeMetadata[] = [
       { id: 'timeout', label: 'Timeout (ms)', type: 'number', defaultValue: 5000 },
       { id: 'retry', label: 'Retry on Failure', type: 'boolean', defaultValue: true }
     ],
+    requiredEnvVars: ['CRM_API_KEY', 'CRM_BASE_URL'],
     propertyValues: {
       endpoint: '',
       method: 'POST',
@@ -113,6 +126,7 @@ const nodes: NodeMetadata[] = [
         description: 'Define rules to process and route AI responses based on content analysis'
       }
     ],
+    requiredEnvVars: ['ANTHROPIC_API_KEY'],
     propertyValues: {
       model: 'claude-3-5-sonnet',
       maxTokens: 1000,
@@ -187,17 +201,28 @@ const nodes: NodeMetadata[] = [
 export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isNodeBrowserOpen, setIsNodeBrowserOpen] = useState(false)
+  const [isHistoryBrowserOpen, setIsHistoryBrowserOpen] = useState(false)
+  const [isFlowTracerOpen, setIsFlowTracerOpen] = useState(false)
+  const [isConfigOpen, setIsConfigOpen] = useState(false)
+  const [missingEnvVars, setMissingEnvVars] = useState<string[]>([])
+  const [showEnvVarWarning, setShowEnvVarWarning] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null)
   const [isPropertyPaneOpen, setIsPropertyPaneOpen] = useState(false)
   const [isPropertyPaneVisible, setIsPropertyPaneVisible] = useState(false)
   const [isPropertyPaneClosing, setIsPropertyPaneClosing] = useState(false)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
+  const [canvasZoom, setCanvasZoom] = useState(1)
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
   const { updateNodeBounds, getNodeBoundsArray } = useNodeBounds()
   const { updatePortPosition, getPortPosition } = usePortPositions()
   
   // Zustand store
   const { 
+    workflowId,
+    workflowName,
     nodes: storeNodes, 
     connections, 
     initialized,
@@ -209,30 +234,70 @@ export default function Home() {
     undo,
     redo,
     canUndo,
-    canRedo
+    canRedo,
+    saveToStorage,
+    loadFromStorage,
+    createNewWorkflow,
+    setWorkflowName,
+    publishWorkflow
   } = useWorkflowStore()
   
   const { dragState, startDrag, updateDrag, endDrag } = useConnectionDrag(connections)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
   
-  // Initialize store with sample nodes if empty (run only once)
+  // Check for missing environment variables
+  const checkMissingEnvVars = () => {
+    console.log('=== CHECKING MISSING ENV VARS ===')
+    console.log('Store nodes:', storeNodes.length)
+    console.log('Nodes with required vars:', storeNodes.filter(n => n.metadata.requiredEnvVars).map(n => ({ 
+      id: n.metadata.id, 
+      title: n.metadata.title,
+      requiredEnvVars: n.metadata.requiredEnvVars 
+    })))
+    
+    const missing = EnvVarService.getMissingEnvVars(storeNodes)
+    console.log('Missing vars found:', missing)
+    
+    setMissingEnvVars(missing)
+    
+    if (missing.length > 0) {
+      console.log('SHOWING WARNING for missing vars:', missing)
+      // Auto-add missing variables to config
+      EnvVarService.addMissingVarsToConfig(missing)
+      // Always show warning when there are missing vars
+      setShowEnvVarWarning(true)
+    } else {
+      console.log('NO MISSING VARS - hiding warning')
+      // No missing vars, so hide warning
+      setShowEnvVarWarning(false)
+    }
+  }
+
+  // Initialize workflow on mount
   useEffect(() => {
-    if (!initialized && storeNodes.length === 0) {
-      nodes.forEach((node, index) => {
-        // Arrange nodes in a grid layout based on metadata
-        const cols = 3
-        const col = index % cols
-        const row = Math.floor(index / cols)
-        const position = {
-          x: 200 + col * 300,
-          y: 150 + row * 200
-        }
-        useWorkflowStore.getState().addNode(node, position)
-      })
+    if (!initialized) {
+      // Check if there's a saved workflow to load
+      const savedWorkflowId = WorkflowStorageService.getCurrentWorkflowId()
+      
+      if (savedWorkflowId) {
+        // Load existing workflow
+        loadFromStorage(savedWorkflowId)
+      } else if (storeNodes.length === 0) {
+        // Create new empty workflow
+        createNewWorkflow('New Workflow')
+      }
+      
       setInitialized(true)
     }
-  }, [initialized, storeNodes.length, setInitialized])
+  }, [initialized, storeNodes.length, setInitialized, loadFromStorage, createNewWorkflow])
+
+  // Check for missing environment variables when nodes change
+  useEffect(() => {
+    if (initialized) {
+      checkMissingEnvVars()
+    }
+  }, [initialized, storeNodes])
   
   useEffect(() => {
     const updateViewportSize = () => {
@@ -269,6 +334,111 @@ export default function Home() {
       setIsPropertyPaneClosing(false)
       setSelectedNodeId(null)
     }, 300) // Match animation duration
+  }
+
+  // Handle node browser toggle
+  const handleNodeBrowserToggle = () => {
+    setIsNodeBrowserOpen(!isNodeBrowserOpen)
+  }
+
+  // Zoom control handlers
+  const handleZoomIn = () => {
+    setCanvasZoom(prev => Math.min(3, prev * 1.2))
+  }
+
+  const handleZoomOut = () => {
+    setCanvasZoom(prev => Math.max(0.1, prev / 1.2))
+  }
+
+  const handleZoomReset = () => {
+    setCanvasZoom(1)
+    setCanvasOffset({ x: 0, y: 0 })
+  }
+
+  // Handle category click from sidebar
+  const handleCategoryClick = (categoryId: string) => {
+    setSelectedCategory(categoryId)
+    setIsSearchOpen(true)
+  }
+
+  // Handle node selection from browser
+  const handleNodeSelectFromBrowser = (nodeId: string, position: { x: number; y: number }) => {
+    // Center the canvas on the selected node
+    const viewportCenterX = window.innerWidth / 2
+    const viewportCenterY = window.innerHeight / 2
+    
+    const newOffset = {
+      x: viewportCenterX - position.x * canvasZoom,
+      y: viewportCenterY - position.y * canvasZoom
+    }
+    
+    setCanvasOffset(newOffset)
+    setHighlightedNodeId(nodeId)
+    
+    // Remove highlight after 2 seconds
+    setTimeout(() => {
+      setHighlightedNodeId(null)
+    }, 2000)
+  }
+
+  // Handle save workflow
+  const handleSaveWorkflow = () => {
+    try {
+      saveToStorage()
+      ToastManager.success(`Workflow "${workflowName}" saved successfully!`)
+    } catch (error) {
+      ToastManager.error('Failed to save workflow. Please try again.')
+      console.error('Save error:', error)
+    }
+  }
+
+  // Handle publish workflow
+  const handlePublishWorkflow = () => {
+    try {
+      publishWorkflow()
+      ToastManager.success(`Workflow "${workflowName}" published successfully!`)
+    } catch (error) {
+      ToastManager.error('Failed to publish workflow. Please try again.')
+      console.error('Publish error:', error)
+    }
+  }
+
+  // Handle load workflow from history
+  const handleLoadWorkflow = (selectedWorkflowId: string) => {
+    try {
+      // Save current workflow first if it has changes
+      if (workflowId !== selectedWorkflowId && storeNodes.length > 0) {
+        saveToStorage()
+      }
+      
+      // Load the selected workflow
+      loadFromStorage(selectedWorkflowId)
+      
+      // The workflowName will be updated by the store after loading
+      setTimeout(() => {
+        const { workflowName: newName } = useWorkflowStore.getState()
+        ToastManager.info(`Loaded workflow "${newName}"`)
+      }, 100)
+    } catch (error) {
+      ToastManager.error('Failed to load workflow. Please try again.')
+      console.error('Load error:', error)
+    }
+  }
+
+  // Handle environment variable configuration
+  const handleVariableConfigured = () => {
+    // Re-check missing vars after configuration
+    checkMissingEnvVars()
+  }
+
+  // Handle dismissing env var warning (no persistent dismissal)
+  const handleDismissEnvVarWarning = () => {
+    setShowEnvVarWarning(false)
+  }
+
+  // Handle opening config from warning
+  const handleOpenConfigFromWarning = () => {
+    setIsConfigOpen(true)
   }
   
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
@@ -331,10 +501,10 @@ export default function Home() {
       const canvas = document.querySelector('.relative.w-full.h-full.overflow-hidden')
       if (canvas) {
         const rect = canvas.getBoundingClientRect()
-        // Account for canvas offset
+        // Account for canvas offset and zoom
         updateDrag({
-          x: e.clientX - rect.left - canvasOffset.x,
-          y: e.clientY - rect.top - canvasOffset.y
+          x: (e.clientX - rect.left - canvasOffset.x) / canvasZoom,
+          y: (e.clientY - rect.top - canvasOffset.y) / canvasZoom
         })
       }
     }
@@ -350,7 +520,7 @@ export default function Home() {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [dragState.isDragging, canvasOffset, updateDrag, endDrag])
+  }, [dragState.isDragging, canvasOffset, canvasZoom, updateDrag, endDrag])
   
   // Keyboard shortcuts for testing connection states and undo/redo
   useEffect(() => {
@@ -372,6 +542,21 @@ export default function Home() {
           e.preventDefault()
           redo()
         }
+        
+        // Cmd+Shift+P to simulate published workflows (for testing)
+        if (e.key === 'p' && e.shiftKey) {
+          e.preventDefault()
+          simulatePublishedWorkflows()
+          ToastManager.info('Simulated published workflows created')
+        }
+        
+        // Cmd+Shift+E to clear environment variable storage (for testing)
+        if (e.key === 'e' && e.shiftKey) {
+          e.preventDefault()
+          EnvVarService.clearStorage()
+          checkMissingEnvVars()
+          ToastManager.info('Environment variable storage cleared')
+        }
       }
     }
     
@@ -380,39 +565,30 @@ export default function Home() {
   }, [connections, undo, redo])
 
 
-  const categories = [
-    {
-      id: 'connections',
-      title: 'Connections',
-      items: [
-        { id: '1', title: 'Database', icon: Database },
-        { id: '2', title: 'API', icon: Cloud },
-        { id: '3', title: 'Webhook', icon: Zap },
-      ]
-    },
-    {
-      id: 'actions',
-      title: 'Actions',
-      items: [
-        { id: '4', title: 'Data Transformer', icon: Shuffle },
-        { id: '5', title: 'Code Block', icon: Code },
-        { id: '6', title: 'AI Assistant', icon: Bot },
-        { id: '7', title: 'Branch Logic', icon: GitBranch },
-      ]
-    }
-  ]
 
   return (
     <main className="flex h-screen flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
-        <h1 className="text-lg font-medium text-gray-900">Zeal</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-medium text-gray-900">Zeal</h1>
+          <div className="text-sm text-gray-500">
+            {workflowName}
+            {workflowId && <span className="text-xs text-gray-400 ml-2">ID: {workflowId.slice(0, 8)}...</span>}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors">
+          <button 
+            onClick={handleSaveWorkflow}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+          >
             <Save className="w-3.5 h-3.5" />
             Save
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={handlePublishWorkflow}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+          >
             <Upload className="w-3.5 h-3.5" />
             Publish
           </button>
@@ -426,7 +602,12 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex-1 flex relative overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
-        <InteractiveCanvas offset={canvasOffset} onOffsetChange={setCanvasOffset}>
+        <InteractiveCanvas 
+          offset={canvasOffset} 
+          onOffsetChange={setCanvasOffset}
+          zoom={canvasZoom}
+          onZoomChange={setCanvasZoom}
+        >
           {/* Connection Lines - render before nodes so they appear behind */}
           <ConnectionLines connections={connections} getPortPosition={getPortPosition} onConnectionClick={handleConnectionClick} />
           
@@ -453,22 +634,25 @@ export default function Home() {
               onPortDragStart={handlePortDragStart}
               onPortDragEnd={handlePortDragEnd}
               onClick={handleNodeSelect}
+              isHighlighted={node.metadata.id === highlightedNodeId}
             />
           ))}
         </InteractiveCanvas>
 
         {/* Floating UI Components */}
         <WorkflowSidebar 
-          categories={categories} 
           isCollapsed={isSidebarCollapsed}
+          onCategoryClick={handleCategoryClick}
           // onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
         
         <SearchButton onClick={() => setIsSearchOpen(true)} />
+        <NodeBrowserButton onClick={handleNodeBrowserToggle} isActive={isNodeBrowserOpen} />
         <UndoRedoButtons onUndo={undo} onRedo={redo} canUndo={canUndo()} canRedo={canRedo()} />
         <WorkflowBottomToolbar 
-          onHistoryClick={() => {}}
-          onDebuggerClick={() => {}}
+          onHistoryClick={() => setIsHistoryBrowserOpen(true)}
+          onDebuggerClick={() => setIsFlowTracerOpen(true)}
+          onConfigClick={() => setIsConfigOpen(true)}
         />
         
         <Minimap
@@ -481,7 +665,26 @@ export default function Home() {
           viewportSize={viewportSize}
           onViewportChange={setCanvasOffset}
         />
+
+        <ZoomControls
+          zoom={canvasZoom}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onZoomReset={handleZoomReset}
+        />
         </div>
+
+        {/* Node Browser Panel */}
+        {isNodeBrowserOpen && (
+          <div 
+            className="fixed inset-0 z-10"
+            onClick={handleNodeBrowserToggle}
+          />
+        )}
+        <NodeBrowserPanel 
+          isExpanded={isNodeBrowserOpen}
+          onNodeSelect={handleNodeSelectFromBrowser}
+        />
 
         {/* Property Pane */}
         {isPropertyPaneVisible && (
@@ -507,7 +710,11 @@ export default function Home() {
       <ModalPortal isOpen={isSearchOpen}>
         <SearchModal 
           isOpen={isSearchOpen} 
-          onClose={() => setIsSearchOpen(false)} 
+          onClose={() => {
+            setIsSearchOpen(false)
+            setSelectedCategory(null) // Reset category selection
+          }}
+          initialCategory={selectedCategory}
         />
       </ModalPortal>
       
@@ -519,6 +726,42 @@ export default function Home() {
           onCancel={handleCancelDelete}
         />
       </ModalPortal>
+
+      {/* History Browser */}
+      <HistoryBrowser
+        isOpen={isHistoryBrowserOpen}
+        onClose={() => setIsHistoryBrowserOpen(false)}
+        onSelectWorkflow={handleLoadWorkflow}
+        onViewFlowTrace={(workflowId) => {
+          setIsHistoryBrowserOpen(false)
+          setIsFlowTracerOpen(true)
+          // In production, you would load flow traces for the specific workflow
+          ToastManager.info(`Viewing flow traces for workflow ${workflowId}`)
+        }}
+        currentWorkflowId={workflowId}
+      />
+
+      {/* Flow Tracer */}
+      <FlowTracer
+        isOpen={isFlowTracerOpen}
+        onClose={() => setIsFlowTracerOpen(false)}
+      />
+
+      {/* Configuration */}
+      <Configuration
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+        onVariableConfigured={handleVariableConfigured}
+      />
+
+      {/* Missing Environment Variables Warning */}
+      {showEnvVarWarning && missingEnvVars.length > 0 && (
+        <MissingEnvVarWarning
+          missingVars={missingEnvVars}
+          onDismiss={handleDismissEnvVarWarning}
+          onOpenConfig={handleOpenConfigFromWarning}
+        />
+      )}
     </main>
   )
 }
