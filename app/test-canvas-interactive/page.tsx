@@ -10,6 +10,7 @@ export default function TestInteractiveCanvas() {
   const nodes: NodeMetadata[] = [
     {
       id: '1',
+      templateId: 'tpl_postgresql',
       type: 'database',
       title: 'Get Database',
       subtitle: 'getAll: databasePage',
@@ -20,6 +21,7 @@ export default function TestInteractiveCanvas() {
     },
     {
       id: '2',
+      templateId: 'tpl_python_script',
       type: 'code',
       title: 'Update CRM',
       icon: Code,
@@ -29,6 +31,7 @@ export default function TestInteractiveCanvas() {
     },
     {
       id: '3',
+      templateId: 'tpl_gpt4',
       type: 'service',
       title: 'Claude',
       icon: Bot,

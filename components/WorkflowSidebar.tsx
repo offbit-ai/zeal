@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNodeRepository } from '@/store/nodeRepository'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { Tooltip } from './Tooltip'
@@ -9,8 +10,26 @@ interface WorkflowSidebarProps {
 }
 
 export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: WorkflowSidebarProps) {
-  const { categories, nodes } = useNodeRepository()
+  const { categories, nodes, loadNodes, loadCategories } = useNodeRepository()
   const { addNode } = useWorkflowStore()
+
+  // Load nodes and categories on mount
+  useEffect(() => {
+    const initializeRepository = async () => {
+      try {
+        if (nodes.length === 0) {
+          await loadNodes()
+        }
+        if (categories.length === 0) {
+          await loadCategories()
+        }
+      } catch (error) {
+        console.error('Failed to initialize node repository:', error)
+      }
+    }
+
+    initializeRepository()
+  }, []) // Only run on mount
   
   // Get installed nodes grouped by category
   const installedNodes = nodes.filter(node => node.isInstalled)
@@ -38,7 +57,7 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
   if (isCollapsed) {
     // Collapsed floating sidebar - show category icons that open the modal
     return (
-      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 bg-white rounded-lg shadow-sm border border-gray-200 z-10">
+     categories.length ? <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 bg-white rounded-lg shadow-sm border border-gray-200 z-10">
         <div className="p-2">
           {categories.map((category) => {
             const nodeCount = nodes.filter(node => node.category === category.id && node.isInstalled).length
@@ -54,13 +73,13 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
             )
           })}
         </div>
-      </div>
+      </div> : null
     )
   }
 
   // Expanded floating sidebar - show full content
   return (
-    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-64 bg-white rounded-lg shadow-sm border border-gray-200 z-10 max-h-[80vh] overflow-y-auto">
+    categories.length ? <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-64 bg-white rounded-lg shadow-sm border border-gray-200 z-10 max-h-[80vh] overflow-y-auto">
       <div className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-gray-900">Installed Nodes</h2>
@@ -110,6 +129,6 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
           ))
         )}
       </div>
-    </div>
+    </div> : null
   )
 }

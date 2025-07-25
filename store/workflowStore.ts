@@ -3,6 +3,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import { NodeMetadata, Connection, WorkflowNodeData } from '@/types/workflow'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/workflowSerializer'
+import { Database, Bot } from 'lucide-react'
 
 // Extended node data that includes position
 interface WorkflowNode extends WorkflowNodeData {
@@ -108,6 +109,14 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
     // Node actions
     addNode: (metadata: NodeMetadata, position: { x: number; y: number }) => {
+      console.log('=== ADDING NODE ===')
+      console.log('Node metadata:', { 
+        id: metadata.id, 
+        templateId: metadata.templateId, 
+        title: metadata.title, 
+        requiredEnvVars: metadata.requiredEnvVars 
+      })
+      
       set((state) => {
         // Check if a node with this ID already exists
         const existingNode = state.nodes.find(node => node.metadata.id === metadata.id)
@@ -125,6 +134,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
           ...state,
           nodes: [...state.nodes, newNode]
         }
+        
+        console.log('New state after adding node:', { 
+          nodeCount: newState.nodes.length,
+          nodeWithEnvVars: newState.nodes.filter(n => n.metadata.requiredEnvVars?.length > 0).length
+        })
         
         // Save snapshot after action
         setTimeout(() => get().saveSnapshot(), 0)
@@ -426,10 +440,12 @@ export const useWorkflowStore = create<WorkflowStore>()(
     createNewWorkflow: (name?: string) => {
       const snapshot = WorkflowStorageService.createDraftWorkflow(name)
       
+      console.log('CREATING NEW EMPTY WORKFLOW')
+      
       set({
         workflowId: snapshot.id,
         workflowName: snapshot.name,
-        nodes: [],
+        nodes: [], // Start with empty workflow
         connections: [],
         history: [],
         historyIndex: -1

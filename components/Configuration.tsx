@@ -21,7 +21,12 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
   // Load config sections from service
   useEffect(() => {
     if (isOpen) {
-      setConfigSections(EnvVarService.getConfigSections())
+      EnvVarService.getConfigSections()
+        .then(sections => setConfigSections(sections))
+        .catch(error => {
+          console.error('Failed to load configuration sections:', error)
+          setConfigSections([]) // Set empty array on error
+        })
     }
   }, [isOpen])
 
@@ -29,7 +34,7 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
     setShowSecrets(prev => ({ ...prev, [varId]: !prev[varId] }))
   }
 
-  const addVariable = (sectionId: string) => {
+  const addVariable = async (sectionId: string) => {
     if (!newVar.key.trim()) return
     
     const newVariable: EnvironmentVariable = {
@@ -44,31 +49,47 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
     )
     
     setConfigSections(updatedSections)
-    EnvVarService.saveConfigSections(updatedSections)
-    setNewVar({ key: '', value: '', isSecret: false })
     
-    // Notify parent that a variable was configured
-    if (onVariableConfigured) {
-      onVariableConfigured()
+    try {
+      await EnvVarService.saveConfigSections(updatedSections)
+      setNewVar({ key: '', value: '', isSecret: false })
+      
+      // Notify parent that a variable was configured
+      if (onVariableConfigured) {
+        onVariableConfigured()
+      }
+    } catch (error) {
+      console.error('Failed to save variable:', error)
+      // Revert the optimistic update
+      setConfigSections(configSections)
     }
   }
 
-  const deleteVariable = (sectionId: string, varId: string) => {
+  const deleteVariable = async (sectionId: string, varId: string) => {
     const updatedSections = configSections.map(section => 
       section.id === sectionId 
         ? { ...section, variables: section.variables.filter(v => v.id !== varId) }
         : section
     )
-    setConfigSections(updatedSections)
-    EnvVarService.saveConfigSections(updatedSections)
     
-    // Notify parent that a variable was configured (removed)
-    if (onVariableConfigured) {
-      onVariableConfigured()
+    const originalSections = configSections
+    setConfigSections(updatedSections)
+    
+    try {
+      await EnvVarService.saveConfigSections(updatedSections)
+      
+      // Notify parent that a variable was configured (removed)
+      if (onVariableConfigured) {
+        onVariableConfigured()
+      }
+    } catch (error) {
+      console.error('Failed to delete variable:', error)
+      // Revert the optimistic update
+      setConfigSections(originalSections)
     }
   }
 
-  const updateVariable = (sectionId: string, varId: string, updates: Partial<EnvironmentVariable>) => {
+  const updateVariable = async (sectionId: string, varId: string, updates: Partial<EnvironmentVariable>) => {
     const updatedSections = configSections.map(section => 
       section.id === sectionId 
         ? { 
@@ -79,12 +100,21 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
           }
         : section
     )
-    setConfigSections(updatedSections)
-    EnvVarService.saveConfigSections(updatedSections)
     
-    // Notify parent that a variable was configured
-    if (onVariableConfigured) {
-      onVariableConfigured()
+    const originalSections = configSections
+    setConfigSections(updatedSections)
+    
+    try {
+      await EnvVarService.saveConfigSections(updatedSections)
+      
+      // Notify parent that a variable was configured
+      if (onVariableConfigured) {
+        onVariableConfigured()
+      }
+    } catch (error) {
+      console.error('Failed to update variable:', error)
+      // Revert the optimistic update
+      setConfigSections(originalSections)
     }
   }
 

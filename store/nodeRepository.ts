@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { NodeMetadata } from '@/types/workflow'
+import { NodeRepositoryService } from '@/services/nodeRepositoryService'
 import { 
   Database, Code, Bot, GitBranch, Shuffle, Cloud, Zap, 
   Mail, MessageSquare, Phone, FileText, Calculator, 
@@ -67,7 +68,9 @@ interface NodeRepositoryActions {
   uninstallNode: (nodeId: string) => void
   
   // Repository management
-  refreshRepository: () => void
+  refreshRepository: () => Promise<void>
+  loadNodes: () => Promise<void>
+  loadCategories: () => Promise<void>
   importNodes: (nodes: NodeRepositoryItem[]) => void
   exportNodes: () => NodeRepositoryItem[]
 }
@@ -711,12 +714,12 @@ const sampleNodes: NodeRepositoryItem[] = [
 
 export const useNodeRepository = create<NodeRepositoryStore>((set, get) => ({
   // Initial state
-  nodes: sampleNodes,
-  categories,
+  nodes: [], // Start with empty array, will be loaded from API
+  categories: [], // Start with empty array, will be loaded from API
   searchQuery: '',
   selectedCategory: null,
   selectedSubcategory: null,
-  filteredNodes: sampleNodes,
+  filteredNodes: [],
 
   // Search and filtering
   setSearchQuery: (query: string) => {
@@ -796,9 +799,40 @@ export const useNodeRepository = create<NodeRepositoryStore>((set, get) => ({
   },
 
   // Repository management
-  refreshRepository: () => {
-    // In a real implementation, this would fetch from a remote repository
-    get().searchNodes()
+  refreshRepository: async () => {
+    try {
+      await Promise.all([
+        get().loadNodes(),
+        get().loadCategories()
+      ])
+      get().searchNodes()
+    } catch (error) {
+      console.error('Failed to refresh repository:', error)
+    }
+  },
+
+  loadNodes: async () => {
+    try {
+      const response = await NodeRepositoryService.getNodes({ limit: 100 })
+      set({ nodes: response.nodes })
+    } catch (error) {
+      console.error('Failed to load nodes from repository:', error)
+      // Keep existing nodes on error, or load fallback
+      const fallbackNodes = get().nodes.length === 0 ? sampleNodes : get().nodes
+      set({ nodes: fallbackNodes })
+    }
+  },
+
+  loadCategories: async () => {
+    try {
+      const apiCategories = await NodeRepositoryService.getCategories()
+      set({ categories: apiCategories })
+    } catch (error) {
+      console.error('Failed to load categories from repository:', error)
+      // Keep existing categories on error, or load fallback
+      const fallbackCategories = get().categories.length === 0 ? categories : get().categories
+      set({ categories: fallbackCategories })
+    }
   },
 
   importNodes: (nodes: NodeRepositoryItem[]) => {

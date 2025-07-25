@@ -1,4 +1,6 @@
 import type { NodeMetadata } from '@/types/workflow'
+import { apiClient } from './apiClient'
+import type { EnvironmentVariableResponse, EnvVarCreateRequest } from '@/types/api'
 
 export interface EnvironmentVariable {
   id: string
@@ -19,18 +21,80 @@ export interface ConfigSection {
 export class EnvVarService {
   private static STORAGE_KEY = 'zeal_env_vars'
   private static WARNING_DISMISSED_KEY = 'zeal_env_warning_dismissed'
+  private static cache: ConfigSection[] | null = null
+  private static lastFetch: number = 0
+  private static CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
-  static getConfigSections(): ConfigSection[] {
+  static async getConfigSections(): Promise<ConfigSection[]> {
+    // Check cache first
+    const now = Date.now()
+    if (this.cache && (now - this.lastFetch) < this.CACHE_DURATION) {
+      return this.cache
+    }
+
+    try {
+      // Fetch from API - no localStorage fallback
+      const response = await apiClient.getPaginated<EnvironmentVariableResponse>('/env-vars', {
+        limit: 100 // Get all environment variables
+      })
+      
+      // Convert API response to ConfigSection format
+      const envVars = response.data
+      const sections: ConfigSection[] = [
+        {
+          id: 'environment',
+          name: 'Environment Variables',
+          description: 'Global environment variables available to all nodes',
+          variables: envVars
+            .filter(v => !v.isSecret)
+            .map(v => ({
+              id: v.id,
+              key: v.key,
+              value: v.value,
+              isSecret: v.isSecret,
+              needsAttention: !v.value || v.value.trim() === '',
+              addedAutomatically: false
+            }))
+        },
+        {
+          id: 'secrets',
+          name: 'Secrets',
+          description: 'Sensitive data like API keys, tokens, and passwords',
+          variables: envVars
+            .filter(v => v.isSecret)
+            .map(v => ({
+              id: v.id,
+              key: v.key,
+              value: v.value,
+              isSecret: v.isSecret,
+              needsAttention: !v.value || v.value.trim() === '',
+              addedAutomatically: false
+            }))
+        }
+      ]
+
+      // Update cache
+      this.cache = sections
+      this.lastFetch = now
+      
+      return sections
+    } catch (error) {
+      console.error('Failed to fetch environment variables from API:', error)
+      throw error // Don't fall back to localStorage
+    }
+  }
+
+  private static getConfigSectionsFromLocal(): ConfigSection[] {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY)
       if (stored) {
         return JSON.parse(stored)
       }
     } catch (error) {
-      console.error('Failed to load environment variables:', error)
+      console.error('Failed to load environment variables from localStorage:', error)
     }
 
-    // Return default mock data if nothing is stored (with minimal set to test missing vars)
+    // Return default mock data if nothing is stored
     return [
       {
         id: 'environment',
@@ -53,16 +117,54 @@ export class EnvVarService {
     ]
   }
 
-  static saveConfigSections(sections: ConfigSection[]): void {
+  private static saveConfigSectionsToLocal(sections: ConfigSection[]): void {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sections))
     } catch (error) {
-      console.error('Failed to save environment variables:', error)
+      console.error('Failed to save environment variables to localStorage:', error)
     }
   }
 
-  static getAllDefinedVars(): string[] {
-    const sections = this.getConfigSections()
+  static async saveConfigSections(sections: ConfigSection[]): Promise<void> {
+    try {
+      // Update each variable via API only
+      const updatePromises: Promise<any>[] = []
+      
+      sections.forEach(section => {
+        section.variables.forEach(variable => {
+          // Only save variables that have actual values (user configured)
+          if (variable.value && variable.value.trim() !== '') {
+            const request: EnvVarCreateRequest = {
+              key: variable.key,
+              value: variable.value,
+              isSecret: variable.isSecret,
+              description: `Variable from ${section.name}`,
+              category: variable.isSecret ? 'secrets' : 'environment'
+            }
+            
+            updatePromises.push(
+              apiClient.post<EnvironmentVariableResponse>('/env-vars', request)
+                .catch(error => {
+                  console.error(`Failed to save variable ${variable.key}:`, error)
+                  return null
+                })
+            )
+          }
+        })
+      })
+      
+      await Promise.all(updatePromises)
+      
+      // Clear cache to force refresh from backend
+      this.cache = null
+    } catch (error) {
+      console.error('Failed to save environment variables to API:', error)
+      throw error // Don't fall back to localStorage
+    }
+  }
+
+  static async getAllDefinedVars(): Promise<string[]> {
+    const sections = await this.getConfigSections()
     const allVars: string[] = []
     
     sections.forEach(section => {
@@ -74,82 +176,64 @@ export class EnvVarService {
     return allVars
   }
 
-  static getMissingEnvVars(nodes: { metadata: NodeMetadata }[]): string[] {
-    const sections = this.getConfigSections()
-    const configuredVars = new Map<string, string>()
-    
-    // Build map of variable names to their values
-    sections.forEach(section => {
-      section.variables.forEach(variable => {
-        configuredVars.set(variable.key, variable.value)
+  static async getMissingEnvVars(nodes: { metadata: NodeMetadata }[]): Promise<string[]> {
+    try {
+      // Use API to validate environment variables based on template IDs
+      const templateIds = nodes.map(node => node.metadata.templateId).filter(Boolean)
+      
+      if (templateIds.length === 0) {
+        return []
+      }
+
+      const validationResponse = await apiClient.post<{
+        missingVars: string[]
+        configuredVars: string[]
+        validationStatus: 'valid' | 'missing_vars'
+      }>('/env-vars/validate', {
+        templateIds: templateIds
       })
-    })
-    
-    const requiredVars = new Set<string>()
-    
-    nodes.forEach(node => {
-      if (node.metadata.requiredEnvVars) {
-        node.metadata.requiredEnvVars.forEach(varName => {
-          requiredVars.add(varName)
+
+      return validationResponse.missingVars
+    } catch (error) {
+      console.error('Failed to validate environment variables via API:', error)
+      
+      // Fall back to local validation
+      const sections = await this.getConfigSections()
+      const configuredVars = new Map<string, string>()
+      
+      sections.forEach(section => {
+        section.variables.forEach(variable => {
+          configuredVars.set(variable.key, variable.value)
         })
-      }
-    })
-
-    const missingVars: string[] = []
-    requiredVars.forEach(varName => {
-      const value = configuredVars.get(varName)
-      // Variable is missing if it doesn't exist OR has empty/undefined value
-      if (!value || value.trim() === '') {
-        missingVars.push(varName)
-      }
-    })
-
-    return missingVars
-  }
-
-  static addMissingVarsToConfig(missingVars: string[]): void {
-    if (missingVars.length === 0) return
-
-    const sections = this.getConfigSections()
-    
-    // Add missing vars to appropriate sections
-    missingVars.forEach(varName => {
-      // Determine if it should go to secrets or environment based on naming convention
-      const isSecret = varName.toLowerCase().includes('key') || 
-                      varName.toLowerCase().includes('secret') || 
-                      varName.toLowerCase().includes('token') ||
-                      varName.toLowerCase().includes('password')
+      })
       
-      const targetSectionId = isSecret ? 'secrets' : 'environment'
-      const targetSection = sections.find(s => s.id === targetSectionId)
+      const requiredVars = new Set<string>()
       
-      if (targetSection) {
-        // Check if variable already exists
-        const existingVar = targetSection.variables.find(v => v.key === varName)
-        
-        if (!existingVar) {
-          const newVar: EnvironmentVariable = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            key: varName,
-            value: '', // Empty value - needs attention
-            isSecret,
-            needsAttention: true,
-            addedAutomatically: true
-          }
-          
-          targetSection.variables.push(newVar)
-        } else if (!existingVar.needsAttention && !existingVar.value) {
-          // Mark existing empty variable as needing attention
-          existingVar.needsAttention = true
+      nodes.forEach(node => {
+        if (node.metadata.requiredEnvVars) {
+          node.metadata.requiredEnvVars.forEach(varName => {
+            requiredVars.add(varName)
+          })
         }
-      }
-    })
+      })
 
-    this.saveConfigSections(sections)
+      const missingVars: string[] = []
+      requiredVars.forEach(varName => {
+        const value = configuredVars.get(varName)
+        if (!value || value.trim() === '') {
+          missingVars.push(varName)
+        }
+      })
+
+      return missingVars
+    }
   }
 
-  static markVariableAsConfigured(varKey: string): void {
-    const sections = this.getConfigSections()
+  // Note: We no longer auto-add missing variables to config
+  // The warning system only alerts users - they must manually configure variables
+
+  static async markVariableAsConfigured(varKey: string): Promise<void> {
+    const sections = await this.getConfigSections()
     
     sections.forEach(section => {
       section.variables.forEach(variable => {
@@ -159,11 +243,11 @@ export class EnvVarService {
       })
     })
 
-    this.saveConfigSections(sections)
+    await this.saveConfigSections(sections)
   }
 
-  static clearAttentionFlags(): void {
-    const sections = this.getConfigSections()
+  static async clearAttentionFlags(): Promise<void> {
+    const sections = await this.getConfigSections()
     
     sections.forEach(section => {
       section.variables.forEach(variable => {
@@ -173,7 +257,7 @@ export class EnvVarService {
       })
     })
 
-    this.saveConfigSections(sections)
+    await this.saveConfigSections(sections)
   }
 
   // Warning dismissal state management
