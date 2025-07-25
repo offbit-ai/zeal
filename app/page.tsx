@@ -11,13 +11,15 @@ import { DraggableNode } from '@/components/DraggableNode'
 import { Minimap } from '@/components/Minimap'
 import { Save, Upload, Play } from 'lucide-react'
 import type { NodeMetadata, Connection } from '@/types/workflow'
-import { Database, Code, Bot, FileText, Cloud, Zap, GitBranch } from 'lucide-react'
+import { Database, Code, Bot, Cloud, Zap, GitBranch, Shuffle } from 'lucide-react'
 import { useNodeBounds } from '@/hooks/useNodeBounds'
 import { usePortPositions } from '@/hooks/usePortPositions'
 import { useConnectionDrag } from '@/hooks/useConnectionDrag'
 import { ConnectionLines } from '@/components/ConnectionLines'
 import { DragConnectionLine } from '@/components/DragConnectionLine'
 import { DeleteConnectionDialog } from '@/components/DeleteConnectionDialog'
+import { PropertyPane } from '@/components/PropertyPane'
+import { ModalPortal } from '@/components/ModalPortal'
 import { useWorkflowStore } from '@/store/workflowStore'
 
 // Sample nodes metadata
@@ -34,7 +36,28 @@ const nodes: NodeMetadata[] = [
     ports: [
       { id: 'db-out-1', label: 'Records', type: 'output', position: 'right' },
       { id: 'db-out-2', label: 'Count', type: 'output', position: 'bottom' }
-    ]
+    ],
+    properties: [
+      { id: 'table', label: 'Table Name', type: 'text', required: true, placeholder: 'e.g., users' },
+      { id: 'operation', label: 'Operation', type: 'select', options: ['getAll', 'getById', 'query'], defaultValue: 'getAll' },
+      { id: 'limit', label: 'Limit', type: 'number', defaultValue: 100 },
+      { id: 'conditions', label: 'WHERE Conditions', type: 'textarea', placeholder: 'e.g., status = "active"' },
+      { 
+        id: 'filterRules', 
+        label: 'Filter Rules', 
+        type: 'rules',
+        availableFields: ['id', 'status', 'created_at', 'updated_at', 'email', 'name'],
+        availableOperators: ['is', 'is_not', 'contains', 'greater_than', 'less_than', 'empty', 'not_empty'],
+        description: 'Advanced filtering rules for database queries'
+      }
+    ],
+    propertyValues: {
+      table: 'databasePage',
+      operation: 'getAll',
+      limit: 100,
+      conditions: '',
+      filterRules: []
+    }
   },
   {
     id: '2',
@@ -49,7 +72,19 @@ const nodes: NodeMetadata[] = [
       { id: 'crm-in-2', label: 'Config', type: 'input', position: 'top' },
       { id: 'crm-out-1', label: 'Result', type: 'output', position: 'right' },
       { id: 'crm-out-2', label: 'Error', type: 'output', position: 'bottom' }
-    ]
+    ],
+    properties: [
+      { id: 'endpoint', label: 'API Endpoint', type: 'text', required: true, placeholder: 'https://api.crm.com/update' },
+      { id: 'method', label: 'HTTP Method', type: 'select', options: ['POST', 'PUT', 'PATCH', 'GET'], defaultValue: 'POST' },
+      { id: 'timeout', label: 'Timeout (ms)', type: 'number', defaultValue: 5000 },
+      { id: 'retry', label: 'Retry on Failure', type: 'boolean', defaultValue: true }
+    ],
+    propertyValues: {
+      endpoint: '',
+      method: 'POST',
+      timeout: 5000,
+      retry: true
+    }
   },
   {
     id: '3',
@@ -63,7 +98,28 @@ const nodes: NodeMetadata[] = [
       { id: 'ai-in-1', label: 'Prompt', type: 'input', position: 'left' },
       { id: 'ai-in-2', label: 'Context', type: 'input', position: 'top' },
       { id: 'ai-out-1', label: 'Response', type: 'output', position: 'right' }
-    ]
+    ],
+    properties: [
+      { id: 'model', label: 'Model', type: 'select', options: ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'], defaultValue: 'claude-3-5-sonnet' },
+      { id: 'maxTokens', label: 'Max Tokens', type: 'number', defaultValue: 1000 },
+      { id: 'temperature', label: 'Temperature', type: 'number', defaultValue: 0.7 },
+      { id: 'systemPrompt', label: 'System Prompt', type: 'textarea', placeholder: 'You are a helpful assistant...', description: 'Define the AI assistant behavior and context' },
+      { 
+        id: 'responseRules', 
+        label: 'Response Processing Rules', 
+        type: 'rules',
+        availableFields: ['Response Length', 'Confidence Score', 'Content Type', 'Language', 'Sentiment', 'Topic'],
+        availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than'],
+        description: 'Define rules to process and route AI responses based on content analysis'
+      }
+    ],
+    propertyValues: {
+      model: 'claude-3-5-sonnet',
+      maxTokens: 1000,
+      temperature: 0.7,
+      systemPrompt: '',
+      responseRules: []
+    }
   },
   {
     id: '4',
@@ -77,7 +133,54 @@ const nodes: NodeMetadata[] = [
       { id: 'branch-in', label: 'Input', type: 'input', position: 'top' },
       { id: 'branch-out-1', label: 'True', type: 'output', position: 'right' },
       { id: 'branch-out-2', label: 'False', type: 'output', position: 'bottom' }
-    ]
+    ],
+    properties: [
+      { 
+        id: 'decisionRules', 
+        label: 'Decision Rules', 
+        type: 'rules',
+        availableFields: ['TRG ID: Sellthrough', 'TRG ID: Category', 'TRG ID: Price', 'TRG ID: Quantity', 'TRG ID: Date', 'Status', 'Count', 'Amount'],
+        availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than', 'greater_equal', 'less_equal', 'empty', 'not_empty'],
+        description: 'Define the conditions that determine True or False output. If any rule set evaluates to true, the True port will be activated.'
+      }
+    ],
+    propertyValues: {
+      decisionRules: []
+    }
+  },
+  {
+    id: '5',
+    type: 'transformer',
+    title: 'Data Transformer',
+    subtitle: 'Transform & Process Data',
+    icon: Shuffle,
+    variant: 'gray-600',
+    shape: 'rectangle',
+    size: 'medium',
+    ports: [
+      { id: 'transform-in-1', label: 'Input Data', type: 'input', position: 'left' },
+      { id: 'transform-in-2', label: 'Schema', type: 'input', position: 'top' },
+      { id: 'transform-out-1', label: 'Transformed', type: 'output', position: 'right' },
+      { id: 'transform-out-2', label: 'Errors', type: 'output', position: 'bottom' }
+    ],
+    properties: [
+      { 
+        id: 'dataOperations', 
+        label: 'Data Operations', 
+        type: 'dataOperations',
+        availableFields: ['id', 'name', 'email', 'status', 'created_at', 'updated_at', 'first_name', 'last_name', 'age', 'department', 'salary', 'role', 'address', 'phone'],
+        description: 'Configure data transformation pipelines including mapping, filtering, sorting, and aggregation'
+      },
+      { id: 'errorHandling', label: 'Error Handling', type: 'select', options: ['ignore', 'skip_item', 'stop_pipeline', 'log_and_continue'], defaultValue: 'log_and_continue' },
+      { id: 'batchSize', label: 'Batch Size', type: 'number', defaultValue: 1000, description: 'Number of items to process in each batch' },
+      { id: 'enableValidation', label: 'Enable Validation', type: 'boolean', defaultValue: true, description: 'Validate data before and after transformation' }
+    ],
+    propertyValues: {
+      dataOperations: [],
+      errorHandling: 'log_and_continue',
+      batchSize: 1000,
+      enableValidation: true
+    }
   }
 ]
 
@@ -85,6 +188,9 @@ export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [isPropertyPaneOpen, setIsPropertyPaneOpen] = useState(false)
+  const [isPropertyPaneVisible, setIsPropertyPaneVisible] = useState(false)
+  const [isPropertyPaneClosing, setIsPropertyPaneClosing] = useState(false)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
   const { updateNodeBounds, getNodeBoundsArray } = useNodeBounds()
@@ -94,10 +200,12 @@ export default function Home() {
   const { 
     nodes: storeNodes, 
     connections, 
+    initialized,
     addConnection, 
     removeConnection, 
     updateConnectionState, 
     updateNodePosition,
+    setInitialized,
     undo,
     redo,
     canUndo,
@@ -108,9 +216,9 @@ export default function Home() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
   
-  // Initialize store with sample nodes if empty
+  // Initialize store with sample nodes if empty (run only once)
   useEffect(() => {
-    if (storeNodes.length === 0) {
+    if (!initialized && storeNodes.length === 0) {
       nodes.forEach((node, index) => {
         // Arrange nodes in a grid layout based on metadata
         const cols = 3
@@ -122,8 +230,9 @@ export default function Home() {
         }
         useWorkflowStore.getState().addNode(node, position)
       })
+      setInitialized(true)
     }
-  }, [])
+  }, [initialized, storeNodes.length, setInitialized])
   
   useEffect(() => {
     const updateViewportSize = () => {
@@ -140,6 +249,26 @@ export default function Home() {
 
   const handleNodePositionChange = (nodeId: string, position: { x: number; y: number }) => {
     updateNodePosition(nodeId, position)
+  }
+
+  // Handle node selection
+  const handleNodeSelect = (nodeId: string) => {
+    setSelectedNodeId(nodeId)
+    setIsPropertyPaneOpen(true)
+    setIsPropertyPaneVisible(true)
+    setIsPropertyPaneClosing(false)
+  }
+
+  // Handle property pane close
+  const handlePropertyPaneClose = () => {
+    setIsPropertyPaneClosing(true)
+    // Wait for animation to complete before hiding
+    setTimeout(() => {
+      setIsPropertyPaneVisible(false)
+      setIsPropertyPaneOpen(false)
+      setIsPropertyPaneClosing(false)
+      setSelectedNodeId(null)
+    }, 300) // Match animation duration
   }
   
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
@@ -172,16 +301,6 @@ export default function Home() {
     }
   }
   
-  // Function to cycle connection states (for testing purposes)
-  const cycleConnectionState = (connectionId: string) => {
-    const connection = connections.find(conn => conn.id === connectionId)
-    if (connection) {
-      const states: ('pending' | 'warning' | 'error' | 'success')[] = ['pending', 'warning', 'error', 'success']
-      const currentIndex = states.indexOf(connection.state || 'pending')
-      const nextIndex = (currentIndex + 1) % states.length
-      updateConnectionState(connectionId, states[nextIndex])
-    }
-  }
   
   // Handle connection click for deletion
   const handleConnectionClick = (connectionId: string) => {
@@ -275,9 +394,10 @@ export default function Home() {
       id: 'actions',
       title: 'Actions',
       items: [
-        { id: '4', title: 'Transform', icon: Code },
-        { id: '5', title: 'Filter', icon: FileText },
+        { id: '4', title: 'Data Transformer', icon: Shuffle },
+        { id: '5', title: 'Code Block', icon: Code },
         { id: '6', title: 'AI Assistant', icon: Bot },
+        { id: '7', title: 'Branch Logic', icon: GitBranch },
       ]
     }
   ]
@@ -304,7 +424,8 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1  relative overflow-hidden">
+      <div className="flex-1 flex relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden">
         <InteractiveCanvas offset={canvasOffset} onOffsetChange={setCanvasOffset}>
           {/* Connection Lines - render before nodes so they appear behind */}
           <ConnectionLines connections={connections} getPortPosition={getPortPosition} onConnectionClick={handleConnectionClick} />
@@ -331,6 +452,7 @@ export default function Home() {
               onPortPositionUpdate={updatePortPosition}
               onPortDragStart={handlePortDragStart}
               onPortDragEnd={handlePortDragEnd}
+              onClick={handleNodeSelect}
             />
           ))}
         </InteractiveCanvas>
@@ -359,20 +481,44 @@ export default function Home() {
           viewportSize={viewportSize}
           onViewportChange={setCanvasOffset}
         />
+        </div>
+
+        {/* Property Pane */}
+        {isPropertyPaneVisible && (
+          <div className="absolute inset-0 z-30 flex">
+            {/* Backdrop */}
+            <div 
+              className={`flex-1 bg-black/20 transition-opacity duration-300 ${
+                isPropertyPaneClosing ? 'opacity-0' : 'opacity-100'
+              }`}
+              onClick={handlePropertyPaneClose}
+            />
+            {/* Property Pane */}
+            <PropertyPane
+              selectedNodeId={selectedNodeId}
+              onClose={handlePropertyPaneClose}
+              isClosing={isPropertyPaneClosing}
+            />
+          </div>
+        )}
       </div>
 
       {/* Search Modal */}
-      <SearchModal 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-      />
+      <ModalPortal isOpen={isSearchOpen}>
+        <SearchModal 
+          isOpen={isSearchOpen} 
+          onClose={() => setIsSearchOpen(false)} 
+        />
+      </ModalPortal>
       
       {/* Delete Connection Dialog */}
-      <DeleteConnectionDialog
-        isOpen={deleteDialogOpen}
-        onConfirm={handleDeleteConnection}
-        onCancel={handleCancelDelete}
-      />
+      <ModalPortal isOpen={deleteDialogOpen}>
+        <DeleteConnectionDialog
+          isOpen={deleteDialogOpen}
+          onConfirm={handleDeleteConnection}
+          onCancel={handleCancelDelete}
+        />
+      </ModalPortal>
     </main>
   )
 }

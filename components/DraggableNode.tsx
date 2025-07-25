@@ -12,6 +12,7 @@ interface DraggableNodeProps {
   onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
+  onClick?: (nodeId: string) => void
 }
 
 export function DraggableNode({ 
@@ -21,11 +22,13 @@ export function DraggableNode({
   onBoundsChange,
   onPortPositionUpdate,
   onPortDragStart,
-  onPortDragEnd
+  onPortDragEnd,
+  onClick
 }: DraggableNodeProps) {
   const [position, setPosition] = useState(initialPosition)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [hasDragged, setHasDragged] = useState(false)
   const nodeRef = useRef<HTMLDivElement>(null)
 
   // Update bounds when position changes
@@ -61,6 +64,7 @@ export function DraggableNode({
     e.stopPropagation()
     
     setIsDragging(true)
+    setHasDragged(false)
     setDragStart({
       x: e.clientX - position.x,
       y: e.clientY - position.y
@@ -76,12 +80,26 @@ export function DraggableNode({
         y: e.clientY - dragStart.y
       }
       
+      // Check if we've moved enough to consider it a drag
+      const dragThreshold = 3
+      const deltaX = Math.abs(newPosition.x - position.x)
+      const deltaY = Math.abs(newPosition.y - position.y)
+      
+      if (deltaX > dragThreshold || deltaY > dragThreshold) {
+        setHasDragged(true)
+      }
+      
       setPosition(newPosition)
       onPositionChange?.(metadata.id, newPosition)
     }
 
     const handleMouseUp = () => {
       setIsDragging(false)
+      
+      // Trigger click if we haven't dragged
+      if (!hasDragged && onClick) {
+        onClick(metadata.id)
+      }
     }
 
     document.addEventListener('mousemove', handleMouseMove)

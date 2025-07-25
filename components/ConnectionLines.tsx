@@ -156,7 +156,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
             />
             
             {/* Additional glow effect for success/warning/error states */}
-            {styles.glowEffect && (
+            {styles.glowEffect && 'glowColor' in styles && (
               <path
                 d={path}
                 fill="none"

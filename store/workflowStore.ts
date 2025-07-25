@@ -15,6 +15,7 @@ interface WorkflowState {
   history: WorkflowSnapshot[]
   historyIndex: number
   maxHistorySize: number
+  initialized: boolean
 }
 
 // Snapshot for undo/redo
@@ -30,6 +31,7 @@ interface WorkflowActions {
   addNode: (metadata: NodeMetadata, position: { x: number; y: number }) => void
   removeNode: (nodeId: string) => void
   updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void
+  updateNodeMetadata: (nodeId: string, metadata: NodeMetadata, saveSnapshot?: boolean) => void
   
   // Connection actions
   addConnection: (connection: Omit<Connection, 'id'>) => void
@@ -46,6 +48,7 @@ interface WorkflowActions {
   // Utility actions
   clearWorkflow: () => void
   loadWorkflow: (nodes: WorkflowNode[], connections: Connection[]) => void
+  setInitialized: (initialized: boolean) => void
 }
 
 // Combine state and actions
@@ -87,10 +90,18 @@ export const useWorkflowStore = create<WorkflowStore>()(
     history: [],
     historyIndex: -1,
     maxHistorySize: 50,
+    initialized: false,
 
     // Node actions
     addNode: (metadata: NodeMetadata, position: { x: number; y: number }) => {
       set((state) => {
+        // Check if a node with this ID already exists
+        const existingNode = state.nodes.find(node => node.metadata.id === metadata.id)
+        if (existingNode) {
+          console.warn(`Node with ID "${metadata.id}" already exists. Skipping duplicate.`)
+          return state // Return unchanged state
+        }
+
         const newNode: WorkflowNode = {
           metadata,
           position
@@ -139,6 +150,26 @@ export const useWorkflowStore = create<WorkflowStore>()(
         )
       }))
       // Note: Position updates don't create snapshots (too frequent)
+    },
+
+    updateNodeMetadata: (nodeId: string, metadata: NodeMetadata, saveSnapshot = true) => {
+      set((state) => {
+        const newState = {
+          ...state,
+          nodes: state.nodes.map(node => 
+            node.metadata.id === nodeId 
+              ? { ...node, metadata: { ...metadata } }
+              : node
+          )
+        }
+        
+        // Save snapshot after metadata changes (only if requested)
+        if (saveSnapshot) {
+          setTimeout(() => get().saveSnapshot(), 0)
+        }
+        
+        return newState
+      })
     },
 
     // Connection actions
@@ -316,6 +347,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
         
         return newState
       })
+    },
+
+    setInitialized: (initialized: boolean) => {
+      set((state) => ({
+        ...state,
+        initialized
+      }))
     }
   }))
 )
