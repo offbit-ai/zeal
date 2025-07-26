@@ -407,6 +407,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
           connections: [...state.connections, newConnection]
         }
         
+        // Ensure port positions are calculated for connected nodes
+        get().updateAllPortPositions(connection.source.nodeId)
+        get().updateAllPortPositions(connection.target.nodeId)
+        
         // Save snapshot after action
         setTimeout(() => get().saveSnapshot(), 0)
         
@@ -1109,6 +1113,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
         historyIndex: -1
       })
       
+      // Initialize port positions for all loaded nodes
+      nodes.forEach(node => {
+        get().updateAllPortPositions(node.metadata.id)
+      })
+      
       // Save initial snapshot for undo/redo
       setTimeout(() => get().saveSnapshot(), 0)
     },
@@ -1171,6 +1180,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
           groups,
           history: [],
           historyIndex: -1
+        })
+        
+        // Initialize port positions for all loaded nodes
+        nodes.forEach(node => {
+          get().updateAllPortPositions(node.metadata.id)
         })
         
         // Save initial snapshot for undo/redo
