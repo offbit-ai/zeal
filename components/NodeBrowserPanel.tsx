@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronRight, ChevronDown, Trash2, Copy, ExternalLink } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
+import { Icon } from '@/lib/icons'
 
 interface NodeBrowserPanelProps {
   isExpanded: boolean
@@ -107,7 +108,7 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
                       node.metadata.variant === 'gray-600' ? 'bg-gray-600' :
                       'bg-gray-500'
                     }`}>
-                      <node.metadata.icon className="w-3 h-3 text-white" />
+                      <Icon name={node.metadata.icon} className="w-3 h-3 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-900 truncate">
@@ -174,7 +175,7 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
                         node.metadata.variant === 'gray-600' ? 'bg-gray-600' :
                         'bg-gray-500'
                       }`}>
-                        <node.metadata.icon className="w-3 h-3 text-white" />
+                        <Icon name={node.metadata.icon} className="w-3 h-3 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium text-gray-900 truncate">

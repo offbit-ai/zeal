@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react'
+// Note: Icons are now handled as strings through the Icon Library
 
 export type NodeShape = 'rectangle' | 'circle' | 'diamond'
 
@@ -105,7 +105,7 @@ export interface NodeMetadata {
   type: string
   title: string
   subtitle?: string
-  icon: LucideIcon
+  icon: string
   variant: NodeVariant
   shape: NodeShape
   size?: 'small' | 'medium' | 'large'
@@ -113,6 +113,13 @@ export interface NodeMetadata {
   properties?: PropertyDefinition[]
   propertyValues?: Record<string, any>
   requiredEnvVars?: string[]
+  propertyRules?: {
+    triggers: string[]
+    rules: Array<{
+      when: string
+      updates: Record<string, any>
+    }>
+  }
 }
 
 export interface WorkflowNodeData {

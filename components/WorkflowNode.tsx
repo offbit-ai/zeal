@@ -1,5 +1,9 @@
 import { NodeMetadata, NodeShape, NodeVariant, Port } from '@/types/workflow'
 import { useState, useRef, useEffect } from 'react'
+import { Icon } from '@/lib/icons'
+import { getNodeStyles, getTextColor } from '@/utils/nodeColorVariants'
+import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
+import { Info } from 'lucide-react'
 
 interface WorkflowNodeProps {
   metadata: NodeMetadata
@@ -18,9 +22,11 @@ interface PortComponentProps {
   onPortPositionUpdate?: (portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
+  portIndex: number
+  totalPortsOnSide: number
 }
 
-function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: PortComponentProps) {
+function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdate, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide }: PortComponentProps) {
   const isInput = port.type === 'input'
   const portRef = useRef<HTMLDivElement>(null)
   
@@ -75,6 +81,16 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
     }
   }, [port.id, port.position, onPortPositionUpdate, nodeId])
   
+  // Calculate position offset for multiple ports on the same side
+  const getPortOffset = () => {
+    if (totalPortsOnSide === 1) return '50%'
+    
+    // Distribute ports evenly along the side
+    const spacing = 100 / (totalPortsOnSide + 1)
+    const offset = spacing * (portIndex + 1)
+    return `${offset}%`
+  }
+  
   // Port positioning based on position and node shape
   const positionStyles = nodeShape === 'diamond' ? {
     // For diamond shape, adjust positions to align with rotated edges
@@ -83,11 +99,21 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
     bottom: 'absolute -bottom-1 -right-1',
     left: 'absolute -bottom-1 -left-1'
   } : {
-    // Standard positions for rectangle and circle
-    top: 'absolute -top-2 left-1/2 -translate-x-1/2',
-    right: 'absolute -right-2 top-1/2 -translate-y-1/2',
-    bottom: 'absolute -bottom-2 left-1/2 -translate-x-1/2',
-    left: 'absolute -left-2 top-1/2 -translate-y-1/2'
+    // Standard positions for rectangle and circle - base positioning
+    top: 'absolute -top-2 -translate-x-1/2',
+    right: 'absolute -right-2 -translate-y-1/2',
+    bottom: 'absolute -bottom-2 -translate-x-1/2',
+    left: 'absolute -left-2 -translate-y-1/2'
+  }
+  
+  // Dynamic positioning based on side and index
+  const dynamicStyles: React.CSSProperties = {}
+  if (nodeShape !== 'diamond') {
+    if (port.position === 'left' || port.position === 'right') {
+      dynamicStyles.top = getPortOffset()
+    } else {
+      dynamicStyles.left = getPortOffset()
+    }
   }
   
   // Label positioning - always on the same side as the port, centered
@@ -99,7 +125,7 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
   }
   
   return (
-    <div ref={portRef} className={`${positionStyles[port.position]} group`}>
+    <div ref={portRef} className={`${positionStyles[port.position]} group`} style={dynamicStyles}>
       <div 
         className="w-3 h-3 bg-white border-2 border-gray-900 rounded-full hover:scale-125 transition-transform cursor-crosshair"
         data-port-id={port.id}
@@ -117,7 +143,16 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
         }}
       />
       {showLabel && (
-        <div className={`absolute ${labelPositionStyles[port.position]} whitespace-nowrap px-2 py-0.5 bg-white/90 text-gray-700 text-xs rounded border border-gray-300 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}>
+        <div 
+          className={`absolute ${labelPositionStyles[port.position]} whitespace-nowrap px-2 py-0.5 text-xs rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}
+          style={{ 
+            backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+            color: '#374151', 
+            borderWidth: '1px', 
+            borderStyle: 'solid', 
+            borderColor: '#d1d5db' 
+          }}
+        >
           {port.label}
         </div>
       )}
@@ -126,20 +161,36 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
 }
 
 export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
-  const { title, subtitle, icon: Icon, variant, shape, size = 'medium', ports = [] } = metadata
+  const { title, subtitle, icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
+  
+  
+  // Get the icon name (icon is now always a string from the API)
+  const iconName = typeof icon === 'string' ? icon : 'box'
+  
+  // Check if node needs configuration
+  const needsConfiguration = hasUnconfiguredDefaults(metadata)
+  
+  // Debug metadata changes
+  useEffect(() => {
+    console.log(`🎨 COMPONENT: WorkflowNode ${metadata.id} received metadata:`, {
+      title,
+      subtitle,
+      icon: iconName,
+      variant
+    })
+  }, [metadata.id, title, subtitle, iconName, variant])
+  
+  // Group ports by position for proper indexing
+  const portsByPosition = ports.reduce((acc, port) => {
+    if (!acc[port.position]) acc[port.position] = []
+    acc[port.position].push(port)
+    return acc
+  }, {} as Record<string, Port[]>)
 
-  const variantStyles: Record<NodeVariant, string> = {
-    'black': 'bg-black',
-    'gray-700': 'bg-gray-700',
-    'gray-600': 'bg-gray-600',
-    'gray-800': 'bg-gray-800',
-    'gray-900': 'bg-gray-900',
-    'blue-600': 'bg-blue-600',
-    'green-600': 'bg-green-600',
-    'orange-600': 'bg-orange-600',
-    'orange-700': 'bg-orange-700'
-  }
+  // Get node color styles based on variant
+  const nodeStyles = getNodeStyles(variant, isHovered)
+  const textColor = getTextColor(variant)
 
   const shapeStyles: Record<NodeShape, string> = {
     'rectangle': 'rounded-lg',
@@ -150,19 +201,22 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   const sizeStyles = {
     'small': {
       container: 'px-3 py-2 max-w-[160px]',
-      icon: 'p-1.5 w-4 h-4',
+      icon: 'p-1.5',
+      iconSize: 'w-5 h-5',
       title: 'text-xs',
       subtitle: 'text-[10px]'
     },
     'medium': {
       container: 'px-4 py-3 max-w-[200px]',
-      icon: 'p-2.5 w-5 h-5',
+      icon: 'p-2',
+      iconSize: 'w-6 h-6',
       title: 'text-sm',
       subtitle: 'text-xs'
     },
     'large': {
       container: 'px-5 py-4 max-w-[240px]',
-      icon: 'p-3 w-6 h-6',
+      icon: 'p-2.5',
+      iconSize: 'w-7 h-7',
       title: 'text-base',
       subtitle: 'text-sm'
     }
@@ -174,17 +228,40 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   if (shape === 'circle') {
     return (
       <div className="flex flex-col items-center relative select-none" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-        <div className={`${variantStyles[variant]} text-white ${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
-          <Icon className="w-7 h-7" strokeWidth={1.5} />
+        <div 
+          className={`${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+          style={nodeStyles}
+        >
+          <Icon key={iconName} name={iconName} className="w-7 h-7" style={{ color: textColor }} strokeWidth={1.5} />
+          {needsConfiguration && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
+              <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
+            </div>
+          )}
           {/* Render ports */}
-          {ports.map(port => (
-            <PortComponent key={port.id} port={port} nodeShape={shape} showLabel={isHovered} nodeId={metadata.id} onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
-          ))}
+          {ports.map(port => {
+            const portsOnSameSide = portsByPosition[port.position] || []
+            const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
+            return (
+              <PortComponent 
+                key={port.id} 
+                port={port} 
+                nodeShape={shape} 
+                showLabel={isHovered} 
+                nodeId={metadata.id} 
+                onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} 
+                onPortDragStart={onPortDragStart} 
+                onPortDragEnd={onPortDragEnd}
+                portIndex={portIndex}
+                totalPortsOnSide={portsOnSameSide.length}
+              />
+            )
+          })}
         </div>
         <div className="text-center mt-2">
-          <div className={`font-medium ${currentSize.title} text-black`}>{title}</div>
+          <div className={`font-medium ${currentSize.title}`} style={{ color: '#111827' }}>{title}</div>
           {subtitle && (
-            <div className={`${currentSize.subtitle} text-gray-500`}>{subtitle}</div>
+            <div className={`${currentSize.subtitle}`} style={{ color: '#6b7280' }}>{subtitle}</div>
           )}
         </div>
       </div>
@@ -195,17 +272,40 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   if (shape === 'diamond') {
     return (
       <div className="flex flex-col items-center relative select-none" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-        <div className={`${variantStyles[variant]} text-white ${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}>
-          <Icon className="w-5 h-5 -rotate-45" strokeWidth={1.5} />
+        <div 
+          className={`${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+          style={nodeStyles}
+        >
+          <Icon key={iconName} name={iconName} className="w-5 h-5 -rotate-45" style={{ color: textColor }} strokeWidth={1.5} />
+          {needsConfiguration && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
+              <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
+            </div>
+          )}
           {/* Render ports */}
-          {ports.map(port => (
-            <PortComponent key={port.id} port={port} nodeShape={shape} showLabel={isHovered} nodeId={metadata.id} onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
-          ))}
+          {ports.map(port => {
+            const portsOnSameSide = portsByPosition[port.position] || []
+            const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
+            return (
+              <PortComponent 
+                key={port.id} 
+                port={port} 
+                nodeShape={shape} 
+                showLabel={isHovered} 
+                nodeId={metadata.id} 
+                onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} 
+                onPortDragStart={onPortDragStart} 
+                onPortDragEnd={onPortDragEnd}
+                portIndex={portIndex}
+                totalPortsOnSide={portsOnSameSide.length}
+              />
+            )
+          })}
         </div>
         <div className="text-center mt-2">
-          <div className={`font-medium ${currentSize.title} text-black`}>{title}</div>
+          <div className={`font-medium ${currentSize.title}`} style={{ color: '#111827' }}>{title}</div>
           {subtitle && (
-            <div className={`${currentSize.subtitle} text-gray-500`}>{subtitle}</div>
+            <div className={`${currentSize.subtitle}`} style={{ color: '#6b7280' }}>{subtitle}</div>
           )}
         </div>
       </div>
@@ -215,23 +315,44 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   // Default rectangle shape
   return (
     <div 
-      className={`${variantStyles[variant]} text-white ${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''}`}
+      className={`${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+      style={nodeStyles}
       onMouseEnter={() => setIsHovered(true)} 
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`${currentSize.icon} bg-white/10 rounded-md flex items-center justify-center`}>
-        <Icon className={currentSize.icon.split(' ').slice(-2).join(' ')} strokeWidth={1.5} />
+      <div className={`${currentSize.icon} rounded-md flex items-center justify-center relative`} style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
+        <Icon key={iconName} name={iconName} className={currentSize.iconSize} style={{ color: textColor }} strokeWidth={1.5} />
+        {needsConfiguration && (
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
+            <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
+          </div>
+        )}
       </div>
       <div>
-        <div className={`font-medium ${currentSize.title}`}>{title}</div>
+        <div className={`font-medium ${currentSize.title}`} style={{ color: textColor }}>{title}</div>
         {subtitle && (
-          <div className={`${currentSize.subtitle} opacity-70`}>{subtitle}</div>
+          <div className={`${currentSize.subtitle} opacity-70`} style={{ color: textColor }}>{subtitle}</div>
         )}
       </div>
       {/* Render ports */}
-      {ports.map(port => (
-        <PortComponent key={port.id} port={port} nodeShape={shape} showLabel={isHovered} nodeId={metadata.id} onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
-      ))}
+      {ports.map(port => {
+        const portsOnSameSide = portsByPosition[port.position] || []
+        const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
+        return (
+          <PortComponent 
+            key={port.id} 
+            port={port} 
+            nodeShape={shape} 
+            showLabel={isHovered} 
+            nodeId={metadata.id} 
+            onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} 
+            onPortDragStart={onPortDragStart} 
+            onPortDragEnd={onPortDragEnd}
+            portIndex={portIndex}
+            totalPortsOnSide={portsOnSameSide.length}
+          />
+        )
+      })}
     </div>
   )
 }

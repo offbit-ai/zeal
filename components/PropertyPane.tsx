@@ -8,6 +8,7 @@ import { RuleEditorModal } from './RuleEditorModal'
 import { DataOperationModal } from './DataOperationModal'
 import { ModalPortal } from './ModalPortal'
 import { CodeEditor } from './CodeEditor'
+import { updateDynamicNodeMetadata, shouldUpdateDynamicMetadata } from '@/utils/dynamicNodeMetadata'
 
 interface PropertyPaneProps {
   selectedNodeId: string | null
@@ -200,16 +201,49 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
     
     const updatedValues = { ...localPropertyValues, [propertyId]: value }
     setLocalPropertyValues(updatedValues)
+    
+    // No real-time metadata updates - only update local property values
+    // Dynamic metadata updates will happen when user clicks "Save & Close"
   }
 
   // Handle save and close
-  const handleSaveAndClose = () => {
+  const handleSaveAndClose = async () => {
     if (!selectedNode) return
     
+    console.log('💾 SAVE: Starting save process for node:', selectedNodeId)
+    console.log('💾 SAVE: Current property values:', localPropertyValues)
+    console.log('💾 SAVE: Property rules available:', !!selectedNode.metadata.propertyRules)
+    console.log('💾 SAVE: Full node metadata keys:', Object.keys(selectedNode.metadata))
+    console.log('💾 SAVE: PropertyRules content:', selectedNode.metadata.propertyRules)
+    console.log('💾 SAVE: Properties field:', selectedNode.metadata.properties)
+    console.log('💾 SAVE: Check if propertyRules in properties:', selectedNode.metadata.properties?.propertyRules)
+    
     // Update the node metadata with new property values and create undo snapshot
-    const updatedMetadata = {
+    let updatedMetadata = {
       ...selectedNode.metadata,
       propertyValues: localPropertyValues
+    }
+    
+    console.log('💾 SAVE: Base metadata before dynamic updates:', {
+      title: updatedMetadata.title,
+      icon: updatedMetadata.icon,
+      variant: updatedMetadata.variant,
+      subtitle: updatedMetadata.subtitle
+    })
+    
+    try {
+      // Apply any final dynamic metadata updates before saving
+      updatedMetadata = await updateDynamicNodeMetadata(updatedMetadata, localPropertyValues, selectedNode.metadata.propertyRules)
+      
+      console.log('💾 SAVE: Metadata after dynamic updates:', {
+        title: updatedMetadata.title,
+        icon: updatedMetadata.icon,
+        variant: updatedMetadata.variant,
+        subtitle: updatedMetadata.subtitle
+      })
+    } catch (error) {
+      console.error('Failed to apply final dynamic metadata updates:', error)
+      // Continue with basic metadata if dynamic updates fail
     }
     
     updateNodeMetadata(selectedNodeId!, updatedMetadata, true) // saveSnapshot = true

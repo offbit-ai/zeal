@@ -14,3 +14,19 @@
     margin: 0;
   }
 }
+
+@layer utilities {
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-1px); }
+    20%, 40%, 60%, 80% { transform: translateX(1px); }
+  }
+  
+  .animate-shake {
+    animation: shake 2s ease-in-out infinite;
+  }
+  
+  .animate-shake:hover {
+    animation: none;
+  }
+}

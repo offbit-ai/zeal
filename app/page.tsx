@@ -14,6 +14,7 @@ import { FlowTracer } from '@/components/FlowTracer'
 import { Configuration } from '@/components/Configuration'
 import { MissingEnvVarWarning } from '@/components/MissingEnvVarWarning'
 import { EnvVarService } from '@/services/envVarService'
+import { useEnvVarStore } from '@/store/envVarStore'
 import { DraggableNode } from '@/components/DraggableNode'
 import { Minimap } from '@/components/Minimap'
 import { ZoomControls } from '@/components/ZoomControls'
@@ -30,178 +31,180 @@ import { DragConnectionLine } from '@/components/DragConnectionLine'
 import { DeleteConnectionDialog } from '@/components/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/PropertyPane'
 import { ModalPortal } from '@/components/ModalPortal'
+import { ConfigurationToast } from '@/components/ConfigurationToast'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { WorkflowStorageService } from '@/services/workflowStorage'
+import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
 
 // Sample nodes metadata
-const nodes: NodeMetadata[] = [
-  {
-    id: '1',
-    templateId: 'tpl_postgresql',
-    type: 'database',
-    title: 'Get Database',
-    subtitle: 'getAll: databasePage',
-    icon: Database,
-    variant: 'black',
-    shape: 'rectangle',
-    size: 'medium',
-    ports: [
-      { id: 'db-out-1', label: 'Records', type: 'output', position: 'right' },
-      { id: 'db-out-2', label: 'Count', type: 'output', position: 'bottom' }
-    ],
-    properties: [
-      { id: 'table', label: 'Table Name', type: 'text', required: true, placeholder: 'e.g., users' },
-      { id: 'operation', label: 'Operation', type: 'select', options: ['getAll', 'getById', 'query'], defaultValue: 'getAll' },
-      { id: 'limit', label: 'Limit', type: 'number', defaultValue: 100 },
-      { id: 'conditions', label: 'WHERE Conditions', type: 'textarea', placeholder: 'e.g., status = "active"' },
-      { 
-        id: 'filterRules', 
-        label: 'Filter Rules', 
-        type: 'rules',
-        availableFields: ['id', 'status', 'created_at', 'updated_at', 'email', 'name'],
-        availableOperators: ['is', 'is_not', 'contains', 'greater_than', 'less_than', 'empty', 'not_empty'],
-        description: 'Advanced filtering rules for database queries'
-      }
-    ],
-    requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
-    propertyValues: {
-      table: 'databasePage',
-      operation: 'getAll',
-      limit: 100,
-      conditions: '',
-      filterRules: []
-    }
-  },
-  {
-    id: '2',
-    templateId: 'tpl_python_script',
-    type: 'code',
-    title: 'Update CRM',
-    icon: Code,
-    variant: 'gray-700',
-    shape: 'rectangle',
-    size: 'medium',
-    ports: [
-      { id: 'crm-in-1', label: 'Data', type: 'input', position: 'left' },
-      { id: 'crm-in-2', label: 'Config', type: 'input', position: 'top' },
-      { id: 'crm-out-1', label: 'Result', type: 'output', position: 'right' },
-      { id: 'crm-out-2', label: 'Error', type: 'output', position: 'bottom' }
-    ],
-    properties: [
-      { id: 'endpoint', label: 'API Endpoint', type: 'text', required: true, placeholder: 'https://api.crm.com/update' },
-      { id: 'method', label: 'HTTP Method', type: 'select', options: ['POST', 'PUT', 'PATCH', 'GET'], defaultValue: 'POST' },
-      { id: 'timeout', label: 'Timeout (ms)', type: 'number', defaultValue: 5000 },
-      { id: 'retry', label: 'Retry on Failure', type: 'boolean', defaultValue: true }
-    ],
-    requiredEnvVars: ['CRM_API_KEY', 'CRM_BASE_URL'],
-    propertyValues: {
-      endpoint: '',
-      method: 'POST',
-      timeout: 5000,
-      retry: true
-    }
-  },
-  {
-    id: '3',
-    templateId: 'tpl_gpt4',
-    type: 'service',
-    title: 'Claude',
-    icon: Bot,
-    variant: 'black',
-    shape: 'circle',
-    size: 'medium',
-    ports: [
-      { id: 'ai-in-1', label: 'Prompt', type: 'input', position: 'left' },
-      { id: 'ai-in-2', label: 'Context', type: 'input', position: 'top' },
-      { id: 'ai-out-1', label: 'Response', type: 'output', position: 'right' }
-    ],
-    properties: [
-      { id: 'model', label: 'Model', type: 'select', options: ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'], defaultValue: 'claude-3-5-sonnet' },
-      { id: 'maxTokens', label: 'Max Tokens', type: 'number', defaultValue: 1000 },
-      { id: 'temperature', label: 'Temperature', type: 'number', defaultValue: 0.7 },
-      { id: 'systemPrompt', label: 'System Prompt', type: 'textarea', placeholder: 'You are a helpful assistant...', description: 'Define the AI assistant behavior and context' },
-      { 
-        id: 'responseRules', 
-        label: 'Response Processing Rules', 
-        type: 'rules',
-        availableFields: ['Response Length', 'Confidence Score', 'Content Type', 'Language', 'Sentiment', 'Topic'],
-        availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than'],
-        description: 'Define rules to process and route AI responses based on content analysis'
-      }
-    ],
-    requiredEnvVars: ['ANTHROPIC_API_KEY'],
-    propertyValues: {
-      model: 'claude-3-5-sonnet',
-      maxTokens: 1000,
-      temperature: 0.7,
-      systemPrompt: '',
-      responseRules: []
-    }
-  },
-  {
-    id: '4',
-    templateId: 'tpl_branch',
-    type: 'condition',
-    title: 'Branch',
-    icon: GitBranch,
-    variant: 'gray-700',
-    shape: 'diamond',
-    size: 'medium',
-    ports: [
-      { id: 'branch-in', label: 'Input', type: 'input', position: 'top' },
-      { id: 'branch-out-1', label: 'True', type: 'output', position: 'right' },
-      { id: 'branch-out-2', label: 'False', type: 'output', position: 'bottom' }
-    ],
-    properties: [
-      { 
-        id: 'decisionRules', 
-        label: 'Decision Rules', 
-        type: 'rules',
-        availableFields: ['TRG ID: Sellthrough', 'TRG ID: Category', 'TRG ID: Price', 'TRG ID: Quantity', 'TRG ID: Date', 'Status', 'Count', 'Amount'],
-        availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than', 'greater_equal', 'less_equal', 'empty', 'not_empty'],
-        description: 'Define the conditions that determine True or False output. If any rule set evaluates to true, the True port will be activated.'
-      }
-    ],
-    propertyValues: {
-      decisionRules: []
-    }
-  },
-  {
-    id: '5',
-    templateId: 'tpl_data_transformer',
-    type: 'transformer',
-    title: 'Data Transformer',
-    subtitle: 'Transform & Process Data',
-    icon: Shuffle,
-    variant: 'gray-600',
-    shape: 'rectangle',
-    size: 'medium',
-    ports: [
-      { id: 'transform-in-1', label: 'Input Data', type: 'input', position: 'left' },
-      { id: 'transform-in-2', label: 'Schema', type: 'input', position: 'top' },
-      { id: 'transform-out-1', label: 'Transformed', type: 'output', position: 'right' },
-      { id: 'transform-out-2', label: 'Errors', type: 'output', position: 'bottom' }
-    ],
-    properties: [
-      { 
-        id: 'dataOperations', 
-        label: 'Data Operations', 
-        type: 'dataOperations',
-        availableFields: ['id', 'name', 'email', 'status', 'created_at', 'updated_at', 'first_name', 'last_name', 'age', 'department', 'salary', 'role', 'address', 'phone'],
-        description: 'Configure data transformation pipelines including mapping, filtering, sorting, and aggregation'
-      },
-      { id: 'errorHandling', label: 'Error Handling', type: 'select', options: ['ignore', 'skip_item', 'stop_pipeline', 'log_and_continue'], defaultValue: 'log_and_continue' },
-      { id: 'batchSize', label: 'Batch Size', type: 'number', defaultValue: 1000, description: 'Number of items to process in each batch' },
-      { id: 'enableValidation', label: 'Enable Validation', type: 'boolean', defaultValue: true, description: 'Validate data before and after transformation' }
-    ],
-    propertyValues: {
-      dataOperations: [],
-      errorHandling: 'log_and_continue',
-      batchSize: 1000,
-      enableValidation: true
-    }
-  }
-]
+// const nodes: NodeMetadata[] = [
+//   {
+//     id: '1',
+//     templateId: 'tpl_postgresql',
+//     type: 'database',
+//     title: 'Get Database',
+//     subtitle: 'getAll: databasePage',
+//     icon: Database,
+//     variant: 'black',
+//     shape: 'rectangle',
+//     size: 'medium',
+//     ports: [
+//       { id: 'db-out-1', label: 'Records', type: 'output', position: 'right' },
+//       { id: 'db-out-2', label: 'Count', type: 'output', position: 'bottom' }
+//     ],
+//     properties: [
+//       { id: 'table', label: 'Table Name', type: 'text', required: true, placeholder: 'e.g., users' },
+//       { id: 'operation', label: 'Operation', type: 'select', options: ['getAll', 'getById', 'query'], defaultValue: 'getAll' },
+//       { id: 'limit', label: 'Limit', type: 'number', defaultValue: 100 },
+//       { id: 'conditions', label: 'WHERE Conditions', type: 'textarea', placeholder: 'e.g., status = "active"' },
+//       { 
+//         id: 'filterRules', 
+//         label: 'Filter Rules', 
+//         type: 'rules',
+//         availableFields: ['id', 'status', 'created_at', 'updated_at', 'email', 'name'],
+//         availableOperators: ['is', 'is_not', 'contains', 'greater_than', 'less_than', 'empty', 'not_empty'],
+//         description: 'Advanced filtering rules for database queries'
+//       }
+//     ],
+//     requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
+//     propertyValues: {
+//       table: 'databasePage',
+//       operation: 'getAll',
+//       limit: 100,
+//       conditions: '',
+//       filterRules: []
+//     }
+//   },
+//   {
+//     id: '2',
+//     templateId: 'tpl_python_script',
+//     type: 'code',
+//     title: 'Update CRM',
+//     icon: Code,
+//     variant: 'gray-700',
+//     shape: 'rectangle',
+//     size: 'medium',
+//     ports: [
+//       { id: 'crm-in-1', label: 'Data', type: 'input', position: 'left' },
+//       { id: 'crm-in-2', label: 'Config', type: 'input', position: 'top' },
+//       { id: 'crm-out-1', label: 'Result', type: 'output', position: 'right' },
+//       { id: 'crm-out-2', label: 'Error', type: 'output', position: 'bottom' }
+//     ],
+//     properties: [
+//       { id: 'endpoint', label: 'API Endpoint', type: 'text', required: true, placeholder: 'https://api.crm.com/update' },
+//       { id: 'method', label: 'HTTP Method', type: 'select', options: ['POST', 'PUT', 'PATCH', 'GET'], defaultValue: 'POST' },
+//       { id: 'timeout', label: 'Timeout (ms)', type: 'number', defaultValue: 5000 },
+//       { id: 'retry', label: 'Retry on Failure', type: 'boolean', defaultValue: true }
+//     ],
+//     requiredEnvVars: ['CRM_API_KEY', 'CRM_BASE_URL'],
+//     propertyValues: {
+//       endpoint: '',
+//       method: 'POST',
+//       timeout: 5000,
+//       retry: true
+//     }
+//   },
+//   {
+//     id: '3',
+//     templateId: 'tpl_gpt4',
+//     type: 'service',
+//     title: 'Claude',
+//     icon: Bot,
+//     variant: 'black',
+//     shape: 'circle',
+//     size: 'medium',
+//     ports: [
+//       { id: 'ai-in-1', label: 'Prompt', type: 'input', position: 'left' },
+//       { id: 'ai-in-2', label: 'Context', type: 'input', position: 'top' },
+//       { id: 'ai-out-1', label: 'Response', type: 'output', position: 'right' }
+//     ],
+//     properties: [
+//       { id: 'model', label: 'Model', type: 'select', options: ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'], defaultValue: 'claude-3-5-sonnet' },
+//       { id: 'maxTokens', label: 'Max Tokens', type: 'number', defaultValue: 1000 },
+//       { id: 'temperature', label: 'Temperature', type: 'number', defaultValue: 0.7 },
+//       { id: 'systemPrompt', label: 'System Prompt', type: 'textarea', placeholder: 'You are a helpful assistant...', description: 'Define the AI assistant behavior and context' },
+//       { 
+//         id: 'responseRules', 
+//         label: 'Response Processing Rules', 
+//         type: 'rules',
+//         availableFields: ['Response Length', 'Confidence Score', 'Content Type', 'Language', 'Sentiment', 'Topic'],
+//         availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than'],
+//         description: 'Define rules to process and route AI responses based on content analysis'
+//       }
+//     ],
+//     requiredEnvVars: ['ANTHROPIC_API_KEY'],
+//     propertyValues: {
+//       model: 'claude-3-5-sonnet',
+//       maxTokens: 1000,
+//       temperature: 0.7,
+//       systemPrompt: '',
+//       responseRules: []
+//     }
+//   },
+//   {
+//     id: '4',
+//     templateId: 'tpl_branch',
+//     type: 'condition',
+//     title: 'Branch',
+//     icon: GitBranch,
+//     variant: 'gray-700',
+//     shape: 'diamond',
+//     size: 'medium',
+//     ports: [
+//       { id: 'branch-in', label: 'Input', type: 'input', position: 'top' },
+//       { id: 'branch-out-1', label: 'True', type: 'output', position: 'right' },
+//       { id: 'branch-out-2', label: 'False', type: 'output', position: 'bottom' }
+//     ],
+//     properties: [
+//       { 
+//         id: 'decisionRules', 
+//         label: 'Decision Rules', 
+//         type: 'rules',
+//         availableFields: ['TRG ID: Sellthrough', 'TRG ID: Category', 'TRG ID: Price', 'TRG ID: Quantity', 'TRG ID: Date', 'Status', 'Count', 'Amount'],
+//         availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than', 'greater_equal', 'less_equal', 'empty', 'not_empty'],
+//         description: 'Define the conditions that determine True or False output. If any rule set evaluates to true, the True port will be activated.'
+//       }
+//     ],
+//     propertyValues: {
+//       decisionRules: []
+//     }
+//   },
+//   {
+//     id: '5',
+//     templateId: 'tpl_data_transformer',
+//     type: 'transformer',
+//     title: 'Data Transformer',
+//     subtitle: 'Transform & Process Data',
+//     icon: Shuffle,
+//     variant: 'gray-600',
+//     shape: 'rectangle',
+//     size: 'medium',
+//     ports: [
+//       { id: 'transform-in-1', label: 'Input Data', type: 'input', position: 'left' },
+//       { id: 'transform-in-2', label: 'Schema', type: 'input', position: 'top' },
+//       { id: 'transform-out-1', label: 'Transformed', type: 'output', position: 'right' },
+//       { id: 'transform-out-2', label: 'Errors', type: 'output', position: 'bottom' }
+//     ],
+//     properties: [
+//       { 
+//         id: 'dataOperations', 
+//         label: 'Data Operations', 
+//         type: 'dataOperations',
+//         availableFields: ['id', 'name', 'email', 'status', 'created_at', 'updated_at', 'first_name', 'last_name', 'age', 'department', 'salary', 'role', 'address', 'phone'],
+//         description: 'Configure data transformation pipelines including mapping, filtering, sorting, and aggregation'
+//       },
+//       { id: 'errorHandling', label: 'Error Handling', type: 'select', options: ['ignore', 'skip_item', 'stop_pipeline', 'log_and_continue'], defaultValue: 'log_and_continue' },
+//       { id: 'batchSize', label: 'Batch Size', type: 'number', defaultValue: 1000, description: 'Number of items to process in each batch' },
+//       { id: 'enableValidation', label: 'Enable Validation', type: 'boolean', defaultValue: true, description: 'Validate data before and after transformation' }
+//     ],
+//     propertyValues: {
+//       dataOperations: [],
+//       errorHandling: 'log_and_continue',
+//       batchSize: 1000,
+//       enableValidation: true
+//     }
+//   }
+// ]
 
 export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
@@ -210,18 +213,19 @@ export default function Home() {
   const [isHistoryBrowserOpen, setIsHistoryBrowserOpen] = useState(false)
   const [isFlowTracerOpen, setIsFlowTracerOpen] = useState(false)
   const [isConfigOpen, setIsConfigOpen] = useState(false)
-  const [missingEnvVars, setMissingEnvVars] = useState<string[]>([])
   const [showEnvVarWarning, setShowEnvVarWarning] = useState(false)
+  const missingEnvVars = useEnvVarStore(state => state.missingVars)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null)
   const [isPropertyPaneOpen, setIsPropertyPaneOpen] = useState(false)
   const [isPropertyPaneVisible, setIsPropertyPaneVisible] = useState(false)
   const [isPropertyPaneClosing, setIsPropertyPaneClosing] = useState(false)
+  const [configurationToastNodeId, setConfigurationToastNodeId] = useState<string | null>(null)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
-  const { updateNodeBounds, getNodeBoundsArray } = useNodeBounds()
+  const { updateNodeBounds, removeNodeBounds, getNodeBoundsArray } = useNodeBounds()
   const { updatePortPosition, getPortPosition } = usePortPositions()
   
   // Zustand store
@@ -251,45 +255,23 @@ export default function Home() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
   
-  // Check for missing environment variables
-  const checkMissingEnvVars = async () => {
-    console.log('=== CHECKING MISSING ENV VARS ===')
-    console.log('Initialized:', initialized)
-    console.log('Store nodes:', storeNodes.length)
-    console.log('Store nodes details:', storeNodes.map(n => ({ 
-      id: n.metadata.id, 
-      title: n.metadata.title,
-      templateId: n.metadata.templateId,
-      requiredEnvVars: n.metadata.requiredEnvVars 
-    })))
-    
-    if (storeNodes.length === 0) {
-      console.log('No nodes in store - skipping env var check')
-      setShowEnvVarWarning(false)
-      setMissingEnvVars([])
-      return
-    }
-    
+  // Update configured environment variables in the store
+  const updateConfiguredEnvVars = async () => {
     try {
-      const missing = await EnvVarService.getMissingEnvVars(storeNodes)
-      console.log('Missing vars found:', missing)
+      const sections = await EnvVarService.getConfigSections()
+      const configuredVars: string[] = []
       
-      setMissingEnvVars(missing)
+      sections.forEach(section => {
+        section.variables.forEach(variable => {
+          if (variable.value) {
+            configuredVars.push(variable.key)
+          }
+        })
+      })
       
-      if (missing.length > 0) {
-        console.log('SHOWING WARNING for missing vars:', missing)
-        // Just show the warning - don't persist anything
-        setShowEnvVarWarning(true)
-      } else {
-        console.log('NO MISSING VARS - hiding warning')
-        // No missing vars, so hide warning
-        setShowEnvVarWarning(false)
-      }
+      useEnvVarStore.getState().updateConfiguredVars(configuredVars)
     } catch (error) {
-      console.error('Failed to check missing environment variables:', error)
-      // On error, don't show warning to avoid false positives
-      setShowEnvVarWarning(false)
-      setMissingEnvVars([])
+      console.error('Failed to update configured environment variables:', error)
     }
   }
 
@@ -308,61 +290,84 @@ export default function Home() {
       }
       
       setInitialized(true)
+      
+      // Load configured environment variables
+      updateConfiguredEnvVars()
     }
   }, [initialized, storeNodes.length, setInitialized, loadFromStorage, createNewWorkflow])
 
   // Keyboard shortcut to test environment variable warning (Cmd+Shift+T)
+  // useEffect(() => {
+  //   const handleKeyPress = (e: KeyboardEvent) => {
+  //     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 't') {
+  //       e.preventDefault()
+  //       console.log('TESTING: Adding PostgreSQL node to trigger env var check')
+  //       const { addNode } = useWorkflowStore.getState()
+  //       addNode({
+  //         id: `test-postgresql-${Date.now()}`,
+  //         templateId: 'tpl_postgresql',
+  //         type: 'database',
+  //         title: 'Test PostgreSQL',
+  //         icon: Database,
+  //         variant: 'black',
+  //         shape: 'rectangle',
+  //         size: 'medium',
+  //         requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
+  //         properties: [],
+  //         propertyValues: {}
+  //       }, { x: 300 + Math.random() * 100, y: 200 + Math.random() * 100 })
+  //       ToastManager.info('Test node added - checking for environment variables...')
+  //     }
+  //   }
+    
+  //   window.addEventListener('keydown', handleKeyPress)
+  //   return () => window.removeEventListener('keydown', handleKeyPress)
+  // }, [])
+
+  // Show env var warning when there are missing vars
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 't') {
-        e.preventDefault()
-        console.log('TESTING: Adding PostgreSQL node to trigger env var check')
-        const { addNode } = useWorkflowStore.getState()
-        addNode({
-          id: `test-postgresql-${Date.now()}`,
-          templateId: 'tpl_postgresql',
-          type: 'database',
-          title: 'Test PostgreSQL',
-          icon: Database,
-          variant: 'black',
-          shape: 'rectangle',
-          size: 'medium',
-          requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
-          properties: [],
-          propertyValues: {}
-        }, { x: 300 + Math.random() * 100, y: 200 + Math.random() * 100 })
-        ToastManager.info('Test node added - checking for environment variables...')
+    setShowEnvVarWarning(missingEnvVars.length > 0)
+  }, [missingEnvVars])
+
+  // Check for nodes that need configuration and show toast
+  useEffect(() => {
+    // If we're showing a toast for a specific node, check if it still needs configuration
+    if (configurationToastNodeId) {
+      const currentNode = storeNodes.find(n => n.metadata.id === configurationToastNodeId)
+      if (!currentNode || !hasUnconfiguredDefaults(currentNode.metadata)) {
+        // Node is now properly configured, dismiss the toast
+        setConfigurationToastNodeId(null)
+        return
       }
     }
     
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [])
-
-  // Check for missing environment variables when nodes change
-  useEffect(() => {
-    console.log('ENV VAR CHECK EFFECT:', { initialized, nodeCount: storeNodes.length })
-    if (initialized) {
-      // Always run the check, even with 0 nodes for debugging
-      checkMissingEnvVars().catch(error => {
-        console.error('Failed to check missing environment variables:', error)
-      })
-    }
-  }, [initialized, storeNodes])
-
-  // Force check environment variables every 5 seconds for debugging
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (initialized && storeNodes.length > 0) {
-        console.log('FORCE CHECK: Running environment variable check...')
-        checkMissingEnvVars().catch(error => {
-          console.error('Force check failed:', error)
-        })
-      }
-    }, 5000)
+    // Only check for new unconfigured nodes if we don't already have a toast showing
+    if (configurationToastNodeId) return
     
-    return () => clearInterval(interval)
-  }, [initialized, storeNodes.length])
+    // Find nodes that need configuration
+    const unconfiguredNodes = storeNodes.filter(node => hasUnconfiguredDefaults(node.metadata))
+    
+    if (unconfiguredNodes.length > 0) {
+      // Show toast for the most recently added node that needs configuration
+      const latestUnconfigured = unconfiguredNodes[unconfiguredNodes.length - 1]
+      setConfigurationToastNodeId(latestUnconfigured.metadata.id)
+    }
+  }, [storeNodes, configurationToastNodeId])
+
+  // Clean up node bounds when nodes are removed
+  useEffect(() => {
+    const currentNodeIds = new Set(storeNodes.map(node => node.metadata.id))
+    const currentBounds = getNodeBoundsArray()
+    
+    // Remove bounds for nodes that no longer exist
+    currentBounds.forEach(bounds => {
+      if (!currentNodeIds.has(bounds.id)) {
+        removeNodeBounds(bounds.id)
+      }
+    })
+  }, [storeNodes, getNodeBoundsArray, removeNodeBounds])
+
+  // Removed the debugging interval that was causing endless API calls
   
   
   useEffect(() => {
@@ -493,10 +498,8 @@ export default function Home() {
 
   // Handle environment variable configuration
   const handleVariableConfigured = () => {
-    // Re-check missing vars after configuration
-    checkMissingEnvVars().catch(error => {
-      console.error('Failed to check missing environment variables after configuration:', error)
-    })
+    // Update configured vars after configuration
+    updateConfiguredEnvVars()
   }
 
   // Handle dismissing env var warning (no persistent dismissal)
@@ -622,9 +625,8 @@ export default function Home() {
         if (e.key === 'e' && e.shiftKey) {
           e.preventDefault()
           EnvVarService.clearStorage()
-          checkMissingEnvVars().catch(error => {
-            console.error('Failed to check missing environment variables after clearing storage:', error)
-          })
+          // Clear configured vars in store
+          useEnvVarStore.getState().updateConfiguredVars([])
           ToastManager.info('Environment variable storage cleared')
         }
       }
@@ -695,7 +697,7 @@ export default function Home() {
           {/* Workflow Nodes */}
           {storeNodes.map(node => (
             <DraggableNode
-              key={node.metadata.id}
+              key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
               metadata={node.metadata}
               initialPosition={node.position}
               onPositionChange={handleNodePositionChange}
@@ -834,6 +836,21 @@ export default function Home() {
           onOpenConfig={handleOpenConfigFromWarning}
         />
       )}
+
+      {/* Configuration Toast */}
+      {configurationToastNodeId && (() => {
+        const node = storeNodes.find(n => n.metadata.id === configurationToastNodeId)
+        return node ? (
+          <ConfigurationToast
+            nodeMetadata={node.metadata}
+            onConfigure={() => {
+              setConfigurationToastNodeId(null)
+              handleNodeSelect(configurationToastNodeId)
+            }}
+            onDismiss={() => setConfigurationToastNodeId(null)}
+          />
+        ) : null
+      })()}
     </main>
   )
 }

@@ -1,37 +1,5 @@
-import { Database, Code, Bot, Cloud, Zap, GitBranch, Shuffle, FileJson, Globe, Shield, Package, Terminal, MessageSquare, Wrench, type LucideIcon } from 'lucide-react'
 import type { WorkflowSnapshot, SerializedNode, SerializedConnection } from '@/types/snapshot'
 import type { NodeMetadata, Connection } from '@/types/workflow'
-
-// Icon name to component mapping
-const iconMap: Record<string, LucideIcon> = {
-  Database,
-  Code,
-  Bot,
-  Cloud,
-  Zap,
-  GitBranch,
-  Shuffle,
-  FileJson,
-  Globe,
-  Shield,
-  Package,
-  Terminal,
-  MessageSquare,
-  Wrench
-}
-
-// Get icon name from component
-function getIconName(icon: LucideIcon): string {
-  for (const [name, component] of Object.entries(iconMap)) {
-    if (component === icon) return name
-  }
-  return 'Code' // Default icon
-}
-
-// Get icon component from name
-function getIconComponent(name: string): LucideIcon {
-  return iconMap[name] || Code // Default to Code icon
-}
 
 // Serialize a single node
 export function serializeNode(node: { metadata: NodeMetadata; position: { x: number; y: number } }): SerializedNode {
@@ -41,7 +9,8 @@ export function serializeNode(node: { metadata: NodeMetadata; position: { x: num
     position: node.position,
     metadata: {
       ...node.metadata,
-      icon: getIconName(node.metadata.icon)
+      // Icon is already a string, no conversion needed
+      icon: node.metadata.icon
     }
   }
 }
@@ -52,7 +21,8 @@ export function deserializeNode(serialized: SerializedNode): { metadata: NodeMet
     position: serialized.position,
     metadata: {
       ...serialized.metadata,
-      icon: getIconComponent(serialized.metadata.icon)
+      // Icon is already a string, no conversion needed
+      icon: serialized.metadata.icon || 'box' // Fallback to 'box' if undefined
     }
   }
 }

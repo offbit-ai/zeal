@@ -73,7 +73,18 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   await mockDelay(75)
   
   const _userId = extractUserId(req) // Prefix with _ to indicate intentionally unused
-  const body: ValidateEnvVarsRequest = await req.json()
+  
+  let body: ValidateEnvVarsRequest = {}
+  try {
+    body = await req.json()
+  } catch (error) {
+    // Handle empty or malformed JSON body
+    if (error instanceof SyntaxError || error?.message?.includes('Unexpected end of JSON input')) {
+      body = {} // Default to empty object
+    } else {
+      throw error // Re-throw other errors
+    }
+  }
   
   let requiredVars: string[] = []
   let templateValidation: ValidateEnvVarsResponse['templateValidation'] = undefined
@@ -107,7 +118,16 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     requiredVars = body.requiredVars
   } 
   else {
-    throw new ApiError('VALIDATION_ERROR', 'Either templateIds or requiredVars must be provided', 400)
+    // Return empty validation result for empty requests instead of erroring
+    return NextResponse.json(createSuccessResponse({
+      missingVars: [],
+      configuredVars: [],
+      validationStatus: 'valid',
+      templateValidation: []
+    } as ValidateEnvVarsResponse, {
+      timestamp: new Date().toISOString(),
+      requestId: `req_${Date.now()}`
+    }))
   }
   
   // Mock configured environment variables

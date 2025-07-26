@@ -233,7 +233,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'database',
       title: 'PostgreSQL',
       subtitle: 'Database Connector',
-      icon: Database,
+      icon: 'postgresql',
       variant: 'black',
       shape: 'rectangle',
       size: 'medium',
@@ -274,7 +274,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'ai-model',
       title: 'GPT-4',
       subtitle: 'OpenAI Language Model',
-      icon: Bot,
+      icon: 'openai',
       variant: 'black',
       shape: 'circle',
       size: 'medium',
@@ -316,7 +316,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'condition',
       title: 'If Condition',
       subtitle: 'Conditional Logic',
-      icon: GitBranch,
+      icon: 'git-branch',
       variant: 'gray-700',
       shape: 'diamond',
       size: 'medium',
@@ -357,7 +357,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'communication',
       title: 'Slack Message',
       subtitle: 'Send to Slack',
-      icon: MessageSquare,
+      icon: 'slack',
       variant: 'gray-600',
       shape: 'rectangle',
       size: 'medium',
@@ -397,7 +397,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'transformer',
       title: 'JSON Transformer',
       subtitle: 'Data Transformation',
-      icon: Shuffle,
+      icon: 'shuffle',
       variant: 'gray-600',
       shape: 'rectangle',
       size: 'medium',
@@ -438,7 +438,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'http',
       title: 'HTTP Request',
       subtitle: 'Web API Client',
-      icon: Globe,
+      icon: 'globe',
       variant: 'gray-700',
       shape: 'rectangle',
       size: 'medium',
@@ -479,7 +479,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'ai-agent',
       title: 'Autonomous Agent',
       subtitle: 'AI Task Executor',
-      icon: Brain,
+      icon: 'brain',
       variant: 'black',
       shape: 'circle',
       size: 'medium',
@@ -520,7 +520,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'agent-tool',
       title: 'Web Search',
       subtitle: 'Agent Tool',
-      icon: Wrench,
+      icon: 'google',
       variant: 'gray-600',
       shape: 'rectangle',
       size: 'medium',
@@ -559,7 +559,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'script-executor',
       title: 'JavaScript',
       subtitle: 'Node.js Runtime',
-      icon: Terminal,
+      icon: 'javascript',
       variant: 'gray-700',
       shape: 'rectangle',
       size: 'medium',
@@ -601,7 +601,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'script-executor',
       title: 'Python',
       subtitle: 'Python Runtime',
-      icon: Terminal,
+      icon: 'python',
       variant: 'gray-700',
       shape: 'rectangle',
       size: 'medium',
@@ -643,7 +643,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'script-executor',
       title: 'SQL Runner',
       subtitle: 'SQL Query Executor',
-      icon: Database,
+      icon: 'database',
       variant: 'gray-700',
       shape: 'rectangle',
       size: 'medium',
@@ -685,7 +685,7 @@ const sampleNodes: NodeRepositoryItem[] = [
       type: 'script-executor',
       title: 'Nushell',
       subtitle: 'Modern Shell',
-      icon: Terminal,
+      icon: 'terminal',
       variant: 'gray-700',
       shape: 'rectangle',
       size: 'medium',
@@ -709,8 +709,499 @@ const sampleNodes: NodeRepositoryItem[] = [
         enableWebRequests: false
       }
     }
+  },
+
+  // Additional Database Connectors
+  {
+    id: 'mongodb-connector',
+    name: 'MongoDB',
+    description: 'Connect to MongoDB databases and execute queries',
+    category: 'data-sources',
+    subcategory: 'databases',
+    keywords: ['mongodb', 'mongo', 'database', 'nosql', 'document'],
+    tags: ['database', 'nosql', 'document'],
+    isBuiltIn: true,
+    isInstalled: false,
+    metadata: {
+      id: 'mongodb-connector',
+      templateId: 'mongodb-connector',
+      type: 'database',
+      title: 'MongoDB',
+      subtitle: 'NoSQL Database',
+      icon: 'mongodb',
+      variant: 'black',
+      shape: 'rectangle',
+      size: 'medium',
+      ports: [
+        { id: 'mongo-out-data', label: 'Documents', type: 'output', position: 'right' },
+        { id: 'mongo-out-count', label: 'Count', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'connectionString', label: 'Connection String', type: 'text', required: true, placeholder: 'mongodb://localhost:27017/mydb' },
+        { id: 'collection', label: 'Collection', type: 'text', required: true },
+        { id: 'query', label: 'Query', type: 'textarea', placeholder: '{"status": "active"}' }
+      ],
+      requiredEnvVars: ['MONGODB_URI'],
+      propertyValues: {
+        connectionString: '',
+        collection: '',
+        query: '{}'
+      }
+    }
+  },
+
+  {
+    id: 'mysql-connector',
+    name: 'MySQL',
+    description: 'Connect to MySQL databases and execute queries',
+    category: 'data-sources',
+    subcategory: 'databases',
+    keywords: ['mysql', 'database', 'sql', 'relational'],
+    tags: ['database', 'sql', 'relational'],
+    isBuiltIn: true,
+    isInstalled: false,
+    metadata: {
+      id: 'mysql-connector',
+      templateId: 'mysql-connector',
+      type: 'database',
+      title: 'MySQL',
+      subtitle: 'Database Connector',
+      icon: 'mysql',
+      variant: 'black',
+      shape: 'rectangle',
+      size: 'medium',
+      ports: [
+        { id: 'mysql-out-data', label: 'Records', type: 'output', position: 'right' },
+        { id: 'mysql-out-count', label: 'Count', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'host', label: 'Host', type: 'text', required: true, defaultValue: 'localhost' },
+        { id: 'port', label: 'Port', type: 'number', defaultValue: 3306 },
+        { id: 'database', label: 'Database', type: 'text', required: true },
+        { id: 'query', label: 'SQL Query', type: 'textarea', required: true, placeholder: 'SELECT * FROM users' }
+      ],
+      requiredEnvVars: ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD'],
+      propertyValues: {
+        host: 'localhost',
+        port: 3306,
+        database: '',
+        query: ''
+      }
+    }
+  },
+
+  {
+    id: 'google-sheets-connector',
+    name: 'Google Sheets',
+    description: 'Read from and write to Google Sheets spreadsheets',
+    category: 'data-sources',
+    subcategory: 'files',
+    keywords: ['google', 'sheets', 'spreadsheet', 'excel', 'data'],
+    tags: ['google', 'sheets', 'spreadsheet'],
+    isBuiltIn: true,
+    isInstalled: false,
+    metadata: {
+      id: 'google-sheets-connector',
+      templateId: 'google-sheets-connector',
+      type: 'spreadsheet',
+      title: 'Google Sheets',
+      subtitle: 'Spreadsheet Connector',
+      icon: 'google-sheets',
+      variant: 'gray-600',
+      shape: 'rectangle',
+      size: 'medium',
+      ports: [
+        { id: 'sheets-in-data', label: 'Data to Write', type: 'input', position: 'left' },
+        { id: 'sheets-out-data', label: 'Sheet Data', type: 'output', position: 'right' },
+        { id: 'sheets-out-success', label: 'Success', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'spreadsheetId', label: 'Spreadsheet ID', type: 'text', required: true },
+        { id: 'sheetName', label: 'Sheet Name', type: 'text', defaultValue: 'Sheet1' },
+        { id: 'range', label: 'Range', type: 'text', placeholder: 'A1:Z100' },
+        { id: 'operation', label: 'Operation', type: 'select', options: ['read', 'write', 'append'], defaultValue: 'read' }
+      ],
+      requiredEnvVars: ['GOOGLE_SHEETS_API_KEY', 'GOOGLE_SERVICE_ACCOUNT_JSON'],
+      propertyValues: {
+        spreadsheetId: '',
+        sheetName: 'Sheet1',
+        range: '',
+        operation: 'read'
+      }
+    }
+  },
+
+  // Math Operations
+  {
+    id: 'math-add',
+    name: 'Add',
+    description: 'Add two or more numbers together',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['add', 'addition', 'plus', 'sum', 'math', 'calculate'],
+    tags: ['math', 'addition', 'calculation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-add',
+      templateId: 'math-add',
+      type: 'math-operation',
+      title: 'Add',
+      subtitle: 'Addition',
+      icon: 'plus',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'add-in-a', label: 'A', type: 'input', position: 'left' },
+        { id: 'add-in-b', label: 'B', type: 'input', position: 'left' },
+        { id: 'add-out-result', label: 'Result', type: 'output', position: 'right' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 2 },
+        { id: 'multipleInputs', label: 'Allow Multiple Inputs', type: 'boolean', defaultValue: false }
+      ],
+      propertyValues: {
+        precision: 2,
+        multipleInputs: false
+      }
+    }
+  },
+
+  {
+    id: 'math-subtract',
+    name: 'Subtract',
+    description: 'Subtract one number from another',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['subtract', 'subtraction', 'minus', 'difference', 'math', 'calculate'],
+    tags: ['math', 'subtraction', 'calculation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-subtract',
+      templateId: 'math-subtract',
+      type: 'math-operation',
+      title: 'Subtract',
+      subtitle: 'Subtraction',
+      icon: 'minus',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'sub-in-a', label: 'A', type: 'input', position: 'left' },
+        { id: 'sub-in-b', label: 'B', type: 'input', position: 'left' },
+        { id: 'sub-out-result', label: 'Result', type: 'output', position: 'right' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 2 }
+      ],
+      propertyValues: {
+        precision: 2
+      }
+    }
+  },
+
+  {
+    id: 'math-multiply',
+    name: 'Multiply',
+    description: 'Multiply two or more numbers together',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['multiply', 'multiplication', 'times', 'product', 'math', 'calculate'],
+    tags: ['math', 'multiplication', 'calculation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-multiply',
+      templateId: 'math-multiply',
+      type: 'math-operation',
+      title: 'Multiply',
+      subtitle: 'Multiplication',
+      icon: 'x',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'mul-in-a', label: 'A', type: 'input', position: 'left' },
+        { id: 'mul-in-b', label: 'B', type: 'input', position: 'left' },
+        { id: 'mul-out-result', label: 'Result', type: 'output', position: 'right' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 2 },
+        { id: 'multipleInputs', label: 'Allow Multiple Inputs', type: 'boolean', defaultValue: false }
+      ],
+      propertyValues: {
+        precision: 2,
+        multipleInputs: false
+      }
+    }
+  },
+
+  {
+    id: 'math-divide',
+    name: 'Divide',
+    description: 'Divide one number by another',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['divide', 'division', 'quotient', 'math', 'calculate'],
+    tags: ['math', 'division', 'calculation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-divide',
+      templateId: 'math-divide',
+      type: 'math-operation',
+      title: 'Divide',
+      subtitle: 'Division',
+      icon: 'divide',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'div-in-a', label: 'A', type: 'input', position: 'left' },
+        { id: 'div-in-b', label: 'B', type: 'input', position: 'left' },
+        { id: 'div-out-result', label: 'Result', type: 'output', position: 'right' },
+        { id: 'div-out-remainder', label: 'Remainder', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 2 },
+        { id: 'handleDivideByZero', label: 'Handle Division by Zero', type: 'boolean', defaultValue: true }
+      ],
+      propertyValues: {
+        precision: 2,
+        handleDivideByZero: true
+      }
+    }
+  },
+
+  {
+    id: 'math-calculator',
+    name: 'Calculator',
+    description: 'Advanced calculator with multiple mathematical operations',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['calculator', 'math', 'calculate', 'expression', 'formula'],
+    tags: ['math', 'calculator', 'advanced'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-calculator',
+      templateId: 'math-calculator',
+      type: 'calculator',
+      title: 'Calculator',
+      subtitle: 'Mathematical Calculator',
+      icon: 'calculator',
+      variant: 'gray-700',
+      shape: 'rectangle',
+      size: 'medium',
+      ports: [
+        { id: 'calc-in-expression', label: 'Expression', type: 'input', position: 'left' },
+        { id: 'calc-in-variables', label: 'Variables', type: 'input', position: 'top' },
+        { id: 'calc-out-result', label: 'Result', type: 'output', position: 'right' },
+        { id: 'calc-out-error', label: 'Error', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'expression', label: 'Mathematical Expression', type: 'textarea', placeholder: '2 + 3 * 4 / (1 - 5)^2' },
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 10 },
+        { id: 'angleUnit', label: 'Angle Unit', type: 'select', options: ['degrees', 'radians'], defaultValue: 'degrees' }
+      ],
+      propertyValues: {
+        expression: '',
+        precision: 10,
+        angleUnit: 'degrees'
+      }
+    }
+  },
+
+  {
+    id: 'math-percentage',
+    name: 'Percentage',
+    description: 'Calculate percentages and percentage changes',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['percentage', 'percent', 'ratio', 'proportion', 'math'],
+    tags: ['math', 'percentage', 'calculation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-percentage',
+      templateId: 'math-percentage',
+      type: 'math-operation',
+      title: 'Percentage',
+      subtitle: 'Percentage Calculator',
+      icon: 'percent',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'pct-in-value', label: 'Value', type: 'input', position: 'left' },
+        { id: 'pct-in-total', label: 'Total', type: 'input', position: 'left' },
+        { id: 'pct-out-percentage', label: 'Percentage', type: 'output', position: 'right' }
+      ],
+      properties: [
+        { id: 'operation', label: 'Operation', type: 'select', options: ['value-to-percent', 'percent-of-value', 'percent-change'], defaultValue: 'value-to-percent' },
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 2 }
+      ],
+      propertyValues: {
+        operation: 'value-to-percent',
+        precision: 2
+      }
+    }
+  },
+
+  {
+    id: 'math-square-root',
+    name: 'Square Root',
+    description: 'Calculate the square root of a number',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['square root', 'radical', 'sqrt', 'root', 'math'],
+    tags: ['math', 'square-root', 'calculation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-square-root',
+      templateId: 'math-square-root',
+      type: 'math-operation',
+      title: 'Square Root',
+      subtitle: 'Radical',
+      icon: 'radical',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'sqrt-in-number', label: 'Number', type: 'input', position: 'left' },
+        { id: 'sqrt-out-result', label: 'Result', type: 'output', position: 'right' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 6 },
+        { id: 'nthRoot', label: 'Nth Root', type: 'number', defaultValue: 2, placeholder: '2 for square root, 3 for cube root, etc.' }
+      ],
+      propertyValues: {
+        precision: 6,
+        nthRoot: 2
+      }
+    }
+  },
+
+  {
+    id: 'math-sum',
+    name: 'Sum',
+    description: 'Calculate the sum of multiple numbers or arrays',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['sum', 'total', 'add all', 'sigma', 'aggregate', 'math'],
+    tags: ['math', 'sum', 'aggregation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-sum',
+      templateId: 'math-sum',
+      type: 'math-operation',
+      title: 'Sum',
+      subtitle: 'Sigma Σ',
+      icon: 'sigma',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'sum-in-numbers', label: 'Numbers', type: 'input', position: 'left' },
+        { id: 'sum-out-total', label: 'Total', type: 'output', position: 'right' },
+        { id: 'sum-out-count', label: 'Count', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 2 },
+        { id: 'ignoreNonNumbers', label: 'Ignore Non-Numbers', type: 'boolean', defaultValue: true }
+      ],
+      propertyValues: {
+        precision: 2,
+        ignoreNonNumbers: true
+      }
+    }
+  },
+
+  {
+    id: 'math-power',
+    name: 'Power',
+    description: 'Raise a number to a specified power (exponentiation)',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['power', 'exponent', 'exponential', 'raise to power', 'math'],
+    tags: ['math', 'power', 'exponentiation'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-power',
+      templateId: 'math-power',
+      type: 'math-operation',
+      title: 'Power',
+      subtitle: 'Exponentiation',
+      icon: 'chevron-up',
+      variant: 'gray-600',
+      shape: 'circle',
+      size: 'small',
+      ports: [
+        { id: 'pow-in-base', label: 'Base', type: 'input', position: 'left' },
+        { id: 'pow-in-exponent', label: 'Exponent', type: 'input', position: 'top' },
+        { id: 'pow-out-result', label: 'Result', type: 'output', position: 'right' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 6 },
+        { id: 'defaultExponent', label: 'Default Exponent', type: 'number', defaultValue: 2 }
+      ],
+      propertyValues: {
+        precision: 6,
+        defaultExponent: 2
+      }
+    }
+  },
+
+  {
+    id: 'math-statistics',
+    name: 'Statistics',
+    description: 'Calculate statistical measures (mean, median, mode, std dev)',
+    category: 'tools-utilities',
+    subcategory: 'math',
+    keywords: ['statistics', 'stats', 'mean', 'median', 'mode', 'standard deviation', 'math'],
+    tags: ['math', 'statistics', 'analysis'],
+    isBuiltIn: true,
+    isInstalled: true,
+    metadata: {
+      id: 'math-statistics',
+      templateId: 'math-statistics',
+      type: 'math-operation',
+      title: 'Statistics',
+      subtitle: 'Statistical Analysis',
+      icon: 'chart-area',
+      variant: 'gray-700',
+      shape: 'rectangle',
+      size: 'medium',
+      ports: [
+        { id: 'stats-in-data', label: 'Data Array', type: 'input', position: 'left' },
+        { id: 'stats-out-mean', label: 'Mean', type: 'output', position: 'right' },
+        { id: 'stats-out-median', label: 'Median', type: 'output', position: 'right' },
+        { id: 'stats-out-mode', label: 'Mode', type: 'output', position: 'bottom' },
+        { id: 'stats-out-stddev', label: 'Std Dev', type: 'output', position: 'bottom' },
+        { id: 'stats-out-variance', label: 'Variance', type: 'output', position: 'bottom' }
+      ],
+      properties: [
+        { id: 'precision', label: 'Decimal Precision', type: 'number', defaultValue: 4 },
+        { id: 'includeRange', label: 'Include Min/Max', type: 'boolean', defaultValue: true },
+        { id: 'populationStdDev', label: 'Population Std Dev', type: 'boolean', defaultValue: false }
+      ],
+      propertyValues: {
+        precision: 4,
+        includeRange: true,
+        populationStdDev: false
+      }
+    }
   }
 ]
+
+// Export the nodeTemplates and categories arrays for API usage
+export const nodeTemplates = sampleNodes
+export const nodeCategories = categories
 
 export const useNodeRepository = create<NodeRepositoryStore>((set, get) => ({
   // Initial state
@@ -817,9 +1308,8 @@ export const useNodeRepository = create<NodeRepositoryStore>((set, get) => ({
       set({ nodes: response.nodes })
     } catch (error) {
       console.error('Failed to load nodes from repository:', error)
-      // Keep existing nodes on error, or load fallback
-      const fallbackNodes = get().nodes.length === 0 ? sampleNodes : get().nodes
-      set({ nodes: fallbackNodes })
+      // No fallback - data must come from backend only
+      set({ nodes: [] })
     }
   },
 
@@ -829,9 +1319,8 @@ export const useNodeRepository = create<NodeRepositoryStore>((set, get) => ({
       set({ categories: apiCategories })
     } catch (error) {
       console.error('Failed to load categories from repository:', error)
-      // Keep existing categories on error, or load fallback
-      const fallbackCategories = get().categories.length === 0 ? categories : get().categories
-      set({ categories: fallbackCategories })
+      // No fallback - data must come from backend only
+      set({ categories: [] })
     }
   },
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Grid, List, Search, Eye, Trash2, Copy, ExternalLink } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { ModalPortal } from './ModalPortal'
+import { Icon } from '@/lib/icons'
 
 interface NodeBrowserProps {
   isOpen: boolean
@@ -215,7 +216,7 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
                         node.metadata.variant === 'gray-600' ? 'bg-gray-600' :
                         'bg-gray-500'
                       }`}>
-                        <node.metadata.icon className="w-5 h-5 text-white" />
+                        <Icon name={node.metadata.icon} className="w-5 h-5 text-white" />
                       </div>
 
                       {/* Info */}
@@ -276,7 +277,7 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
                           node.metadata.variant === 'gray-600' ? 'bg-gray-600' :
                           'bg-gray-500'
                         }`}>
-                          <node.metadata.icon className="w-5 h-5 text-white" />
+                          <Icon name={node.metadata.icon} className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-xs text-gray-500">#{index + 1}</span>
                       </div>

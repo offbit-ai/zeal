@@ -1,12 +1,12 @@
 import { apiClient } from './apiClient'
 import { NodeRepositoryItem, NodeCategory } from '@/store/nodeRepository'
+import { iconLibrary } from '@/lib/icons'
 import { 
   Database, Code, GitBranch, Shuffle, Cloud, 
-  Mail, Bell, Folder, Brain, Cpu, Box,
-  PencilRuler
+  Mail, Brain, Cpu, PencilRuler, Folder
 } from 'lucide-react'
 
-// Icon mapping for categories
+// Icon mapping for categories (Lucide components for categories)
 const CATEGORY_ICONS: Record<string, any> = {
   'data-sources': Database,
   'ai-models': Brain,
@@ -19,18 +19,8 @@ const CATEGORY_ICONS: Record<string, any> = {
   'cloud-services': Cloud
 }
 
-// Icon mapping for node types
-const NODE_ICONS: Record<string, any> = {
-  'database': Database,
-  'ai-model': Brain,
-  'logic': GitBranch,
-  'script': Code,
-  'transform': Shuffle,
-  'communication': Mail,
-  'tool': PencilRuler,
-  'storage': Cpu,
-  'cloud': Cloud
-}
+// Note: Icon mapping is now handled by the Icon Library
+// This eliminates the need for manual icon mapping
 
 export class NodeRepositoryService {
 
@@ -133,13 +123,14 @@ export class NodeRepositoryService {
         type: apiNode.type,
         title: apiNode.title,
         subtitle: apiNode.subtitle,
-        icon: NODE_ICONS[apiNode.type] || Box,
+        icon: apiNode.icon || 'box',
         variant: (apiNode.variant || 'gray-700') as any,
         shape: (apiNode.shape || 'rectangle') as any,
         size: apiNode.size || 'medium',
         ports: apiNode.ports || [],
         properties: NodeRepositoryService.convertApiPropertiesToMetadata(apiNode.properties),
-        requiredEnvVars: apiNode.requiredEnvVars || []
+        requiredEnvVars: apiNode.requiredEnvVars || [],
+        propertyRules: apiNode.propertyRules // Include property rules from template
       },
       isBuiltIn: true,
       isInstalled: true,

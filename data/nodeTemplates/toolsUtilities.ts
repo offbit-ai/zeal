@@ -1,0 +1,1462 @@
+import { NodeTemplate } from './types'
+
+/**
+ * Tools Utilities Node Templates
+ */
+export const toolsUtilitiesTemplates: NodeTemplate[] = [
+  {
+    "id": "tpl_graphql_query",
+    "type": "graphql",
+    "title": "GraphQL Query",
+    "subtitle": "Execute GraphQL Operations",
+    "category": "tools-utilities",
+    "subcategory": "http",
+    "description": "Execute GraphQL queries and mutations",
+    "icon": "layers",
+    "variant": "gray-700",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "variables-in",
+        "label": "Variables",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "data-out",
+        "label": "Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "endpoint": {
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/graphql"
+      },
+      "query": {
+        "type": "code-editor",
+        "language": "graphql",
+        "required": true,
+        "lineNumbers": true,
+        "placeholder": "query GetUsers($limit: Int) {\n  users(limit: $limit) {\n    id\n    name\n    email\n  }\n}"
+      },
+      "operationType": {
+        "type": "select",
+        "options": [
+          "query",
+          "mutation",
+          "subscription"
+        ],
+        "defaultValue": "query"
+      }
+    },
+    "requiredEnvVars": [
+      "GRAPHQL_API_KEY"
+    ],
+    "tags": [
+      "graphql",
+      "api",
+      "query",
+      "mutation"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_http_request",
+    "type": "http",
+    "title": "HTTP Request",
+    "subtitle": "Make HTTP API Calls",
+    "category": "tools-utilities",
+    "subcategory": "http",
+    "description": "Make HTTP requests to external APIs and services",
+    "icon": "globe",
+    "variant": "blue-600",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "data-in",
+        "label": "Request Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "headers-in",
+        "label": "Headers",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "url": {
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/data"
+      },
+      "method": {
+        "type": "select",
+        "options": [
+          "GET",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "defaultValue": "GET"
+      },
+      "timeout": {
+        "type": "number",
+        "defaultValue": 30000,
+        "min": 1000,
+        "max": 300000
+      },
+      "retryCount": {
+        "type": "number",
+        "defaultValue": 3,
+        "min": 0,
+        "max": 10
+      },
+      "followRedirects": {
+        "type": "boolean",
+        "defaultValue": true
+      }
+    },
+    "tags": [
+      "http",
+      "api",
+      "request",
+      "web"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "method"
+      ],
+      "rules": [
+        {
+          "when": "$.method == 'GET'",
+          "updates": {
+            "title": "HTTP GET",
+            "subtitle": "Fetch Data",
+            "description": "Retrieve data from web API"
+          }
+        },
+        {
+          "when": "$.method == 'POST'",
+          "updates": {
+            "title": "HTTP POST",
+            "subtitle": "Send Data",
+            "description": "Send data to web API"
+          }
+        },
+        {
+          "when": "$.method == 'PUT'",
+          "updates": {
+            "title": "HTTP PUT",
+            "subtitle": "Update Resource",
+            "description": "Update or create resource via API"
+          }
+        },
+        {
+          "when": "$.method == 'PATCH'",
+          "updates": {
+            "title": "HTTP PATCH",
+            "subtitle": "Partial Update",
+            "description": "Partially update resource via API"
+          }
+        },
+        {
+          "when": "$.method == 'DELETE'",
+          "updates": {
+            "title": "HTTP DELETE",
+            "subtitle": "Remove Resource",
+            "description": "Delete resource via API"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_rpc_call",
+    "type": "rpc",
+    "title": "RPC Call",
+    "subtitle": "Remote Procedure Call",
+    "category": "tools-utilities",
+    "subcategory": "http",
+    "description": "Make JSON-RPC or gRPC calls",
+    "icon": "server",
+    "variant": "gray-600",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "params-in",
+        "label": "Parameters",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "protocol": {
+        "type": "select",
+        "options": [
+          "json-rpc",
+          "grpc",
+          "xml-rpc"
+        ],
+        "defaultValue": "json-rpc"
+      },
+      "endpoint": {
+        "type": "text",
+        "required": true,
+        "placeholder": "https://rpc.example.com"
+      },
+      "method": {
+        "type": "text",
+        "required": true,
+        "placeholder": "getUser"
+      },
+      "version": {
+        "type": "text",
+        "defaultValue": "2.0"
+      }
+    },
+    "tags": [
+      "rpc",
+      "remote",
+      "api",
+      "protocol"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_absolute",
+    "type": "math",
+    "title": "Absolute",
+    "subtitle": "|A|",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Get absolute value of a number",
+    "icon": "binary",
+    "variant": "black",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "absolute",
+      "abs",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_add",
+    "type": "math",
+    "title": "Add",
+    "subtitle": "A + B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Add two numbers together",
+    "icon": "plus",
+    "variant": "blue-600",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "add",
+      "sum",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_average",
+    "type": "math",
+    "title": "Average",
+    "subtitle": "Calculate Mean",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate average of numbers in input array",
+    "icon": "bar-chart-2",
+    "variant": "green-600",
+    "shape": "diamond",
+    "size": "small",
+    "ports": [
+      {
+        "id": "array-in",
+        "label": "Array",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "avg-out",
+        "label": "Average",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "count-out",
+        "label": "Count",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10
+      }
+    },
+    "tags": [
+      "math",
+      "average",
+      "mean",
+      "aggregate",
+      "statistics"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_clamp",
+    "type": "math",
+    "title": "Clamp",
+    "subtitle": "Limit Range",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Clamp value between min and max",
+    "icon": "maximize",
+    "variant": "orange-700",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "min-in",
+        "label": "Min",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "max-in",
+        "label": "Max",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "clamp",
+      "limit",
+      "range",
+      "constrain"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_divide",
+    "type": "math",
+    "title": "Divide",
+    "subtitle": "A ÷ B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Divide A by B",
+    "icon": "divide",
+    "variant": "orange-700",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      },
+      "handleDivByZero": {
+        "type": "select",
+        "label": "Handle Division by Zero",
+        "options": [
+          "error",
+          "infinity",
+          "zero",
+          "null"
+        ],
+        "defaultValue": "error",
+        "description": "How to handle division by zero"
+      }
+    },
+    "tags": [
+      "math",
+      "divide",
+      "division",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_expression",
+    "type": "math",
+    "title": "Math Expression",
+    "subtitle": "Evaluate Expression",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Evaluate complex mathematical expressions",
+    "icon": "calculator",
+    "variant": "gray-900",
+    "shape": "rectangle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "variables-in",
+        "label": "Variables",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "expression": {
+        "type": "code-editor",
+        "label": "Mathematical Expression",
+        "language": "javascript",
+        "required": true,
+        "lineNumbers": false,
+        "height": 100,
+        "placeholder": "// Available variables from input\n// Example: (a + b) * c / 2\n// Math functions: sqrt, pow, sin, cos, tan, log, etc.",
+        "description": "Enter a mathematical expression using JavaScript syntax"
+      },
+      "precision": {
+        "type": "number",
+        "label": "Result Precision",
+        "defaultValue": 4,
+        "min": 0,
+        "max": 16,
+        "description": "Number of decimal places in the result"
+      },
+      "safeEval": {
+        "type": "boolean",
+        "label": "Safe Evaluation",
+        "defaultValue": true,
+        "description": "Use sandboxed evaluation (recommended)"
+      }
+    },
+    "tags": [
+      "math",
+      "expression",
+      "formula",
+      "calculate",
+      "evaluate"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_min_max",
+    "type": "math",
+    "title": "Min/Max",
+    "subtitle": "Find Min & Max",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Find minimum and maximum values in array",
+    "icon": "arrow-up-down",
+    "variant": "gray-700",
+    "shape": "diamond",
+    "size": "small",
+    "ports": [
+      {
+        "id": "array-in",
+        "label": "Array",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "min-out",
+        "label": "Min",
+        "type": "output",
+        "position": "top"
+      },
+      {
+        "id": "max-out",
+        "label": "Max",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "range-out",
+        "label": "Range",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "min",
+      "max",
+      "range",
+      "aggregate"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_modulo",
+    "type": "math",
+    "title": "Modulo",
+    "subtitle": "A % B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate remainder of A divided by B",
+    "icon": "percent",
+    "variant": "gray-600",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "modulo",
+      "remainder",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_multiply",
+    "type": "math",
+    "title": "Multiply",
+    "subtitle": "A × B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Multiply two numbers",
+    "icon": "x",
+    "variant": "green-600",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "multiply",
+      "times",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_power",
+    "type": "math",
+    "title": "Power",
+    "subtitle": "A ^ B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Raise A to the power of B",
+    "icon": "chevron-up",
+    "variant": "gray-800",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "base-in",
+        "label": "Base",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "exp-in",
+        "label": "Exponent",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "power",
+      "exponent",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_random",
+    "type": "math",
+    "title": "Random",
+    "subtitle": "Generate Random",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Generate random numbers",
+    "icon": "shuffle",
+    "variant": "gray-800",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "trigger-in",
+        "label": "Trigger",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "value-out",
+        "label": "Value",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "min": {
+        "type": "number",
+        "label": "Minimum",
+        "defaultValue": 0,
+        "description": "Minimum value (inclusive)"
+      },
+      "max": {
+        "type": "number",
+        "label": "Maximum",
+        "defaultValue": 1,
+        "description": "Maximum value (exclusive for float)"
+      },
+      "type": {
+        "type": "select",
+        "label": "Number Type",
+        "options": [
+          "float",
+          "integer"
+        ],
+        "defaultValue": "float",
+        "description": "Generate float or integer"
+      },
+      "seed": {
+        "type": "text",
+        "label": "Seed (Optional)",
+        "placeholder": "Leave empty for random",
+        "description": "Seed for reproducible random numbers"
+      }
+    },
+    "tags": [
+      "math",
+      "random",
+      "generate",
+      "number"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_round",
+    "type": "math",
+    "title": "Round",
+    "subtitle": "Round Number",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Round a number to specified precision",
+    "icon": "circle",
+    "variant": "blue-600",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Places",
+        "defaultValue": 0,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places to round to"
+      },
+      "method": {
+        "type": "select",
+        "label": "Rounding Method",
+        "options": [
+          "round",
+          "floor",
+          "ceil",
+          "trunc"
+        ],
+        "defaultValue": "round",
+        "description": "Method to use for rounding"
+      }
+    },
+    "tags": [
+      "math",
+      "round",
+      "floor",
+      "ceil",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "method"
+      ],
+      "rules": [
+        {
+          "when": "$.method == 'round'",
+          "updates": {
+            "title": "Round",
+            "subtitle": "Round Number",
+            "description": "Round a number to specified precision"
+          }
+        },
+        {
+          "when": "$.method == 'floor'",
+          "updates": {
+            "title": "Floor",
+            "subtitle": "Round Down",
+            "description": "Round down to the nearest integer or precision"
+          }
+        },
+        {
+          "when": "$.method == 'ceil'",
+          "updates": {
+            "title": "Ceiling",
+            "subtitle": "Round Up",
+            "description": "Round up to the nearest integer or precision"
+          }
+        },
+        {
+          "when": "$.method == 'trunc'",
+          "updates": {
+            "title": "Truncate",
+            "subtitle": "Remove Decimals",
+            "description": "Remove decimal places without rounding"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_math_sqrt",
+    "type": "math",
+    "title": "Square Root",
+    "subtitle": "√A",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate square root of a number",
+    "icon": "radical",
+    "variant": "gray-900",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      },
+      "handleNegative": {
+        "type": "select",
+        "label": "Handle Negative Numbers",
+        "options": [
+          "error",
+          "absolute",
+          "complex"
+        ],
+        "defaultValue": "error",
+        "description": "How to handle negative input values"
+      }
+    },
+    "tags": [
+      "math",
+      "sqrt",
+      "root",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_statistics",
+    "type": "math",
+    "title": "Statistics",
+    "subtitle": "Statistical Analysis",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate statistical measures of data",
+    "icon": "chart-area",
+    "variant": "gray-900",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "mean-out",
+        "label": "Mean",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "median-out",
+        "label": "Median",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "mode-out",
+        "label": "Mode",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "std-out",
+        "label": "Std Dev",
+        "type": "output",
+        "position": "bottom"
+      },
+      {
+        "id": "variance-out",
+        "label": "Variance",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 4,
+        "min": 0,
+        "max": 10
+      },
+      "sampleCorrection": {
+        "type": "boolean",
+        "label": "Sample Correction",
+        "defaultValue": true,
+        "description": "Use Bessel's correction for sample variance"
+      }
+    },
+    "tags": [
+      "math",
+      "statistics",
+      "mean",
+      "median",
+      "mode",
+      "variance"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_subtract",
+    "type": "math",
+    "title": "Subtract",
+    "subtitle": "A - B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Subtract B from A",
+    "icon": "minus",
+    "variant": "gray-700",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "subtract",
+      "minus",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_sum",
+    "type": "math",
+    "title": "Sum",
+    "subtitle": "Sum Array",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate sum of all numbers in input array",
+    "icon": "sigma",
+    "variant": "blue-600",
+    "shape": "diamond",
+    "size": "small",
+    "ports": [
+      {
+        "id": "array-in",
+        "label": "Array",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "sum-out",
+        "label": "Sum",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "ignoreNonNumeric": {
+        "type": "boolean",
+        "label": "Ignore Non-Numeric",
+        "defaultValue": true,
+        "description": "Skip non-numeric values instead of erroring"
+      }
+    },
+    "tags": [
+      "math",
+      "sum",
+      "aggregate",
+      "array"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_json_parser",
+    "type": "parser",
+    "title": "JSON Parser",
+    "subtitle": "Parse & Transform JSON",
+    "category": "tools-utilities",
+    "subcategory": "text",
+    "description": "Parse and transform JSON data",
+    "icon": "braces",
+    "variant": "green-600",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "json-in",
+        "label": "JSON",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "schema-in",
+        "label": "Schema",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "parsed-out",
+        "label": "Parsed",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "jsonPath": {
+        "type": "text",
+        "placeholder": "$.users[*].email"
+      },
+      "strictMode": {
+        "type": "boolean",
+        "defaultValue": true
+      },
+      "allowComments": {
+        "type": "boolean",
+        "defaultValue": false
+      },
+      "validateSchema": {
+        "type": "boolean",
+        "defaultValue": false
+      }
+    },
+    "tags": [
+      "json",
+      "parser",
+      "transform",
+      "data"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_regex_matcher",
+    "type": "text",
+    "title": "Regex Matcher",
+    "subtitle": "Pattern Matching",
+    "category": "tools-utilities",
+    "subcategory": "text",
+    "description": "Match and extract data using regular expressions",
+    "icon": "regex",
+    "variant": "orange-700",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "text-in",
+        "label": "Text",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "pattern-in",
+        "label": "Pattern",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "matches-out",
+        "label": "Matches",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "groups-out",
+        "label": "Groups",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "pattern": {
+        "type": "text",
+        "required": true,
+        "placeholder": "\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b"
+      },
+      "flags": {
+        "type": "select",
+        "multiple": true,
+        "options": [
+          "i",
+          "g",
+          "m",
+          "s"
+        ],
+        "defaultValue": [
+          "g"
+        ]
+      },
+      "returnType": {
+        "type": "select",
+        "options": [
+          "matches",
+          "groups",
+          "split",
+          "replace"
+        ],
+        "defaultValue": "matches"
+      }
+    },
+    "tags": [
+      "regex",
+      "pattern",
+      "text",
+      "match"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_xml_parser",
+    "type": "parser",
+    "title": "XML Parser",
+    "subtitle": "Parse XML Documents",
+    "category": "tools-utilities",
+    "subcategory": "text",
+    "description": "Parse and transform XML documents",
+    "icon": "code",
+    "variant": "orange-600",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "xml-in",
+        "label": "XML",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "xpath-in",
+        "label": "XPath",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "data-out",
+        "label": "Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "xpath": {
+        "type": "text",
+        "placeholder": "//users/user[@active='true']"
+      },
+      "namespaces": {
+        "type": "textarea",
+        "placeholder": "{ \"ns\": \"http://example.com/ns\" }"
+      },
+      "outputFormat": {
+        "type": "select",
+        "options": [
+          "json",
+          "array",
+          "object"
+        ],
+        "defaultValue": "json"
+      }
+    },
+    "tags": [
+      "xml",
+      "parser",
+      "xpath",
+      "data"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_date_time",
+    "type": "datetime",
+    "title": "Date/Time",
+    "subtitle": "Date Operations",
+    "category": "tools-utilities",
+    "subcategory": "utilities",
+    "description": "Parse, format, and manipulate dates and times",
+    "icon": "calendar",
+    "variant": "blue-600",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "date-in",
+        "label": "Date",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "formatted-out",
+        "label": "Formatted",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "timestamp-out",
+        "label": "Timestamp",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "operation": {
+        "type": "select",
+        "options": [
+          "format",
+          "parse",
+          "add",
+          "subtract",
+          "diff",
+          "now"
+        ],
+        "defaultValue": "format"
+      },
+      "format": {
+        "type": "text",
+        "defaultValue": "YYYY-MM-DD HH:mm:ss"
+      },
+      "timezone": {
+        "type": "text",
+        "defaultValue": "UTC"
+      },
+      "unit": {
+        "type": "select",
+        "options": [
+          "years",
+          "months",
+          "days",
+          "hours",
+          "minutes",
+          "seconds"
+        ],
+        "defaultValue": "days"
+      }
+    },
+    "tags": [
+      "date",
+      "time",
+      "datetime",
+      "format"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  }
+]

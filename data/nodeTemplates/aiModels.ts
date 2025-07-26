@@ -1,0 +1,1013 @@
+import { NodeTemplate } from './types'
+
+/**
+ * Ai Models Node Templates
+ */
+export const aiModelsTemplates: NodeTemplate[] = [
+  {
+    "id": "tpl_langchain_agent",
+    "type": "ai-agent",
+    "title": "LangChain Agent",
+    "subtitle": "AI Agent with Tools",
+    "category": "ai-models",
+    "subcategory": "agent-tools",
+    "description": "LangChain agent with access to multiple tools",
+    "icon": "langchain",
+    "variant": "orange-600",
+    "shape": "rectangle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "query-in",
+        "label": "Query",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "tools-in",
+        "label": "Tools Config",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "steps-out",
+        "label": "Steps",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "agentType": {
+        "type": "select",
+        "options": [
+          "zero-shot-react",
+          "conversational",
+          "plan-and-execute"
+        ],
+        "defaultValue": "zero-shot-react"
+      },
+      "enabledTools": {
+        "type": "select",
+        "multiple": true,
+        "options": [
+          "search",
+          "calculator",
+          "wikipedia",
+          "weather",
+          "news"
+        ],
+        "defaultValue": [
+          "search",
+          "calculator"
+        ]
+      },
+      "maxIterations": {
+        "type": "number",
+        "defaultValue": 5,
+        "min": 1,
+        "max": 20
+      },
+      "memory": {
+        "type": "boolean",
+        "defaultValue": true
+      }
+    },
+    "requiredEnvVars": [
+      "OPENAI_API_KEY",
+      "SERPAPI_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "agent",
+      "langchain",
+      "tools"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "agentType"
+      ],
+      "rules": [
+        {
+          "when": "$.agentType == 'zero-shot-react'",
+          "updates": {
+            "title": "ReAct Agent",
+            "subtitle": "Reasoning + Acting",
+            "description": "Agent that reasons about actions and observes results"
+          }
+        },
+        {
+          "when": "$.agentType == 'conversational'",
+          "updates": {
+            "title": "Conversational Agent",
+            "subtitle": "Memory-Aware",
+            "description": "Agent that maintains conversation context"
+          }
+        },
+        {
+          "when": "$.agentType == 'plan-and-execute'",
+          "updates": {
+            "title": "Planning Agent",
+            "subtitle": "Strategic Execution",
+            "description": "Agent that plans tasks before execution"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_replicate_agent",
+    "type": "ai-agent",
+    "title": "Replicate AI Agent",
+    "subtitle": "Custom Model Runner",
+    "category": "ai-models",
+    "subcategory": "agents",
+    "description": "Run custom AI models from Replicate",
+    "icon": "brain",
+    "variant": "gray-900",
+    "shape": "rectangle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "input-in",
+        "label": "Input",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "config-in",
+        "label": "Config",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "output-out",
+        "label": "Output",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "metadata-out",
+        "label": "Metadata",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "modelId": {
+        "type": "text",
+        "required": true,
+        "placeholder": "stability-ai/stable-diffusion"
+      },
+      "version": {
+        "type": "text",
+        "placeholder": "latest"
+      },
+      "inputMapping": {
+        "type": "textarea",
+        "placeholder": "{ \"prompt\": \"$input.text\" }"
+      },
+      "timeout": {
+        "type": "number",
+        "defaultValue": 60000
+      }
+    },
+    "requiredEnvVars": [
+      "REPLICATE_API_TOKEN"
+    ],
+    "tags": [
+      "ai",
+      "agent",
+      "replicate",
+      "custom-model"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_claude",
+    "type": "ai-model",
+    "title": "Claude",
+    "subtitle": "Anthropic AI Assistant",
+    "category": "ai-models",
+    "subcategory": "llm",
+    "description": "Anthropic Claude for text generation and analysis",
+    "icon": "anthropic",
+    "variant": "black",
+    "shape": "circle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "context-in",
+        "label": "Context",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "usage-out",
+        "label": "Usage",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "model": {
+        "type": "select",
+        "options": [
+          "claude-3-5-sonnet",
+          "claude-3-opus",
+          "claude-3-sonnet",
+          "claude-3-haiku"
+        ],
+        "defaultValue": "claude-3-5-sonnet"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 4000
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "systemPrompt": {
+        "type": "textarea",
+        "placeholder": "You are a helpful assistant...",
+        "description": "Define the AI assistant behavior and context"
+      },
+      "responseRules": {
+        "type": "rules",
+        "availableFields": [
+          "Response Length",
+          "Confidence Score",
+          "Content Type",
+          "Language",
+          "Sentiment",
+          "Topic"
+        ],
+        "availableOperators": [
+          "is",
+          "is_not",
+          "contains",
+          "not_contains",
+          "greater_than",
+          "less_than"
+        ],
+        "description": "Define rules to process and route AI responses based on content analysis"
+      }
+    },
+    "requiredEnvVars": [
+      "ANTHROPIC_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "llm",
+      "claude",
+      "text-generation"
+    ],
+    "version": "1.2.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "model"
+      ],
+      "rules": [
+        {
+          "when": "$.model == 'claude-3-5-sonnet'",
+          "updates": {
+            "title": "Claude 3.5 Sonnet",
+            "subtitle": "Most Intelligent",
+            "description": "Most capable Claude model with advanced reasoning"
+          }
+        },
+        {
+          "when": "$.model == 'claude-3-opus'",
+          "updates": {
+            "title": "Claude 3 Opus",
+            "subtitle": "Powerful & Complex",
+            "description": "Excellent at complex tasks requiring deep understanding"
+          }
+        },
+        {
+          "when": "$.model == 'claude-3-sonnet'",
+          "updates": {
+            "title": "Claude 3 Sonnet",
+            "subtitle": "Balanced Performance",
+            "description": "Good balance of capability and speed"
+          }
+        },
+        {
+          "when": "$.model == 'claude-3-haiku'",
+          "updates": {
+            "title": "Claude 3 Haiku",
+            "subtitle": "Fast & Light",
+            "description": "Fastest Claude model for simple tasks"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_gemini",
+    "type": "ai-model",
+    "title": "Gemini",
+    "subtitle": "Google Gemini AI",
+    "category": "ai-models",
+    "subcategory": "llm",
+    "description": "Google Gemini for multimodal AI tasks",
+    "icon": "gemini",
+    "variant": "blue-600",
+    "shape": "circle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "media-in",
+        "label": "Media",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "analysis-out",
+        "label": "Analysis",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "model": {
+        "type": "select",
+        "options": [
+          "gemini-pro",
+          "gemini-pro-vision"
+        ],
+        "defaultValue": "gemini-pro"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 8192
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "safetySettings": {
+        "type": "select",
+        "options": [
+          "block_none",
+          "block_few",
+          "block_some",
+          "block_most"
+        ],
+        "defaultValue": "block_few"
+      }
+    },
+    "requiredEnvVars": [
+      "GOOGLE_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "llm",
+      "google",
+      "gemini",
+      "multimodal"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "model"
+      ],
+      "rules": [
+        {
+          "when": "$.model == 'gemini-pro'",
+          "updates": {
+            "title": "Gemini Pro",
+            "subtitle": "Text Generation",
+            "description": "Google's advanced text generation model"
+          }
+        },
+        {
+          "when": "$.model == 'gemini-pro-vision'",
+          "updates": {
+            "title": "Gemini Pro Vision",
+            "subtitle": "Multimodal AI",
+            "description": "Process both text and images"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_openai_gpt",
+    "type": "ai-model",
+    "title": "OpenAI GPT",
+    "subtitle": "GPT-4 Language Model",
+    "category": "ai-models",
+    "subcategory": "llm",
+    "description": "OpenAI GPT models for text generation and analysis",
+    "icon": "openai",
+    "variant": "green-600",
+    "shape": "circle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "context-in",
+        "label": "Context",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "usage-out",
+        "label": "Usage",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "model": {
+        "type": "select",
+        "options": [
+          "gpt-4",
+          "gpt-4-turbo",
+          "gpt-3.5-turbo"
+        ],
+        "defaultValue": "gpt-4"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 4000
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 2,
+        "step": 0.1
+      },
+      "topP": {
+        "type": "number",
+        "defaultValue": 1,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "systemPrompt": {
+        "type": "textarea",
+        "placeholder": "You are a helpful assistant...",
+        "description": "System message to guide model behavior"
+      }
+    },
+    "requiredEnvVars": [
+      "OPENAI_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "llm",
+      "openai",
+      "gpt",
+      "text-generation"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "model"
+      ],
+      "rules": [
+        {
+          "when": "$.model == 'gpt-4'",
+          "updates": {
+            "title": "GPT-4",
+            "subtitle": "Most Capable",
+            "description": "OpenAI most advanced language model"
+          }
+        },
+        {
+          "when": "$.model == 'gpt-4-turbo'",
+          "updates": {
+            "title": "GPT-4 Turbo",
+            "subtitle": "Fast & Advanced",
+            "description": "Faster GPT-4 with larger context window"
+          }
+        },
+        {
+          "when": "$.model == 'gpt-3.5-turbo'",
+          "updates": {
+            "title": "GPT-3.5 Turbo",
+            "subtitle": "Fast & Affordable",
+            "description": "Cost-effective model for simpler tasks"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_openrouter",
+    "type": "ai-model",
+    "title": "OpenRouter",
+    "subtitle": "Multi-Provider AI",
+    "category": "ai-models",
+    "subcategory": "llm",
+    "description": "Access multiple AI models through OpenRouter unified API",
+    "icon": "brain",
+    "variant": "purple-600",
+    "shape": "hexagon",
+    "size": "large",
+    "ports": [
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "context-in",
+        "label": "Context",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "usage-out",
+        "label": "Usage & Cost",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "provider": {
+        "type": "select",
+        "label": "Model Provider",
+        "options": [
+          "openai",
+          "anthropic",
+          "google",
+          "meta",
+          "mistral",
+          "cohere"
+        ],
+        "defaultValue": "openai",
+        "description": "Select the AI model provider"
+      },
+      "model": {
+        "type": "select",
+        "label": "Model",
+        "options": [
+          "gpt-4-turbo",
+          "gpt-4",
+          "gpt-3.5-turbo",
+          "claude-3-opus",
+          "claude-3-sonnet",
+          "claude-3-haiku",
+          "gemini-pro",
+          "gemini-pro-vision",
+          "llama-2-70b-chat",
+          "codellama-34b",
+          "mixtral-8x7b",
+          "mistral-7b",
+          "command"
+        ],
+        "defaultValue": "gpt-4-turbo",
+        "description": "Select the specific model (options vary by provider)"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 8192
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "stream": {
+        "type": "boolean",
+        "defaultValue": false,
+        "description": "Stream the response"
+      }
+    },
+    "requiredEnvVars": ["OPENROUTER_API_KEY"],
+    "tags": [
+      "ai",
+      "llm",
+      "openrouter",
+      "multi-provider",
+      "unified-api"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": ["provider", "model"],
+      "rules": [
+        {
+          "when": "$.provider == 'openai' && $.model == 'gpt-4-turbo'",
+          "updates": {
+            "title": "OpenRouter GPT-4",
+            "subtitle": "GPT-4 Turbo",
+            "icon": "openai",
+            "variant": "green-600",
+            "description": "OpenAI GPT-4 Turbo via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'openai' && $.model == 'gpt-4'",
+          "updates": {
+            "title": "OpenRouter GPT-4",
+            "subtitle": "GPT-4 Standard",
+            "icon": "openai",
+            "variant": "green-600",
+            "description": "OpenAI GPT-4 via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'openai' && $.model == 'gpt-3.5-turbo'",
+          "updates": {
+            "title": "OpenRouter GPT-3.5",
+            "subtitle": "GPT-3.5 Turbo",
+            "icon": "openai",
+            "variant": "green-500",
+            "description": "OpenAI GPT-3.5 Turbo via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'anthropic' && $.model == 'claude-3-opus'",
+          "updates": {
+            "title": "OpenRouter Claude",
+            "subtitle": "Claude 3 Opus",
+            "icon": "anthropic",
+            "variant": "black",
+            "description": "Anthropic Claude 3 Opus via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'anthropic' && $.model == 'claude-3-sonnet'",
+          "updates": {
+            "title": "OpenRouter Claude",
+            "subtitle": "Claude 3 Sonnet",
+            "icon": "anthropic",
+            "variant": "gray-800",
+            "description": "Anthropic Claude 3 Sonnet via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'anthropic' && $.model == 'claude-3-haiku'",
+          "updates": {
+            "title": "OpenRouter Claude",
+            "subtitle": "Claude 3 Haiku",
+            "icon": "anthropic",
+            "variant": "gray-700",
+            "description": "Anthropic Claude 3 Haiku via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'google' && $.model == 'gemini-pro'",
+          "updates": {
+            "title": "OpenRouter Gemini",
+            "subtitle": "Gemini Pro",
+            "icon": "gemini",
+            "variant": "blue-600",
+            "description": "Google Gemini Pro via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'google' && $.model == 'gemini-pro-vision'",
+          "updates": {
+            "title": "OpenRouter Gemini",
+            "subtitle": "Gemini Pro Vision",
+            "icon": "gemini",
+            "variant": "blue-700",
+            "description": "Google Gemini Pro Vision via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'meta' && $.model == 'llama-2-70b-chat'",
+          "updates": {
+            "title": "OpenRouter Llama 2",
+            "subtitle": "70B Chat",
+            "icon": "meta",
+            "variant": "blue-500",
+            "description": "Meta Llama 2 70B Chat via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'meta' && $.model == 'codellama-34b'",
+          "updates": {
+            "title": "OpenRouter Code Llama",
+            "subtitle": "34B Code",
+            "icon": "meta",
+            "variant": "indigo-600",
+            "description": "Meta Code Llama 34B via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'mistral' && $.model == 'mixtral-8x7b'",
+          "updates": {
+            "title": "OpenRouter Mixtral",
+            "subtitle": "8x7B MoE",
+            "icon": "mistral",
+            "variant": "orange-600",
+            "description": "Mistral Mixtral 8x7B via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'mistral' && $.model == 'mistral-7b'",
+          "updates": {
+            "title": "OpenRouter Mistral",
+            "subtitle": "7B Base",
+            "icon": "mistral",
+            "variant": "orange-500",
+            "description": "Mistral 7B via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'cohere' && $.model == 'command'",
+          "updates": {
+            "title": "OpenRouter Command",
+            "subtitle": "Command Model",
+            "icon": "cohere",
+            "variant": "red-600",
+            "description": "Cohere Command via OpenRouter"
+          }
+        },
+        {
+          "when": "$.provider == 'openai'",
+          "updates": {
+            "icon": "openai",
+            "variant": "green-600"
+          }
+        },
+        {
+          "when": "$.provider == 'anthropic'",
+          "updates": {
+            "icon": "anthropic",
+            "variant": "black"
+          }
+        },
+        {
+          "when": "$.provider == 'google'",
+          "updates": {
+            "icon": "gemini",
+            "variant": "blue-600"
+          }
+        },
+        {
+          "when": "$.provider == 'meta'",
+          "updates": {
+            "icon": "meta",
+            "variant": "blue-500"
+          }
+        },
+        {
+          "when": "$.provider == 'mistral'",
+          "updates": {
+            "icon": "mistral",
+            "variant": "orange-600"
+          }
+        },
+        {
+          "when": "$.provider == 'cohere'",
+          "updates": {
+            "icon": "cohere",
+            "variant": "red-600"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_huggingface",
+    "type": "ai-model",
+    "title": "HuggingFace",
+    "subtitle": "Open Model Hub",
+    "category": "ai-models",
+    "subcategory": "llm",
+    "description": "Access thousands of open-source models via HuggingFace Inference API",
+    "icon": "huggingface",
+    "variant": "yellow-600",
+    "shape": "hexagon",
+    "size": "large",
+    "ports": [
+      {
+        "id": "input-in",
+        "label": "Input",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "params-in",
+        "label": "Parameters",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "output-out",
+        "label": "Output",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "stats-out",
+        "label": "Stats",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "taskType": {
+        "type": "select",
+        "label": "Task Type",
+        "options": [
+          "text-generation",
+          "text-classification",
+          "translation",
+          "summarization",
+          "question-answering",
+          "image-classification",
+          "object-detection",
+          "text-to-image"
+        ],
+        "defaultValue": "text-generation",
+        "description": "Type of AI task to perform"
+      },
+      "model": {
+        "type": "text",
+        "label": "Model ID",
+        "placeholder": "gpt2, bert-base-uncased, stable-diffusion-v1-4",
+        "description": "HuggingFace model identifier"
+      },
+      "useGPU": {
+        "type": "boolean",
+        "defaultValue": false,
+        "description": "Use GPU acceleration (requires Pro account)"
+      },
+      "waitForModel": {
+        "type": "boolean",
+        "defaultValue": true,
+        "description": "Wait for model to load if not ready"
+      },
+      "maxLength": {
+        "type": "number",
+        "defaultValue": 100,
+        "min": 1,
+        "max": 2048
+      }
+    },
+    "requiredEnvVars": ["HUGGINGFACE_API_KEY"],
+    "tags": [
+      "ai",
+      "llm",
+      "huggingface",
+      "open-source",
+      "multi-model"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": ["taskType"],
+      "rules": [
+        {
+          "when": "$.taskType == 'text-generation'",
+          "updates": {
+            "title": "HF Text Generation",
+            "subtitle": "Generate Text",
+            "icon": "file-text",
+            "variant": "yellow-600",
+            "description": "Generate text using language models"
+          }
+        },
+        {
+          "when": "$.taskType == 'text-classification'",
+          "updates": {
+            "title": "HF Classification",
+            "subtitle": "Classify Text",
+            "icon": "tag",
+            "variant": "green-600",
+            "description": "Classify text into categories"
+          }
+        },
+        {
+          "when": "$.taskType == 'translation'",
+          "updates": {
+            "title": "HF Translation",
+            "subtitle": "Translate Text",
+            "icon": "globe",
+            "variant": "blue-600",
+            "description": "Translate text between languages"
+          }
+        },
+        {
+          "when": "$.taskType == 'summarization'",
+          "updates": {
+            "title": "HF Summarization",
+            "subtitle": "Summarize Text",
+            "icon": "file-minus",
+            "variant": "purple-600",
+            "description": "Generate text summaries"
+          }
+        },
+        {
+          "when": "$.taskType == 'question-answering'",
+          "updates": {
+            "title": "HF Q&A",
+            "subtitle": "Answer Questions",
+            "icon": "help-circle",
+            "variant": "indigo-600",
+            "description": "Answer questions based on context"
+          }
+        },
+        {
+          "when": "$.taskType == 'image-classification'",
+          "updates": {
+            "title": "HF Image Classifier",
+            "subtitle": "Classify Images",
+            "icon": "image",
+            "variant": "pink-600",
+            "description": "Classify images into categories"
+          }
+        },
+        {
+          "when": "$.taskType == 'object-detection'",
+          "updates": {
+            "title": "HF Object Detection",
+            "subtitle": "Detect Objects",
+            "icon": "scan",
+            "variant": "red-600",
+            "description": "Detect objects in images"
+          }
+        },
+        {
+          "when": "$.taskType == 'text-to-image'",
+          "updates": {
+            "title": "HF Image Generation",
+            "subtitle": "Generate Images",
+            "icon": "image-plus",
+            "variant": "orange-600",
+            "description": "Generate images from text descriptions"
+          }
+        }
+      ]
+    }
+  }
+]

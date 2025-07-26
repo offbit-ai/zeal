@@ -2,6 +2,8 @@ import { Search, X, Download, Plus, Check, Filter } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNodeRepository, NodeRepositoryItem } from '@/store/nodeRepository'
 import { useWorkflowStore } from '@/store/workflowStore'
+import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
+import { Icon } from '@/lib/icons'
 
 interface SearchModalProps {
   isOpen: boolean
@@ -61,15 +63,47 @@ export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalPro
     return () => window.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
-  const handleAddToCanvas = (nodeItem: NodeRepositoryItem) => {
+  const handleAddToCanvas = async (nodeItem: NodeRepositoryItem) => {
+    console.log('🔍 SEARCH: Adding node from search modal:', {
+      id: nodeItem.id,
+      hasMetadata: !!nodeItem.metadata,
+      metadataKeys: nodeItem.metadata ? Object.keys(nodeItem.metadata) : [],
+      hasPropertyRules: !!nodeItem.metadata?.propertyRules,
+      propertyRules: nodeItem.metadata?.propertyRules
+    })
+    
     if (!nodeItem.isInstalled) {
       installNode(nodeItem.id)
     }
     
+    // Initialize property values with defaults from the template
+    const propertyValues: Record<string, any> = {}
+    if (nodeItem.metadata.properties) {
+      nodeItem.metadata.properties.forEach((prop: any) => {
+        if (prop.defaultValue !== undefined) {
+          propertyValues[prop.id] = prop.defaultValue
+        }
+      })
+    }
+    
     // Create a new instance with unique ID from the template
-    const instanceMetadata = {
+    let instanceMetadata = {
       ...nodeItem.metadata,
-      id: `${nodeItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Generate unique instance ID
+      id: `${nodeItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique instance ID
+      propertyValues // Include initialized property values
+    }
+    
+    console.log('🔍 SEARCH: Instance metadata after creation:', {
+      hasPropertyRules: !!instanceMetadata.propertyRules,
+      metadataKeys: Object.keys(instanceMetadata),
+      propertyRules: instanceMetadata.propertyRules
+    })
+    
+    // Apply dynamic metadata updates based on default values
+    try {
+      instanceMetadata = await updateDynamicNodeMetadata(instanceMetadata, propertyValues, nodeItem.metadata.propertyRules)
+    } catch (error) {
+      console.error('Failed to apply initial dynamic metadata:', error)
     }
     
     // Add to canvas at center with slight randomization
@@ -209,7 +243,7 @@ export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalPro
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-gray-100 rounded-md">
-                            <node.metadata.icon className="w-5 h-5 text-gray-700" />
+                            <Icon name={node.metadata.icon} className="w-5 h-5 text-gray-700" />
                           </div>
                           <div>
                             <h3 className="font-medium text-gray-900">{node.name}</h3>

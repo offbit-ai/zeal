@@ -8,7 +8,7 @@ import {
   mockDelay
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
-import nodeTemplatesData from '@/data/nodeTemplates.json'
+import { allNodeTemplates } from '@/data/nodeTemplates'
 
 interface NodeTemplateResponse {
   id: string
@@ -35,13 +35,38 @@ interface NodeTemplateResponse {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  propertyRules?: {
+    triggers: string[]
+    rules: Array<{
+      when: string
+      updates: Record<string, any>
+    }>
+  }
 }
 
-// Initialize node templates from JSON data with timestamps
-const nodeTemplatesStore: NodeTemplateResponse[] = nodeTemplatesData.map((template: any, index: number) => ({
-  ...template,
+// Initialize node templates from modules with proper timestamps
+const nodeTemplatesStore: NodeTemplateResponse[] = allNodeTemplates.map((template: any, index: number) => ({
+  // Map JSON structure to API structure
+  id: template.id,
+  type: template.type,
+  title: template.title,
+  subtitle: template.subtitle,
+  category: template.category,
+  subcategory: template.subcategory,
+  description: template.description,
+  icon: template.icon,
+  variant: template.variant,
+  shape: template.shape,
+  size: template.size,
+  ports: template.ports,
+  properties: template.properties,
+  requiredEnvVars: template.requiredEnvVars,
+  tags: template.tags,
+  version: template.version || '1.0.0',
+  isActive: template.isActive !== false, // Default to true unless explicitly false
   createdAt: template.createdAt || new Date(Date.now() - 86400000 * (30 - index)).toISOString(),
-  updatedAt: template.updatedAt || new Date().toISOString()
+  updatedAt: template.updatedAt || new Date().toISOString(),
+  ...(template.propertyRules ? { propertyRules: template.propertyRules } : {})
 }))
 
 // GET /api/nodes - List node templates
@@ -53,8 +78,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
   
-  // Filter node templates from backend store
-  let filteredNodes = nodeTemplatesStore.filter(node => node.isActive)
+  // Get all node templates from JSON data (no isActive filter)
+  let filteredNodes = [...nodeTemplatesStore]
   
   if (filters.category) {
     filteredNodes = filteredNodes.filter(node => 

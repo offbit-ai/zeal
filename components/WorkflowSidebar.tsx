@@ -3,6 +3,8 @@ import { useNodeRepository } from '@/store/nodeRepository'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { Tooltip } from './Tooltip'
 import { Plus } from 'lucide-react'
+import { Icon } from '@/lib/icons'
+import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
 
 interface WorkflowSidebarProps {
   isCollapsed?: boolean
@@ -38,11 +40,43 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
     nodes: installedNodes.filter(node => node.category === category.id)
   })).filter(category => category.nodes.length > 0)
 
-  const handleAddNode = (nodeItem: any) => {
+  const handleAddNode = async (nodeItem: any) => {
+    console.log('🔧 SIDEBAR: Adding node, nodeItem structure:', {
+      id: nodeItem.id,
+      hasMetadata: !!nodeItem.metadata,
+      metadataKeys: nodeItem.metadata ? Object.keys(nodeItem.metadata) : [],
+      hasPropertyRules: !!nodeItem.metadata?.propertyRules,
+      propertyRules: nodeItem.metadata?.propertyRules
+    })
+    
+    // Initialize property values with defaults from the template
+    const propertyValues: Record<string, any> = {}
+    if (nodeItem.metadata.properties) {
+      nodeItem.metadata.properties.forEach((prop: any) => {
+        if (prop.defaultValue !== undefined) {
+          propertyValues[prop.id] = prop.defaultValue
+        }
+      })
+    }
+    
     // Create a new instance with unique ID from the template
-    const instanceMetadata = {
+    let instanceMetadata = {
       ...nodeItem.metadata,
-      id: `${nodeItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Generate unique instance ID
+      id: `${nodeItem.id}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`, // Generate unique instance ID
+      propertyValues, // Include initialized property values
+      propertyRules: nodeItem.metadata.propertyRules // Preserve property rules from template
+    }
+    
+    console.log('🔧 SIDEBAR: Instance metadata after creation:', {
+      hasPropertyRules: !!instanceMetadata.propertyRules,
+      metadataKeys: Object.keys(instanceMetadata)
+    })
+    
+    // Apply dynamic metadata updates based on default values
+    try {
+      instanceMetadata = await updateDynamicNodeMetadata(instanceMetadata, propertyValues, nodeItem.metadata.propertyRules)
+    } catch (error) {
+      console.error('Failed to apply initial dynamic metadata:', error)
     }
     
     // Add to canvas at center with slight randomization
@@ -109,7 +143,7 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
                     onClick={() => handleAddNode(node)}
                   >
                     <div className="p-1.5 bg-gray-100 rounded-md group-hover:bg-gray-200 transition-colors">
-                      <node.metadata.icon className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
+                      <Icon name={node.metadata.icon} className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">

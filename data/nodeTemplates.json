@@ -7,23 +7,59 @@
     "category": "data-sources",
     "subcategory": "databases",
     "description": "Connect to PostgreSQL database and return connection pool ID",
-    "icon": "database",
+    "icon": "postgresql",
     "variant": "black",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "pool-out", "label": "Pool ID", "type": "output", "position": "right" },
-      { "id": "status-out", "label": "Status", "type": "output", "position": "bottom" }
+      {
+        "id": "pool-out",
+        "label": "Pool ID",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "status-out",
+        "label": "Status",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "host": { "type": "text", "required": true, "placeholder": "localhost" },
-      "port": { "type": "number", "defaultValue": 5432 },
-      "database": { "type": "text", "required": true, "placeholder": "myapp" },
-      "maxConnections": { "type": "number", "defaultValue": 10 },
-      "connectionTimeout": { "type": "number", "defaultValue": 30000 }
+      "host": {
+        "type": "text",
+        "required": true,
+        "placeholder": "localhost"
+      },
+      "port": {
+        "type": "number",
+        "defaultValue": 5432
+      },
+      "database": {
+        "type": "text",
+        "required": true,
+        "placeholder": "myapp"
+      },
+      "maxConnections": {
+        "type": "number",
+        "defaultValue": 10
+      },
+      "connectionTimeout": {
+        "type": "number",
+        "defaultValue": 30000
+      }
     },
-    "requiredEnvVars": ["DATABASE_URL", "DB_PASSWORD", "DB_USER"],
-    "tags": ["database", "sql", "postgresql", "pool"],
+    "requiredEnvVars": [
+      "DATABASE_URL",
+      "DB_PASSWORD",
+      "DB_USER"
+    ],
+    "tags": [
+      "database",
+      "sql",
+      "postgresql",
+      "pool"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -35,23 +71,59 @@
     "category": "data-sources",
     "subcategory": "databases",
     "description": "Connect to MySQL database and return connection pool ID",
-    "icon": "database",
+    "icon": "mysql",
     "variant": "gray-700",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "pool-out", "label": "Pool ID", "type": "output", "position": "right" },
-      { "id": "status-out", "label": "Status", "type": "output", "position": "bottom" }
+      {
+        "id": "pool-out",
+        "label": "Pool ID",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "status-out",
+        "label": "Status",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "host": { "type": "text", "required": true, "placeholder": "localhost" },
-      "port": { "type": "number", "defaultValue": 3306 },
-      "database": { "type": "text", "required": true, "placeholder": "myapp" },
-      "maxConnections": { "type": "number", "defaultValue": 10 },
-      "connectionTimeout": { "type": "number", "defaultValue": 30000 }
+      "host": {
+        "type": "text",
+        "required": true,
+        "placeholder": "localhost"
+      },
+      "port": {
+        "type": "number",
+        "defaultValue": 3306
+      },
+      "database": {
+        "type": "text",
+        "required": true,
+        "placeholder": "myapp"
+      },
+      "maxConnections": {
+        "type": "number",
+        "defaultValue": 10
+      },
+      "connectionTimeout": {
+        "type": "number",
+        "defaultValue": 30000
+      }
     },
-    "requiredEnvVars": ["MYSQL_URL", "MYSQL_PASSWORD", "MYSQL_USER"],
-    "tags": ["database", "sql", "mysql", "pool"],
+    "requiredEnvVars": [
+      "MYSQL_URL",
+      "MYSQL_PASSWORD",
+      "MYSQL_USER"
+    ],
+    "tags": [
+      "database",
+      "sql",
+      "mysql",
+      "pool"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -63,23 +135,59 @@
     "category": "data-sources",
     "subcategory": "databases",
     "description": "Connect to MongoDB database and return connection pool ID",
-    "icon": "database",
+    "icon": "mongodb",
     "variant": "green-700",
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "pool-out", "label": "Pool ID", "type": "output", "position": "right" },
-      { "id": "status-out", "label": "Status", "type": "output", "position": "bottom" }
+      {
+        "id": "pool-out",
+        "label": "Pool ID",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "status-out",
+        "label": "Status",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "host": { "type": "text", "required": true, "placeholder": "localhost" },
-      "port": { "type": "number", "defaultValue": 27017 },
-      "database": { "type": "text", "required": true, "placeholder": "myapp" },
-      "maxConnections": { "type": "number", "defaultValue": 10 },
-      "replicaSet": { "type": "text", "placeholder": "rs0" }
+      "host": {
+        "type": "text",
+        "required": true,
+        "placeholder": "localhost"
+      },
+      "port": {
+        "type": "number",
+        "defaultValue": 27017
+      },
+      "database": {
+        "type": "text",
+        "required": true,
+        "placeholder": "myapp"
+      },
+      "maxConnections": {
+        "type": "number",
+        "defaultValue": 10
+      },
+      "replicaSet": {
+        "type": "text",
+        "placeholder": "rs0"
+      }
     },
-    "requiredEnvVars": ["MONGODB_URL", "MONGODB_PASSWORD", "MONGODB_USER"],
-    "tags": ["database", "nosql", "mongodb", "pool"],
+    "requiredEnvVars": [
+      "MONGODB_URL",
+      "MONGODB_PASSWORD",
+      "MONGODB_USER"
+    ],
+    "tags": [
+      "database",
+      "nosql",
+      "mongodb",
+      "pool"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -91,24 +199,69 @@
     "category": "data-sources",
     "subcategory": "databases",
     "description": "Retrieve documents from MongoDB collection",
-    "icon": "folder",
+    "icon": "mongodb",
     "variant": "green-600",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "pool-in", "label": "Pool ID", "type": "input", "position": "left" },
-      { "id": "query-in", "label": "Query", "type": "input", "position": "top" },
-      { "id": "docs-out", "label": "Documents", "type": "output", "position": "right" },
-      { "id": "count-out", "label": "Count", "type": "output", "position": "bottom" }
+      {
+        "id": "pool-in",
+        "label": "Pool ID",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "query-in",
+        "label": "Query",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "docs-out",
+        "label": "Documents",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "count-out",
+        "label": "Count",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "collection": { "type": "text", "required": true, "placeholder": "users" },
-      "operation": { "type": "select", "options": ["find", "findOne", "aggregate"], "defaultValue": "find" },
-      "limit": { "type": "number", "defaultValue": 100 },
-      "sort": { "type": "textarea", "placeholder": "{ \"createdAt\": -1 }" },
-      "projection": { "type": "textarea", "placeholder": "{ \"password\": 0 }" }
+      "collection": {
+        "type": "text",
+        "required": true,
+        "placeholder": "users"
+      },
+      "operation": {
+        "type": "select",
+        "options": [
+          "find",
+          "findOne",
+          "aggregate"
+        ],
+        "defaultValue": "find"
+      },
+      "limit": {
+        "type": "number",
+        "defaultValue": 100
+      },
+      "sort": {
+        "type": "textarea",
+        "placeholder": "{ \"createdAt\": -1 }"
+      },
+      "projection": {
+        "type": "textarea",
+        "placeholder": "{ \"password\": 0 }"
+      }
     },
-    "tags": ["mongodb", "collection", "query"],
+    "tags": [
+      "mongodb",
+      "collection",
+      "query"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -120,30 +273,69 @@
     "category": "scripting",
     "subcategory": "python",
     "description": "Execute sandboxed Python scripts with pip package support",
-    "icon": "code",
+    "icon": "python",
     "variant": "orange-700",
     "shape": "rectangle",
     "size": "large",
     "ports": [
-      { "id": "data-in", "label": "Data", "type": "input", "position": "left" },
-      { "id": "config-in", "label": "Config", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "config-in",
+        "label": "Config",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "script": { 
-        "type": "code-editor", 
-        "language": "python", 
-        "required": true, 
+      "script": {
+        "type": "code-editor",
+        "language": "python",
+        "required": true,
         "lineNumbers": true,
         "wordWrap": true,
-        "placeholder": "# Access input data via imports and metadata\n# Example:\n# import pandas as pd\n# data = imports.get(\"data\", [])\n# df = pd.DataFrame(data)\n# result = df.describe().to_dict()\n# return {\"processed\": result}" 
+        "placeholder": "# Access input data via imports and metadata\n# Example:\n# import pandas as pd\n# data = imports.get(\"data\", [])\n# df = pd.DataFrame(data)\n# result = df.describe().to_dict()\n# return {\"processed\": result}"
       },
-      "packages": { "type": "textarea", "placeholder": "pandas\nnumpy\nrequests", "description": "Pip packages to install (one per line)" },
-      "timeout": { "type": "number", "defaultValue": 30000, "min": 1000, "max": 300000 },
-      "memoryLimit": { "type": "number", "defaultValue": 512, "description": "Memory limit in MB" }
+      "packages": {
+        "type": "textarea",
+        "placeholder": "pandas\nnumpy\nrequests",
+        "description": "Pip packages to install (one per line)"
+      },
+      "timeout": {
+        "type": "number",
+        "defaultValue": 30000,
+        "min": 1000,
+        "max": 300000
+      },
+      "memoryLimit": {
+        "type": "number",
+        "defaultValue": 512,
+        "description": "Memory limit in MB"
+      }
     },
-    "tags": ["script", "python", "sandboxed", "pip", "processing"],
+    "tags": [
+      "script",
+      "python",
+      "sandboxed",
+      "pip",
+      "processing"
+    ],
     "version": "1.1.0",
     "isActive": true
   },
@@ -155,29 +347,63 @@
     "category": "scripting",
     "subcategory": "javascript",
     "description": "Execute sandboxed JavaScript code (no external packages)",
-    "icon": "code",
+    "icon": "javascript",
     "variant": "gray-900",
     "shape": "rectangle",
     "size": "large",
     "ports": [
-      { "id": "data-in", "label": "Data", "type": "input", "position": "left" },
-      { "id": "metadata-in", "label": "Metadata", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "metadata-in",
+        "label": "Metadata",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "script": { 
-        "type": "code-editor", 
-        "language": "javascript", 
-        "required": true, 
+      "script": {
+        "type": "code-editor",
+        "language": "javascript",
+        "required": true,
         "lineNumbers": true,
         "wordWrap": true,
-        "placeholder": "// Access input data via imports and metadata\n// Example:\n// const data = imports.data || [];\n// const processed = data.map(item => ({\n//   ...item,\n//   processed: true,\n//   timestamp: Date.now()\n// }));\n// return { processed };" 
+        "placeholder": "// Access input data via imports and metadata\n// Example:\n// const data = imports.data || [];\n// const processed = data.map(item => ({\n//   ...item,\n//   processed: true,\n//   timestamp: Date.now()\n// }));\n// return { processed };"
       },
-      "timeout": { "type": "number", "defaultValue": 10000, "min": 100, "max": 60000 },
-      "memoryLimit": { "type": "number", "defaultValue": 128, "description": "Memory limit in MB" }
+      "timeout": {
+        "type": "number",
+        "defaultValue": 10000,
+        "min": 100,
+        "max": 60000
+      },
+      "memoryLimit": {
+        "type": "number",
+        "defaultValue": 128,
+        "description": "Memory limit in MB"
+      }
     },
-    "tags": ["script", "javascript", "sandboxed", "processing"],
+    "tags": [
+      "script",
+      "javascript",
+      "sandboxed",
+      "processing"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -189,29 +415,62 @@
     "category": "scripting",
     "subcategory": "nushell",
     "description": "Execute NuShell scripts for structured data processing",
-    "icon": "terminal",
+    "icon": "nushell",
     "variant": "green-600",
     "shape": "rectangle",
     "size": "large",
     "ports": [
-      { "id": "data-in", "label": "Data", "type": "input", "position": "left" },
-      { "id": "args-in", "label": "Args", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "args-in",
+        "label": "Args",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "script": { 
-        "type": "code-editor", 
-        "language": "shell", 
-        "required": true, 
+      "script": {
+        "type": "code-editor",
+        "language": "shell",
+        "required": true,
         "lineNumbers": true,
         "wordWrap": true,
-        "placeholder": "# NuShell script for structured data processing\n# Example:\n# $data | where status == \"active\" | select name email | to json" 
+        "placeholder": "# NuShell script for structured data processing\n# Example:\n# $data | where status == \"active\" | select name email | to json"
       },
-      "timeout": { "type": "number", "defaultValue": 15000, "min": 1000, "max": 120000 },
-      "workingDirectory": { "type": "text", "placeholder": "/tmp/workspace" }
+      "timeout": {
+        "type": "number",
+        "defaultValue": 15000,
+        "min": 1000,
+        "max": 120000
+      },
+      "workingDirectory": {
+        "type": "text",
+        "placeholder": "/tmp/workspace"
+      }
     },
-    "tags": ["script", "nushell", "shell", "structured"],
+    "tags": [
+      "script",
+      "nushell",
+      "shell",
+      "structured"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -228,27 +487,118 @@
     "shape": "rectangle",
     "size": "large",
     "ports": [
-      { "id": "pool-in", "label": "Pool ID", "type": "input", "position": "left" },
-      { "id": "params-in", "label": "Parameters", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "pool-in",
+        "label": "Pool ID",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "params-in",
+        "label": "Parameters",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "query": { 
-        "type": "code-editor", 
-        "language": "sql", 
-        "required": true, 
+      "query": {
+        "type": "code-editor",
+        "language": "sql",
+        "required": true,
         "lineNumbers": true,
         "wordWrap": true,
-        "placeholder": "-- SQL query with parameters\n-- Use $1, $2, etc. for PostgreSQL parameters\n-- Use ? for MySQL parameters\nSELECT * FROM users WHERE status = $1 AND created_at > $2;" 
+        "placeholder": "-- SQL query with parameters\n-- Use $1, $2, etc. for PostgreSQL parameters\n-- Use ? for MySQL parameters\nSELECT * FROM users WHERE status = $1 AND created_at > $2;"
       },
-      "queryType": { "type": "select", "options": ["SELECT", "INSERT", "UPDATE", "DELETE", "TRANSACTION"], "defaultValue": "SELECT" },
-      "timeout": { "type": "number", "defaultValue": 30000, "min": 1000, "max": 300000 },
-      "maxRows": { "type": "number", "defaultValue": 1000, "description": "Maximum rows to return" }
+      "queryType": {
+        "type": "select",
+        "options": [
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE",
+          "TRANSACTION"
+        ],
+        "defaultValue": "SELECT"
+      },
+      "timeout": {
+        "type": "number",
+        "defaultValue": 30000,
+        "min": 1000,
+        "max": 300000
+      },
+      "maxRows": {
+        "type": "number",
+        "defaultValue": 1000,
+        "description": "Maximum rows to return"
+      }
     },
-    "tags": ["script", "sql", "database", "query"],
+    "tags": [
+      "script",
+      "sql",
+      "database",
+      "query"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "queryType"
+      ],
+      "rules": [
+        {
+          "when": "$.queryType == 'SELECT'",
+          "updates": {
+            "title": "SQL Select",
+            "subtitle": "Query Data",
+            "description": "Retrieve data from database tables"
+          }
+        },
+        {
+          "when": "$.queryType == 'INSERT'",
+          "updates": {
+            "title": "SQL Insert",
+            "subtitle": "Add Records",
+            "description": "Insert new records into database"
+          }
+        },
+        {
+          "when": "$.queryType == 'UPDATE'",
+          "updates": {
+            "title": "SQL Update",
+            "subtitle": "Modify Records",
+            "description": "Update existing records in database"
+          }
+        },
+        {
+          "when": "$.queryType == 'DELETE'",
+          "updates": {
+            "title": "SQL Delete",
+            "subtitle": "Remove Records",
+            "description": "Delete records from database"
+          }
+        },
+        {
+          "when": "$.queryType == 'TRANSACTION'",
+          "updates": {
+            "title": "SQL Transaction",
+            "subtitle": "Atomic Operations",
+            "description": "Execute multiple SQL operations atomically"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_claude",
@@ -258,30 +608,95 @@
     "category": "ai-models",
     "subcategory": "llm",
     "description": "Anthropic Claude for text generation and analysis",
-    "icon": "bot",
+    "icon": "anthropic",
     "variant": "black",
     "shape": "circle",
     "size": "large",
     "ports": [
-      { "id": "prompt-in", "label": "Prompt", "type": "input", "position": "left" },
-      { "id": "context-in", "label": "Context", "type": "input", "position": "top" },
-      { "id": "response-out", "label": "Response", "type": "output", "position": "right" },
-      { "id": "usage-out", "label": "Usage", "type": "output", "position": "bottom" }
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "context-in",
+        "label": "Context",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "usage-out",
+        "label": "Usage",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "model": { "type": "select", "options": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"], "defaultValue": "claude-3-5-sonnet" },
-      "maxTokens": { "type": "number", "defaultValue": 1000, "min": 1, "max": 4000 },
-      "temperature": { "type": "number", "defaultValue": 0.7, "min": 0, "max": 1, "step": 0.1 },
-      "systemPrompt": { "type": "textarea", "placeholder": "You are a helpful assistant...", "description": "Define the AI assistant behavior and context" },
-      "responseRules": { 
+      "model": {
+        "type": "select",
+        "options": [
+          "claude-3-5-sonnet",
+          "claude-3-opus",
+          "claude-3-sonnet",
+          "claude-3-haiku"
+        ],
+        "defaultValue": "claude-3-5-sonnet"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 4000
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "systemPrompt": {
+        "type": "textarea",
+        "placeholder": "You are a helpful assistant...",
+        "description": "Define the AI assistant behavior and context"
+      },
+      "responseRules": {
         "type": "rules",
-        "availableFields": ["Response Length", "Confidence Score", "Content Type", "Language", "Sentiment", "Topic"],
-        "availableOperators": ["is", "is_not", "contains", "not_contains", "greater_than", "less_than"],
+        "availableFields": [
+          "Response Length",
+          "Confidence Score",
+          "Content Type",
+          "Language",
+          "Sentiment",
+          "Topic"
+        ],
+        "availableOperators": [
+          "is",
+          "is_not",
+          "contains",
+          "not_contains",
+          "greater_than",
+          "less_than"
+        ],
         "description": "Define rules to process and route AI responses based on content analysis"
       }
     },
-    "requiredEnvVars": ["ANTHROPIC_API_KEY"],
-    "tags": ["ai", "llm", "claude", "text-generation"],
+    "requiredEnvVars": [
+      "ANTHROPIC_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "llm",
+      "claude",
+      "text-generation"
+    ],
     "version": "1.2.0",
     "isActive": true
   },
@@ -293,27 +708,115 @@
     "category": "ai-models",
     "subcategory": "llm",
     "description": "OpenAI GPT models for text generation and analysis",
-    "icon": "brain",
+    "icon": "openai",
     "variant": "green-600",
     "shape": "circle",
     "size": "large",
     "ports": [
-      { "id": "prompt-in", "label": "Prompt", "type": "input", "position": "left" },
-      { "id": "context-in", "label": "Context", "type": "input", "position": "top" },
-      { "id": "response-out", "label": "Response", "type": "output", "position": "right" },
-      { "id": "usage-out", "label": "Usage", "type": "output", "position": "bottom" }
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "context-in",
+        "label": "Context",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "usage-out",
+        "label": "Usage",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "model": { "type": "select", "options": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"], "defaultValue": "gpt-4" },
-      "maxTokens": { "type": "number", "defaultValue": 1000, "min": 1, "max": 4000 },
-      "temperature": { "type": "number", "defaultValue": 0.7, "min": 0, "max": 2, "step": 0.1 },
-      "topP": { "type": "number", "defaultValue": 1, "min": 0, "max": 1, "step": 0.1 },
-      "systemPrompt": { "type": "textarea", "placeholder": "You are a helpful assistant...", "description": "System message to guide model behavior" }
+      "model": {
+        "type": "select",
+        "options": [
+          "gpt-4",
+          "gpt-4-turbo",
+          "gpt-3.5-turbo"
+        ],
+        "defaultValue": "gpt-4"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 4000
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 2,
+        "step": 0.1
+      },
+      "topP": {
+        "type": "number",
+        "defaultValue": 1,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "systemPrompt": {
+        "type": "textarea",
+        "placeholder": "You are a helpful assistant...",
+        "description": "System message to guide model behavior"
+      }
     },
-    "requiredEnvVars": ["OPENAI_API_KEY"],
-    "tags": ["ai", "llm", "openai", "gpt", "text-generation"],
+    "requiredEnvVars": [
+      "OPENAI_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "llm",
+      "openai",
+      "gpt",
+      "text-generation"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "model"
+      ],
+      "rules": [
+        {
+          "when": "$.model == 'gpt-4'",
+          "updates": {
+            "title": "GPT-4",
+            "subtitle": "Most Capable",
+            "description": "OpenAI most advanced language model"
+          }
+        },
+        {
+          "when": "$.model == 'gpt-4-turbo'",
+          "updates": {
+            "title": "GPT-4 Turbo",
+            "subtitle": "Fast & Advanced",
+            "description": "Faster GPT-4 with larger context window"
+          }
+        },
+        {
+          "when": "$.model == 'gpt-3.5-turbo'",
+          "updates": {
+            "title": "GPT-3.5 Turbo",
+            "subtitle": "Fast & Affordable",
+            "description": "Cost-effective model for simpler tasks"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_gemini",
@@ -323,24 +826,79 @@
     "category": "ai-models",
     "subcategory": "llm",
     "description": "Google Gemini for multimodal AI tasks",
-    "icon": "sparkle",
+    "icon": "gemini",
     "variant": "blue-600",
     "shape": "circle",
     "size": "large",
     "ports": [
-      { "id": "prompt-in", "label": "Prompt", "type": "input", "position": "left" },
-      { "id": "media-in", "label": "Media", "type": "input", "position": "top" },
-      { "id": "response-out", "label": "Response", "type": "output", "position": "right" },
-      { "id": "analysis-out", "label": "Analysis", "type": "output", "position": "bottom" }
+      {
+        "id": "prompt-in",
+        "label": "Prompt",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "media-in",
+        "label": "Media",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "analysis-out",
+        "label": "Analysis",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "model": { "type": "select", "options": ["gemini-pro", "gemini-pro-vision"], "defaultValue": "gemini-pro" },
-      "maxTokens": { "type": "number", "defaultValue": 1000, "min": 1, "max": 8192 },
-      "temperature": { "type": "number", "defaultValue": 0.7, "min": 0, "max": 1, "step": 0.1 },
-      "safetySettings": { "type": "select", "options": ["block_none", "block_few", "block_some", "block_most"], "defaultValue": "block_few" }
+      "model": {
+        "type": "select",
+        "options": [
+          "gemini-pro",
+          "gemini-pro-vision"
+        ],
+        "defaultValue": "gemini-pro"
+      },
+      "maxTokens": {
+        "type": "number",
+        "defaultValue": 1000,
+        "min": 1,
+        "max": 8192
+      },
+      "temperature": {
+        "type": "number",
+        "defaultValue": 0.7,
+        "min": 0,
+        "max": 1,
+        "step": 0.1
+      },
+      "safetySettings": {
+        "type": "select",
+        "options": [
+          "block_none",
+          "block_few",
+          "block_some",
+          "block_most"
+        ],
+        "defaultValue": "block_few"
+      }
     },
-    "requiredEnvVars": ["GOOGLE_API_KEY"],
-    "tags": ["ai", "llm", "google", "gemini", "multimodal"],
+    "requiredEnvVars": [
+      "GOOGLE_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "llm",
+      "google",
+      "gemini",
+      "multimodal"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -352,24 +910,64 @@
     "category": "ai-models",
     "subcategory": "agents",
     "description": "Run custom AI models from Replicate",
-    "icon": "cpu",
+    "icon": "brain",
     "variant": "gray-900",
     "shape": "hexagon",
     "size": "large",
     "ports": [
-      { "id": "input-in", "label": "Input", "type": "input", "position": "left" },
-      { "id": "config-in", "label": "Config", "type": "input", "position": "top" },
-      { "id": "output-out", "label": "Output", "type": "output", "position": "right" },
-      { "id": "metadata-out", "label": "Metadata", "type": "output", "position": "bottom" }
+      {
+        "id": "input-in",
+        "label": "Input",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "config-in",
+        "label": "Config",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "output-out",
+        "label": "Output",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "metadata-out",
+        "label": "Metadata",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "modelId": { "type": "text", "required": true, "placeholder": "stability-ai/stable-diffusion" },
-      "version": { "type": "text", "placeholder": "latest" },
-      "inputMapping": { "type": "textarea", "placeholder": "{ \"prompt\": \"$input.text\" }" },
-      "timeout": { "type": "number", "defaultValue": 60000 }
+      "modelId": {
+        "type": "text",
+        "required": true,
+        "placeholder": "stability-ai/stable-diffusion"
+      },
+      "version": {
+        "type": "text",
+        "placeholder": "latest"
+      },
+      "inputMapping": {
+        "type": "textarea",
+        "placeholder": "{ \"prompt\": \"$input.text\" }"
+      },
+      "timeout": {
+        "type": "number",
+        "defaultValue": 60000
+      }
     },
-    "requiredEnvVars": ["REPLICATE_API_TOKEN"],
-    "tags": ["ai", "agent", "replicate", "custom-model"],
+    "requiredEnvVars": [
+      "REPLICATE_API_TOKEN"
+    ],
+    "tags": [
+      "ai",
+      "agent",
+      "replicate",
+      "custom-model"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -381,31 +979,115 @@
     "category": "ai-models",
     "subcategory": "agent-tools",
     "description": "LangChain agent with access to multiple tools",
-    "icon": "wrench",
+    "icon": "langchain",
     "variant": "orange-600",
     "shape": "octagon",
     "size": "large",
     "ports": [
-      { "id": "query-in", "label": "Query", "type": "input", "position": "left" },
-      { "id": "tools-in", "label": "Tools Config", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "steps-out", "label": "Steps", "type": "output", "position": "bottom" }
+      {
+        "id": "query-in",
+        "label": "Query",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "tools-in",
+        "label": "Tools Config",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "steps-out",
+        "label": "Steps",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "agentType": { "type": "select", "options": ["zero-shot-react", "conversational", "plan-and-execute"], "defaultValue": "zero-shot-react" },
-      "enabledTools": { 
-        "type": "select", 
-        "multiple": true,
-        "options": ["search", "calculator", "wikipedia", "weather", "news"],
-        "defaultValue": ["search", "calculator"]
+      "agentType": {
+        "type": "select",
+        "options": [
+          "zero-shot-react",
+          "conversational",
+          "plan-and-execute"
+        ],
+        "defaultValue": "zero-shot-react"
       },
-      "maxIterations": { "type": "number", "defaultValue": 5, "min": 1, "max": 20 },
-      "memory": { "type": "boolean", "defaultValue": true }
+      "enabledTools": {
+        "type": "select",
+        "multiple": true,
+        "options": [
+          "search",
+          "calculator",
+          "wikipedia",
+          "weather",
+          "news"
+        ],
+        "defaultValue": [
+          "search",
+          "calculator"
+        ]
+      },
+      "maxIterations": {
+        "type": "number",
+        "defaultValue": 5,
+        "min": 1,
+        "max": 20
+      },
+      "memory": {
+        "type": "boolean",
+        "defaultValue": true
+      }
     },
-    "requiredEnvVars": ["OPENAI_API_KEY", "SERPAPI_API_KEY"],
-    "tags": ["ai", "agent", "langchain", "tools"],
+    "requiredEnvVars": [
+      "OPENAI_API_KEY",
+      "SERPAPI_API_KEY"
+    ],
+    "tags": [
+      "ai",
+      "agent",
+      "langchain",
+      "tools"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "agentType"
+      ],
+      "rules": [
+        {
+          "when": "$.agentType == 'zero-shot-react'",
+          "updates": {
+            "title": "ReAct Agent",
+            "subtitle": "Reasoning + Acting",
+            "description": "Agent that reasons about actions and observes results"
+          }
+        },
+        {
+          "when": "$.agentType == 'conversational'",
+          "updates": {
+            "title": "Conversational Agent",
+            "subtitle": "Memory-Aware",
+            "description": "Agent that maintains conversation context"
+          }
+        },
+        {
+          "when": "$.agentType == 'plan-and-execute'",
+          "updates": {
+            "title": "Planning Agent",
+            "subtitle": "Strategic Execution",
+            "description": "Agent that plans tasks before execution"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_if_branch",
@@ -420,19 +1102,60 @@
     "shape": "diamond",
     "size": "medium",
     "ports": [
-      { "id": "input-in", "label": "Input", "type": "input", "position": "top" },
-      { "id": "true-out", "label": "True", "type": "output", "position": "right" },
-      { "id": "false-out", "label": "False", "type": "output", "position": "bottom" }
+      {
+        "id": "input-in",
+        "label": "Input",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "true-out",
+        "label": "True",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "false-out",
+        "label": "False",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "decisionRules": { 
+      "decisionRules": {
         "type": "rules",
-        "availableFields": ["value", "count", "status", "type", "category", "price", "quantity", "date", "amount"],
-        "availableOperators": ["is", "is_not", "contains", "not_contains", "greater_than", "less_than", "greater_equal", "less_equal", "empty", "not_empty"],
+        "availableFields": [
+          "value",
+          "count",
+          "status",
+          "type",
+          "category",
+          "price",
+          "quantity",
+          "date",
+          "amount"
+        ],
+        "availableOperators": [
+          "is",
+          "is_not",
+          "contains",
+          "not_contains",
+          "greater_than",
+          "less_than",
+          "greater_equal",
+          "less_equal",
+          "empty",
+          "not_empty"
+        ],
         "description": "Define the conditions that determine True or False output. If any rule set evaluates to true, the True port will be activated."
       }
     },
-    "tags": ["logic", "conditional", "routing", "branch"],
+    "tags": [
+      "logic",
+      "conditional",
+      "routing",
+      "branch"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -449,20 +1172,67 @@
     "shape": "hexagon",
     "size": "large",
     "ports": [
-      { "id": "input-in", "label": "Input", "type": "input", "position": "left" },
-      { "id": "case1-out", "label": "Case 1", "type": "output", "position": "top" },
-      { "id": "case2-out", "label": "Case 2", "type": "output", "position": "right" },
-      { "id": "case3-out", "label": "Case 3", "type": "output", "position": "bottom" },
-      { "id": "default-out", "label": "Default", "type": "output", "position": "left" }
+      {
+        "id": "input-in",
+        "label": "Input",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "case1-out",
+        "label": "Case 1",
+        "type": "output",
+        "position": "top"
+      },
+      {
+        "id": "case2-out",
+        "label": "Case 2",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "case3-out",
+        "label": "Case 3",
+        "type": "output",
+        "position": "bottom"
+      },
+      {
+        "id": "default-out",
+        "label": "Default",
+        "type": "output",
+        "position": "left"
+      }
     ],
     "properties": {
-      "switchField": { "type": "text", "required": true, "placeholder": "status", "description": "Field name to switch on" },
-      "case1Value": { "type": "text", "placeholder": "active" },
-      "case2Value": { "type": "text", "placeholder": "pending" },
-      "case3Value": { "type": "text", "placeholder": "inactive" },
-      "caseSensitive": { "type": "boolean", "defaultValue": true }
+      "switchField": {
+        "type": "text",
+        "required": true,
+        "placeholder": "status",
+        "description": "Field name to switch on"
+      },
+      "case1Value": {
+        "type": "text",
+        "placeholder": "active"
+      },
+      "case2Value": {
+        "type": "text",
+        "placeholder": "pending"
+      },
+      "case3Value": {
+        "type": "text",
+        "placeholder": "inactive"
+      },
+      "caseSensitive": {
+        "type": "boolean",
+        "defaultValue": true
+      }
     },
-    "tags": ["logic", "switch", "routing", "multi-branch"],
+    "tags": [
+      "logic",
+      "switch",
+      "routing",
+      "multi-branch"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -479,18 +1249,62 @@
     "shape": "rounded-square",
     "size": "medium",
     "ports": [
-      { "id": "items-in", "label": "Items", "type": "input", "position": "left" },
-      { "id": "item-out", "label": "Current Item", "type": "output", "position": "right" },
-      { "id": "index-out", "label": "Index", "type": "output", "position": "top" },
-      { "id": "done-out", "label": "Done", "type": "output", "position": "bottom" }
+      {
+        "id": "items-in",
+        "label": "Items",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "item-out",
+        "label": "Current Item",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "index-out",
+        "label": "Index",
+        "type": "output",
+        "position": "top"
+      },
+      {
+        "id": "done-out",
+        "label": "Done",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "loopType": { "type": "select", "options": ["for-each", "while", "do-while"], "defaultValue": "for-each" },
-      "batchSize": { "type": "number", "defaultValue": 1, "description": "Process items in batches" },
-      "maxIterations": { "type": "number", "defaultValue": 1000, "description": "Safety limit for iterations" },
-      "breakCondition": { "type": "textarea", "placeholder": "item.status === 'stop'" }
+      "loopType": {
+        "type": "select",
+        "options": [
+          "for-each",
+          "while",
+          "do-while"
+        ],
+        "defaultValue": "for-each"
+      },
+      "batchSize": {
+        "type": "number",
+        "defaultValue": 1,
+        "description": "Process items in batches"
+      },
+      "maxIterations": {
+        "type": "number",
+        "defaultValue": 1000,
+        "description": "Safety limit for iterations"
+      },
+      "breakCondition": {
+        "type": "textarea",
+        "placeholder": "item.status === 'stop'"
+      }
     },
-    "tags": ["loop", "iterate", "control", "batch"],
+    "tags": [
+      "loop",
+      "iterate",
+      "control",
+      "batch"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -507,22 +1321,79 @@
     "shape": "rectangle",
     "size": "large",
     "ports": [
-      { "id": "data-in", "label": "Input Data", "type": "input", "position": "left" },
-      { "id": "schema-in", "label": "Schema", "type": "input", "position": "top" },
-      { "id": "transformed-out", "label": "Transformed", "type": "output", "position": "right" },
-      { "id": "errors-out", "label": "Errors", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Input Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "schema-in",
+        "label": "Schema",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "transformed-out",
+        "label": "Transformed",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "dataOperations": { 
+      "dataOperations": {
         "type": "dataOperations",
-        "availableFields": ["id", "name", "email", "status", "created_at", "updated_at", "first_name", "last_name", "age", "department", "salary", "role", "address", "phone"],
+        "availableFields": [
+          "id",
+          "name",
+          "email",
+          "status",
+          "created_at",
+          "updated_at",
+          "first_name",
+          "last_name",
+          "age",
+          "department",
+          "salary",
+          "role",
+          "address",
+          "phone"
+        ],
         "description": "Configure data transformation pipelines including mapping, filtering, sorting, and aggregation"
       },
-      "errorHandling": { "type": "select", "options": ["ignore", "skip_item", "stop_pipeline", "log_and_continue"], "defaultValue": "log_and_continue" },
-      "batchSize": { "type": "number", "defaultValue": 1000, "description": "Number of items to process in each batch" },
-      "enableValidation": { "type": "boolean", "defaultValue": true, "description": "Validate data before and after transformation" }
+      "errorHandling": {
+        "type": "select",
+        "options": [
+          "ignore",
+          "skip_item",
+          "stop_pipeline",
+          "log_and_continue"
+        ],
+        "defaultValue": "log_and_continue"
+      },
+      "batchSize": {
+        "type": "number",
+        "defaultValue": 1000,
+        "description": "Number of items to process in each batch"
+      },
+      "enableValidation": {
+        "type": "boolean",
+        "defaultValue": true,
+        "description": "Validate data before and after transformation"
+      }
     },
-    "tags": ["transform", "data", "processing", "filter"],
+    "tags": [
+      "transform",
+      "data",
+      "processing",
+      "filter"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -539,20 +1410,106 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "file-in", "label": "File Path", "type": "input", "position": "left" },
-      { "id": "data-out", "label": "Parsed Data", "type": "output", "position": "right" },
-      { "id": "errors-out", "label": "Parse Errors", "type": "output", "position": "bottom" }
+      {
+        "id": "file-in",
+        "label": "File Path",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "data-out",
+        "label": "Parsed Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Parse Errors",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "delimiter": { "type": "select", "options": [",", ";", "\t", "|"], "defaultValue": "," },
-      "hasHeader": { "type": "boolean", "defaultValue": true },
-      "skipRows": { "type": "number", "defaultValue": 0 },
-      "encoding": { "type": "select", "options": ["utf-8", "latin1", "ascii"], "defaultValue": "utf-8" },
-      "dateFormat": { "type": "text", "placeholder": "YYYY-MM-DD" }
+      "delimiter": {
+        "type": "select",
+        "options": [
+          ",",
+          ";",
+          "\t",
+          "|"
+        ],
+        "defaultValue": ","
+      },
+      "hasHeader": {
+        "type": "boolean",
+        "defaultValue": true
+      },
+      "skipRows": {
+        "type": "number",
+        "defaultValue": 0
+      },
+      "encoding": {
+        "type": "select",
+        "options": [
+          "utf-8",
+          "latin1",
+          "ascii"
+        ],
+        "defaultValue": "utf-8"
+      },
+      "dateFormat": {
+        "type": "text",
+        "placeholder": "YYYY-MM-DD"
+      }
     },
-    "tags": ["csv", "reader", "parser", "file"],
+    "tags": [
+      "csv",
+      "reader",
+      "parser",
+      "file"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "delimiter",
+        "encoding"
+      ],
+      "rules": [
+        {
+          "when": "$.delimiter == ','",
+          "updates": {
+            "title": "CSV Reader",
+            "subtitle": "Comma Separated",
+            "description": "Read comma-separated values file"
+          }
+        },
+        {
+          "when": "$.delimiter == ';'",
+          "updates": {
+            "title": "CSV Reader",
+            "subtitle": "Semicolon Separated",
+            "description": "Read semicolon-separated values file"
+          }
+        },
+        {
+          "when": "$.delimiter == '\t'",
+          "updates": {
+            "title": "TSV Reader",
+            "subtitle": "Tab Separated",
+            "description": "Read tab-separated values file"
+          }
+        },
+        {
+          "when": "$.delimiter == '|'",
+          "updates": {
+            "title": "PSV Reader",
+            "subtitle": "Pipe Separated",
+            "description": "Read pipe-separated values file"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_arrow_operations",
@@ -567,18 +1524,68 @@
     "shape": "hexagon",
     "size": "large",
     "ports": [
-      { "id": "data-in", "label": "Data", "type": "input", "position": "left" },
-      { "id": "schema-in", "label": "Schema", "type": "input", "position": "top" },
-      { "id": "table-out", "label": "Arrow Table", "type": "output", "position": "right" },
-      { "id": "stats-out", "label": "Statistics", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "schema-in",
+        "label": "Schema",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "table-out",
+        "label": "Arrow Table",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "stats-out",
+        "label": "Statistics",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["convert", "filter", "aggregate", "join", "sort"], "defaultValue": "convert" },
-      "compression": { "type": "select", "options": ["none", "snappy", "gzip", "lz4"], "defaultValue": "snappy" },
-      "chunkSize": { "type": "number", "defaultValue": 10000 },
-      "enableStatistics": { "type": "boolean", "defaultValue": true }
+      "operation": {
+        "type": "select",
+        "options": [
+          "convert",
+          "filter",
+          "aggregate",
+          "join",
+          "sort"
+        ],
+        "defaultValue": "convert"
+      },
+      "compression": {
+        "type": "select",
+        "options": [
+          "none",
+          "snappy",
+          "gzip",
+          "lz4"
+        ],
+        "defaultValue": "snappy"
+      },
+      "chunkSize": {
+        "type": "number",
+        "defaultValue": 10000
+      },
+      "enableStatistics": {
+        "type": "boolean",
+        "defaultValue": true
+      }
     },
-    "tags": ["arrow", "columnar", "performance", "analytics"],
+    "tags": [
+      "arrow",
+      "columnar",
+      "performance",
+      "analytics"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -595,22 +1602,119 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "content-in", "label": "Content", "type": "input", "position": "left" },
-      { "id": "recipients-in", "label": "Recipients", "type": "input", "position": "top" },
-      { "id": "sent-out", "label": "Sent", "type": "output", "position": "right" },
-      { "id": "failed-out", "label": "Failed", "type": "output", "position": "bottom" }
+      {
+        "id": "content-in",
+        "label": "Content",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "recipients-in",
+        "label": "Recipients",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "sent-out",
+        "label": "Sent",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "failed-out",
+        "label": "Failed",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "provider": { "type": "select", "options": ["smtp", "sendgrid", "mailgun", "ses"], "defaultValue": "smtp" },
-      "subject": { "type": "text", "required": true, "placeholder": "Email subject" },
-      "fromEmail": { "type": "text", "required": true, "placeholder": "sender@example.com" },
-      "fromName": { "type": "text", "placeholder": "Sender Name" },
-      "templateEngine": { "type": "select", "options": ["none", "handlebars", "mustache"], "defaultValue": "none" }
+      "provider": {
+        "type": "select",
+        "options": [
+          "smtp",
+          "sendgrid",
+          "mailgun",
+          "ses"
+        ],
+        "defaultValue": "smtp"
+      },
+      "subject": {
+        "type": "text",
+        "required": true,
+        "placeholder": "Email subject"
+      },
+      "fromEmail": {
+        "type": "text",
+        "required": true,
+        "placeholder": "sender@example.com"
+      },
+      "fromName": {
+        "type": "text",
+        "placeholder": "Sender Name"
+      },
+      "templateEngine": {
+        "type": "select",
+        "options": [
+          "none",
+          "handlebars",
+          "mustache"
+        ],
+        "defaultValue": "none"
+      }
     },
-    "requiredEnvVars": ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"],
-    "tags": ["email", "communication", "smtp", "notification"],
+    "requiredEnvVars": [
+      "SMTP_HOST",
+      "SMTP_USER",
+      "SMTP_PASSWORD"
+    ],
+    "tags": [
+      "email",
+      "communication",
+      "smtp",
+      "notification"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "provider",
+        "templateEngine"
+      ],
+      "rules": [
+        {
+          "when": "$.provider == 'smtp'",
+          "updates": {
+            "title": "SMTP Email",
+            "subtitle": "Direct SMTP",
+            "description": "Send emails via SMTP server"
+          }
+        },
+        {
+          "when": "$.provider == 'sendgrid'",
+          "updates": {
+            "title": "SendGrid Email",
+            "subtitle": "Cloud Email Service",
+            "description": "Send emails via SendGrid API"
+          }
+        },
+        {
+          "when": "$.provider == 'mailgun'",
+          "updates": {
+            "title": "Mailgun Email",
+            "subtitle": "Email API Service",
+            "description": "Send emails via Mailgun API"
+          }
+        },
+        {
+          "when": "$.provider == 'ses'",
+          "updates": {
+            "title": "Amazon SES",
+            "subtitle": "AWS Email Service",
+            "description": "Send emails via Amazon SES"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_slack_webhook",
@@ -625,18 +1729,57 @@
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "message-in", "label": "Message", "type": "input", "position": "left" },
-      { "id": "sent-out", "label": "Sent", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "message-in",
+        "label": "Message",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "sent-out",
+        "label": "Sent",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "channel": { "type": "text", "placeholder": "#general" },
-      "username": { "type": "text", "placeholder": "Workflow Bot" },
-      "iconEmoji": { "type": "text", "placeholder": ":robot_face:" },
-      "messageType": { "type": "select", "options": ["plain", "markdown", "blocks"], "defaultValue": "markdown" }
+      "channel": {
+        "type": "text",
+        "placeholder": "#general"
+      },
+      "username": {
+        "type": "text",
+        "placeholder": "Workflow Bot"
+      },
+      "iconEmoji": {
+        "type": "text",
+        "placeholder": ":robot_face:"
+      },
+      "messageType": {
+        "type": "select",
+        "options": [
+          "plain",
+          "markdown",
+          "blocks"
+        ],
+        "defaultValue": "markdown"
+      }
     },
-    "requiredEnvVars": ["SLACK_WEBHOOK_URL"],
-    "tags": ["slack", "webhook", "chat", "notification"],
+    "requiredEnvVars": [
+      "SLACK_WEBHOOK_URL"
+    ],
+    "tags": [
+      "slack",
+      "webhook",
+      "chat",
+      "notification"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -653,19 +1796,61 @@
     "shape": "rounded-square",
     "size": "medium",
     "ports": [
-      { "id": "message-in", "label": "Message", "type": "input", "position": "left" },
-      { "id": "recipients-in", "label": "Recipients", "type": "input", "position": "top" },
-      { "id": "sent-out", "label": "Sent", "type": "output", "position": "right" },
-      { "id": "status-out", "label": "Status", "type": "output", "position": "bottom" }
+      {
+        "id": "message-in",
+        "label": "Message",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "recipients-in",
+        "label": "Recipients",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "sent-out",
+        "label": "Sent",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "status-out",
+        "label": "Status",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "fromNumber": { "type": "text", "required": true, "placeholder": "+1234567890" },
-      "mediaUrl": { "type": "text", "placeholder": "https://example.com/image.jpg" },
-      "statusCallback": { "type": "text", "placeholder": "https://example.com/webhook" },
-      "maxPrice": { "type": "number", "step": 0.01, "placeholder": "0.10" }
+      "fromNumber": {
+        "type": "text",
+        "required": true,
+        "placeholder": "+1234567890"
+      },
+      "mediaUrl": {
+        "type": "text",
+        "placeholder": "https://example.com/image.jpg"
+      },
+      "statusCallback": {
+        "type": "text",
+        "placeholder": "https://example.com/webhook"
+      },
+      "maxPrice": {
+        "type": "number",
+        "step": 0.01,
+        "placeholder": "0.10"
+      }
     },
-    "requiredEnvVars": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"],
-    "tags": ["sms", "twilio", "communication", "mobile"],
+    "requiredEnvVars": [
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_AUTH_TOKEN"
+    ],
+    "tags": [
+      "sms",
+      "twilio",
+      "communication",
+      "mobile"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -682,18 +1867,52 @@
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "message-in", "label": "Message", "type": "input", "position": "left" },
-      { "id": "embed-in", "label": "Embed", "type": "input", "position": "top" },
-      { "id": "sent-out", "label": "Sent", "type": "output", "position": "right" }
+      {
+        "id": "message-in",
+        "label": "Message",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "embed-in",
+        "label": "Embed",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "sent-out",
+        "label": "Sent",
+        "type": "output",
+        "position": "right"
+      }
     ],
     "properties": {
-      "username": { "type": "text", "placeholder": "Workflow Bot" },
-      "avatarUrl": { "type": "text", "placeholder": "https://example.com/avatar.png" },
-      "tts": { "type": "boolean", "defaultValue": false },
-      "embedColor": { "type": "text", "placeholder": "#7289DA" }
+      "username": {
+        "type": "text",
+        "placeholder": "Workflow Bot"
+      },
+      "avatarUrl": {
+        "type": "text",
+        "placeholder": "https://example.com/avatar.png"
+      },
+      "tts": {
+        "type": "boolean",
+        "defaultValue": false
+      },
+      "embedColor": {
+        "type": "text",
+        "placeholder": "#7289DA"
+      }
     },
-    "requiredEnvVars": ["DISCORD_WEBHOOK_URL"],
-    "tags": ["discord", "webhook", "chat", "gaming"],
+    "requiredEnvVars": [
+      "DISCORD_WEBHOOK_URL"
+    ],
+    "tags": [
+      "discord",
+      "webhook",
+      "chat",
+      "gaming"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -710,19 +1929,61 @@
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "content-in", "label": "Content", "type": "input", "position": "left" },
-      { "id": "media-in", "label": "Media", "type": "input", "position": "top" },
-      { "id": "tweet-out", "label": "Tweet", "type": "output", "position": "right" },
-      { "id": "metrics-out", "label": "Metrics", "type": "output", "position": "bottom" }
+      {
+        "id": "content-in",
+        "label": "Content",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "media-in",
+        "label": "Media",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "tweet-out",
+        "label": "Tweet",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "metrics-out",
+        "label": "Metrics",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "replyTo": { "type": "text", "placeholder": "Tweet ID to reply to" },
-      "sensitive": { "type": "boolean", "defaultValue": false },
-      "geo": { "type": "textarea", "placeholder": "{ \"lat\": 37.7749, \"long\": -122.4194 }" },
-      "pollOptions": { "type": "textarea", "placeholder": "Option 1\nOption 2\nOption 3" }
+      "replyTo": {
+        "type": "text",
+        "placeholder": "Tweet ID to reply to"
+      },
+      "sensitive": {
+        "type": "boolean",
+        "defaultValue": false
+      },
+      "geo": {
+        "type": "textarea",
+        "placeholder": "{ \"lat\": 37.7749, \"long\": -122.4194 }"
+      },
+      "pollOptions": {
+        "type": "textarea",
+        "placeholder": "Option 1\nOption 2\nOption 3"
+      }
     },
-    "requiredEnvVars": ["TWITTER_API_KEY", "TWITTER_API_SECRET", "TWITTER_ACCESS_TOKEN", "TWITTER_ACCESS_SECRET"],
-    "tags": ["twitter", "social", "tweet", "microblog"],
+    "requiredEnvVars": [
+      "TWITTER_API_KEY",
+      "TWITTER_API_SECRET",
+      "TWITTER_ACCESS_TOKEN",
+      "TWITTER_ACCESS_SECRET"
+    ],
+    "tags": [
+      "twitter",
+      "social",
+      "tweet",
+      "microblog"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -739,19 +2000,59 @@
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "content-in", "label": "Content", "type": "input", "position": "left" },
-      { "id": "media-in", "label": "Media", "type": "input", "position": "top" },
-      { "id": "post-out", "label": "Post", "type": "output", "position": "right" },
-      { "id": "insights-out", "label": "Insights", "type": "output", "position": "bottom" }
+      {
+        "id": "content-in",
+        "label": "Content",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "media-in",
+        "label": "Media",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "post-out",
+        "label": "Post",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "insights-out",
+        "label": "Insights",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "pageId": { "type": "text", "required": true, "placeholder": "Facebook Page ID" },
-      "scheduling": { "type": "boolean", "defaultValue": false },
-      "publishTime": { "type": "text", "placeholder": "2024-12-25T10:00:00Z" },
-      "targeting": { "type": "textarea", "placeholder": "{ \"countries\": [\"US\", \"CA\"] }" }
+      "pageId": {
+        "type": "text",
+        "required": true,
+        "placeholder": "Facebook Page ID"
+      },
+      "scheduling": {
+        "type": "boolean",
+        "defaultValue": false
+      },
+      "publishTime": {
+        "type": "text",
+        "placeholder": "2024-12-25T10:00:00Z"
+      },
+      "targeting": {
+        "type": "textarea",
+        "placeholder": "{ \"countries\": [\"US\", \"CA\"] }"
+      }
     },
-    "requiredEnvVars": ["FACEBOOK_ACCESS_TOKEN"],
-    "tags": ["facebook", "social", "meta", "marketing"],
+    "requiredEnvVars": [
+      "FACEBOOK_ACCESS_TOKEN"
+    ],
+    "tags": [
+      "facebook",
+      "social",
+      "meta",
+      "marketing"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -764,22 +2065,69 @@
     "subcategory": "messaging",
     "description": "Share content on LinkedIn",
     "icon": "linkedin",
-    "variant": "blue-800",
+    "variant": "blue-600",
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "content-in", "label": "Content", "type": "input", "position": "left" },
-      { "id": "article-in", "label": "Article", "type": "input", "position": "top" },
-      { "id": "share-out", "label": "Share", "type": "output", "position": "right" },
-      { "id": "analytics-out", "label": "Analytics", "type": "output", "position": "bottom" }
+      {
+        "id": "content-in",
+        "label": "Content",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "article-in",
+        "label": "Article",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "share-out",
+        "label": "Share",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "analytics-out",
+        "label": "Analytics",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "visibility": { "type": "select", "options": ["anyone", "connections", "logged_in"], "defaultValue": "anyone" },
-      "shareType": { "type": "select", "options": ["share", "article", "image", "video"], "defaultValue": "share" },
-      "companyId": { "type": "text", "placeholder": "Company page ID (optional)" }
+      "visibility": {
+        "type": "select",
+        "options": [
+          "anyone",
+          "connections",
+          "logged_in"
+        ],
+        "defaultValue": "anyone"
+      },
+      "shareType": {
+        "type": "select",
+        "options": [
+          "share",
+          "article",
+          "image",
+          "video"
+        ],
+        "defaultValue": "share"
+      },
+      "companyId": {
+        "type": "text",
+        "placeholder": "Company page ID (optional)"
+      }
     },
-    "requiredEnvVars": ["LINKEDIN_ACCESS_TOKEN"],
-    "tags": ["linkedin", "social", "professional", "business"],
+    "requiredEnvVars": [
+      "LINKEDIN_ACCESS_TOKEN"
+    ],
+    "tags": [
+      "linkedin",
+      "social",
+      "professional",
+      "business"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -791,26 +2139,116 @@
     "category": "data-sources",
     "subcategory": "files",
     "description": "Interact with Google Sheets",
-    "icon": "table",
-    "variant": "green-700",
+    "icon": "excel",
+    "variant": "green-600",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "data-in", "label": "Data", "type": "input", "position": "left" },
-      { "id": "range-in", "label": "Range", "type": "input", "position": "top" },
-      { "id": "values-out", "label": "Values", "type": "output", "position": "right" },
-      { "id": "metadata-out", "label": "Metadata", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "range-in",
+        "label": "Range",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "values-out",
+        "label": "Values",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "metadata-out",
+        "label": "Metadata",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "spreadsheetId": { "type": "text", "required": true, "placeholder": "Spreadsheet ID" },
-      "operation": { "type": "select", "options": ["read", "write", "append", "clear"], "defaultValue": "read" },
-      "range": { "type": "text", "defaultValue": "A1:Z1000" },
-      "valueInputOption": { "type": "select", "options": ["RAW", "USER_ENTERED"], "defaultValue": "USER_ENTERED" }
+      "spreadsheetId": {
+        "type": "text",
+        "required": true,
+        "placeholder": "Spreadsheet ID"
+      },
+      "operation": {
+        "type": "select",
+        "options": [
+          "read",
+          "write",
+          "append",
+          "clear"
+        ],
+        "defaultValue": "read"
+      },
+      "range": {
+        "type": "text",
+        "defaultValue": "A1:Z1000"
+      },
+      "valueInputOption": {
+        "type": "select",
+        "options": [
+          "RAW",
+          "USER_ENTERED"
+        ],
+        "defaultValue": "USER_ENTERED"
+      }
     },
-    "requiredEnvVars": ["GOOGLE_SHEETS_API_KEY", "GOOGLE_SHEETS_CLIENT_EMAIL"],
-    "tags": ["google", "sheets", "spreadsheet", "data"],
+    "requiredEnvVars": [
+      "GOOGLE_SHEETS_API_KEY",
+      "GOOGLE_SHEETS_CLIENT_EMAIL"
+    ],
+    "tags": [
+      "google",
+      "sheets",
+      "spreadsheet",
+      "data"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operation"
+      ],
+      "rules": [
+        {
+          "when": "$.operation == 'read'",
+          "updates": {
+            "title": "Sheets Read",
+            "subtitle": "Read Data",
+            "description": "Read data from Google Sheets"
+          }
+        },
+        {
+          "when": "$.operation == 'write'",
+          "updates": {
+            "title": "Sheets Write",
+            "subtitle": "Write Data",
+            "description": "Write data to Google Sheets"
+          }
+        },
+        {
+          "when": "$.operation == 'append'",
+          "updates": {
+            "title": "Sheets Append",
+            "subtitle": "Add Rows",
+            "description": "Append new rows to Google Sheets"
+          }
+        },
+        {
+          "when": "$.operation == 'clear'",
+          "updates": {
+            "title": "Sheets Clear",
+            "subtitle": "Clear Data",
+            "description": "Clear data from Google Sheets"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_excel_reader",
@@ -820,23 +2258,60 @@
     "category": "data-sources",
     "subcategory": "files",
     "description": "Read data from Excel files",
-    "icon": "file-spreadsheet",
+    "icon": "excel",
     "variant": "green-600",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "file-in", "label": "File Path", "type": "input", "position": "left" },
-      { "id": "sheet-in", "label": "Sheet Name", "type": "input", "position": "top" },
-      { "id": "data-out", "label": "Data", "type": "output", "position": "right" },
-      { "id": "sheets-out", "label": "Sheet Names", "type": "output", "position": "bottom" }
+      {
+        "id": "file-in",
+        "label": "File Path",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "sheet-in",
+        "label": "Sheet Name",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "data-out",
+        "label": "Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "sheets-out",
+        "label": "Sheet Names",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "sheetName": { "type": "text", "placeholder": "Sheet1" },
-      "range": { "type": "text", "placeholder": "A1:Z1000" },
-      "hasHeaders": { "type": "boolean", "defaultValue": true },
-      "dateFormat": { "type": "text", "defaultValue": "YYYY-MM-DD" }
+      "sheetName": {
+        "type": "text",
+        "placeholder": "Sheet1"
+      },
+      "range": {
+        "type": "text",
+        "placeholder": "A1:Z1000"
+      },
+      "hasHeaders": {
+        "type": "boolean",
+        "defaultValue": true
+      },
+      "dateFormat": {
+        "type": "text",
+        "defaultValue": "YYYY-MM-DD"
+      }
     },
-    "tags": ["excel", "microsoft", "spreadsheet", "xlsx"],
+    "tags": [
+      "excel",
+      "microsoft",
+      "spreadsheet",
+      "xlsx"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -848,24 +2323,82 @@
     "category": "data-sources",
     "subcategory": "files",
     "description": "Store and retrieve files from AWS S3",
-    "icon": "cloud",
+    "icon": "aws",
     "variant": "orange-600",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "file-in", "label": "File", "type": "input", "position": "left" },
-      { "id": "key-in", "label": "Key", "type": "input", "position": "top" },
-      { "id": "url-out", "label": "URL", "type": "output", "position": "right" },
-      { "id": "metadata-out", "label": "Metadata", "type": "output", "position": "bottom" }
+      {
+        "id": "file-in",
+        "label": "File",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "key-in",
+        "label": "Key",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "url-out",
+        "label": "URL",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "metadata-out",
+        "label": "Metadata",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "bucket": { "type": "text", "required": true, "placeholder": "my-bucket" },
-      "operation": { "type": "select", "options": ["upload", "download", "delete", "list"], "defaultValue": "upload" },
-      "acl": { "type": "select", "options": ["private", "public-read", "public-read-write"], "defaultValue": "private" },
-      "storageClass": { "type": "select", "options": ["STANDARD", "GLACIER", "DEEP_ARCHIVE"], "defaultValue": "STANDARD" }
+      "bucket": {
+        "type": "text",
+        "required": true,
+        "placeholder": "my-bucket"
+      },
+      "operation": {
+        "type": "select",
+        "options": [
+          "upload",
+          "download",
+          "delete",
+          "list"
+        ],
+        "defaultValue": "upload"
+      },
+      "acl": {
+        "type": "select",
+        "options": [
+          "private",
+          "public-read",
+          "public-read-write"
+        ],
+        "defaultValue": "private"
+      },
+      "storageClass": {
+        "type": "select",
+        "options": [
+          "STANDARD",
+          "GLACIER",
+          "DEEP_ARCHIVE"
+        ],
+        "defaultValue": "STANDARD"
+      }
     },
-    "requiredEnvVars": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"],
-    "tags": ["aws", "s3", "storage", "cloud"],
+    "requiredEnvVars": [
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_REGION"
+    ],
+    "tags": [
+      "aws",
+      "s3",
+      "storage",
+      "cloud"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -882,20 +2415,111 @@
     "shape": "octagon",
     "size": "medium",
     "ports": [
-      { "id": "params-in", "label": "Parameters", "type": "input", "position": "left" },
-      { "id": "data-out", "label": "Data", "type": "output", "position": "right" },
-      { "id": "rate-out", "label": "Rate Limit", "type": "output", "position": "bottom" }
+      {
+        "id": "params-in",
+        "label": "Parameters",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "data-out",
+        "label": "Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "rate-out",
+        "label": "Rate Limit",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["get-repo", "list-issues", "create-issue", "get-pr", "list-commits"], "defaultValue": "get-repo" },
-      "owner": { "type": "text", "required": true, "placeholder": "octocat" },
-      "repo": { "type": "text", "required": true, "placeholder": "hello-world" },
-      "perPage": { "type": "number", "defaultValue": 30, "max": 100 }
+      "operation": {
+        "type": "select",
+        "options": [
+          "get-repo",
+          "list-issues",
+          "create-issue",
+          "get-pr",
+          "list-commits"
+        ],
+        "defaultValue": "get-repo"
+      },
+      "owner": {
+        "type": "text",
+        "required": true,
+        "placeholder": "octocat"
+      },
+      "repo": {
+        "type": "text",
+        "required": true,
+        "placeholder": "hello-world"
+      },
+      "perPage": {
+        "type": "number",
+        "defaultValue": 30,
+        "max": 100
+      }
     },
-    "requiredEnvVars": ["GITHUB_TOKEN"],
-    "tags": ["github", "git", "api", "repository"],
+    "requiredEnvVars": [
+      "GITHUB_TOKEN"
+    ],
+    "tags": [
+      "github",
+      "git",
+      "api",
+      "repository"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operation"
+      ],
+      "rules": [
+        {
+          "when": "$.operation == 'get-repo'",
+          "updates": {
+            "title": "GitHub Repo",
+            "subtitle": "Repository Info",
+            "description": "Get repository information"
+          }
+        },
+        {
+          "when": "$.operation == 'list-issues'",
+          "updates": {
+            "title": "GitHub Issues",
+            "subtitle": "List Issues",
+            "description": "List repository issues"
+          }
+        },
+        {
+          "when": "$.operation == 'create-issue'",
+          "updates": {
+            "title": "GitHub Create Issue",
+            "subtitle": "New Issue",
+            "description": "Create new repository issue"
+          }
+        },
+        {
+          "when": "$.operation == 'get-pr'",
+          "updates": {
+            "title": "GitHub PR",
+            "subtitle": "Pull Request",
+            "description": "Get pull request information"
+          }
+        },
+        {
+          "when": "$.operation == 'list-commits'",
+          "updates": {
+            "title": "GitHub Commits",
+            "subtitle": "Commit History",
+            "description": "List repository commits"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_salesforce",
@@ -905,23 +2529,74 @@
     "category": "data-sources",
     "subcategory": "apis",
     "description": "Interact with Salesforce CRM",
-    "icon": "users",
+    "icon": "salesforce",
     "variant": "blue-500",
     "shape": "rounded-square",
     "size": "medium",
     "ports": [
-      { "id": "query-in", "label": "Query/Data", "type": "input", "position": "left" },
-      { "id": "records-out", "label": "Records", "type": "output", "position": "right" },
-      { "id": "status-out", "label": "Status", "type": "output", "position": "bottom" }
+      {
+        "id": "query-in",
+        "label": "Query/Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "records-out",
+        "label": "Records",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "status-out",
+        "label": "Status",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["query", "insert", "update", "delete", "upsert"], "defaultValue": "query" },
-      "object": { "type": "select", "options": ["Account", "Contact", "Lead", "Opportunity", "Case"], "defaultValue": "Account" },
-      "soqlQuery": { "type": "textarea", "placeholder": "SELECT Id, Name FROM Account LIMIT 10" },
-      "externalIdField": { "type": "text", "placeholder": "External_Id__c" }
+      "operation": {
+        "type": "select",
+        "options": [
+          "query",
+          "insert",
+          "update",
+          "delete",
+          "upsert"
+        ],
+        "defaultValue": "query"
+      },
+      "object": {
+        "type": "select",
+        "options": [
+          "Account",
+          "Contact",
+          "Lead",
+          "Opportunity",
+          "Case"
+        ],
+        "defaultValue": "Account"
+      },
+      "soqlQuery": {
+        "type": "textarea",
+        "placeholder": "SELECT Id, Name FROM Account LIMIT 10"
+      },
+      "externalIdField": {
+        "type": "text",
+        "placeholder": "External_Id__c"
+      }
     },
-    "requiredEnvVars": ["SALESFORCE_CLIENT_ID", "SALESFORCE_CLIENT_SECRET", "SALESFORCE_USERNAME", "SALESFORCE_PASSWORD"],
-    "tags": ["salesforce", "crm", "sales", "enterprise"],
+    "requiredEnvVars": [
+      "SALESFORCE_CLIENT_ID",
+      "SALESFORCE_CLIENT_SECRET",
+      "SALESFORCE_USERNAME",
+      "SALESFORCE_PASSWORD"
+    ],
+    "tags": [
+      "salesforce",
+      "crm",
+      "sales",
+      "enterprise"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -933,24 +2608,76 @@
     "category": "data-sources",
     "subcategory": "apis",
     "description": "Interact with HubSpot CRM and Marketing Hub",
-    "icon": "target",
+    "icon": "hubspot",
     "variant": "orange-500",
     "shape": "rounded-square",
     "size": "medium",
     "ports": [
-      { "id": "data-in", "label": "Data", "type": "input", "position": "left" },
-      { "id": "filter-in", "label": "Filters", "type": "input", "position": "top" },
-      { "id": "results-out", "label": "Results", "type": "output", "position": "right" },
-      { "id": "metrics-out", "label": "Metrics", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "filter-in",
+        "label": "Filters",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "results-out",
+        "label": "Results",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "metrics-out",
+        "label": "Metrics",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "objectType": { "type": "select", "options": ["contacts", "companies", "deals", "tickets"], "defaultValue": "contacts" },
-      "operation": { "type": "select", "options": ["get", "create", "update", "search", "batch"], "defaultValue": "get" },
-      "properties": { "type": "textarea", "placeholder": "firstname,lastname,email" },
-      "associations": { "type": "boolean", "defaultValue": false }
+      "objectType": {
+        "type": "select",
+        "options": [
+          "contacts",
+          "companies",
+          "deals",
+          "tickets"
+        ],
+        "defaultValue": "contacts"
+      },
+      "operation": {
+        "type": "select",
+        "options": [
+          "get",
+          "create",
+          "update",
+          "search",
+          "batch"
+        ],
+        "defaultValue": "get"
+      },
+      "properties": {
+        "type": "textarea",
+        "placeholder": "firstname,lastname,email"
+      },
+      "associations": {
+        "type": "boolean",
+        "defaultValue": false
+      }
     },
-    "requiredEnvVars": ["HUBSPOT_API_KEY"],
-    "tags": ["hubspot", "crm", "marketing", "sales"],
+    "requiredEnvVars": [
+      "HUBSPOT_API_KEY"
+    ],
+    "tags": [
+      "hubspot",
+      "crm",
+      "marketing",
+      "sales"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -967,21 +2694,120 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "data-in", "label": "Request Data", "type": "input", "position": "left" },
-      { "id": "headers-in", "label": "Headers", "type": "input", "position": "top" },
-      { "id": "response-out", "label": "Response", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "data-in",
+        "label": "Request Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "headers-in",
+        "label": "Headers",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "response-out",
+        "label": "Response",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "url": { "type": "text", "required": true, "placeholder": "https://api.example.com/data" },
-      "method": { "type": "select", "options": ["GET", "POST", "PUT", "PATCH", "DELETE"], "defaultValue": "GET" },
-      "timeout": { "type": "number", "defaultValue": 30000, "min": 1000, "max": 300000 },
-      "retryCount": { "type": "number", "defaultValue": 3, "min": 0, "max": 10 },
-      "followRedirects": { "type": "boolean", "defaultValue": true }
+      "url": {
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/data"
+      },
+      "method": {
+        "type": "select",
+        "options": [
+          "GET",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "defaultValue": "GET"
+      },
+      "timeout": {
+        "type": "number",
+        "defaultValue": 30000,
+        "min": 1000,
+        "max": 300000
+      },
+      "retryCount": {
+        "type": "number",
+        "defaultValue": 3,
+        "min": 0,
+        "max": 10
+      },
+      "followRedirects": {
+        "type": "boolean",
+        "defaultValue": true
+      }
     },
-    "tags": ["http", "api", "request", "web"],
+    "tags": [
+      "http",
+      "api",
+      "request",
+      "web"
+    ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "method"
+      ],
+      "rules": [
+        {
+          "when": "$.method == 'GET'",
+          "updates": {
+            "title": "HTTP GET",
+            "subtitle": "Fetch Data",
+            "description": "Retrieve data from web API"
+          }
+        },
+        {
+          "when": "$.method == 'POST'",
+          "updates": {
+            "title": "HTTP POST",
+            "subtitle": "Send Data",
+            "description": "Send data to web API"
+          }
+        },
+        {
+          "when": "$.method == 'PUT'",
+          "updates": {
+            "title": "HTTP PUT",
+            "subtitle": "Update Resource",
+            "description": "Update or create resource via API"
+          }
+        },
+        {
+          "when": "$.method == 'PATCH'",
+          "updates": {
+            "title": "HTTP PATCH",
+            "subtitle": "Partial Update",
+            "description": "Partially update resource via API"
+          }
+        },
+        {
+          "when": "$.method == 'DELETE'",
+          "updates": {
+            "title": "HTTP DELETE",
+            "subtitle": "Remove Resource",
+            "description": "Delete resource via API"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_graphql_query",
@@ -996,23 +2822,57 @@
     "shape": "hexagon",
     "size": "medium",
     "ports": [
-      { "id": "variables-in", "label": "Variables", "type": "input", "position": "left" },
-      { "id": "data-out", "label": "Data", "type": "output", "position": "right" },
-      { "id": "errors-out", "label": "Errors", "type": "output", "position": "bottom" }
+      {
+        "id": "variables-in",
+        "label": "Variables",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "data-out",
+        "label": "Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "endpoint": { "type": "text", "required": true, "placeholder": "https://api.example.com/graphql" },
-      "query": { 
-        "type": "code-editor", 
-        "language": "graphql", 
-        "required": true, 
-        "lineNumbers": true,
-        "placeholder": "query GetUsers($limit: Int) {\n  users(limit: $limit) {\n    id\n    name\n    email\n  }\n}" 
+      "endpoint": {
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/graphql"
       },
-      "operationType": { "type": "select", "options": ["query", "mutation", "subscription"], "defaultValue": "query" }
+      "query": {
+        "type": "code-editor",
+        "language": "graphql",
+        "required": true,
+        "lineNumbers": true,
+        "placeholder": "query GetUsers($limit: Int) {\n  users(limit: $limit) {\n    id\n    name\n    email\n  }\n}"
+      },
+      "operationType": {
+        "type": "select",
+        "options": [
+          "query",
+          "mutation",
+          "subscription"
+        ],
+        "defaultValue": "query"
+      }
     },
-    "requiredEnvVars": ["GRAPHQL_API_KEY"],
-    "tags": ["graphql", "api", "query", "mutation"],
+    "requiredEnvVars": [
+      "GRAPHQL_API_KEY"
+    ],
+    "tags": [
+      "graphql",
+      "api",
+      "query",
+      "mutation"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1029,43 +2889,967 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "params-in", "label": "Parameters", "type": "input", "position": "left" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "params-in",
+        "label": "Parameters",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "protocol": { "type": "select", "options": ["json-rpc", "grpc", "xml-rpc"], "defaultValue": "json-rpc" },
-      "endpoint": { "type": "text", "required": true, "placeholder": "https://rpc.example.com" },
-      "method": { "type": "text", "required": true, "placeholder": "getUser" },
-      "version": { "type": "text", "defaultValue": "2.0" }
+      "protocol": {
+        "type": "select",
+        "options": [
+          "json-rpc",
+          "grpc",
+          "xml-rpc"
+        ],
+        "defaultValue": "json-rpc"
+      },
+      "endpoint": {
+        "type": "text",
+        "required": true,
+        "placeholder": "https://rpc.example.com"
+      },
+      "method": {
+        "type": "text",
+        "required": true,
+        "placeholder": "getUser"
+      },
+      "version": {
+        "type": "text",
+        "defaultValue": "2.0"
+      }
     },
-    "tags": ["rpc", "remote", "api", "protocol"],
+    "tags": [
+      "rpc",
+      "remote",
+      "api",
+      "protocol"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
   {
-    "id": "tpl_math_operations",
+    "id": "tpl_math_add",
     "type": "math",
-    "title": "Math Operations",
-    "subtitle": "Calculate & Transform",
+    "title": "Add",
+    "subtitle": "A + B",
     "category": "tools-utilities",
     "subcategory": "math",
-    "description": "Perform mathematical operations on data",
+    "description": "Add two numbers together",
+    "icon": "plus",
+    "variant": "blue-600",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "add",
+      "sum",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_subtract",
+    "type": "math",
+    "title": "Subtract",
+    "subtitle": "A - B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Subtract B from A",
+    "icon": "minus",
+    "variant": "gray-700",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "subtract",
+      "minus",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_multiply",
+    "type": "math",
+    "title": "Multiply",
+    "subtitle": "A × B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Multiply two numbers",
+    "icon": "x",
+    "variant": "green-600",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "multiply",
+      "times",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_divide",
+    "type": "math",
+    "title": "Divide",
+    "subtitle": "A ÷ B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Divide A by B",
+    "icon": "divide",
+    "variant": "orange-700",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      },
+      "handleDivByZero": {
+        "type": "select",
+        "label": "Handle Division by Zero",
+        "options": [
+          "error",
+          "infinity",
+          "zero",
+          "null"
+        ],
+        "defaultValue": "error",
+        "description": "How to handle division by zero"
+      }
+    },
+    "tags": [
+      "math",
+      "divide",
+      "division",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_power",
+    "type": "math",
+    "title": "Power",
+    "subtitle": "A ^ B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Raise A to the power of B",
+    "icon": "chevron-up",
+    "variant": "gray-800",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "base-in",
+        "label": "Base",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "exp-in",
+        "label": "Exponent",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      }
+    },
+    "tags": [
+      "math",
+      "power",
+      "exponent",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_sqrt",
+    "type": "math",
+    "title": "Square Root",
+    "subtitle": "√A",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate square root of a number",
+    "icon": "radical",
+    "variant": "gray-900",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places in the result"
+      },
+      "handleNegative": {
+        "type": "select",
+        "label": "Handle Negative Numbers",
+        "options": [
+          "error",
+          "absolute",
+          "complex"
+        ],
+        "defaultValue": "error",
+        "description": "How to handle negative input values"
+      }
+    },
+    "tags": [
+      "math",
+      "sqrt",
+      "root",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_modulo",
+    "type": "math",
+    "title": "Modulo",
+    "subtitle": "A % B",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate remainder of A divided by B",
+    "icon": "percent",
+    "variant": "gray-600",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "a-in",
+        "label": "A",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "b-in",
+        "label": "B",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "modulo",
+      "remainder",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_absolute",
+    "type": "math",
+    "title": "Absolute",
+    "subtitle": "|A|",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Get absolute value of a number",
+    "icon": "binary",
+    "variant": "black",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "absolute",
+      "abs",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_round",
+    "type": "math",
+    "title": "Round",
+    "subtitle": "Round Number",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Round a number to specified precision",
+    "icon": "circle",
+    "variant": "blue-600",
+    "shape": "circle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Places",
+        "defaultValue": 0,
+        "min": 0,
+        "max": 10,
+        "description": "Number of decimal places to round to"
+      },
+      "method": {
+        "type": "select",
+        "label": "Rounding Method",
+        "options": [
+          "round",
+          "floor",
+          "ceil",
+          "trunc"
+        ],
+        "defaultValue": "round",
+        "description": "Method to use for rounding"
+      }
+    },
+    "tags": [
+      "math",
+      "round",
+      "floor",
+      "ceil",
+      "arithmetic"
+    ],
+    "version": "1.0.0",
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "method"
+      ],
+      "rules": [
+        {
+          "when": "$.method == 'round'",
+          "updates": {
+            "title": "Round",
+            "subtitle": "Round Number",
+            "description": "Round a number to specified precision"
+          }
+        },
+        {
+          "when": "$.method == 'floor'",
+          "updates": {
+            "title": "Floor",
+            "subtitle": "Round Down",
+            "description": "Round down to the nearest integer or precision"
+          }
+        },
+        {
+          "when": "$.method == 'ceil'",
+          "updates": {
+            "title": "Ceiling",
+            "subtitle": "Round Up",
+            "description": "Round up to the nearest integer or precision"
+          }
+        },
+        {
+          "when": "$.method == 'trunc'",
+          "updates": {
+            "title": "Truncate",
+            "subtitle": "Remove Decimals",
+            "description": "Remove decimal places without rounding"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "tpl_math_expression",
+    "type": "math",
+    "title": "Math Expression",
+    "subtitle": "Evaluate Expression",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Evaluate complex mathematical expressions",
     "icon": "calculator",
+    "variant": "gray-900",
+    "shape": "rectangle",
+    "size": "large",
+    "ports": [
+      {
+        "id": "variables-in",
+        "label": "Variables",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "expression": {
+        "type": "code-editor",
+        "label": "Mathematical Expression",
+        "language": "javascript",
+        "required": true,
+        "lineNumbers": false,
+        "height": 100,
+        "placeholder": "// Available variables from input\n// Example: (a + b) * c / 2\n// Math functions: sqrt, pow, sin, cos, tan, log, etc.",
+        "description": "Enter a mathematical expression using JavaScript syntax"
+      },
+      "precision": {
+        "type": "number",
+        "label": "Result Precision",
+        "defaultValue": 4,
+        "min": 0,
+        "max": 16,
+        "description": "Number of decimal places in the result"
+      },
+      "safeEval": {
+        "type": "boolean",
+        "label": "Safe Evaluation",
+        "defaultValue": true,
+        "description": "Use sandboxed evaluation (recommended)"
+      }
+    },
+    "tags": [
+      "math",
+      "expression",
+      "formula",
+      "calculate",
+      "evaluate"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_sum",
+    "type": "math",
+    "title": "Sum",
+    "subtitle": "Sum Array",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate sum of all numbers in input array",
+    "icon": "sigma",
+    "variant": "blue-600",
+    "shape": "diamond",
+    "size": "small",
+    "ports": [
+      {
+        "id": "array-in",
+        "label": "Array",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "sum-out",
+        "label": "Sum",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {
+      "ignoreNonNumeric": {
+        "type": "boolean",
+        "label": "Ignore Non-Numeric",
+        "defaultValue": true,
+        "description": "Skip non-numeric values instead of erroring"
+      }
+    },
+    "tags": [
+      "math",
+      "sum",
+      "aggregate",
+      "array"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_average",
+    "type": "math",
+    "title": "Average",
+    "subtitle": "Calculate Mean",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate average of numbers in input array",
+    "icon": "bar-chart-2",
+    "variant": "green-600",
+    "shape": "diamond",
+    "size": "small",
+    "ports": [
+      {
+        "id": "array-in",
+        "label": "Array",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "avg-out",
+        "label": "Average",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "count-out",
+        "label": "Count",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 2,
+        "min": 0,
+        "max": 10
+      }
+    },
+    "tags": [
+      "math",
+      "average",
+      "mean",
+      "aggregate",
+      "statistics"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_min_max",
+    "type": "math",
+    "title": "Min/Max",
+    "subtitle": "Find Min & Max",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Find minimum and maximum values in array",
+    "icon": "arrow-up-down",
+    "variant": "gray-700",
+    "shape": "diamond",
+    "size": "small",
+    "ports": [
+      {
+        "id": "array-in",
+        "label": "Array",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "min-out",
+        "label": "Min",
+        "type": "output",
+        "position": "top"
+      },
+      {
+        "id": "max-out",
+        "label": "Max",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "range-out",
+        "label": "Range",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "min",
+      "max",
+      "range",
+      "aggregate"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_clamp",
+    "type": "math",
+    "title": "Clamp",
+    "subtitle": "Limit Range",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Clamp value between min and max",
+    "icon": "maximize",
+    "variant": "orange-700",
+    "shape": "rectangle",
+    "size": "small",
+    "ports": [
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "min-in",
+        "label": "Min",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "max-in",
+        "label": "Max",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      }
+    ],
+    "properties": {},
+    "tags": [
+      "math",
+      "clamp",
+      "limit",
+      "range",
+      "constrain"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_random",
+    "type": "math",
+    "title": "Random",
+    "subtitle": "Generate Random",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Generate random numbers",
+    "icon": "shuffle",
     "variant": "gray-800",
     "shape": "circle",
     "size": "small",
     "ports": [
-      { "id": "a-in", "label": "A", "type": "input", "position": "left" },
-      { "id": "b-in", "label": "B", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" }
+      {
+        "id": "trigger-in",
+        "label": "Trigger",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "value-out",
+        "label": "Value",
+        "type": "output",
+        "position": "right"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["add", "subtract", "multiply", "divide", "power", "sqrt", "abs", "round"], "defaultValue": "add" },
-      "precision": { "type": "number", "defaultValue": 2, "min": 0, "max": 10 },
-      "expression": { "type": "text", "placeholder": "a * b + 10" }
+      "min": {
+        "type": "number",
+        "label": "Minimum",
+        "defaultValue": 0,
+        "description": "Minimum value (inclusive)"
+      },
+      "max": {
+        "type": "number",
+        "label": "Maximum",
+        "defaultValue": 1,
+        "description": "Maximum value (exclusive for float)"
+      },
+      "type": {
+        "type": "select",
+        "label": "Number Type",
+        "options": [
+          "float",
+          "integer"
+        ],
+        "defaultValue": "float",
+        "description": "Generate float or integer"
+      },
+      "seed": {
+        "type": "text",
+        "label": "Seed (Optional)",
+        "placeholder": "Leave empty for random",
+        "description": "Seed for reproducible random numbers"
+      }
     },
-    "tags": ["math", "calculate", "arithmetic", "utility"],
+    "tags": [
+      "math",
+      "random",
+      "generate",
+      "number"
+    ],
+    "version": "1.0.0",
+    "isActive": true
+  },
+  {
+    "id": "tpl_math_statistics",
+    "type": "math",
+    "title": "Statistics",
+    "subtitle": "Statistical Analysis",
+    "category": "tools-utilities",
+    "subcategory": "math",
+    "description": "Calculate statistical measures of data",
+    "icon": "chart-area",
+    "variant": "gray-900",
+    "shape": "rectangle",
+    "size": "medium",
+    "ports": [
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "mean-out",
+        "label": "Mean",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "median-out",
+        "label": "Median",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "mode-out",
+        "label": "Mode",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "std-out",
+        "label": "Std Dev",
+        "type": "output",
+        "position": "bottom"
+      },
+      {
+        "id": "variance-out",
+        "label": "Variance",
+        "type": "output",
+        "position": "bottom"
+      }
+    ],
+    "properties": {
+      "precision": {
+        "type": "number",
+        "label": "Decimal Precision",
+        "defaultValue": 4,
+        "min": 0,
+        "max": 10
+      },
+      "sampleCorrection": {
+        "type": "boolean",
+        "label": "Sample Correction",
+        "defaultValue": true,
+        "description": "Use Bessel's correction for sample variance"
+      }
+    },
+    "tags": [
+      "math",
+      "statistics",
+      "mean",
+      "median",
+      "mode",
+      "variance"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1082,18 +3866,55 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "json-in", "label": "JSON", "type": "input", "position": "left" },
-      { "id": "schema-in", "label": "Schema", "type": "input", "position": "top" },
-      { "id": "parsed-out", "label": "Parsed", "type": "output", "position": "right" },
-      { "id": "errors-out", "label": "Errors", "type": "output", "position": "bottom" }
+      {
+        "id": "json-in",
+        "label": "JSON",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "schema-in",
+        "label": "Schema",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "parsed-out",
+        "label": "Parsed",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "jsonPath": { "type": "text", "placeholder": "$.users[*].email" },
-      "strictMode": { "type": "boolean", "defaultValue": true },
-      "allowComments": { "type": "boolean", "defaultValue": false },
-      "validateSchema": { "type": "boolean", "defaultValue": false }
+      "jsonPath": {
+        "type": "text",
+        "placeholder": "$.users[*].email"
+      },
+      "strictMode": {
+        "type": "boolean",
+        "defaultValue": true
+      },
+      "allowComments": {
+        "type": "boolean",
+        "defaultValue": false
+      },
+      "validateSchema": {
+        "type": "boolean",
+        "defaultValue": false
+      }
     },
-    "tags": ["json", "parser", "transform", "data"],
+    "tags": [
+      "json",
+      "parser",
+      "transform",
+      "data"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1110,17 +3931,56 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "xml-in", "label": "XML", "type": "input", "position": "left" },
-      { "id": "xpath-in", "label": "XPath", "type": "input", "position": "top" },
-      { "id": "data-out", "label": "Data", "type": "output", "position": "right" },
-      { "id": "errors-out", "label": "Errors", "type": "output", "position": "bottom" }
+      {
+        "id": "xml-in",
+        "label": "XML",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "xpath-in",
+        "label": "XPath",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "data-out",
+        "label": "Data",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "errors-out",
+        "label": "Errors",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "xpath": { "type": "text", "placeholder": "//users/user[@active='true']" },
-      "namespaces": { "type": "textarea", "placeholder": "{ \"ns\": \"http://example.com/ns\" }" },
-      "outputFormat": { "type": "select", "options": ["json", "array", "object"], "defaultValue": "json" }
+      "xpath": {
+        "type": "text",
+        "placeholder": "//users/user[@active='true']"
+      },
+      "namespaces": {
+        "type": "textarea",
+        "placeholder": "{ \"ns\": \"http://example.com/ns\" }"
+      },
+      "outputFormat": {
+        "type": "select",
+        "options": [
+          "json",
+          "array",
+          "object"
+        ],
+        "defaultValue": "json"
+      }
     },
-    "tags": ["xml", "parser", "xpath", "data"],
+    "tags": [
+      "xml",
+      "parser",
+      "xpath",
+      "data"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1137,17 +3997,67 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "text-in", "label": "Text", "type": "input", "position": "left" },
-      { "id": "pattern-in", "label": "Pattern", "type": "input", "position": "top" },
-      { "id": "matches-out", "label": "Matches", "type": "output", "position": "right" },
-      { "id": "groups-out", "label": "Groups", "type": "output", "position": "bottom" }
+      {
+        "id": "text-in",
+        "label": "Text",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "pattern-in",
+        "label": "Pattern",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "matches-out",
+        "label": "Matches",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "groups-out",
+        "label": "Groups",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "pattern": { "type": "text", "required": true, "placeholder": "\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b" },
-      "flags": { "type": "select", "multiple": true, "options": ["i", "g", "m", "s"], "defaultValue": ["g"] },
-      "returnType": { "type": "select", "options": ["matches", "groups", "split", "replace"], "defaultValue": "matches" }
+      "pattern": {
+        "type": "text",
+        "required": true,
+        "placeholder": "\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b"
+      },
+      "flags": {
+        "type": "select",
+        "multiple": true,
+        "options": [
+          "i",
+          "g",
+          "m",
+          "s"
+        ],
+        "defaultValue": [
+          "g"
+        ]
+      },
+      "returnType": {
+        "type": "select",
+        "options": [
+          "matches",
+          "groups",
+          "split",
+          "replace"
+        ],
+        "defaultValue": "matches"
+      }
     },
-    "tags": ["regex", "pattern", "text", "match"],
+    "tags": [
+      "regex",
+      "pattern",
+      "text",
+      "match"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1164,17 +4074,65 @@
     "shape": "circle",
     "size": "small",
     "ports": [
-      { "id": "date-in", "label": "Date", "type": "input", "position": "left" },
-      { "id": "formatted-out", "label": "Formatted", "type": "output", "position": "right" },
-      { "id": "timestamp-out", "label": "Timestamp", "type": "output", "position": "bottom" }
+      {
+        "id": "date-in",
+        "label": "Date",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "formatted-out",
+        "label": "Formatted",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "timestamp-out",
+        "label": "Timestamp",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["format", "parse", "add", "subtract", "diff", "now"], "defaultValue": "format" },
-      "format": { "type": "text", "defaultValue": "YYYY-MM-DD HH:mm:ss" },
-      "timezone": { "type": "text", "defaultValue": "UTC" },
-      "unit": { "type": "select", "options": ["years", "months", "days", "hours", "minutes", "seconds"], "defaultValue": "days" }
+      "operation": {
+        "type": "select",
+        "options": [
+          "format",
+          "parse",
+          "add",
+          "subtract",
+          "diff",
+          "now"
+        ],
+        "defaultValue": "format"
+      },
+      "format": {
+        "type": "text",
+        "defaultValue": "YYYY-MM-DD HH:mm:ss"
+      },
+      "timezone": {
+        "type": "text",
+        "defaultValue": "UTC"
+      },
+      "unit": {
+        "type": "select",
+        "options": [
+          "years",
+          "months",
+          "days",
+          "hours",
+          "minutes",
+          "seconds"
+        ],
+        "defaultValue": "days"
+      }
     },
-    "tags": ["date", "time", "datetime", "format"],
+    "tags": [
+      "date",
+      "time",
+      "datetime",
+      "format"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1191,18 +4149,67 @@
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "key-in", "label": "Key", "type": "input", "position": "left" },
-      { "id": "value-in", "label": "Value", "type": "input", "position": "top" },
-      { "id": "stored-out", "label": "Stored Value", "type": "output", "position": "right" },
-      { "id": "success-out", "label": "Success", "type": "output", "position": "bottom" }
+      {
+        "id": "key-in",
+        "label": "Key",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "stored-out",
+        "label": "Stored Value",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "success-out",
+        "label": "Success",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["get", "set", "delete", "exists"], "defaultValue": "get" },
-      "namespace": { "type": "text", "placeholder": "workflow_state" },
-      "ttl": { "type": "number", "placeholder": 3600, "description": "Time to live in seconds (0 = no expiry)" },
-      "storageType": { "type": "select", "options": ["memory", "redis", "file"], "defaultValue": "memory" }
+      "operation": {
+        "type": "select",
+        "options": [
+          "get",
+          "set",
+          "delete",
+          "exists"
+        ],
+        "defaultValue": "get"
+      },
+      "namespace": {
+        "type": "text",
+        "placeholder": "workflow_state"
+      },
+      "ttl": {
+        "type": "number",
+        "placeholder": 3600,
+        "description": "Time to live in seconds (0 = no expiry)"
+      },
+      "storageType": {
+        "type": "select",
+        "options": [
+          "memory",
+          "redis",
+          "file"
+        ],
+        "defaultValue": "memory"
+      }
     },
-    "tags": ["storage", "state", "memory", "persistence"],
+    "tags": [
+      "storage",
+      "state",
+      "memory",
+      "persistence"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1219,17 +4226,55 @@
     "shape": "circle",
     "size": "small",
     "ports": [
-      { "id": "name-in", "label": "Variable Name", "type": "input", "position": "left" },
-      { "id": "value-out", "label": "Value", "type": "output", "position": "right" },
-      { "id": "found-out", "label": "Found", "type": "output", "position": "bottom" }
+      {
+        "id": "name-in",
+        "label": "Variable Name",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "value-out",
+        "label": "Value",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "found-out",
+        "label": "Found",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "scope": { "type": "select", "options": ["workflow", "global", "environment", "runtime"], "defaultValue": "workflow" },
-      "defaultValue": { "type": "text", "placeholder": "Default if not found" },
-      "cacheResult": { "type": "boolean", "defaultValue": true },
-      "throwOnMissing": { "type": "boolean", "defaultValue": false }
+      "scope": {
+        "type": "select",
+        "options": [
+          "workflow",
+          "global",
+          "environment",
+          "runtime"
+        ],
+        "defaultValue": "workflow"
+      },
+      "defaultValue": {
+        "type": "text",
+        "placeholder": "Default if not found"
+      },
+      "cacheResult": {
+        "type": "boolean",
+        "defaultValue": true
+      },
+      "throwOnMissing": {
+        "type": "boolean",
+        "defaultValue": false
+      }
     },
-    "tags": ["variable", "lookup", "scope", "dynamic"],
+    "tags": [
+      "variable",
+      "lookup",
+      "scope",
+      "dynamic"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1246,18 +4291,69 @@
     "shape": "rounded-square",
     "size": "medium",
     "ports": [
-      { "id": "key-in", "label": "Key", "type": "input", "position": "left" },
-      { "id": "value-in", "label": "Value", "type": "input", "position": "top" },
-      { "id": "cached-out", "label": "Cached Value", "type": "output", "position": "right" },
-      { "id": "hit-out", "label": "Cache Hit", "type": "output", "position": "bottom" }
+      {
+        "id": "key-in",
+        "label": "Key",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "value-in",
+        "label": "Value",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "cached-out",
+        "label": "Cached Value",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "hit-out",
+        "label": "Cache Hit",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["get", "set", "delete", "clear", "has"], "defaultValue": "get" },
-      "ttl": { "type": "number", "defaultValue": 300, "description": "Time to live in seconds" },
-      "maxSize": { "type": "number", "defaultValue": 1000, "description": "Maximum cache entries" },
-      "evictionPolicy": { "type": "select", "options": ["lru", "lfu", "fifo"], "defaultValue": "lru" }
+      "operation": {
+        "type": "select",
+        "options": [
+          "get",
+          "set",
+          "delete",
+          "clear",
+          "has"
+        ],
+        "defaultValue": "get"
+      },
+      "ttl": {
+        "type": "number",
+        "defaultValue": 300,
+        "description": "Time to live in seconds"
+      },
+      "maxSize": {
+        "type": "number",
+        "defaultValue": 1000,
+        "description": "Maximum cache entries"
+      },
+      "evictionPolicy": {
+        "type": "select",
+        "options": [
+          "lru",
+          "lfu",
+          "fifo"
+        ],
+        "defaultValue": "lru"
+      }
     },
-    "tags": ["cache", "memory", "performance", "storage"],
+    "tags": [
+      "cache",
+      "memory",
+      "performance",
+      "storage"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1269,24 +4365,78 @@
     "category": "storage-memory",
     "subcategory": "cache",
     "description": "Interact with Redis for caching and data storage",
-    "icon": "database",
+    "icon": "redis",
     "variant": "gray-800",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
-      { "id": "command-in", "label": "Command", "type": "input", "position": "left" },
-      { "id": "args-in", "label": "Arguments", "type": "input", "position": "top" },
-      { "id": "result-out", "label": "Result", "type": "output", "position": "right" },
-      { "id": "error-out", "label": "Error", "type": "output", "position": "bottom" }
+      {
+        "id": "command-in",
+        "label": "Command",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "args-in",
+        "label": "Arguments",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "result-out",
+        "label": "Result",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "error-out",
+        "label": "Error",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "command": { "type": "select", "options": ["GET", "SET", "DEL", "EXISTS", "EXPIRE", "HGET", "HSET", "LPUSH", "RPOP"], "defaultValue": "GET" },
-      "key": { "type": "text", "required": true, "placeholder": "mykey" },
-      "database": { "type": "number", "defaultValue": 0, "min": 0, "max": 15 },
-      "expiry": { "type": "number", "placeholder": 3600 }
+      "command": {
+        "type": "select",
+        "options": [
+          "GET",
+          "SET",
+          "DEL",
+          "EXISTS",
+          "EXPIRE",
+          "HGET",
+          "HSET",
+          "LPUSH",
+          "RPOP"
+        ],
+        "defaultValue": "GET"
+      },
+      "key": {
+        "type": "text",
+        "required": true,
+        "placeholder": "mykey"
+      },
+      "database": {
+        "type": "number",
+        "defaultValue": 0,
+        "min": 0,
+        "max": 15
+      },
+      "expiry": {
+        "type": "number",
+        "placeholder": 3600
+      }
     },
-    "requiredEnvVars": ["REDIS_URL", "REDIS_PASSWORD"],
-    "tags": ["redis", "cache", "database", "nosql"],
+    "requiredEnvVars": [
+      "REDIS_URL",
+      "REDIS_PASSWORD"
+    ],
+    "tags": [
+      "redis",
+      "cache",
+      "database",
+      "nosql"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1303,19 +4453,74 @@
     "shape": "rounded-square",
     "size": "medium",
     "ports": [
-      { "id": "message-in", "label": "Message", "type": "input", "position": "left" },
-      { "id": "options-in", "label": "Options", "type": "input", "position": "top" },
-      { "id": "received-out", "label": "Received", "type": "output", "position": "right" },
-      { "id": "ack-out", "label": "Acknowledgment", "type": "output", "position": "bottom" }
+      {
+        "id": "message-in",
+        "label": "Message",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "options-in",
+        "label": "Options",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "received-out",
+        "label": "Received",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "ack-out",
+        "label": "Acknowledgment",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "operation": { "type": "select", "options": ["send", "receive", "peek", "ack", "nack"], "defaultValue": "send" },
-      "queueName": { "type": "text", "required": true, "placeholder": "task-queue" },
-      "provider": { "type": "select", "options": ["rabbitmq", "sqs", "kafka", "redis"], "defaultValue": "rabbitmq" },
-      "maxMessages": { "type": "number", "defaultValue": 1, "min": 1, "max": 10 }
+      "operation": {
+        "type": "select",
+        "options": [
+          "send",
+          "receive",
+          "peek",
+          "ack",
+          "nack"
+        ],
+        "defaultValue": "send"
+      },
+      "queueName": {
+        "type": "text",
+        "required": true,
+        "placeholder": "task-queue"
+      },
+      "provider": {
+        "type": "select",
+        "options": [
+          "rabbitmq",
+          "sqs",
+          "kafka",
+          "redis"
+        ],
+        "defaultValue": "rabbitmq"
+      },
+      "maxMessages": {
+        "type": "number",
+        "defaultValue": 1,
+        "min": 1,
+        "max": 10
+      }
     },
-    "requiredEnvVars": ["QUEUE_CONNECTION_STRING"],
-    "tags": ["queue", "messaging", "async", "mq"],
+    "requiredEnvVars": [
+      "QUEUE_CONNECTION_STRING"
+    ],
+    "tags": [
+      "queue",
+      "messaging",
+      "async",
+      "mq"
+    ],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1332,18 +4537,61 @@
     "shape": "circle",
     "size": "medium",
     "ports": [
-      { "id": "event-in", "label": "Event", "type": "input", "position": "left" },
-      { "id": "data-in", "label": "Data", "type": "input", "position": "top" },
-      { "id": "published-out", "label": "Published", "type": "output", "position": "right" },
-      { "id": "id-out", "label": "Event ID", "type": "output", "position": "bottom" }
+      {
+        "id": "event-in",
+        "label": "Event",
+        "type": "input",
+        "position": "left"
+      },
+      {
+        "id": "data-in",
+        "label": "Data",
+        "type": "input",
+        "position": "top"
+      },
+      {
+        "id": "published-out",
+        "label": "Published",
+        "type": "output",
+        "position": "right"
+      },
+      {
+        "id": "id-out",
+        "label": "Event ID",
+        "type": "output",
+        "position": "bottom"
+      }
     ],
     "properties": {
-      "eventName": { "type": "text", "required": true, "placeholder": "user.created" },
-      "channel": { "type": "text", "placeholder": "default" },
-      "persistence": { "type": "boolean", "defaultValue": false },
-      "priority": { "type": "select", "options": ["low", "normal", "high"], "defaultValue": "normal" }
+      "eventName": {
+        "type": "text",
+        "required": true,
+        "placeholder": "user.created"
+      },
+      "channel": {
+        "type": "text",
+        "placeholder": "default"
+      },
+      "persistence": {
+        "type": "boolean",
+        "defaultValue": false
+      },
+      "priority": {
+        "type": "select",
+        "options": [
+          "low",
+          "normal",
+          "high"
+        ],
+        "defaultValue": "normal"
+      }
     },
-    "tags": ["event", "pubsub", "messaging", "async"],
+    "tags": [
+      "event",
+      "pubsub",
+      "messaging",
+      "async"
+    ],
     "version": "1.0.0",
     "isActive": true
   }

@@ -4,6 +4,7 @@ import { NodeMetadata, Connection, WorkflowNodeData } from '@/types/workflow'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/workflowSerializer'
 import { Database, Bot } from 'lucide-react'
+import { useEnvVarStore } from './envVarStore'
 
 // Extended node data that includes position
 interface WorkflowNode extends WorkflowNodeData {
@@ -140,6 +141,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
           nodeWithEnvVars: newState.nodes.filter(n => n.metadata.requiredEnvVars?.length > 0).length
         })
         
+        // Track required environment variables
+        if (metadata.requiredEnvVars && metadata.requiredEnvVars.length > 0) {
+          useEnvVarStore.getState().addRequiredVars(metadata.requiredEnvVars)
+        }
+        
         // Save snapshot after action
         setTimeout(() => get().saveSnapshot(), 0)
         
@@ -149,11 +155,33 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
     removeNode: (nodeId: string) => {
       set((state) => {
+        // Find the node being removed
+        const nodeToRemove = state.nodes.find(node => node.metadata.id === nodeId)
+        
         // Remove node and all its connections
         const newNodes = state.nodes.filter(node => node.metadata.id !== nodeId)
         const newConnections = state.connections.filter(conn => 
           conn.source.nodeId !== nodeId && conn.target.nodeId !== nodeId
         )
+        
+        // Remove required environment variables if this was the only node requiring them
+        if (nodeToRemove?.metadata.requiredEnvVars && nodeToRemove.metadata.requiredEnvVars.length > 0) {
+          // Check if any remaining nodes require the same vars
+          const remainingRequiredVars = new Set<string>()
+          newNodes.forEach(node => {
+            if (node.metadata.requiredEnvVars) {
+              node.metadata.requiredEnvVars.forEach(v => remainingRequiredVars.add(v))
+            }
+          })
+          
+          // Remove vars that are no longer required
+          const varsToRemove = nodeToRemove.metadata.requiredEnvVars.filter(
+            v => !remainingRequiredVars.has(v)
+          )
+          if (varsToRemove.length > 0) {
+            useEnvVarStore.getState().removeRequiredVars(varsToRemove)
+          }
+        }
         
         const newState = {
           ...state,
@@ -181,7 +209,52 @@ export const useWorkflowStore = create<WorkflowStore>()(
     },
 
     updateNodeMetadata: (nodeId: string, metadata: NodeMetadata, saveSnapshot = true) => {
+      console.log('🔄 STORE: updateNodeMetadata called for node:', nodeId)
+      console.log('🔄 STORE: New metadata:', {
+        title: metadata.title,
+        icon: metadata.icon,
+        variant: metadata.variant,
+        subtitle: metadata.subtitle
+      })
+      
       set((state) => {
+        // Find the old node to compare env vars
+        const oldNode = state.nodes.find(n => n.metadata.id === nodeId)
+        console.log('🔄 STORE: Old metadata:', oldNode ? {
+          title: oldNode.metadata.title,
+          icon: oldNode.metadata.icon,
+          variant: oldNode.metadata.variant,
+          subtitle: oldNode.metadata.subtitle
+        } : 'not found')
+        
+        const oldRequiredVars = oldNode?.metadata.requiredEnvVars || []
+        const newRequiredVars = metadata.requiredEnvVars || []
+        
+        // Update env var tracking if required vars changed
+        const envVarStore = useEnvVarStore.getState()
+        const varsToRemove = oldRequiredVars.filter(v => !newRequiredVars.includes(v))
+        const varsToAdd = newRequiredVars.filter(v => !oldRequiredVars.includes(v))
+        
+        if (varsToRemove.length > 0) {
+          // Check if any other nodes still require these vars
+          const otherNodes = state.nodes.filter(n => n.metadata.id !== nodeId)
+          const stillRequiredVars = new Set<string>()
+          otherNodes.forEach(node => {
+            if (node.metadata.requiredEnvVars) {
+              node.metadata.requiredEnvVars.forEach(v => stillRequiredVars.add(v))
+            }
+          })
+          
+          const actualVarsToRemove = varsToRemove.filter(v => !stillRequiredVars.has(v))
+          if (actualVarsToRemove.length > 0) {
+            envVarStore.removeRequiredVars(actualVarsToRemove)
+          }
+        }
+        
+        if (varsToAdd.length > 0) {
+          envVarStore.addRequiredVars(varsToAdd)
+        }
+        
         const newState = {
           ...state,
           nodes: state.nodes.map(node => 
@@ -190,6 +263,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
               : node
           )
         }
+        
+        console.log('🔄 STORE: Updated node in new state:', newState.nodes.find(n => n.metadata.id === nodeId)?.metadata ? {
+          title: newState.nodes.find(n => n.metadata.id === nodeId)!.metadata.title,
+          icon: newState.nodes.find(n => n.metadata.id === nodeId)!.metadata.icon,
+          variant: newState.nodes.find(n => n.metadata.id === nodeId)!.metadata.variant,
+          subtitle: newState.nodes.find(n => n.metadata.id === nodeId)!.metadata.subtitle
+        } : 'not found')
         
         // Save snapshot after metadata changes (only if requested)
         if (saveSnapshot) {
@@ -345,6 +425,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
     // Utility actions
     clearWorkflow: () => {
       set((state) => {
+        // Clear env var tracking
+        useEnvVarStore.getState().clear()
+        
         const newState = {
           ...state,
           nodes: [],
@@ -360,6 +443,22 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
     loadWorkflow: (nodes: WorkflowNode[], connections: Connection[]) => {
       set((state) => {
+        // Rebuild env var tracking
+        const envVarStore = useEnvVarStore.getState()
+        envVarStore.clear()
+        
+        // Add all required vars from loaded nodes
+        const allRequiredVars = new Set<string>()
+        nodes.forEach(node => {
+          if (node.metadata.requiredEnvVars) {
+            node.metadata.requiredEnvVars.forEach(v => allRequiredVars.add(v))
+          }
+        })
+        
+        if (allRequiredVars.size > 0) {
+          envVarStore.addRequiredVars(Array.from(allRequiredVars))
+        }
+        
         const newState = {
           ...state,
           nodes: nodes.map(node => ({
