@@ -35,6 +35,7 @@ import { ConfigurationToast } from '@/components/ConfigurationToast'
 import { NodeGroupContainer } from '@/components/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/SelectionRectangle'
 import { GroupCreationModal } from '@/components/GroupCreationModal'
+import { EmptyGroupCreationModal } from '@/components/EmptyGroupCreationModal'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
@@ -226,6 +227,9 @@ export default function Home() {
   const [isPropertyPaneClosing, setIsPropertyPaneClosing] = useState(false)
   const [configurationToastNodeId, setConfigurationToastNodeId] = useState<string | null>(null)
   const [isGroupCreationModalOpen, setIsGroupCreationModalOpen] = useState(false)
+  const [isEmptyGroupModalOpen, setIsEmptyGroupModalOpen] = useState(false)
+  const [emptyGroupPosition, setEmptyGroupPosition] = useState({ x: 0, y: 0 })
+  const [nodeHoveringGroupId, setNodeHoveringGroupId] = useState<string | null>(null)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
@@ -261,6 +265,8 @@ export default function Home() {
     updateSelection,
     endSelection,
     createGroupFromSelection,
+    createEmptyGroup,
+    addNodeToGroup,
     isNodeSelected,
     updatePortPosition,
     getPortPosition,
@@ -537,6 +543,29 @@ export default function Home() {
   const handleGroupCreationCancel = () => {
     setIsGroupCreationModalOpen(false)
   }
+
+  // Handle empty group creation
+  const handleEmptyGroupCreationConfirm = (title: string, description: string, position: { x: number; y: number }) => {
+    createEmptyGroup(title, description, position)
+    setIsEmptyGroupModalOpen(false)
+  }
+
+  const handleEmptyGroupCreationCancel = () => {
+    setIsEmptyGroupModalOpen(false)
+  }
+
+  const handleCreateEmptyGroup = (canvasPosition: { x: number; y: number }) => {
+    setEmptyGroupPosition(canvasPosition)
+    setIsEmptyGroupModalOpen(true)
+  }
+
+  const handleNodeDropIntoGroup = (nodeId: string, groupId: string) => {
+    addNodeToGroup(groupId, nodeId)
+  }
+
+  const handleNodeHoverGroup = (groupId: string | null) => {
+    setNodeHoveringGroupId(groupId)
+  }
   
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
     const portPosition = getPortPosition(nodeId, portId)
@@ -652,6 +681,15 @@ export default function Home() {
           if (selection.selectedNodeIds.length > 0) {
             setIsGroupCreationModalOpen(true)
           }
+        }
+        
+        // Ctrl/Cmd + E: Create empty group at center of viewport
+        if (e.key === 'e' && !e.shiftKey) {
+          e.preventDefault()
+          // Calculate center of viewport in canvas coordinates
+          const centerX = (-canvasOffset.x + viewportSize.width / 2) / canvasZoom
+          const centerY = (-canvasOffset.y + viewportSize.height / 2) / canvasZoom
+          handleCreateEmptyGroup({ x: centerX, y: centerY })
         }
       }
       
@@ -796,7 +834,11 @@ export default function Home() {
             // Get nodes that belong to this group
             const groupNodes = storeNodes.filter(node => group.nodeIds.includes(node.metadata.id))
             return (
-              <NodeGroupContainer key={group.id} group={group}>
+              <NodeGroupContainer 
+                key={group.id} 
+                group={group}
+                isDropTarget={nodeHoveringGroupId === group.id}
+              >
                 {/* Render nodes that belong to this group */}
                 {groupNodes.map(node => (
                   <DraggableNode
@@ -828,6 +870,9 @@ export default function Home() {
                     onClick={handleNodeSelect}
                     isHighlighted={node.metadata.id === highlightedNodeId}
                     isSelected={isNodeSelected(node.metadata.id)}
+                    onNodeDropIntoGroup={handleNodeDropIntoGroup}
+                    onNodeHoverGroup={handleNodeHoverGroup}
+                    groups={groups}
                   />
                 ))}
               </NodeGroupContainer>
@@ -859,6 +904,9 @@ export default function Home() {
                 onClick={handleNodeSelect}
                 isHighlighted={node.metadata.id === highlightedNodeId}
                 isSelected={isNodeSelected(node.metadata.id)}
+                onNodeDropIntoGroup={handleNodeDropIntoGroup}
+                onNodeHoverGroup={handleNodeHoverGroup}
+                groups={groups}
               />
             ))}
         </InteractiveCanvas>
@@ -876,6 +924,12 @@ export default function Home() {
         <WorkflowBottomToolbar 
           onHistoryClick={() => setIsHistoryBrowserOpen(true)}
           onDebuggerClick={() => setIsFlowTracerOpen(true)}
+          onCreateEmptyGroupClick={() => {
+            // Calculate center of viewport in canvas coordinates
+            const centerX = (-canvasOffset.x + viewportSize.width / 2) / canvasZoom
+            const centerY = (-canvasOffset.y + viewportSize.height / 2) / canvasZoom
+            handleCreateEmptyGroup({ x: centerX, y: centerY })
+          }}
           onConfigClick={() => setIsConfigOpen(true)}
         />
         
@@ -1014,6 +1068,14 @@ export default function Home() {
         })}
         onConfirm={handleGroupCreationConfirm}
         onCancel={handleGroupCreationCancel}
+      />
+
+      {/* Empty Group Creation Modal */}
+      <EmptyGroupCreationModal
+        isOpen={isEmptyGroupModalOpen}
+        position={emptyGroupPosition}
+        onConfirm={handleEmptyGroupCreationConfirm}
+        onCancel={handleEmptyGroupCreationCancel}
       />
     </main>
   )

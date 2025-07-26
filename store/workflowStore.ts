@@ -125,6 +125,7 @@ interface WorkflowActions {
   resizeGroup: (groupId: string, size: { width: number; height: number }) => void
   autoResizeGroup: (groupId: string) => void
   createGroupFromSelection: (title: string, description: string) => void
+  createEmptyGroup: (title: string, description: string, position: { x: number; y: number }) => void
   setGroupDragging: (isDragging: boolean) => void
   
   // Selection actions
@@ -731,6 +732,32 @@ export const useWorkflowStore = create<WorkflowStore>()(
       
       // Save snapshot after action
       setTimeout(() => get().saveSnapshot(), 100)
+    },
+
+    createEmptyGroup: (title: string, description: string, position: { x: number; y: number }) => {
+      const groupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      set((state) => {
+        const newGroup: NodeGroup = {
+          id: groupId,
+          title,
+          description,
+          nodeIds: [], // Empty group
+          position,
+          size: { width: 300, height: 200 }, // Smaller default size for empty groups
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        const newState = {
+          ...state,
+          groups: [...state.groups, newGroup]
+        }
+        
+        // Save snapshot after action
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return newState
+      })
     },
 
     // Selection actions

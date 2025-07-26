@@ -15,6 +15,9 @@ interface DraggableNodeProps {
   onClick?: (nodeId: string) => void
   isHighlighted?: boolean
   isSelected?: boolean
+  onNodeDropIntoGroup?: (nodeId: string, groupId: string) => void
+  onNodeHoverGroup?: (groupId: string | null) => void
+  groups?: Array<{ id: string; position: { x: number; y: number }; size: { width: number; height: number }; nodeIds: string[] }>
 }
 
 export function DraggableNode({ 
@@ -27,12 +30,42 @@ export function DraggableNode({
   onPortDragEnd,
   onClick,
   isHighlighted = false,
-  isSelected = false
+  isSelected = false,
+  onNodeDropIntoGroup,
+  onNodeHoverGroup,
+  groups = []
 }: DraggableNodeProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [hasDragged, setHasDragged] = useState(false)
+  const [hoveringGroupId, setHoveringGroupId] = useState<string | null>(null)
   const nodeRef = useRef<HTMLDivElement>(null)
+
+  // Helper function to check if node center is inside a group
+  const findGroupUnderNode = (nodePosition: { x: number; y: number }): string | null => {
+    if (!nodeRef.current) return null
+    
+    const nodeRect = nodeRef.current.getBoundingClientRect()
+    const nodeCenterX = nodePosition.x + nodeRect.width / 2
+    const nodeCenterY = nodePosition.y + nodeRect.height / 2
+    
+    for (const group of groups) {
+      // Skip if node is already in this group
+      if (group.nodeIds.includes(metadata.id)) continue
+      
+      const groupLeft = group.position.x
+      const groupTop = group.position.y
+      const groupRight = group.position.x + group.size.width
+      const groupBottom = group.position.y + group.size.height
+      
+      if (nodeCenterX >= groupLeft && nodeCenterX <= groupRight &&
+          nodeCenterY >= groupTop && nodeCenterY <= groupBottom) {
+        return group.id
+      }
+    }
+    
+    return null
+  }
 
   // Update bounds only when node mounts or metadata changes
   useEffect(() => {
@@ -103,6 +136,13 @@ export function DraggableNode({
       
       onPositionChange?.(metadata.id, newPosition)
       
+      // Check for group hovering during drag
+      const groupId = findGroupUnderNode(newPosition)
+      if (groupId !== hoveringGroupId) {
+        setHoveringGroupId(groupId)
+        onNodeHoverGroup?.(groupId)
+      }
+      
       // Update bounds with new position
       if (nodeRef.current && onBoundsChange) {
         const rect = nodeRef.current.getBoundingClientRect()
@@ -116,7 +156,14 @@ export function DraggableNode({
     }
 
     const handleMouseUp = () => {
+      // Handle group drop if hovering over a group
+      if (hoveringGroupId && hasDragged && onNodeDropIntoGroup) {
+        onNodeDropIntoGroup(metadata.id, hoveringGroupId)
+      }
+      
       setIsDragging(false)
+      setHoveringGroupId(null)
+      onNodeHoverGroup?.(null)
       
       // Trigger click if we haven't dragged
       if (!hasDragged && onClick) {
@@ -136,9 +183,10 @@ export function DraggableNode({
   return (
     <div
       ref={nodeRef}
-      className={`absolute ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${isDragging ? 'z-50' : 'z-10'}`}
+      className={`absolute ${isDragging && hoveringGroupId ? 'cursor-copy' : isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${isDragging ? 'z-50' : 'z-10'}`}
       data-node-id={metadata.id}
       data-draggable-node="true"
+      data-hovering-group={hoveringGroupId || undefined}
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`
       }}

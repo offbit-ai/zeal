@@ -245,8 +245,8 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
       </defs>
       
       {connections.map(connection => {
-        const source = getPortPosition(connection.source.nodeId, connection.source.portId)
-        const target = getPortPosition(connection.target.nodeId, connection.target.portId)
+        let source = getPortPosition(connection.source.nodeId, connection.source.portId)
+        let target = getPortPosition(connection.target.nodeId, connection.target.portId)
 
         // console.log(`🔗 Connection ${connection.id}:`, {
         //   sourceNodeId: connection.source.nodeId,
@@ -257,9 +257,39 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
         //   targetPos: target
         // })
 
+        // Handle missing port positions for nodes in collapsed groups
         if (!source || !target) {
-          // console.log(`❌ Missing port positions for connection ${connection.id}`)
-          return null
+          // Check if missing positions are due to collapsed groups
+          let missingSource = !source
+          let missingTarget = !target
+          let fallbackSource = source
+          let fallbackTarget = target
+          
+          // Find if the missing port positions are for nodes in collapsed groups
+          for (const group of groups) {
+            if (!group.collapsed) continue
+            
+            if (missingSource && group.nodeIds.includes(connection.source.nodeId)) {
+              // Source node is in a collapsed group - we'll handle this in the group logic below
+              fallbackSource = { nodeId: connection.source.nodeId, portId: connection.source.portId, x: 0, y: 0, position: 'right' as const }
+              missingSource = false
+            }
+            
+            if (missingTarget && group.nodeIds.includes(connection.target.nodeId)) {
+              // Target node is in a collapsed group - we'll handle this in the group logic below  
+              fallbackTarget = { nodeId: connection.target.nodeId, portId: connection.target.portId, x: 0, y: 0, position: 'left' as const }
+              missingTarget = false
+            }
+          }
+          
+          // If still missing positions and not in collapsed groups, skip this connection
+          if (missingSource || missingTarget) {
+            return null
+          }
+          
+          // Use fallback positions
+          source = fallbackSource!
+          target = fallbackTarget!
         }
 
         // Check for collapsed group interactions

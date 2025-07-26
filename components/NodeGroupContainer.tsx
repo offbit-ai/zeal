@@ -7,11 +7,13 @@ import { useWorkflowStore } from "@/store/workflowStore";
 interface NodeGroupContainerProps {
   group: NodeGroup;
   children: React.ReactNode;
+  isDropTarget?: boolean;
 }
 
 export function NodeGroupContainer({
   group,
   children,
+  isDropTarget = false,
 }: NodeGroupContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -143,9 +145,11 @@ export function NodeGroupContainer({
   return (
     <div
       ref={containerRef}
-      className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto transition-shadow ${
+      className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto transition-all duration-200 ${
         group.collapsed ? "border-gray-600" : ""
-      } ${isDragging ? "shadow-2xl border-blue-500" : ""}`}
+      } ${isDragging ? "shadow-2xl border-blue-500" : ""} ${
+        isDropTarget ? "border-blue-500 bg-blue-50/40 shadow-lg ring-2 ring-blue-300 ring-opacity-50" : ""
+      }`}
       style={{
         left: group.position.x,
         top: group.position.y,
