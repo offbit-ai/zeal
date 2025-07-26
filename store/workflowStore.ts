@@ -583,21 +583,25 @@ export const useWorkflowStore = create<WorkflowStore>()(
                 offsetRatio = spacing * (portIndex + 1)
               }
               
+              // Port dimensions: 12px x 12px (w-3 h-3)
+              const portSize = 12
+              const portOffset = 8 // -top-2, -right-2, etc. = 8px in Tailwind
+              
               switch (port.position) {
                 case 'top':
                   portX = node.position.x + nodeWidth * offsetRatio
-                  portY = node.position.y
+                  portY = node.position.y - portOffset + portSize / 2 // Above node, centered on port
                   break
                 case 'right':
-                  portX = node.position.x + nodeWidth
+                  portX = node.position.x + nodeWidth + portOffset - portSize / 2 // Right of node, centered on port
                   portY = node.position.y + nodeHeight * offsetRatio
                   break
                 case 'bottom':
                   portX = node.position.x + nodeWidth * offsetRatio
-                  portY = node.position.y + nodeHeight
+                  portY = node.position.y + nodeHeight + portOffset - portSize / 2 // Below node, centered on port
                   break
                 case 'left':
-                  portX = node.position.x
+                  portX = node.position.x - portOffset + portSize / 2 // Left of node, centered on port
                   portY = node.position.y + nodeHeight * offsetRatio
                   break
               }
@@ -881,21 +885,25 @@ export const useWorkflowStore = create<WorkflowStore>()(
             offsetRatio = spacing * (portIndex + 1)
           }
 
+          // Port dimensions: 12px x 12px (w-3 h-3)
+          const portSize = 12
+          const portOffset = 8 // -top-2, -right-2, etc. = 8px in Tailwind
+          
           switch (port.position) {
             case 'top':
               portX = node.position.x + nodeWidth * offsetRatio
-              portY = node.position.y
+              portY = node.position.y - portOffset + portSize / 2 // Above node, centered on port
               break
             case 'right':
-              portX = node.position.x + nodeWidth
+              portX = node.position.x + nodeWidth + portOffset - portSize / 2 // Right of node, centered on port
               portY = node.position.y + nodeHeight * offsetRatio
               break
             case 'bottom':
               portX = node.position.x + nodeWidth * offsetRatio
-              portY = node.position.y + nodeHeight
+              portY = node.position.y + nodeHeight + portOffset - portSize / 2 // Below node, centered on port
               break
             case 'left':
-              portX = node.position.x
+              portX = node.position.x - portOffset + portSize / 2 // Left of node, centered on port
               portY = node.position.y + nodeHeight * offsetRatio
               break
           }
