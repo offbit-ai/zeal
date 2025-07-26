@@ -1,5 +1,5 @@
-import type { WorkflowSnapshot, SerializedNode, SerializedConnection } from '@/types/snapshot'
-import type { NodeMetadata, Connection } from '@/types/workflow'
+import type { WorkflowSnapshot, SerializedNode, SerializedConnection, SerializedGroup } from '@/types/snapshot'
+import type { NodeMetadata, Connection, NodeGroup } from '@/types/workflow'
 
 // Serialize a single node
 export function serializeNode(node: { metadata: NodeMetadata; position: { x: number; y: number } }): SerializedNode {
@@ -37,13 +37,30 @@ export function serializeConnection(connection: Connection): SerializedConnectio
   }
 }
 
+// Serialize a single group
+export function serializeGroup(group: NodeGroup): SerializedGroup {
+  return {
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    nodeIds: group.nodeIds,
+    position: group.position,
+    size: group.size,
+    color: group.color,
+    collapsed: group.collapsed,
+    createdAt: group.createdAt,
+    updatedAt: group.updatedAt
+  }
+}
+
 // Create a workflow snapshot
 export function createWorkflowSnapshot(
   nodes: Array<{ metadata: NodeMetadata; position: { x: number; y: number } }>,
   connections: Connection[],
   name: string = 'Untitled Workflow',
   id?: string,
-  existingSnapshot?: WorkflowSnapshot
+  existingSnapshot?: WorkflowSnapshot,
+  groups: NodeGroup[] = []
 ): WorkflowSnapshot {
   const now = new Date().toISOString()
   
@@ -59,10 +76,12 @@ export function createWorkflowSnapshot(
     publishedAt: existingSnapshot?.publishedAt,
     nodes: nodes.map(serializeNode),
     connections: connections.map(serializeConnection),
+    groups: groups.map(serializeGroup),
     metadata: {
       version: '1.0.0',
       nodeCount: nodes.length,
       connectionCount: connections.length,
+      groupCount: groups.length,
       tags: existingSnapshot?.metadata?.tags || ['draft']
     }
   }
@@ -72,9 +91,11 @@ export function createWorkflowSnapshot(
 export function restoreWorkflowFromSnapshot(snapshot: WorkflowSnapshot): {
   nodes: Array<{ metadata: NodeMetadata; position: { x: number; y: number } }>
   connections: Connection[]
+  groups: NodeGroup[]
 } {
   return {
     nodes: snapshot.nodes.map(deserializeNode),
-    connections: snapshot.connections
+    connections: snapshot.connections,
+    groups: snapshot.groups || [] // Handle backwards compatibility
   }
 }

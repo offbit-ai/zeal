@@ -11,12 +11,14 @@ export interface WorkflowSnapshot {
   publishedAt?: string
   nodes: SerializedNode[]
   connections: SerializedConnection[]
+  groups: SerializedGroup[]
   metadata?: {
     version: string
     author?: string
     tags?: string[]
     nodeCount?: number
     connectionCount?: number
+    groupCount?: number
   }
 }
 
@@ -60,4 +62,17 @@ export interface SerializedConnection {
     portId: string
   }
   state: 'pending' | 'warning' | 'error' | 'success'
+}
+
+export interface SerializedGroup {
+  id: string
+  title: string
+  description: string
+  nodeIds: string[]
+  position: { x: number; y: number }
+  size: { width: number; height: number }
+  color?: string
+  collapsed?: boolean
+  createdAt: string
+  updatedAt: string
 }

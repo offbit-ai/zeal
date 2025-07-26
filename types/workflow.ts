@@ -144,3 +144,16 @@ export interface Connection {
   }
   state?: ConnectionState
 }
+
+export interface NodeGroup {
+  id: string
+  title: string
+  description: string
+  nodeIds: string[]
+  position: { x: number; y: number }
+  size: { width: number; height: number }
+  color?: string
+  collapsed?: boolean
+  createdAt: string
+  updatedAt: string
+}

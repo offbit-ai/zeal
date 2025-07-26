@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { NodeMetadata, Connection, WorkflowNodeData } from '@/types/workflow'
+import { NodeMetadata, Connection, WorkflowNodeData, NodeGroup } from '@/types/workflow'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/workflowSerializer'
 import { Database, Bot } from 'lucide-react'
@@ -18,6 +18,7 @@ interface WorkflowState {
   workflowName: string
   nodes: WorkflowNode[]
   connections: Connection[]
+  groups: NodeGroup[]
   history: WorkflowSnapshot[]
   historyIndex: number
   maxHistorySize: number
@@ -28,6 +29,7 @@ interface WorkflowState {
 interface WorkflowSnapshot {
   nodes: WorkflowNode[]
   connections: Connection[]
+  groups: NodeGroup[]
   timestamp: number
 }
 
@@ -44,6 +46,15 @@ interface WorkflowActions {
   removeConnection: (connectionId: string) => void
   updateConnectionState: (connectionId: string, state: Connection['state']) => void
   
+  // Group actions
+  createGroup: (title: string, description: string, nodeIds: string[], position: { x: number; y: number }) => void
+  updateGroup: (groupId: string, updates: Partial<Omit<NodeGroup, 'id' | 'createdAt'>>) => void
+  deleteGroup: (groupId: string) => void
+  addNodeToGroup: (groupId: string, nodeId: string) => void
+  removeNodeFromGroup: (groupId: string, nodeId: string) => void
+  moveGroup: (groupId: string, position: { x: number; y: number }) => void
+  resizeGroup: (groupId: string, size: { width: number; height: number }) => void
+  
   // History actions
   undo: () => void
   redo: () => void
@@ -53,7 +64,7 @@ interface WorkflowActions {
   
   // Utility actions
   clearWorkflow: () => void
-  loadWorkflow: (nodes: WorkflowNode[], connections: Connection[]) => void
+  loadWorkflow: (nodes: WorkflowNode[], connections: Connection[], groups?: NodeGroup[]) => void
   setInitialized: (initialized: boolean) => void
   
   // Storage actions
@@ -69,7 +80,7 @@ interface WorkflowActions {
 type WorkflowStore = WorkflowState & WorkflowActions
 
 // Helper function to create a snapshot (preserving icon references)
-const createSnapshot = (nodes: WorkflowNode[], connections: Connection[]): WorkflowSnapshot => ({
+const createSnapshot = (nodes: WorkflowNode[], connections: Connection[], groups: NodeGroup[]): WorkflowSnapshot => ({
   nodes: nodes.map(node => ({
     ...node,
     metadata: {
@@ -80,6 +91,7 @@ const createSnapshot = (nodes: WorkflowNode[], connections: Connection[]): Workf
     position: { ...node.position }
   })),
   connections: connections.map(conn => ({ ...conn })), // Shallow clone is sufficient
+  groups: groups.map(group => ({ ...group })), // Clone groups
   timestamp: Date.now()
 })
 
@@ -103,6 +115,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
     workflowName: 'Untitled Workflow',
     nodes: [],
     connections: [],
+    groups: [],
     history: [],
     historyIndex: -1,
     maxHistorySize: 50,
@@ -340,10 +353,128 @@ export const useWorkflowStore = create<WorkflowStore>()(
       // Note: State updates don't create snapshots (too frequent)
     },
 
+    // Group actions
+    createGroup: (title: string, description: string, nodeIds: string[], position: { x: number; y: number }) => {
+      set((state) => {
+        const newGroup: NodeGroup = {
+          id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title,
+          description,
+          nodeIds,
+          position,
+          size: { width: 400, height: 300 }, // Default size
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        const newState = {
+          ...state,
+          groups: [...state.groups, newGroup]
+        }
+        
+        // Save snapshot after action
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return newState
+      })
+    },
+
+    updateGroup: (groupId: string, updates: Partial<Omit<NodeGroup, 'id' | 'createdAt'>>) => {
+      set((state) => {
+        const newState = {
+          ...state,
+          groups: state.groups.map(group => 
+            group.id === groupId 
+              ? { ...group, ...updates, updatedAt: new Date().toISOString() }
+              : group
+          )
+        }
+        
+        // Save snapshot after action
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return newState
+      })
+    },
+
+    deleteGroup: (groupId: string) => {
+      set((state) => {
+        const newState = {
+          ...state,
+          groups: state.groups.filter(group => group.id !== groupId)
+        }
+        
+        // Save snapshot after action
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return newState
+      })
+    },
+
+    addNodeToGroup: (groupId: string, nodeId: string) => {
+      set((state) => {
+        const newState = {
+          ...state,
+          groups: state.groups.map(group => 
+            group.id === groupId 
+              ? { ...group, nodeIds: [...group.nodeIds, nodeId], updatedAt: new Date().toISOString() }
+              : group
+          )
+        }
+        
+        // Save snapshot after action
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return newState
+      })
+    },
+
+    removeNodeFromGroup: (groupId: string, nodeId: string) => {
+      set((state) => {
+        const newState = {
+          ...state,
+          groups: state.groups.map(group => 
+            group.id === groupId 
+              ? { ...group, nodeIds: group.nodeIds.filter(id => id !== nodeId), updatedAt: new Date().toISOString() }
+              : group
+          )
+        }
+        
+        // Save snapshot after action
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return newState
+      })
+    },
+
+    moveGroup: (groupId: string, position: { x: number; y: number }) => {
+      set((state) => ({
+        ...state,
+        groups: state.groups.map(group => 
+          group.id === groupId 
+            ? { ...group, position, updatedAt: new Date().toISOString() }
+            : group
+        )
+      }))
+      // Note: Position updates don't create snapshots (too frequent)
+    },
+
+    resizeGroup: (groupId: string, size: { width: number; height: number }) => {
+      set((state) => ({
+        ...state,
+        groups: state.groups.map(group => 
+          group.id === groupId 
+            ? { ...group, size, updatedAt: new Date().toISOString() }
+            : group
+        )
+      }))
+      // Note: Resize updates don't create snapshots (too frequent)
+    },
+
     // History actions
     saveSnapshot: () => {
       set((state) => {
-        const snapshot = createSnapshot(state.nodes, state.connections)
+        const snapshot = createSnapshot(state.nodes, state.connections, state.groups)
         
         // Remove any snapshots after current index (when adding after undo)
         const newHistory = state.history.slice(0, state.historyIndex + 1)
@@ -385,6 +516,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             position: { ...node.position }
           })),
           connections: snapshot.connections.map(conn => ({ ...conn })),
+          groups: snapshot.groups.map(group => ({ ...group })),
           historyIndex: newIndex
         }
       })
@@ -407,6 +539,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             position: { ...node.position }
           })),
           connections: snapshot.connections.map(conn => ({ ...conn })),
+          groups: snapshot.groups.map(group => ({ ...group })),
           historyIndex: newIndex
         }
       })
@@ -431,7 +564,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const newState = {
           ...state,
           nodes: [],
-          connections: []
+          connections: [],
+          groups: []
         }
         
         // Save snapshot after action
@@ -441,7 +575,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
       })
     },
 
-    loadWorkflow: (nodes: WorkflowNode[], connections: Connection[]) => {
+    loadWorkflow: (nodes: WorkflowNode[], connections: Connection[], groups: NodeGroup[] = []) => {
       set((state) => {
         // Rebuild env var tracking
         const envVarStore = useEnvVarStore.getState()
@@ -466,7 +600,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
             metadata: { ...node.metadata },
             position: { ...node.position }
           })),
-          connections: connections.map(conn => ({ ...conn }))
+          connections: connections.map(conn => ({ ...conn })),
+          groups: groups.map(group => ({ ...group }))
         }
         
         // Save snapshot after action
@@ -497,7 +632,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
           state.connections,
           state.workflowName,
           snapshot.id,
-          snapshot
+          snapshot,
+          state.groups
         )
         WorkflowStorageService.saveWorkflow(updatedSnapshot)
       } else {
@@ -508,7 +644,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
           state.connections,
           state.workflowName,
           state.workflowId,
-          existingSnapshot || undefined
+          existingSnapshot || undefined,
+          state.groups
         )
         WorkflowStorageService.saveWorkflow(snapshot)
       }
@@ -521,13 +658,14 @@ export const useWorkflowStore = create<WorkflowStore>()(
         return
       }
 
-      const { nodes, connections } = restoreWorkflowFromSnapshot(snapshot)
+      const { nodes, connections, groups } = restoreWorkflowFromSnapshot(snapshot)
       
       set({
         workflowId: snapshot.id,
         workflowName: snapshot.name,
         nodes,
         connections,
+        groups,
         history: [],
         historyIndex: -1
       })
@@ -546,6 +684,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         workflowName: snapshot.name,
         nodes: [], // Start with empty workflow
         connections: [],
+        groups: [],
         history: [],
         historyIndex: -1
       })
@@ -585,11 +724,12 @@ export const useWorkflowStore = create<WorkflowStore>()(
       const rolledBackSnapshot = WorkflowStorageService.rollbackToVersion(state.workflowId, versionTimestamp)
       if (rolledBackSnapshot) {
         // Load the rolled back version
-        const { nodes, connections } = restoreWorkflowFromSnapshot(rolledBackSnapshot)
+        const { nodes, connections, groups } = restoreWorkflowFromSnapshot(rolledBackSnapshot)
         
         set({
           nodes,
           connections,
+          groups,
           history: [],
           historyIndex: -1
         })

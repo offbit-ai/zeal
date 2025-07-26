@@ -32,6 +32,7 @@ import { DeleteConnectionDialog } from '@/components/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/PropertyPane'
 import { ModalPortal } from '@/components/ModalPortal'
 import { ConfigurationToast } from '@/components/ConfigurationToast'
+import { NodeGroupContainer } from '@/components/NodeGroupContainer'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
@@ -233,7 +234,8 @@ export default function Home() {
     workflowId,
     workflowName,
     nodes: storeNodes, 
-    connections, 
+    connections,
+    groups, 
     initialized,
     addConnection, 
     removeConnection, 
@@ -693,6 +695,20 @@ export default function Home() {
               />
             ) : null
           })()}
+          
+          {/* Node Groups - render before nodes so they appear behind */}
+          {groups.map(group => {
+            // Get nodes that belong to this group
+            const groupNodes = storeNodes.filter(node => group.nodeIds.includes(node.metadata.id))
+            return (
+              <NodeGroupContainer key={group.id} group={group}>
+                {/* Group nodes will be positioned relative to the group */}
+                {groupNodes.map(node => (
+                  <div key={`group-${group.id}-node-${node.metadata.id}`} />
+                ))}
+              </NodeGroupContainer>
+            )
+          })}
           
           {/* Workflow Nodes */}
           {storeNodes.map(node => (
