@@ -130,7 +130,7 @@ export interface WorkflowNodeData {
   }
 }
 
-export type ConnectionState = 'pending' | 'warning' | 'error' | 'success'
+export type ConnectionState = 'pending' | 'warning' | 'error' | 'success' | 'running'
 
 export interface Connection {
   id: string

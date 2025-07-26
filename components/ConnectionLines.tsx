@@ -54,6 +54,16 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         glowEffect: true,
         glowColor: '#84CC16'
       }
+    case 'running':
+      return {
+        ...baseStyles,
+        stroke: '#3B82F6', // Blue
+        strokeDasharray: '10 5',
+        shadowColor: 'rgba(59, 130, 246, 0.4)',
+        glowEffect: true,
+        glowColor: '#3B82F6',
+        animated: true
+      }
   }
 }
 
@@ -242,6 +252,14 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
             <feMergeNode in="SourceGraphic"/>
           </feMerge>
         </filter>
+        
+        <filter id="glow-running" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+          <feMerge> 
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       </defs>
       
       {connections.map(connection => {
@@ -320,20 +338,31 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
           // Modify connection endpoints for external-to-internal connections
           if (sourceInGroup && !targetInGroup) {
             // Source is inside collapsed group, target is outside
-            const intersection = findBorderIntersection(
-              { x: target.x, y: target.y },
-              { x: source.x, y: source.y },
-              groupRect
-            )
-            if (intersection) {
-              modifiedSource = { ...source, x: intersection.x, y: intersection.y }
+            // Check if this is a fallback position (x: 0, y: 0) from initial load
+            const isFallbackPosition = source.x === 0 && source.y === 0
+            
+            if (!isFallbackPosition) {
+              const intersection = findBorderIntersection(
+                { x: target.x, y: target.y },
+                { x: source.x, y: source.y },
+                groupRect
+              )
+              if (intersection) {
+                modifiedSource = { ...source, x: intersection.x, y: intersection.y }
+              } else {
+                // Fallback: always connect to side border (left or right edge)
+                const groupCenterY = groupRect.y + groupRect.height / 2
+                
+                // For outgoing connections from a collapsed group, always use right edge
+                const edgeX = groupRect.x + groupRect.width // Always use right edge for outgoing connections
+                const edgeY = groupCenterY
+                
+                modifiedSource = { ...source, x: edgeX, y: edgeY }
+              }
             } else {
-              // Fallback: always connect to side border (left or right edge)
-              const groupCenterX = groupRect.x + groupRect.width / 2
+              // If using fallback position, always use right edge for outgoing connections
               const groupCenterY = groupRect.y + groupRect.height / 2
-              
-              // Determine which side edge to connect to based on target position
-              const edgeX = target.x < groupCenterX ? groupRect.x : groupRect.x + groupRect.width
+              const edgeX = groupRect.x + groupRect.width // Always use right edge for outgoing connections
               const edgeY = groupCenterY
               
               modifiedSource = { ...source, x: edgeX, y: edgeY }
@@ -348,12 +377,10 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
             if (intersection) {
               modifiedTarget = { ...target, x: intersection.x, y: intersection.y }
             } else {
-              // Fallback: always connect to side border (left or right edge)
-              const groupCenterX = groupRect.x + groupRect.width / 2
+              // Fallback: always connect to side border
+              // For incoming connections to a collapsed group, always use left edge
               const groupCenterY = groupRect.y + groupRect.height / 2
-              
-              // Determine which side edge to connect to based on source position
-              const edgeX = source.x < groupCenterX ? groupRect.x : groupRect.x + groupRect.width
+              const edgeX = groupRect.x // Always use left edge for incoming connections
               const edgeY = groupCenterY
               
               modifiedTarget = { ...target, x: edgeX, y: edgeY }
@@ -391,6 +418,10 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               strokeDasharray={styles.strokeDasharray}
               pointerEvents="none"
               className="group-hover:opacity-0 transition-opacity duration-200"
+              style={connection.state === 'running' ? {
+                strokeDashoffset: 0,
+                animation: 'dash-flow 1s linear infinite'
+              } : undefined}
             />
             
             {/* Main connection line */}
@@ -404,6 +435,10 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               filter={filterId ? `url(#${filterId})` : undefined}
               pointerEvents="none"
               className="group-hover:opacity-0 transition-opacity duration-200"
+              style={connection.state === 'running' ? {
+                strokeDashoffset: 0,
+                animation: 'dash-flow 1s linear infinite'
+              } : undefined}
             />
             
             {/* Additional glow effect for success/warning/error states */}

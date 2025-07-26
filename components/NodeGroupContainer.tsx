@@ -3,17 +3,24 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { NodeGroup } from "@/types/workflow";
 import { useWorkflowStore } from "@/store/workflowStore";
+import { Edit2, Trash2 } from "lucide-react";
 
 interface NodeGroupContainerProps {
   group: NodeGroup;
   children: React.ReactNode;
   isDropTarget?: boolean;
+  onEditClick?: (groupId: string) => void;
+  onDeleteClick?: (groupId: string) => void;
+  zoom?: number;
 }
 
 export function NodeGroupContainer({
   group,
   children,
   isDropTarget = false,
+  onEditClick,
+  onDeleteClick,
+  zoom = 1,
 }: NodeGroupContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -49,8 +56,8 @@ export function NodeGroupContainer({
     setIsDragging(true);
     setGroupDragging(true); // Hide connection lines during drag
     setDragStart({
-      x: e.clientX - group.position.x,
-      y: e.clientY - group.position.y,
+      x: e.clientX - group.position.x * zoom,
+      y: e.clientY - group.position.y * zoom,
     });
   };
 
@@ -102,19 +109,19 @@ export function NodeGroupContainer({
       // Schedule update on next animation frame for smooth movement
       animationFrameId = requestAnimationFrame(() => {
         if (isDragging && dragStart) {
-          const newX = e.clientX - dragStart.x;
-          const newY = e.clientY - dragStart.y;
+          const newX = (e.clientX - dragStart.x) / zoom;
+          const newY = (e.clientY - dragStart.y) / zoom;
           moveGroup(group.id, { x: newX, y: newY });
         }
 
         if (isResizing && resizeStart) {
           const newWidth = Math.max(
             200,
-            resizeStart.width + (e.clientX - resizeStart.x)
+            resizeStart.width + (e.clientX - resizeStart.x) / zoom
           );
           const newHeight = Math.max(
             150,
-            resizeStart.height + (e.clientY - resizeStart.y)
+            resizeStart.height + (e.clientY - resizeStart.y) / zoom
           );
           resizeGroup(group.id, { width: newWidth, height: newHeight });
         }
@@ -140,6 +147,7 @@ export function NodeGroupContainer({
     moveGroup,
     resizeGroup,
     handleMouseUp,
+    zoom,
   ]);
 
   return (
@@ -165,6 +173,10 @@ export function NodeGroupContainer({
       <div
         className="group-header absolute top-0 left-0 right-0 h-8 bg-white/80 backdrop-blur-sm border-b border-gray-300 rounded-t-lg cursor-move flex items-center justify-between px-3"
         onMouseDown={handleMouseDown}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onEditClick?.(group.id);
+        }}
       >
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium text-gray-900 truncate">
@@ -172,10 +184,36 @@ export function NodeGroupContainer({
           </h3>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          {/* Edit button */}
+          <button
+            className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditClick?.(group.id);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Edit group"
+          >
+            <Edit2 className="w-3 h-3" />
+          </button>
+
+          {/* Delete button */}
+          <button
+            className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteClick?.(group.id);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Delete group"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+          
           {/* Collapse/Expand button */}
           <button
-            className="text-gray-500 hover:text-gray-700 text-xs"
+            className="text-gray-500 hover:text-gray-700 text-xs p-1"
             onClick={(e) => {
               e.stopPropagation();
               updateGroup(group.id, { collapsed: !group.collapsed });

@@ -36,6 +36,8 @@ import { NodeGroupContainer } from '@/components/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/SelectionRectangle'
 import { GroupCreationModal } from '@/components/GroupCreationModal'
 import { EmptyGroupCreationModal } from '@/components/EmptyGroupCreationModal'
+import { GroupEditModal } from '@/components/GroupEditModal'
+import { GroupDeleteModal } from '@/components/GroupDeleteModal'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
@@ -230,6 +232,8 @@ export default function Home() {
   const [isEmptyGroupModalOpen, setIsEmptyGroupModalOpen] = useState(false)
   const [emptyGroupPosition, setEmptyGroupPosition] = useState({ x: 0, y: 0 })
   const [nodeHoveringGroupId, setNodeHoveringGroupId] = useState<string | null>(null)
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
@@ -267,6 +271,10 @@ export default function Home() {
     createGroupFromSelection,
     createEmptyGroup,
     addNodeToGroup,
+    removeNodeFromGroup,
+    updateGroup,
+    deleteGroup,
+    removeNode,
     isNodeSelected,
     updatePortPosition,
     getPortPosition,
@@ -434,6 +442,46 @@ export default function Home() {
     setIsNodeBrowserOpen(!isNodeBrowserOpen)
   }
 
+  const handleRunSimulation = () => {
+    // Get all connections sorted by their source node's x position (left to right)
+    const sortedConnections = [...connections].sort((a, b) => {
+      const aNode = storeNodes.find(n => n.metadata.id === a.source.nodeId)
+      const bNode = storeNodes.find(n => n.metadata.id === b.source.nodeId)
+      if (!aNode || !bNode) return 0
+      return aNode.position.x - bNode.position.x
+    })
+
+    // Start simulation
+    simulateWorkflowExecution(sortedConnections)
+  }
+
+  const simulateWorkflowExecution = async (sortedConnections: Connection[]) => {
+    // Reset all connections to pending
+    sortedConnections.forEach(conn => {
+      updateConnectionState(conn.id, 'pending')
+    })
+
+    // Simulate execution for each connection
+    for (let i = 0; i < sortedConnections.length; i++) {
+      const connection = sortedConnections[i]
+      
+      // Set to running state
+      updateConnectionState(connection.id, 'running')
+      
+      // Wait for animation
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Randomly choose success or error (80% success rate)
+      const finalState = Math.random() > 0.2 ? 'success' : 'error'
+      updateConnectionState(connection.id, finalState)
+      
+      // Small delay before next connection
+      if (i < sortedConnections.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+    }
+  }
+
   // Zoom control handlers
   const handleZoomIn = () => {
     setCanvasZoom(prev => Math.min(3, prev * 1.2))
@@ -565,6 +613,51 @@ export default function Home() {
 
   const handleNodeHoverGroup = (groupId: string | null) => {
     setNodeHoveringGroupId(groupId)
+  }
+
+  const handleGroupEditClick = (groupId: string) => {
+    setEditingGroupId(groupId)
+  }
+
+  const handleGroupEditConfirm = (groupId: string, title: string, description: string) => {
+    updateGroup(groupId, { title, description })
+    setEditingGroupId(null)
+  }
+
+  const handleGroupEditCancel = () => {
+    setEditingGroupId(null)
+  }
+
+  const handleGroupDeleteClick = (groupId: string) => {
+    setDeletingGroupId(groupId)
+  }
+
+  const handleGroupDeleteConfirm = (groupId: string, preserveNodes: boolean) => {
+    if (preserveNodes) {
+      // Remove nodes from group but keep them
+      const group = groups.find(g => g.id === groupId)
+      if (group) {
+        group.nodeIds.forEach(nodeId => {
+          removeNodeFromGroup(groupId, nodeId)
+        })
+      }
+    } else {
+      // Delete all nodes in the group first
+      const group = groups.find(g => g.id === groupId)
+      if (group) {
+        group.nodeIds.forEach(nodeId => {
+          removeNode(nodeId)
+        })
+      }
+    }
+    
+    // Delete the group
+    deleteGroup(groupId)
+    setDeletingGroupId(null)
+  }
+
+  const handleGroupDeleteCancel = () => {
+    setDeletingGroupId(null)
   }
   
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
@@ -789,7 +882,10 @@ export default function Home() {
             <Upload className="w-3.5 h-3.5" />
             Publish
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={handleRunSimulation}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+          >
             <Play className="w-3.5 h-3.5" />
             Run
           </button>
@@ -838,6 +934,9 @@ export default function Home() {
                 key={group.id} 
                 group={group}
                 isDropTarget={nodeHoveringGroupId === group.id}
+                onEditClick={handleGroupEditClick}
+                onDeleteClick={handleGroupDeleteClick}
+                zoom={canvasZoom}
               >
                 {/* Render nodes that belong to this group */}
                 {groupNodes.map(node => (
@@ -873,6 +972,7 @@ export default function Home() {
                     onNodeDropIntoGroup={handleNodeDropIntoGroup}
                     onNodeHoverGroup={handleNodeHoverGroup}
                     groups={groups}
+                    zoom={canvasZoom}
                   />
                 ))}
               </NodeGroupContainer>
@@ -907,6 +1007,7 @@ export default function Home() {
                 onNodeDropIntoGroup={handleNodeDropIntoGroup}
                 onNodeHoverGroup={handleNodeHoverGroup}
                 groups={groups}
+                zoom={canvasZoom}
               />
             ))}
         </InteractiveCanvas>
@@ -1077,6 +1178,40 @@ export default function Home() {
         onConfirm={handleEmptyGroupCreationConfirm}
         onCancel={handleEmptyGroupCreationCancel}
       />
+
+      {/* Group Edit Modal */}
+      {editingGroupId && (() => {
+        const editingGroup = groups.find(g => g.id === editingGroupId)
+        if (!editingGroup) return null
+        
+        return (
+          <GroupEditModal
+            isOpen={true}
+            groupId={editingGroupId}
+            currentTitle={editingGroup.title}
+            currentDescription={editingGroup.description || ''}
+            onConfirm={handleGroupEditConfirm}
+            onCancel={handleGroupEditCancel}
+          />
+        )
+      })()}
+
+      {/* Group Delete Modal */}
+      {deletingGroupId && (() => {
+        const deletingGroup = groups.find(g => g.id === deletingGroupId)
+        if (!deletingGroup) return null
+        
+        return (
+          <GroupDeleteModal
+            isOpen={true}
+            groupId={deletingGroupId}
+            groupTitle={deletingGroup.title}
+            nodeCount={deletingGroup.nodeIds.length}
+            onConfirm={handleGroupDeleteConfirm}
+            onCancel={handleGroupDeleteCancel}
+          />
+        )
+      })()}
     </main>
   )
 }

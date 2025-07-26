@@ -13,6 +13,7 @@ interface WorkflowNodeProps {
   onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
+  zoom?: number
 }
 
 interface PortComponentProps {
@@ -25,9 +26,10 @@ interface PortComponentProps {
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   portIndex: number
   totalPortsOnSide: number
+  zoom?: number
 }
 
-function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdate, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide }: PortComponentProps) {
+function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdate, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide, zoom = 1 }: PortComponentProps) {
   const portRef = useRef<HTMLDivElement>(null)
   
   // Measure and report actual port position using world coordinates
@@ -65,8 +67,9 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
         const contentRect = contentContainer.getBoundingClientRect()
         
         // Calculate port center relative to the transformed content container
-        let portCenterX = portRect.left + portRect.width / 2 - contentRect.left
-        let portCenterY = portRect.top + portRect.height / 2 - contentRect.top
+        // Adjust for zoom since getBoundingClientRect returns screen coordinates
+        let portCenterX = (portRect.left + portRect.width / 2 - contentRect.left) / zoom
+        let portCenterY = (portRect.top + portRect.height / 2 - contentRect.top) / zoom
         
         // If node is in a group, the port position is already correctly calculated
         // relative to the content container since the group itself is positioned
@@ -115,7 +118,7 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
         document.removeEventListener('groupPositionChanged', handleGroupPositionChanged)
       }
     }
-  }, [port.id, port.position, onPortPositionUpdate, nodeId])
+  }, [port.id, port.position, onPortPositionUpdate, nodeId, zoom])
   
   // Calculate position offset for multiple ports on the same side
   const getPortOffset = () => {
@@ -196,7 +199,7 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
   )
 }
 
-export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, isSelected = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
+export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, isSelected = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd, zoom = 1 }: WorkflowNodeProps) {
   const { title, subtitle, icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
   
@@ -294,6 +297,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
                 onPortDragEnd={onPortDragEnd}
                 portIndex={portIndex}
                 totalPortsOnSide={portsOnSameSide.length}
+                zoom={zoom}
               />
             )
           })}
@@ -339,6 +343,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
                 onPortDragEnd={onPortDragEnd}
                 portIndex={portIndex}
                 totalPortsOnSide={portsOnSameSide.length}
+                zoom={zoom}
               />
             )
           })}
@@ -391,6 +396,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
             onPortDragEnd={onPortDragEnd}
             portIndex={portIndex}
             totalPortsOnSide={portsOnSameSide.length}
+            zoom={zoom}
           />
         )
       })}

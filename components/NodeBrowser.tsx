@@ -21,8 +21,10 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [sortBy, setSortBy] = useState<SortBy>('position')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
   
-  const { nodes, connections, removeNode } = useWorkflowStore()
+  const { nodes, connections, removeNode, groups, createGroupFromSelection } = useWorkflowStore()
 
   useEffect(() => {
     if (isOpen) {
@@ -84,9 +86,44 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
     }
   })
 
-  const handleNodeClick = (nodeId: string, position: { x: number; y: number }) => {
-    onNodeSelect?.(nodeId, position)
-    onClose()
+  const handleNodeClick = (nodeId: string, position: { x: number; y: number }, e?: React.MouseEvent) => {
+    if (isMultiSelectMode) {
+      e?.stopPropagation()
+      const newSelected = new Set(selectedNodes)
+      if (newSelected.has(nodeId)) {
+        newSelected.delete(nodeId)
+      } else {
+        newSelected.add(nodeId)
+      }
+      setSelectedNodes(newSelected)
+    } else {
+      onNodeSelect?.(nodeId, position)
+      onClose()
+    }
+  }
+
+  const handleToggleMultiSelect = () => {
+    setIsMultiSelectMode(!isMultiSelectMode)
+    setSelectedNodes(new Set())
+  }
+
+  const handleSelectAll = () => {
+    if (selectedNodes.size === sortedNodes.length) {
+      setSelectedNodes(new Set())
+    } else {
+      setSelectedNodes(new Set(sortedNodes.map(node => node.metadata.id)))
+    }
+  }
+
+  const handleCreateGroup = () => {
+    if (selectedNodes.size > 0) {
+      const selectedNodesList = Array.from(selectedNodes)
+      // Create a temporary selection state for group creation
+      createGroupFromSelection(selectedNodesList)
+      setSelectedNodes(new Set())
+      setIsMultiSelectMode(false)
+      onClose()
+    }
   }
 
   const handleDuplicate = (e: React.MouseEvent, nodeIndex: number) => {
@@ -129,7 +166,7 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
             <div>
               <h2 className="text-lg font-medium text-gray-900">Workflow Nodes</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                {nodes.length} nodes • {connections.length} connections
+                {nodes.length} nodes • {connections.length} connections • {groups.length} groups
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -167,6 +204,18 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
                 <option value="connections">By Connections</option>
               </select>
 
+              {/* Multi-select toggle */}
+              <button
+                onClick={handleToggleMultiSelect}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+                  isMultiSelectMode 
+                    ? 'bg-blue-600 text-white border-blue-600' 
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {isMultiSelectMode ? 'Exit Select' : 'Multi Select'}
+              </button>
+
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-gray-100 rounded-md transition-colors"
@@ -191,6 +240,36 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
             </div>
           </div>
 
+          {/* Multi-select controls */}
+          {isMultiSelectMode && (
+            <div className="p-4 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-blue-900">
+                    {selectedNodes.size} node{selectedNodes.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <button
+                    onClick={handleSelectAll}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    {selectedNodes.size === sortedNodes.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+                <button
+                  onClick={handleCreateGroup}
+                  disabled={selectedNodes.size === 0}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    selectedNodes.size > 0
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Create Group ({selectedNodes.size})
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
             {sortedNodes.length === 0 ? (
@@ -203,12 +282,29 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
               <div className="space-y-2">
                 {sortedNodes.map((node, index) => {
                   const connections = getNodeConnectionCount(node.metadata.id)
+                  const isSelected = selectedNodes.has(node.metadata.id)
                   return (
                     <div
                       key={node.metadata.id}
-                      className="group flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
-                      onClick={() => handleNodeClick(node.metadata.id, node.position)}
+                      className={`group flex items-center gap-4 p-4 border rounded-lg transition-all duration-200 cursor-pointer ${
+                        isSelected 
+                          ? 'bg-blue-50 border-blue-300 shadow-md' 
+                          : 'bg-white border-gray-200 hover:shadow-md hover:border-gray-300'
+                      }`}
+                      onClick={(e) => handleNodeClick(node.metadata.id, node.position, e)}
                     >
+                      {/* Checkbox in multi-select mode */}
+                      {isMultiSelectMode && (
+                        <div className="flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
                       {/* Icon */}
                       <div className={`p-2 rounded-lg ${
                         node.metadata.variant === 'black' ? 'bg-black' :
@@ -263,14 +359,31 @@ export function NodeBrowser({ isOpen, onClose, onNodeSelect }: NodeBrowserProps)
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {sortedNodes.map((node, index) => {
                   const connections = getNodeConnectionCount(node.metadata.id)
+                  const isSelected = selectedNodes.has(node.metadata.id)
                   return (
                     <div
                       key={node.metadata.id}
-                      className="group bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
-                      onClick={() => handleNodeClick(node.metadata.id, node.position)}
+                      className={`group border rounded-lg p-4 transition-all duration-200 cursor-pointer relative ${
+                        isSelected 
+                          ? 'bg-blue-50 border-blue-300 shadow-md' 
+                          : 'bg-white border-gray-200 hover:shadow-md hover:border-gray-300'
+                      }`}
+                      onClick={(e) => handleNodeClick(node.metadata.id, node.position, e)}
                     >
+                      {/* Checkbox in multi-select mode */}
+                      {isMultiSelectMode && (
+                        <div className="absolute top-2 left-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
                       {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
+                      <div className={`flex items-start justify-between mb-3 ${isMultiSelectMode ? 'mt-6' : ''}`}>
                         <div className={`p-2 rounded-lg ${
                           node.metadata.variant === 'black' ? 'bg-black' :
                           node.metadata.variant === 'gray-700' ? 'bg-gray-700' :

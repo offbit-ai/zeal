@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronRight, ChevronDown, Trash2, Copy, ExternalLink } from 'lucide-react'
+import { ChevronRight, ChevronDown, Trash2, Copy, ExternalLink, Users } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { Icon } from '@/lib/icons'
 
@@ -12,7 +12,9 @@ interface NodeBrowserPanelProps {
 
 export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['all']))
-  const { nodes, connections, removeNode } = useWorkflowStore()
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
+  const { nodes, connections, removeNode, addNode, groups, createGroupFromSelection } = useWorkflowStore()
 
   // Group nodes by type
   const nodesByType = nodes.reduce((acc, node) => {
@@ -39,21 +41,56 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
     setExpandedCategories(newExpanded)
   }
 
-  const handleNodeClick = (nodeId: string, position: { x: number; y: number }) => {
-    onNodeSelect?.(nodeId, position)
+  const handleNodeClick = (nodeId: string, position: { x: number; y: number }, e?: React.MouseEvent) => {
+    if (isMultiSelectMode) {
+      e?.stopPropagation()
+      const newSelected = new Set(selectedNodes)
+      if (newSelected.has(nodeId)) {
+        newSelected.delete(nodeId)
+      } else {
+        newSelected.add(nodeId)
+      }
+      setSelectedNodes(newSelected)
+    } else {
+      onNodeSelect?.(nodeId, position)
+    }
+  }
+
+  const handleToggleMultiSelect = () => {
+    setIsMultiSelectMode(!isMultiSelectMode)
+    setSelectedNodes(new Set())
+  }
+
+  const handleCreateGroup = () => {
+    if (selectedNodes.size > 0) {
+      // First select the nodes in the store, then trigger group creation modal
+      const selectedNodesList = Array.from(selectedNodes)
+      
+      // Clear existing selection and select the chosen nodes
+      useWorkflowStore.getState().clearSelection()
+      useWorkflowStore.getState().selectMultipleNodes(selectedNodesList)
+      
+      // Trigger group creation from selection (this will open the modal)
+      createGroupFromSelection('New Group', 'Group created from node browser')
+      
+      setSelectedNodes(new Set())
+      setIsMultiSelectMode(false)
+    }
   }
 
   const handleDuplicate = (e: React.MouseEvent, node: typeof nodes[0]) => {
     e.stopPropagation()
+    const timestamp = Date.now()
     const newMetadata = {
       ...node.metadata,
-      id: `${node.metadata.id}-copy-${Date.now()}`
+      id: `${node.metadata.id}-copy-${timestamp}`,
+      title: `${node.metadata.title} (Copy)`
     }
     const newPosition = {
       x: node.position.x + 50,
       y: node.position.y + 50
     }
-    useWorkflowStore.getState().addNode(newMetadata, newPosition)
+    addNode(newMetadata, newPosition)
   }
 
   const handleDelete = (e: React.MouseEvent, nodeId: string) => {
@@ -67,10 +104,46 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
     }`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900">Workflow Nodes</h3>
-        <p className="text-xs text-gray-500 mt-0.5">
-          {nodes.length} nodes • {connections.length} connections
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-gray-900">Workflow Nodes</h3>
+          <button
+            onClick={handleToggleMultiSelect}
+            className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
+              isMultiSelectMode 
+                ? 'bg-blue-600 text-white border-blue-600' 
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+            title={isMultiSelectMode ? 'Exit multi-select mode' : 'Enable multi-select mode'}
+          >
+            {isMultiSelectMode ? 'Exit' : 'Select'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-500">
+          {nodes.length} nodes • {connections.length} connections • {groups.length} groups
         </p>
+        
+        {/* Multi-select controls */}
+        {isMultiSelectMode && (
+          <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-blue-900">
+                {selectedNodes.size} selected
+              </span>
+              <button
+                onClick={handleCreateGroup}
+                disabled={selectedNodes.size === 0}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                  selectedNodes.size > 0
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Users className="w-3 h-3 inline mr-1" />
+                Group ({selectedNodes.size})
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -96,12 +169,35 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
             <div className="px-2 pb-2">
               {nodes.map((node, index) => {
                 const connections = getNodeConnectionCount(node.metadata.id)
+                const isSelected = selectedNodes.has(node.metadata.id)
                 return (
                   <div
                     key={node.metadata.id}
-                    className="group flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                    onClick={() => handleNodeClick(node.metadata.id, node.position)}
+                    className={`group flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                      isSelected 
+                        ? 'bg-blue-50 border border-blue-200' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                    onClick={(e) => handleNodeClick(node.metadata.id, node.position, e)}
                   >
+                    {/* Checkbox in multi-select mode */}
+                    {isMultiSelectMode && (
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation()
+                          const newSelected = new Set(selectedNodes)
+                          if (newSelected.has(node.metadata.id)) {
+                            newSelected.delete(node.metadata.id)
+                          } else {
+                            newSelected.add(node.metadata.id)
+                          }
+                          setSelectedNodes(newSelected)
+                        }}
+                        className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    )}
                     <div className={`p-1 rounded ${
                       node.metadata.variant === 'black' ? 'bg-black' :
                       node.metadata.variant === 'gray-700' ? 'bg-gray-700' :
@@ -163,12 +259,35 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
               <div className="px-2 pb-2">
                 {typeNodes.map((node) => {
                   const connections = getNodeConnectionCount(node.metadata.id)
+                  const isSelected = selectedNodes.has(node.metadata.id)
                   return (
                     <div
                       key={node.metadata.id}
-                      className="group flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                      onClick={() => handleNodeClick(node.metadata.id, node.position)}
+                      className={`group flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                        isSelected 
+                          ? 'bg-blue-50 border border-blue-200' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={(e) => handleNodeClick(node.metadata.id, node.position, e)}
                     >
+                      {/* Checkbox in multi-select mode */}
+                      {isMultiSelectMode && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            const newSelected = new Set(selectedNodes)
+                            if (newSelected.has(node.metadata.id)) {
+                              newSelected.delete(node.metadata.id)
+                            } else {
+                              newSelected.add(node.metadata.id)
+                            }
+                            setSelectedNodes(newSelected)
+                          }}
+                          className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                      )}
                       <div className={`p-1 rounded ${
                         node.metadata.variant === 'black' ? 'bg-black' :
                         node.metadata.variant === 'gray-700' ? 'bg-gray-700' :

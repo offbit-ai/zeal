@@ -18,6 +18,7 @@ interface DraggableNodeProps {
   onNodeDropIntoGroup?: (nodeId: string, groupId: string) => void
   onNodeHoverGroup?: (groupId: string | null) => void
   groups?: Array<{ id: string; position: { x: number; y: number }; size: { width: number; height: number }; nodeIds: string[] }>
+  zoom?: number
 }
 
 export function DraggableNode({ 
@@ -33,7 +34,8 @@ export function DraggableNode({
   isSelected = false,
   onNodeDropIntoGroup,
   onNodeHoverGroup,
-  groups = []
+  groups = [],
+  zoom = 1
 }: DraggableNodeProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -111,8 +113,8 @@ export function DraggableNode({
     setIsDragging(true)
     setHasDragged(false)
     setDragStart({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
+      x: e.clientX - position.x * zoom,
+      y: e.clientY - position.y * zoom
     })
   }
 
@@ -121,8 +123,8 @@ export function DraggableNode({
 
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       const newPosition = {
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
+        x: (e.clientX - dragStart.x) / zoom,
+        y: (e.clientY - dragStart.y) / zoom
       }
       
       // Check if we've moved enough to consider it a drag
@@ -178,7 +180,7 @@ export function DraggableNode({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging, dragStart, metadata.id, onPositionChange, position.x, position.y, hasDragged, onClick])
+  }, [isDragging, dragStart, metadata.id, onPositionChange, position.x, position.y, hasDragged, onClick, zoom, onBoundsChange, hoveringGroupId, onNodeHoverGroup, onNodeDropIntoGroup])
 
   return (
     <div
@@ -192,7 +194,7 @@ export function DraggableNode({
       }}
       onMouseDown={handleMouseDown}
     >
-      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} isSelected={isSelected} onPortPositionUpdate={onPortPositionUpdate} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
+      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} isSelected={isSelected} onPortPositionUpdate={onPortPositionUpdate} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} zoom={zoom} />
     </div>
   )
 }

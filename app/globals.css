@@ -29,4 +29,10 @@
   .animate-shake:hover {
     animation: none;
   }
+  
+  @keyframes dash-flow {
+    to {
+      stroke-dashoffset: -15;
+    }
+  }
 }
