@@ -17,30 +17,30 @@ function calculateNodeDimensions(metadata: NodeMetadata): { width: number; heigh
   
   // Rectangle shape - estimate based on content
   // These nodes use w-fit, so width depends on icon + text + padding
-  let estimatedWidth = 140 // Conservative estimate for minimum width
-  let estimatedHeight = 48
+  let estimatedWidth = 200 // More realistic minimum width
+  let estimatedHeight = 70 // More realistic height
   
-  // Estimate width based on title length (very rough approximation)
+  // Estimate width based on title length (more accurate approximation)
   if (metadata.title) {
     const titleLength = metadata.title.length
-    const estimatedTextWidth = titleLength * 8 // ~8px per character
-    estimatedWidth = Math.max(estimatedWidth, estimatedTextWidth + 80) // Add icon + padding
+    const estimatedTextWidth = titleLength * 10 // ~10px per character (more realistic)
+    estimatedWidth = Math.max(estimatedWidth, estimatedTextWidth + 120) // Add icon + padding + margins
   }
   
   if (metadata.size === 'small') {
-    estimatedHeight = 40
-    estimatedWidth = Math.min(estimatedWidth, 160) // max-w-[160px]
+    estimatedHeight = 60
+    estimatedWidth = Math.max(estimatedWidth, 180) // Increase minimum
   } else if (metadata.size === 'medium') {
-    estimatedHeight = 48  
-    estimatedWidth = Math.min(estimatedWidth, 200) // max-w-[200px]
+    estimatedHeight = 70  
+    estimatedWidth = Math.max(estimatedWidth, 250) // More realistic medium size
   } else if (metadata.size === 'large') {
-    estimatedHeight = 56
-    estimatedWidth = Math.min(estimatedWidth, 240) // max-w-[240px]
+    estimatedHeight = 80
+    estimatedWidth = Math.max(estimatedWidth, 300) // More realistic large size
   }
   
   // Add extra height if subtitle is present
   if (metadata.subtitle) {
-    estimatedHeight += 16
+    estimatedHeight += 20 // More space for subtitle
   }
   
   return { width: estimatedWidth, height: estimatedHeight }
@@ -123,6 +123,7 @@ interface WorkflowActions {
   removeNodeFromGroup: (groupId: string, nodeId: string) => void
   moveGroup: (groupId: string, position: { x: number; y: number }) => void
   resizeGroup: (groupId: string, size: { width: number; height: number }) => void
+  autoResizeGroup: (groupId: string) => void
   createGroupFromSelection: (title: string, description: string) => void
   setGroupDragging: (isDragging: boolean) => void
   
@@ -314,6 +315,14 @@ export const useWorkflowStore = create<WorkflowStore>()(
             : node
         )
       }))
+      
+      // Auto-resize any groups that contain this node
+      const state = get()
+      const groupsContainingNode = state.groups.filter(group => group.nodeIds.includes(nodeId))
+      groupsContainingNode.forEach(group => {
+        get().autoResizeGroup(group.id)
+      })
+      
       // Port positions will be updated by DOM measurements when the node moves
       // Note: Position updates don't create snapshots (too frequent)
     },
@@ -454,9 +463,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
     // Group actions
     createGroup: (title: string, description: string, nodeIds: string[], position: { x: number; y: number }) => {
+      const groupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       set((state) => {
         const newGroup: NodeGroup = {
-          id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: groupId,
           title,
           description,
           nodeIds,
@@ -476,6 +486,12 @@ export const useWorkflowStore = create<WorkflowStore>()(
         
         return newState
       })
+      
+      // Auto-resize the group to fit its nodes (immediate execution after group creation)
+      setTimeout(() => {
+        console.log(`🔄 Auto-resizing newly created group: ${groupId}`)
+        get().autoResizeGroup(groupId)
+      }, 10)
     },
 
     updateGroup: (groupId: string, updates: Partial<Omit<NodeGroup, 'id' | 'createdAt'>>) => {
@@ -526,6 +542,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
         
         return newState
       })
+      
+      // Auto-resize the group to fit its nodes immediately
+      get().autoResizeGroup(groupId)
     },
 
     removeNodeFromGroup: (groupId: string, nodeId: string) => {
@@ -544,6 +563,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
         
         return newState
       })
+      
+      // Auto-resize the group to fit its nodes immediately
+      get().autoResizeGroup(groupId)
     },
 
     moveGroup: (groupId: string, position: { x: number; y: number }) => {
@@ -660,30 +682,29 @@ export const useWorkflowStore = create<WorkflowStore>()(
       
       if (selectedNodes.length === 0) return
 
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      // Calculate position based on the top-left-most node
+      let minX = Infinity, minY = Infinity
       selectedNodes.forEach(node => {
-        const nodeWidth = 200 // Approximate node width
-        const nodeHeight = 100 // Approximate node height
         minX = Math.min(minX, node.position.x)
         minY = Math.min(minY, node.position.y)
-        maxX = Math.max(maxX, node.position.x + nodeWidth)
-        maxY = Math.max(maxY, node.position.y + nodeHeight)
       })
 
-      // Add padding around the nodes
+      // Add padding around the nodes for positioning
       const padding = 40
       const groupPosition = { x: minX - padding, y: minY - padding }
+      // Use default size - auto-resize will handle proper sizing
       const groupSize = { 
-        width: maxX - minX + (padding * 2), 
-        height: maxY - minY + (padding * 2) 
+        width: 400, 
+        height: 300 
       }
 
       // Use provided title and description
       const groupTitle = title
       const groupDescription = description
 
+      const groupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       const newGroup: NodeGroup = {
-        id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: groupId,
         title: groupTitle,
         description: groupDescription,
         nodeIds: [...state.selection.selectedNodeIds],
@@ -702,8 +723,14 @@ export const useWorkflowStore = create<WorkflowStore>()(
         }
       }))
 
+      // Auto-resize the group to fit its nodes (immediate execution after group creation)
+      setTimeout(() => {
+        console.log(`🔄 Auto-resizing newly created group from selection: ${groupId}`)
+        get().autoResizeGroup(groupId)
+      }, 10)
+      
       // Save snapshot after action
-      setTimeout(() => get().saveSnapshot(), 0)
+      setTimeout(() => get().saveSnapshot(), 100)
     },
 
     // Selection actions
@@ -1202,6 +1229,67 @@ export const useWorkflowStore = create<WorkflowStore>()(
       }
     },
 
+    autoResizeGroup: (groupId: string) => {
+      console.log(`🔄 Auto-resizing group ${groupId}`)
+      set((state) => {
+        const group = state.groups.find(g => g.id === groupId)
+        if (!group || group.nodeIds.length === 0) {
+          console.log(`❌ Auto-resize failed: group not found or no nodes`)
+          return state
+        }
+        
+        // Get all nodes in this group
+        const groupNodes = state.nodes.filter(node => group.nodeIds.includes(node.metadata.id))
+        console.log(`📊 Found ${groupNodes.length} nodes in group:`, groupNodes.map(n => n.metadata.id))
+        if (groupNodes.length === 0) return state
+        
+        // Calculate bounding box of all nodes in the group
+        // We need to estimate node dimensions since we don't have actual DOM measurements here
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        
+        groupNodes.forEach(node => {
+          const nodeDimensions = calculateNodeDimensions(node.metadata)
+          const nodeLeft = node.position.x
+          const nodeTop = node.position.y
+          const nodeRight = node.position.x + nodeDimensions.width
+          const nodeBottom = node.position.y + nodeDimensions.height
+          
+          minX = Math.min(minX, nodeLeft)
+          minY = Math.min(minY, nodeTop)
+          maxX = Math.max(maxX, nodeRight)
+          maxY = Math.max(maxY, nodeBottom)
+        })
+        
+        // Add padding around the nodes
+        const padding = 40 // Increased padding for better spacing
+        const headerHeight = group.description ? 60 : 32
+        
+        // Calculate new group size
+        const contentWidth = maxX - minX + (padding * 2)
+        const contentHeight = maxY - minY + (padding * 2) + headerHeight
+        
+        // Ensure minimum size
+        const newWidth = Math.max(contentWidth, 200)
+        const newHeight = Math.max(contentHeight, 150)
+        
+        console.log(`📏 Group resize calculation:`, {
+          boundingBox: { minX, minY, maxX, maxY },
+          contentSize: { width: contentWidth, height: contentHeight },
+          finalSize: { width: newWidth, height: newHeight },
+          oldSize: group.size
+        })
+        
+        // Update group size
+        return {
+          ...state,
+          groups: state.groups.map(g => 
+            g.id === groupId 
+              ? { ...g, size: { width: newWidth, height: newHeight }, updatedAt: new Date().toISOString() }
+              : g
+          )
+        }
+      })
+    },
     setGroupDragging: (isDragging: boolean) => {
       set((state) => ({
         ...state,

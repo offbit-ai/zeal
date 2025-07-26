@@ -263,7 +263,8 @@ export default function Home() {
     createGroupFromSelection,
     isNodeSelected,
     updatePortPosition,
-    getPortPosition
+    getPortPosition,
+    autoResizeGroup
   } = useWorkflowStore()
   
   const { dragState, startDrag, updateDrag, endDrag } = useConnectionDrag(connections)
@@ -704,6 +705,16 @@ export default function Home() {
           } else {
             ToastManager.error('Need at least 2 nodes to create a test connection')
           }
+        }
+        
+        // Cmd+Shift+R to manually resize all groups (for debugging)
+        if (e.key === 'r') {
+          e.preventDefault()
+          groups.forEach(group => {
+            console.log(`🔧 Manually triggering resize for group ${group.id}`)
+            autoResizeGroup(group.id)
+          })
+          ToastManager.info(`Resized ${groups.length} groups`)
         }
       }
     }

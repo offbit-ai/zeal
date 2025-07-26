@@ -99,8 +99,7 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
       }
       
       // Listen for group position changes (only when drag ends)
-      const handleGroupPositionChanged = (e: Event) => {
-        const customEvent = e as CustomEvent
+      const handleGroupPositionChanged = () => {
         // Re-measure port positions when group drag ends
         requestAnimationFrame(measurePortPosition)
       }
