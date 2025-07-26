@@ -10,6 +10,7 @@ interface WorkflowNodeProps {
   isDragging?: boolean
   isHighlighted?: boolean
   isSelected?: boolean
+  onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
 }
@@ -19,14 +20,103 @@ interface PortComponentProps {
   nodeShape: NodeShape
   showLabel: boolean
   nodeId: string
+  onPortPositionUpdate?: (portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   portIndex: number
   totalPortsOnSide: number
 }
 
-function PortComponent({ port, nodeShape, showLabel, nodeId, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide }: PortComponentProps) {
+function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdate, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide }: PortComponentProps) {
   const portRef = useRef<HTMLDivElement>(null)
+  
+  // Measure and report actual port position using world coordinates
+  useEffect(() => {
+    // console.log(`🔍 Port ${port.id} in node ${nodeId}: setting up position measurement`, { hasPortRef: !!portRef.current, hasCallback: !!onPortPositionUpdate })
+    if (portRef.current && onPortPositionUpdate) {
+      const measurePortPosition = () => {
+        // console.log(`📏 Measuring port position for ${nodeId}-${port.id}`)
+        const portElement = portRef.current
+        const nodeElement = portElement?.closest('[data-node-id]') as HTMLElement
+        if (!portElement || !nodeElement) {
+          // console.log('❌ Port measurement failed: missing port or node element', { portElement, nodeElement })
+          return
+        }
+        
+        // Get the canvas container to calculate relative positions
+        const canvasElement = nodeElement.closest('[data-canvas]') as HTMLElement
+        if (!canvasElement) {
+          // console.log('❌ Port measurement failed: no canvas element found')
+          return
+        }
+        
+        // Get the transformed content container within the canvas
+        const contentContainer = canvasElement.querySelector('div[style*="transform"]') as HTMLElement
+        if (!contentContainer) {
+          // console.log('❌ Port measurement failed: no transform container found')
+          return
+        }
+        
+        // Note: Group positioning is handled automatically since groups are positioned
+        // within the same coordinate system as individual nodes
+        
+        // Get bounding rects relative to the viewport
+        const portRect = portElement.getBoundingClientRect()
+        const contentRect = contentContainer.getBoundingClientRect()
+        
+        // Calculate port center relative to the transformed content container
+        let portCenterX = portRect.left + portRect.width / 2 - contentRect.left
+        let portCenterY = portRect.top + portRect.height / 2 - contentRect.top
+        
+        // If node is in a group, the port position is already correctly calculated
+        // relative to the content container since the group itself is positioned
+        // within the content container. No additional offset needed.
+        
+        // Debug: Log port position updates
+        // console.log(`🔗 Port position update: ${nodeId}-${port.id} at (${portCenterX.toFixed(1)}, ${portCenterY.toFixed(1)})`)
+        
+        // Report the coordinates in the transformed space
+        onPortPositionUpdate(port.id, portCenterX, portCenterY, port.position)
+      }
+      
+      // Measure on mount and when dependencies change
+      const timer = setTimeout(measurePortPosition, 100)
+      // Also measure with a longer delay to ensure DOM is ready
+      const laterTimer = setTimeout(measurePortPosition, 500)
+      
+      // Also re-measure on resize
+      const observer = new ResizeObserver(measurePortPosition)
+      if (portRef.current) {
+        observer.observe(portRef.current)
+      }
+      
+      // Listen for node position changes
+      const handleNodePositionChanged = (e: Event) => {
+        const customEvent = e as CustomEvent
+        if (customEvent.detail?.nodeId === nodeId) {
+          requestAnimationFrame(measurePortPosition) // Use animation frame for smoother updates
+        }
+      }
+      
+      // Listen for group position changes (only when drag ends)
+      const handleGroupPositionChanged = (e: Event) => {
+        const customEvent = e as CustomEvent
+        // Re-measure port positions when group drag ends
+        requestAnimationFrame(measurePortPosition)
+      }
+      
+      document.addEventListener('nodePositionChanged', handleNodePositionChanged)
+      document.addEventListener('groupPositionChanged', handleGroupPositionChanged)
+      
+      return () => {
+        clearTimeout(timer)
+        clearTimeout(laterTimer)
+        observer.disconnect()
+        document.removeEventListener('nodePositionChanged', handleNodePositionChanged)
+        document.removeEventListener('groupPositionChanged', handleGroupPositionChanged)
+      }
+    }
+  }, [port.id, port.position, onPortPositionUpdate, nodeId])
   
   // Calculate position offset for multiple ports on the same side
   const getPortOffset = () => {
@@ -107,9 +197,12 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortDragStart, on
   )
 }
 
-export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, isSelected = false, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
+export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, isSelected = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
   const { title, subtitle, icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
+  
+  // Debug: Log ports for this node
+  // console.log(`🔌 Node ${metadata.id} has ${ports.length} ports:`, ports.map(p => `${p.id}(${p.position})`).join(', '))
   
   
   // Get the icon name (icon is now always a string from the API)
@@ -119,14 +212,14 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   const needsConfiguration = hasUnconfiguredDefaults(metadata)
   
   // Debug metadata changes
-  useEffect(() => {
-    console.log(`🎨 COMPONENT: WorkflowNode ${metadata.id} received metadata:`, {
-      title,
-      subtitle,
-      icon: iconName,
-      variant
-    })
-  }, [metadata.id, title, subtitle, iconName, variant])
+  // useEffect(() => {
+  //   console.log(`🎨 COMPONENT: WorkflowNode ${metadata.id} received metadata:`, {
+  //     title,
+  //     subtitle,
+  //     icon: iconName,
+  //     variant
+  //   })
+  // }, [metadata.id, title, subtitle, iconName, variant])
   
   // Group ports by position for proper indexing
   const portsByPosition = ports.reduce((acc, port) => {
@@ -197,6 +290,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
                 showLabel={isHovered} 
                 nodeId={metadata.id} 
  
+                onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined}
                 onPortDragStart={onPortDragStart} 
                 onPortDragEnd={onPortDragEnd}
                 portIndex={portIndex}
@@ -241,6 +335,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
                 showLabel={isHovered} 
                 nodeId={metadata.id} 
  
+                onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined}
                 onPortDragStart={onPortDragStart} 
                 onPortDragEnd={onPortDragEnd}
                 portIndex={portIndex}
@@ -292,7 +387,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
             nodeShape={shape} 
             showLabel={isHovered} 
             nodeId={metadata.id} 
- 
+            onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined}
             onPortDragStart={onPortDragStart} 
             onPortDragEnd={onPortDragEnd}
             portIndex={portIndex}

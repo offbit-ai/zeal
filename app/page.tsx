@@ -262,6 +262,7 @@ export default function Home() {
     endSelection,
     createGroupFromSelection,
     isNodeSelected,
+    updatePortPosition,
     getPortPosition
   } = useWorkflowStore()
   
@@ -676,6 +677,34 @@ export default function Home() {
           useEnvVarStore.getState().updateConfiguredVars([])
           ToastManager.info('Environment variable storage cleared')
         }
+        
+        // Cmd+Shift+C to create test connection (for debugging)
+        if (e.key === 'c') {
+          e.preventDefault()
+          if (storeNodes.length >= 2) {
+            const firstNode = storeNodes[0]
+            const secondNode = storeNodes[1]
+            
+            // Create a test connection between first two nodes
+            const testConnection = {
+              id: `test-conn-${Date.now()}`,
+              source: {
+                nodeId: firstNode.metadata.id,
+                portId: firstNode.metadata.ports?.[0]?.id || 'test-out'
+              },
+              target: {
+                nodeId: secondNode.metadata.id,
+                portId: secondNode.metadata.ports?.[0]?.id || 'test-in'
+              },
+              state: 'pending' as const
+            }
+            
+            addConnection(testConnection)
+            ToastManager.info('Test connection created')
+          } else {
+            ToastManager.error('Need at least 2 nodes to create a test connection')
+          }
+        }
       }
     }
     
@@ -782,6 +811,7 @@ export default function Home() {
                         height: bounds.height
                       })
                     }}
+                    onPortPositionUpdate={updatePortPosition}
                     onPortDragStart={handlePortDragStart}
                     onPortDragEnd={handlePortDragEnd}
                     onClick={handleNodeSelect}
@@ -812,6 +842,7 @@ export default function Home() {
                 position={node.position}
                 onPositionChange={handleNodePositionChange}
                 onBoundsChange={updateNodeBounds}
+                onPortPositionUpdate={updatePortPosition}
                 onPortDragStart={handlePortDragStart}
                 onPortDragEnd={handlePortDragEnd}
                 onClick={handleNodeSelect}

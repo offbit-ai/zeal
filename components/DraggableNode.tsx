@@ -9,6 +9,7 @@ interface DraggableNodeProps {
   position: { x: number; y: number }
   onPositionChange?: (id: string, position: { x: number; y: number }) => void
   onBoundsChange?: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void
+  onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onClick?: (nodeId: string) => void
@@ -21,6 +22,7 @@ export function DraggableNode({
   position, 
   onPositionChange,
   onBoundsChange,
+  onPortPositionUpdate,
   onPortDragStart,
   onPortDragEnd,
   onClick,
@@ -142,7 +144,7 @@ export function DraggableNode({
       }}
       onMouseDown={handleMouseDown}
     >
-      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} isSelected={isSelected} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
+      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} isSelected={isSelected} onPortPositionUpdate={onPortPositionUpdate} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
     </div>
   )
 }

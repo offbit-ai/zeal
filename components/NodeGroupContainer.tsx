@@ -16,7 +16,7 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [resizeStart, setResizeStart] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
 
-  const { moveGroup, resizeGroup, updateGroup } = useWorkflowStore()
+  const { moveGroup, resizeGroup, updateGroup, setGroupDragging } = useWorkflowStore()
 
   // Handle group dragging
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -34,6 +34,7 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
     e.preventDefault()
     e.stopPropagation() // Prevent canvas selection
     setIsDragging(true)
+    setGroupDragging(true) // Hide connection lines during drag
     setDragStart({ x: e.clientX - group.position.x, y: e.clientY - group.position.y })
   }
 
@@ -42,7 +43,21 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
     setIsResizing(false)
     setDragStart(null)
     setResizeStart(null)
-  }, [])
+    
+    // Re-enable connection lines after a brief delay to allow DOM to update
+    setTimeout(() => {
+      setGroupDragging(false)
+      
+      // Trigger port position re-measurement for all nodes in this group
+      const groupMoveEvent = new CustomEvent('groupPositionChanged', {
+        bubbles: true,
+        detail: { groupId: group.id }
+      })
+      if (containerRef.current) {
+        containerRef.current.dispatchEvent(groupMoveEvent)
+      }
+    }, 50)
+  }, [setGroupDragging])
 
   // Handle resize from bottom-right corner
   const handleResizeMouseDown = (e: React.MouseEvent) => {

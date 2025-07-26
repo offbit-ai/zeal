@@ -3,6 +3,7 @@
 import { Connection, ConnectionState } from '@/types/workflow'
 import { PortPosition } from '@/hooks/usePortPositions'
 import { usePortPositionSubscription } from '@/hooks/usePortPositionSubscription'
+import { useWorkflowStore } from '@/store/workflowStore'
 
 interface ConnectionLinesProps {
   connections: Connection[]
@@ -93,8 +94,27 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
   // Subscribe to port position changes for immediate updates
   usePortPositionSubscription()
   
+  // Get group dragging state to hide connections during drag
+  const isGroupDragging = useWorkflowStore(state => state.isGroupDragging)
+  
+  // Debug: Log connection count and port positions
+  // console.log(`🔗 ConnectionLines rendering ${connections.length} connections`)
+  
+  // Hide connection lines during group dragging for smooth UX
+  if (isGroupDragging) {
+    return null
+  }
+  
   return (
-    <svg className="absolute inset-0" style={{ overflow: 'visible', width: '100%', height: '100%' }}>
+    <svg 
+      className="absolute inset-0 pointer-events-none" 
+      style={{ 
+        overflow: 'visible', 
+        width: '100%', 
+        height: '100%',
+        zIndex: 1
+      }}
+    >
       <defs>
         {/* Define glow filters for each state */}
         <filter id="glow-warning" x="-50%" y="-50%" width="200%" height="200%">
@@ -126,7 +146,19 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
         const source = getPortPosition(connection.source.nodeId, connection.source.portId)
         const target = getPortPosition(connection.target.nodeId, connection.target.portId)
 
-        if (!source || !target) return null
+        // console.log(`🔗 Connection ${connection.id}:`, {
+        //   sourceNodeId: connection.source.nodeId,
+        //   sourcePortId: connection.source.portId,
+        //   targetNodeId: connection.target.nodeId,
+        //   targetPortId: connection.target.portId,
+        //   sourcePos: source,
+        //   targetPos: target
+        // })
+
+        if (!source || !target) {
+          // console.log(`❌ Missing port positions for connection ${connection.id}`)
+          return null
+        }
 
         const path = generatePath(source, target)
         const styles = getConnectionStyles(connection.state)

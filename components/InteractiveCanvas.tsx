@@ -214,6 +214,7 @@ export function InteractiveCanvas({
     <div 
       ref={canvasRef}
       className="relative w-full h-full overflow-hidden bg-gray-100"
+      data-canvas="true"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}

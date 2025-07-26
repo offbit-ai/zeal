@@ -6,7 +6,8 @@ import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/wor
 import { Database, Bot } from 'lucide-react'
 import { useEnvVarStore } from './envVarStore'
 
-// Helper function to calculate node dimensions based on metadata
+// Helper function to estimate node dimensions based on metadata
+// Note: These are estimates since actual nodes use w-fit and content-dependent sizing
 function calculateNodeDimensions(metadata: NodeMetadata): { width: number; height: number } {
   if (metadata.shape === 'circle') {
     return { width: 64, height: 64 }
@@ -14,27 +15,35 @@ function calculateNodeDimensions(metadata: NodeMetadata): { width: number; heigh
     return { width: 48, height: 48 }
   }
   
-  // Rectangle shape - base dimensions on size
-  let baseWidth = 200
-  let baseHeight = 56
+  // Rectangle shape - estimate based on content
+  // These nodes use w-fit, so width depends on icon + text + padding
+  let estimatedWidth = 140 // Conservative estimate for minimum width
+  let estimatedHeight = 48
+  
+  // Estimate width based on title length (very rough approximation)
+  if (metadata.title) {
+    const titleLength = metadata.title.length
+    const estimatedTextWidth = titleLength * 8 // ~8px per character
+    estimatedWidth = Math.max(estimatedWidth, estimatedTextWidth + 80) // Add icon + padding
+  }
   
   if (metadata.size === 'small') {
-    baseWidth = 160
-    baseHeight = 40 // px-3 py-2 = 12px + 8px + content
+    estimatedHeight = 40
+    estimatedWidth = Math.min(estimatedWidth, 160) // max-w-[160px]
   } else if (metadata.size === 'medium') {
-    baseWidth = 200
-    baseHeight = 52 // px-4 py-3 = 16px + 12px + content
+    estimatedHeight = 48  
+    estimatedWidth = Math.min(estimatedWidth, 200) // max-w-[200px]
   } else if (metadata.size === 'large') {
-    baseWidth = 240
-    baseHeight = 64 // px-5 py-4 = 20px + 16px + content
+    estimatedHeight = 56
+    estimatedWidth = Math.min(estimatedWidth, 240) // max-w-[240px]
   }
   
   // Add extra height if subtitle is present
   if (metadata.subtitle) {
-    baseHeight += 16 // Extra line for subtitle
+    estimatedHeight += 16
   }
   
-  return { width: baseWidth, height: baseHeight }
+  return { width: estimatedWidth, height: estimatedHeight }
 }
 
 // Extended node data that includes position
@@ -82,6 +91,7 @@ interface WorkflowState {
   historyIndex: number
   maxHistorySize: number
   initialized: boolean
+  isGroupDragging: boolean
 }
 
 // Snapshot for undo/redo
@@ -114,6 +124,7 @@ interface WorkflowActions {
   moveGroup: (groupId: string, position: { x: number; y: number }) => void
   resizeGroup: (groupId: string, size: { width: number; height: number }) => void
   createGroupFromSelection: (title: string, description: string) => void
+  setGroupDragging: (isDragging: boolean) => void
   
   // Selection actions
   selectNode: (nodeId: string, addToSelection?: boolean) => void
@@ -202,6 +213,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
     historyIndex: -1,
     maxHistorySize: 50,
     initialized: false,
+    isGroupDragging: false,
 
     // Node actions
     addNode: (metadata: NodeMetadata, position: { x: number; y: number }) => {
@@ -244,8 +256,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         // Save snapshot after action
         setTimeout(() => get().saveSnapshot(), 0)
         
-        // Initialize port positions for the new node immediately
-        get().updateAllPortPositions(metadata.id)
+        // Port positions will be initialized by DOM measurements when the node is rendered
         
         return newState
       })
@@ -303,8 +314,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             : node
         )
       }))
-      // Update port positions for this node
-      get().updateAllPortPositions(nodeId)
+      // Port positions will be updated by DOM measurements when the node moves
       // Note: Position updates don't create snapshots (too frequent)
     },
 
@@ -407,9 +417,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           connections: [...state.connections, newConnection]
         }
         
-        // Ensure port positions are calculated for connected nodes
-        get().updateAllPortPositions(connection.source.nodeId)
-        get().updateAllPortPositions(connection.target.nodeId)
+        // Port positions will be available from DOM measurements
         
         // Save snapshot after action
         setTimeout(() => get().saveSnapshot(), 0)
@@ -1121,10 +1129,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         historyIndex: -1
       })
       
-      // Initialize port positions for all loaded nodes
-      nodes.forEach(node => {
-        get().updateAllPortPositions(node.metadata.id)
-      })
+      // Port positions will be initialized by DOM measurements when nodes are rendered
       
       // Save initial snapshot for undo/redo
       setTimeout(() => get().saveSnapshot(), 0)
@@ -1190,14 +1195,18 @@ export const useWorkflowStore = create<WorkflowStore>()(
           historyIndex: -1
         })
         
-        // Initialize port positions for all loaded nodes
-        nodes.forEach(node => {
-          get().updateAllPortPositions(node.metadata.id)
-        })
+        // Port positions will be initialized by DOM measurements when nodes are rendered
         
         // Save initial snapshot for undo/redo
         setTimeout(() => get().saveSnapshot(), 0)
       }
+    },
+
+    setGroupDragging: (isDragging: boolean) => {
+      set((state) => ({
+        ...state,
+        isGroupDragging: isDragging
+      }))
     }
   }))
 )
