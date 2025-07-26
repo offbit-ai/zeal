@@ -2,6 +2,7 @@
 
 import { Connection, ConnectionState } from '@/types/workflow'
 import { PortPosition } from '@/hooks/usePortPositions'
+import { usePortPositionSubscription } from '@/hooks/usePortPositionSubscription'
 
 interface ConnectionLinesProps {
   connections: Connection[]
@@ -89,6 +90,9 @@ function generatePath(source: PortPosition, target: PortPosition): string {
 }
 
 export function ConnectionLines({ connections, getPortPosition, onConnectionClick }: ConnectionLinesProps) {
+  // Subscribe to port position changes for immediate updates
+  usePortPositionSubscription()
+  
   return (
     <svg className="absolute inset-0" style={{ overflow: 'visible', width: '100%', height: '100%' }}>
       <defs>

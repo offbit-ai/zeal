@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { NodeGroup } from '@/types/workflow'
 import { useWorkflowStore } from '@/store/workflowStore'
 
@@ -20,33 +20,29 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
 
   // Handle group dragging
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return // Only drag from header area
+    const target = e.target as HTMLElement
+    
+    // Check if the click is within the header area
+    const clickedElement = target.closest('.group-header')
+    if (!clickedElement) return
+    
+    // Check if we clicked on a button or interactive element
+    if (target.tagName === 'BUTTON' || target.closest('button')) {
+      return
+    }
     
     e.preventDefault()
+    e.stopPropagation() // Prevent canvas selection
     setIsDragging(true)
     setDragStart({ x: e.clientX - group.position.x, y: e.clientY - group.position.y })
   }
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging && dragStart) {
-      const newX = e.clientX - dragStart.x
-      const newY = e.clientY - dragStart.y
-      moveGroup(group.id, { x: newX, y: newY })
-    }
-    
-    if (isResizing && resizeStart) {
-      const newWidth = Math.max(200, resizeStart.width + (e.clientX - resizeStart.x))
-      const newHeight = Math.max(150, resizeStart.height + (e.clientY - resizeStart.y))
-      resizeGroup(group.id, { width: newWidth, height: newHeight })
-    }
-  }
-
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false)
     setIsResizing(false)
     setDragStart(null)
     setResizeStart(null)
-  }
+  }, [])
 
   // Handle resize from bottom-right corner
   const handleResizeMouseDown = (e: React.MouseEvent) => {
@@ -62,34 +58,64 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
   }
 
   useEffect(() => {
-    if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
+    if (!isDragging && !isResizing) return
+
+    let animationFrameId: number | null = null
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      // Cancel any pending animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
       }
+      
+      // Schedule update on next animation frame for smooth movement
+      animationFrameId = requestAnimationFrame(() => {
+        if (isDragging && dragStart) {
+          const newX = e.clientX - dragStart.x
+          const newY = e.clientY - dragStart.y
+          moveGroup(group.id, { x: newX, y: newY })
+        }
+        
+        if (isResizing && resizeStart) {
+          const newWidth = Math.max(200, resizeStart.width + (e.clientX - resizeStart.x))
+          const newHeight = Math.max(150, resizeStart.height + (e.clientY - resizeStart.y))
+          resizeGroup(group.id, { width: newWidth, height: newHeight })
+        }
+      })
     }
-  }, [isDragging, isResizing, dragStart, resizeStart])
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, isResizing, dragStart, resizeStart, group.id, moveGroup, resizeGroup, handleMouseUp])
 
   return (
     <div
       ref={containerRef}
-      className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto ${
+      className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto transition-shadow ${
         group.collapsed ? 'border-gray-600' : ''
-      }`}
+      } ${isDragging ? 'shadow-2xl border-blue-500' : ''}`}
       style={{
         left: group.position.x,
         top: group.position.y,
         width: group.size.width,
         height: group.collapsed ? 40 : group.size.height,
         zIndex: 0, // Behind nodes
-        borderColor: group.color || '#9CA3AF'
+        borderColor: group.color || '#9CA3AF',
+        cursor: isDragging ? 'grabbing' : 'default'
       }}
+      data-group-container="true"
     >
       {/* Group Header */}
       <div
-        className="absolute top-0 left-0 right-0 h-8 bg-white/80 backdrop-blur-sm border-b border-gray-300 rounded-t-lg cursor-move flex items-center justify-between px-3"
+        className="group-header absolute top-0 left-0 right-0 h-8 bg-white/80 backdrop-blur-sm border-b border-gray-300 rounded-t-lg cursor-move flex items-center justify-between px-3"
         onMouseDown={handleMouseDown}
       >
         <div className="flex-1 min-w-0">
@@ -102,7 +128,11 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
           {/* Collapse/Expand button */}
           <button
             className="text-gray-500 hover:text-gray-700 text-xs"
-            onClick={() => updateGroup(group.id, { collapsed: !group.collapsed })}
+            onClick={(e) => {
+              e.stopPropagation()
+              updateGroup(group.id, { collapsed: !group.collapsed })
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             {group.collapsed ? '▼' : '▲'}
           </button>
@@ -127,7 +157,7 @@ export function NodeGroupContainer({ group, children }: NodeGroupContainerProps)
           )}
 
           {/* Children nodes will be rendered here by the parent */}
-          <div className="absolute inset-0 pt-8" style={{ paddingTop: group.description ? 60 : 32 }}>
+          <div className="absolute left-0 right-0 bottom-0" style={{ top: group.description ? 60 : 32 }}>
             {children}
           </div>
 

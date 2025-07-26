@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { InteractiveCanvas } from '@/components/InteractiveCanvas'
 import { WorkflowSidebar } from '@/components/WorkflowSidebar'
 import { WorkflowBottomToolbar } from '@/components/WorkflowBottomToolbar'
@@ -33,6 +33,8 @@ import { PropertyPane } from '@/components/PropertyPane'
 import { ModalPortal } from '@/components/ModalPortal'
 import { ConfigurationToast } from '@/components/ConfigurationToast'
 import { NodeGroupContainer } from '@/components/NodeGroupContainer'
+import { SelectionRectangle } from '@/components/SelectionRectangle'
+import { GroupCreationModal } from '@/components/GroupCreationModal'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
@@ -223,11 +225,12 @@ export default function Home() {
   const [isPropertyPaneVisible, setIsPropertyPaneVisible] = useState(false)
   const [isPropertyPaneClosing, setIsPropertyPaneClosing] = useState(false)
   const [configurationToastNodeId, setConfigurationToastNodeId] = useState<string | null>(null)
+  const [isGroupCreationModalOpen, setIsGroupCreationModalOpen] = useState(false)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
   const { updateNodeBounds, removeNodeBounds, getNodeBoundsArray } = useNodeBounds()
-  const { updatePortPosition, getPortPosition } = usePortPositions()
+  const { updatePortPosition: oldUpdatePortPosition, getPortPosition: getStoredPortPosition } = usePortPositions()
   
   // Zustand store
   const { 
@@ -235,7 +238,8 @@ export default function Home() {
     workflowName,
     nodes: storeNodes, 
     connections,
-    groups, 
+    groups,
+    selection,
     initialized,
     addConnection, 
     removeConnection, 
@@ -250,7 +254,15 @@ export default function Home() {
     loadFromStorage,
     createNewWorkflow,
     setWorkflowName,
-    publishWorkflow
+    publishWorkflow,
+    selectNode,
+    clearSelection,
+    startSelection,
+    updateSelection,
+    endSelection,
+    createGroupFromSelection,
+    isNodeSelected,
+    getPortPosition
   } = useWorkflowStore()
   
   const { dragState, startDrag, updateDrag, endDrag } = useConnectionDrag(connections)
@@ -513,6 +525,16 @@ export default function Home() {
   const handleOpenConfigFromWarning = () => {
     setIsConfigOpen(true)
   }
+
+  // Handle group creation
+  const handleGroupCreationConfirm = (title: string, description: string) => {
+    createGroupFromSelection(title, description)
+    setIsGroupCreationModalOpen(false)
+  }
+
+  const handleGroupCreationCancel = () => {
+    setIsGroupCreationModalOpen(false)
+  }
   
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
     const portPosition = getPortPosition(nodeId, portId)
@@ -597,6 +619,9 @@ export default function Home() {
   
   // Keyboard shortcuts for testing connection states and undo/redo
   useEffect(() => {
+    // Detect if user is on macOS
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    
     const handleKeyPress = (e: KeyboardEvent) => {
       // Press '1', '2', '3', '4' to set the first connection to different states
       if (['1', '2', '3', '4'].includes(e.key) && connections.length > 0) {
@@ -606,8 +631,11 @@ export default function Home() {
         updateConnectionState(firstConnectionId, states[stateIndex])
       }
       
-      // Undo/Redo shortcuts (Cmd+Z / Cmd+Shift+Z)
-      if (e.metaKey || e.ctrlKey) {
+      // Check for the appropriate modifier key based on platform
+      const hasModifier = isMac ? e.metaKey : e.ctrlKey
+      
+      // Undo/Redo shortcuts (Cmd+Z / Cmd+Shift+Z on Mac, Ctrl+Z / Ctrl+Shift+Z on Windows/Linux)
+      if (hasModifier) {
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault()
           undo()
@@ -616,15 +644,32 @@ export default function Home() {
           redo()
         }
         
+        // Group selected nodes (Cmd+G on Mac, Ctrl+G on Windows/Linux)
+        if (e.key === 'g' && !e.shiftKey) {
+          e.preventDefault()
+          if (selection.selectedNodeIds.length > 0) {
+            setIsGroupCreationModalOpen(true)
+          }
+        }
+      }
+      
+      // Clear selection with Escape
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        clearSelection()
+      }
+        
+      // Other keyboard shortcuts (Cmd+Shift+...)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
         // Cmd+Shift+P to simulate published workflows (for testing)
-        if (e.key === 'p' && e.shiftKey) {
+        if (e.key === 'p') {
           e.preventDefault()
           simulatePublishedWorkflows()
           ToastManager.info('Simulated published workflows created')
         }
         
         // Cmd+Shift+E to clear environment variable storage (for testing)
-        if (e.key === 'e' && e.shiftKey) {
+        if (e.key === 'e') {
           e.preventDefault()
           EnvVarService.clearStorage()
           // Clear configured vars in store
@@ -681,6 +726,16 @@ export default function Home() {
           onOffsetChange={setCanvasOffset}
           zoom={canvasZoom}
           onZoomChange={setCanvasZoom}
+          onSelectionStart={startSelection}
+          onSelectionUpdate={updateSelection}
+          onSelectionEnd={() => {
+            const hasSelectedNodes = endSelection()
+            // Automatically open group creation modal if nodes were selected
+            if (hasSelectedNodes) {
+              setIsGroupCreationModalOpen(true)
+            }
+          }}
+          onSelectionClear={clearSelection}
         >
           {/* Connection Lines - render before nodes so they appear behind */}
           <ConnectionLines connections={connections} getPortPosition={getPortPosition} onConnectionClick={handleConnectionClick} />
@@ -702,29 +757,68 @@ export default function Home() {
             const groupNodes = storeNodes.filter(node => group.nodeIds.includes(node.metadata.id))
             return (
               <NodeGroupContainer key={group.id} group={group}>
-                {/* Group nodes will be positioned relative to the group */}
+                {/* Render nodes that belong to this group */}
                 {groupNodes.map(node => (
-                  <div key={`group-${group.id}-node-${node.metadata.id}`} />
+                  <DraggableNode
+                    key={`group-${group.id}-node-${node.metadata.id}`}
+                    metadata={node.metadata}
+                    position={{
+                      x: node.position.x - group.position.x,
+                      y: node.position.y - group.position.y - (group.description ? 60 : 32)
+                    }}
+                    onPositionChange={(nodeId, position) => {
+                      // Convert relative position back to absolute
+                      handleNodePositionChange(nodeId, {
+                        x: position.x + group.position.x,
+                        y: position.y + group.position.y + (group.description ? 60 : 32)
+                      })
+                    }}
+                    onBoundsChange={(nodeId, bounds) => {
+                      // Use absolute node position for bounds
+                      updateNodeBounds(nodeId, {
+                        x: node.position.x,
+                        y: node.position.y,
+                        width: bounds.width,
+                        height: bounds.height
+                      })
+                    }}
+                    onPortDragStart={handlePortDragStart}
+                    onPortDragEnd={handlePortDragEnd}
+                    onClick={handleNodeSelect}
+                    isHighlighted={node.metadata.id === highlightedNodeId}
+                    isSelected={isNodeSelected(node.metadata.id)}
+                  />
                 ))}
               </NodeGroupContainer>
             )
           })}
           
-          {/* Workflow Nodes */}
-          {storeNodes.map(node => (
-            <DraggableNode
-              key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-              metadata={node.metadata}
-              initialPosition={node.position}
-              onPositionChange={handleNodePositionChange}
-              onBoundsChange={updateNodeBounds}
-              onPortPositionUpdate={updatePortPosition}
-              onPortDragStart={handlePortDragStart}
-              onPortDragEnd={handlePortDragEnd}
-              onClick={handleNodeSelect}
-              isHighlighted={node.metadata.id === highlightedNodeId}
+          {/* Selection Rectangle */}
+          {selection.isSelecting && selection.selectionStart && selection.selectionEnd && (
+            <SelectionRectangle
+              startPoint={selection.selectionStart}
+              endPoint={selection.selectionEnd}
+              visible={selection.isSelecting}
             />
-          ))}
+          )}
+
+          {/* Ungrouped Workflow Nodes */}
+          {storeNodes
+            .filter(node => !groups.some(group => group.nodeIds.includes(node.metadata.id)))
+            .map(node => (
+              <DraggableNode
+                key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
+                metadata={node.metadata}
+                position={node.position}
+                onPositionChange={handleNodePositionChange}
+                onBoundsChange={updateNodeBounds}
+                onPortDragStart={handlePortDragStart}
+                onPortDragEnd={handlePortDragEnd}
+                onClick={handleNodeSelect}
+                isHighlighted={node.metadata.id === highlightedNodeId}
+                isSelected={isNodeSelected(node.metadata.id)}
+              />
+            ))}
         </InteractiveCanvas>
 
         {/* Floating UI Components */}
@@ -867,6 +961,18 @@ export default function Home() {
           />
         ) : null
       })()}
+
+      {/* Group Creation Modal */}
+      <GroupCreationModal
+        isOpen={isGroupCreationModalOpen}
+        selectedNodeCount={selection.selectedNodeIds.length}
+        selectedNodeNames={selection.selectedNodeIds.map(id => {
+          const node = storeNodes.find(n => n.metadata.id === id)
+          return node ? node.metadata.title : 'Unknown'
+        })}
+        onConfirm={handleGroupCreationConfirm}
+        onCancel={handleGroupCreationCancel}
+      />
     </main>
   )
 }

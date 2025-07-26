@@ -9,7 +9,7 @@ interface WorkflowNodeProps {
   metadata: NodeMetadata
   isDragging?: boolean
   isHighlighted?: boolean
-  onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
+  isSelected?: boolean
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
 }
@@ -19,67 +19,14 @@ interface PortComponentProps {
   nodeShape: NodeShape
   showLabel: boolean
   nodeId: string
-  onPortPositionUpdate?: (portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   portIndex: number
   totalPortsOnSide: number
 }
 
-function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdate, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide }: PortComponentProps) {
-  const isInput = port.type === 'input'
+function PortComponent({ port, nodeShape, showLabel, nodeId, onPortDragStart, onPortDragEnd, portIndex, totalPortsOnSide }: PortComponentProps) {
   const portRef = useRef<HTMLDivElement>(null)
-  
-  useEffect(() => {
-    if (portRef.current && onPortPositionUpdate) {
-      const updatePosition = () => {
-        // Get the node container
-        const nodeElement = portRef.current!.closest('[data-node-id]') as HTMLElement
-        if (!nodeElement) return
-        
-        // Get node position from transform
-        const transform = nodeElement.style.transform
-        const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/)
-        if (!match) return
-        
-        const nodeX = parseFloat(match[1])
-        const nodeY = parseFloat(match[2])
-        
-        // Get port position relative to node
-        const portRect = portRef.current!.getBoundingClientRect()
-        const nodeRect = nodeElement.getBoundingClientRect()
-        
-        const relativeX = portRect.left - nodeRect.left + portRect.width / 2
-        const relativeY = portRect.top - nodeRect.top + portRect.height / 2
-        
-        // Calculate absolute position
-        const absoluteX = nodeX + relativeX
-        const absoluteY = nodeY + relativeY
-        
-        onPortPositionUpdate(port.id, absoluteX, absoluteY, port.position)
-      }
-      
-      // Update position after a short delay
-      const timer = setTimeout(updatePosition, 100)
-      
-      // Listen for node position changes
-      const handleNodeMove = () => {
-        updatePosition()
-      }
-      
-      const nodeElement = portRef.current!.closest('[data-node-id]')
-      if (nodeElement) {
-        nodeElement.addEventListener('nodePositionChanged', handleNodeMove)
-      }
-      
-      return () => {
-        clearTimeout(timer)
-        if (nodeElement) {
-          nodeElement.removeEventListener('nodePositionChanged', handleNodeMove)
-        }
-      }
-    }
-  }, [port.id, port.position, onPortPositionUpdate, nodeId])
   
   // Calculate position offset for multiple ports on the same side
   const getPortOffset = () => {
@@ -160,7 +107,7 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
   )
 }
 
-export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
+export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, isSelected = false, onPortDragStart, onPortDragEnd }: WorkflowNodeProps) {
   const { title, subtitle, icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
   
@@ -229,7 +176,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
     return (
       <div className="flex flex-col items-center relative select-none" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
         <div 
-          className={`${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+          className={`${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
           style={nodeStyles}
         >
           <Icon key={iconName} name={iconName} className="w-7 h-7" style={{ color: textColor }} strokeWidth={1.5} />
@@ -249,7 +196,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
                 nodeShape={shape} 
                 showLabel={isHovered} 
                 nodeId={metadata.id} 
-                onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} 
+ 
                 onPortDragStart={onPortDragStart} 
                 onPortDragEnd={onPortDragEnd}
                 portIndex={portIndex}
@@ -273,7 +220,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
     return (
       <div className="flex flex-col items-center relative select-none" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
         <div 
-          className={`${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+          className={`${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
           style={nodeStyles}
         >
           <Icon key={iconName} name={iconName} className="w-5 h-5 -rotate-45" style={{ color: textColor }} strokeWidth={1.5} />
@@ -293,7 +240,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
                 nodeShape={shape} 
                 showLabel={isHovered} 
                 nodeId={metadata.id} 
-                onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} 
+ 
                 onPortDragStart={onPortDragStart} 
                 onPortDragEnd={onPortDragEnd}
                 portIndex={portIndex}
@@ -315,7 +262,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   // Default rectangle shape
   return (
     <div 
-      className={`${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+      className={`${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
       style={nodeStyles}
       onMouseEnter={() => setIsHovered(true)} 
       onMouseLeave={() => setIsHovered(false)}
@@ -345,7 +292,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
             nodeShape={shape} 
             showLabel={isHovered} 
             nodeId={metadata.id} 
-            onPortPositionUpdate={onPortPositionUpdate ? (portId, x, y, position) => onPortPositionUpdate(metadata.id, portId, x, y, position) : undefined} 
+ 
             onPortDragStart={onPortDragStart} 
             onPortDragEnd={onPortDragEnd}
             portIndex={portIndex}

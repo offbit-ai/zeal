@@ -6,46 +6,54 @@ import type { NodeMetadata } from '@/types/workflow'
 
 interface DraggableNodeProps {
   metadata: NodeMetadata
-  initialPosition: { x: number; y: number }
+  position: { x: number; y: number }
   onPositionChange?: (id: string, position: { x: number; y: number }) => void
   onBoundsChange?: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void
-  onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onClick?: (nodeId: string) => void
   isHighlighted?: boolean
+  isSelected?: boolean
 }
 
 export function DraggableNode({ 
   metadata, 
-  initialPosition, 
+  position, 
   onPositionChange,
   onBoundsChange,
-  onPortPositionUpdate,
   onPortDragStart,
   onPortDragEnd,
   onClick,
-  isHighlighted = false
+  isHighlighted = false,
+  isSelected = false
 }: DraggableNodeProps) {
-  const [position, setPosition] = useState(initialPosition)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [hasDragged, setHasDragged] = useState(false)
   const nodeRef = useRef<HTMLDivElement>(null)
 
-  // Update bounds when position changes
+  // Update bounds only when node mounts or metadata changes
   useEffect(() => {
     if (nodeRef.current && onBoundsChange) {
-      const rect = nodeRef.current.getBoundingClientRect()
-      onBoundsChange(metadata.id, {
-        x: position.x,
-        y: position.y,
-        width: rect.width,
-        height: rect.height
-      })
+      // Use a small delay to ensure the node is fully rendered
+      const timer = setTimeout(() => {
+        if (nodeRef.current) {
+          const rect = nodeRef.current.getBoundingClientRect()
+          onBoundsChange(metadata.id, {
+            x: position.x,
+            y: position.y,
+            width: rect.width,
+            height: rect.height
+          })
+        }
+      }, 50)
+      
+      return () => clearTimeout(timer)
     }
-    
-    // Trigger port position updates when node moves
+  }, [metadata.id]) // Only update when node id changes (essentially on mount)
+  
+  // Trigger port position updates when node moves
+  useEffect(() => {
     if (nodeRef.current) {
       const event = new CustomEvent('nodePositionChanged', { 
         bubbles: true,
@@ -53,7 +61,7 @@ export function DraggableNode({
       })
       nodeRef.current.dispatchEvent(event)
     }
-  }, [position, metadata.id, onBoundsChange])
+  }, [position.x, position.y, metadata.id])
 
   const handleMouseDown = (e: MouseEvent) => {
     // Only start drag if not clicking on a port
@@ -91,8 +99,18 @@ export function DraggableNode({
         setHasDragged(true)
       }
       
-      setPosition(newPosition)
       onPositionChange?.(metadata.id, newPosition)
+      
+      // Update bounds with new position
+      if (nodeRef.current && onBoundsChange) {
+        const rect = nodeRef.current.getBoundingClientRect()
+        onBoundsChange(metadata.id, {
+          x: newPosition.x,
+          y: newPosition.y,
+          width: rect.width,
+          height: rect.height
+        })
+      }
     }
 
     const handleMouseUp = () => {
@@ -111,19 +129,20 @@ export function DraggableNode({
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging, dragStart, metadata.id, onPositionChange])
+  }, [isDragging, dragStart, metadata.id, onPositionChange, position.x, position.y, hasDragged, onClick])
 
   return (
     <div
       ref={nodeRef}
       className={`absolute ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${isDragging ? 'z-50' : 'z-10'}`}
       data-node-id={metadata.id}
+      data-draggable-node="true"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`
       }}
       onMouseDown={handleMouseDown}
     >
-      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} onPortPositionUpdate={onPortPositionUpdate} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
+      <WorkflowNode metadata={metadata} isDragging={isDragging} isHighlighted={isHighlighted} isSelected={isSelected} onPortDragStart={onPortDragStart} onPortDragEnd={onPortDragEnd} />
     </div>
   )
 }

@@ -6,10 +6,67 @@ import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/wor
 import { Database, Bot } from 'lucide-react'
 import { useEnvVarStore } from './envVarStore'
 
+// Helper function to calculate node dimensions based on metadata
+function calculateNodeDimensions(metadata: NodeMetadata): { width: number; height: number } {
+  if (metadata.shape === 'circle') {
+    return { width: 64, height: 64 }
+  } else if (metadata.shape === 'diamond') {
+    return { width: 48, height: 48 }
+  }
+  
+  // Rectangle shape - base dimensions on size
+  let baseWidth = 200
+  let baseHeight = 56
+  
+  if (metadata.size === 'small') {
+    baseWidth = 160
+    baseHeight = 40 // px-3 py-2 = 12px + 8px + content
+  } else if (metadata.size === 'medium') {
+    baseWidth = 200
+    baseHeight = 52 // px-4 py-3 = 16px + 12px + content
+  } else if (metadata.size === 'large') {
+    baseWidth = 240
+    baseHeight = 64 // px-5 py-4 = 20px + 16px + content
+  }
+  
+  // Add extra height if subtitle is present
+  if (metadata.subtitle) {
+    baseHeight += 16 // Extra line for subtitle
+  }
+  
+  return { width: baseWidth, height: baseHeight }
+}
+
 // Extended node data that includes position
 interface WorkflowNode extends WorkflowNodeData {
   metadata: NodeMetadata
   position: { x: number; y: number }
+}
+
+// Selection state interface
+interface SelectionState {
+  selectedNodeIds: string[]
+  isSelecting: boolean
+  selectionStart: { x: number; y: number } | null
+  selectionEnd: { x: number; y: number } | null
+}
+
+// Port position interface
+interface PortPosition {
+  nodeId: string
+  portId: string
+  x: number
+  y: number
+  position: 'top' | 'right' | 'bottom' | 'left'
+}
+
+// Port offset interface - stores relative position from node origin
+interface PortOffset {
+  nodeId: string
+  portId: string
+  offsetX: number
+  offsetY: number
+  position: 'top' | 'right' | 'bottom' | 'left'
 }
 
 // Workflow state interface
@@ -19,6 +76,8 @@ interface WorkflowState {
   nodes: WorkflowNode[]
   connections: Connection[]
   groups: NodeGroup[]
+  selection: SelectionState
+  portPositions: Map<string, PortPosition>
   history: WorkflowSnapshot[]
   historyIndex: number
   maxHistorySize: number
@@ -54,6 +113,22 @@ interface WorkflowActions {
   removeNodeFromGroup: (groupId: string, nodeId: string) => void
   moveGroup: (groupId: string, position: { x: number; y: number }) => void
   resizeGroup: (groupId: string, size: { width: number; height: number }) => void
+  createGroupFromSelection: (title: string, description: string) => void
+  
+  // Selection actions
+  selectNode: (nodeId: string, addToSelection?: boolean) => void
+  deselectNode: (nodeId: string) => void
+  clearSelection: () => void
+  selectMultipleNodes: (nodeIds: string[]) => void
+  startSelection: (startPoint: { x: number; y: number }) => void
+  updateSelection: (endPoint: { x: number; y: number }) => void
+  endSelection: () => boolean
+  isNodeSelected: (nodeId: string) => boolean
+  
+  // Port position actions
+  updatePortPosition: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
+  getPortPosition: (nodeId: string, portId: string) => PortPosition | undefined
+  updateAllPortPositions: (nodeId: string) => void
   
   // History actions
   undo: () => void
@@ -116,6 +191,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
     nodes: [],
     connections: [],
     groups: [],
+    selection: {
+      selectedNodeIds: [],
+      isSelecting: false,
+      selectionStart: null,
+      selectionEnd: null
+    },
+    portPositions: new Map(),
     history: [],
     historyIndex: -1,
     maxHistorySize: 50,
@@ -161,6 +243,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
         
         // Save snapshot after action
         setTimeout(() => get().saveSnapshot(), 0)
+        
+        // Initialize port positions for the new node immediately
+        get().updateAllPortPositions(metadata.id)
         
         return newState
       })
@@ -218,6 +303,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
             : node
         )
       }))
+      // Update port positions for this node
+      get().updateAllPortPositions(nodeId)
       // Note: Position updates don't create snapshots (too frequent)
     },
 
@@ -448,14 +535,89 @@ export const useWorkflowStore = create<WorkflowStore>()(
     },
 
     moveGroup: (groupId: string, position: { x: number; y: number }) => {
-      set((state) => ({
-        ...state,
-        groups: state.groups.map(group => 
+      set((state) => {
+        const targetGroup = state.groups.find(g => g.id === groupId)
+        if (!targetGroup) return state
+
+        // Calculate the delta movement
+        const deltaX = position.x - targetGroup.position.x
+        const deltaY = position.y - targetGroup.position.y
+
+        // Update all nodes in the group
+        const updatedNodes = state.nodes.map(node => {
+          if (targetGroup.nodeIds.includes(node.metadata.id)) {
+            return {
+              ...node,
+              position: {
+                x: node.position.x + deltaX,
+                y: node.position.y + deltaY
+              }
+            }
+          }
+          return node
+        })
+
+        // Batch update port positions for all nodes in the group
+        const portsToUpdate = new Map(state.portPositions)
+        targetGroup.nodeIds.forEach(nodeId => {
+          const node = updatedNodes.find(n => n.metadata.id === nodeId)
+          if (node && node.metadata.ports) {
+            // Get accurate node dimensions
+            const { width: nodeWidth, height: nodeHeight } = calculateNodeDimensions(node.metadata)
+            
+            node.metadata.ports.forEach(port => {
+              let portX = node.position.x
+              let portY = node.position.y
+              
+              const portsOnSameSide = node.metadata.ports!.filter(p => p.position === port.position)
+              const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
+              const totalPorts = portsOnSameSide.length
+              
+              let offsetRatio = 0.5
+              if (totalPorts > 1) {
+                const spacing = 1 / (totalPorts + 1)
+                offsetRatio = spacing * (portIndex + 1)
+              }
+              
+              switch (port.position) {
+                case 'top':
+                  portX = node.position.x + nodeWidth * offsetRatio
+                  portY = node.position.y
+                  break
+                case 'right':
+                  portX = node.position.x + nodeWidth
+                  portY = node.position.y + nodeHeight * offsetRatio
+                  break
+                case 'bottom':
+                  portX = node.position.x + nodeWidth * offsetRatio
+                  portY = node.position.y + nodeHeight
+                  break
+                case 'left':
+                  portX = node.position.x
+                  portY = node.position.y + nodeHeight * offsetRatio
+                  break
+              }
+              
+              const key = `${nodeId}-${port.id}`
+              portsToUpdate.set(key, { nodeId, portId: port.id, x: portX, y: portY, position: port.position })
+            })
+          }
+        })
+
+        // Update the group position
+        const updatedGroups = state.groups.map(group => 
           group.id === groupId 
             ? { ...group, position, updatedAt: new Date().toISOString() }
             : group
         )
-      }))
+
+        return {
+          ...state,
+          nodes: updatedNodes,
+          groups: updatedGroups,
+          portPositions: portsToUpdate
+        }
+      })
       // Note: Position updates don't create snapshots (too frequent)
     },
 
@@ -469,6 +631,277 @@ export const useWorkflowStore = create<WorkflowStore>()(
         )
       }))
       // Note: Resize updates don't create snapshots (too frequent)
+    },
+
+    createGroupFromSelection: (title: string, description: string) => {
+      const state = get()
+      if (state.selection.selectedNodeIds.length === 0) return
+
+      // Calculate bounding box for selected nodes
+      const selectedNodes = state.nodes.filter(node => 
+        state.selection.selectedNodeIds.includes(node.metadata.id)
+      )
+      
+      if (selectedNodes.length === 0) return
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      selectedNodes.forEach(node => {
+        const nodeWidth = 200 // Approximate node width
+        const nodeHeight = 100 // Approximate node height
+        minX = Math.min(minX, node.position.x)
+        minY = Math.min(minY, node.position.y)
+        maxX = Math.max(maxX, node.position.x + nodeWidth)
+        maxY = Math.max(maxY, node.position.y + nodeHeight)
+      })
+
+      // Add padding around the nodes
+      const padding = 40
+      const groupPosition = { x: minX - padding, y: minY - padding }
+      const groupSize = { 
+        width: maxX - minX + (padding * 2), 
+        height: maxY - minY + (padding * 2) 
+      }
+
+      // Use provided title and description
+      const groupTitle = title
+      const groupDescription = description
+
+      const newGroup: NodeGroup = {
+        id: `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: groupTitle,
+        description: groupDescription,
+        nodeIds: [...state.selection.selectedNodeIds],
+        position: groupPosition,
+        size: groupSize,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      set((currentState) => ({
+        ...currentState,
+        groups: [...currentState.groups, newGroup],
+        selection: {
+          ...currentState.selection,
+          selectedNodeIds: [] // Clear selection after grouping
+        }
+      }))
+
+      // Save snapshot after action
+      setTimeout(() => get().saveSnapshot(), 0)
+    },
+
+    // Selection actions
+    selectNode: (nodeId: string, addToSelection = false) => {
+      set((state) => {
+        const currentSelection = state.selection.selectedNodeIds
+        let newSelection: string[]
+
+        if (addToSelection) {
+          // Add to existing selection if not already selected
+          newSelection = currentSelection.includes(nodeId) 
+            ? currentSelection
+            : [...currentSelection, nodeId]
+        } else {
+          // Replace selection with single node
+          newSelection = [nodeId]
+        }
+
+        return {
+          ...state,
+          selection: {
+            ...state.selection,
+            selectedNodeIds: newSelection
+          }
+        }
+      })
+    },
+
+    deselectNode: (nodeId: string) => {
+      set((state) => ({
+        ...state,
+        selection: {
+          ...state.selection,
+          selectedNodeIds: state.selection.selectedNodeIds.filter(id => id !== nodeId)
+        }
+      }))
+    },
+
+    clearSelection: () => {
+      set((state) => ({
+        ...state,
+        selection: {
+          ...state.selection,
+          selectedNodeIds: [],
+          isSelecting: false,
+          selectionStart: null,
+          selectionEnd: null
+        }
+      }))
+    },
+
+    selectMultipleNodes: (nodeIds: string[]) => {
+      set((state) => ({
+        ...state,
+        selection: {
+          ...state.selection,
+          selectedNodeIds: [...nodeIds]
+        }
+      }))
+    },
+
+    startSelection: (startPoint: { x: number; y: number }) => {
+      set((state) => ({
+        ...state,
+        selection: {
+          ...state.selection,
+          isSelecting: true,
+          selectionStart: startPoint,
+          selectionEnd: startPoint
+        }
+      }))
+    },
+
+    updateSelection: (endPoint: { x: number; y: number }) => {
+      set((state) => ({
+        ...state,
+        selection: {
+          ...state.selection,
+          selectionEnd: endPoint
+        }
+      }))
+    },
+
+    endSelection: () => {
+      const state = get()
+      if (!state.selection.selectionStart || !state.selection.selectionEnd) {
+        // Clear selection if no valid rectangle
+        get().clearSelection()
+        return false
+      }
+
+      // Calculate selection rectangle
+      const start = state.selection.selectionStart
+      const end = state.selection.selectionEnd
+      const selectionRect = {
+        x: Math.min(start.x, end.x),
+        y: Math.min(start.y, end.y),
+        width: Math.abs(end.x - start.x),
+        height: Math.abs(end.y - start.y)
+      }
+
+      // Find nodes within selection rectangle
+      const selectedNodeIds: string[] = []
+      state.nodes.forEach(node => {
+        const nodeWidth = 200 // Approximate node width
+        const nodeHeight = 100 // Approximate node height
+        const nodeRect = {
+          x: node.position.x,
+          y: node.position.y,
+          width: nodeWidth,
+          height: nodeHeight
+        }
+
+        // Check if node intersects with selection rectangle
+        if (
+          nodeRect.x < selectionRect.x + selectionRect.width &&
+          nodeRect.x + nodeRect.width > selectionRect.x &&
+          nodeRect.y < selectionRect.y + selectionRect.height &&
+          nodeRect.y + nodeRect.height > selectionRect.y
+        ) {
+          selectedNodeIds.push(node.metadata.id)
+        }
+      })
+
+      set((currentState) => ({
+        ...currentState,
+        selection: {
+          selectedNodeIds,
+          isSelecting: false,
+          selectionStart: null,
+          selectionEnd: null
+        }
+      }))
+
+      // Return whether nodes were selected
+      return selectedNodeIds.length > 0
+    },
+
+    isNodeSelected: (nodeId: string) => {
+      const state = get()
+      return state.selection.selectedNodeIds.includes(nodeId)
+    },
+
+    // Port position actions
+    updatePortPosition: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => {
+      set((state) => {
+        const key = `${nodeId}-${portId}`
+        const newPortPositions = new Map(state.portPositions)
+        newPortPositions.set(key, { nodeId, portId, x, y, position })
+        return { ...state, portPositions: newPortPositions }
+      })
+    },
+
+    getPortPosition: (nodeId: string, portId: string) => {
+      const state = get()
+      const key = `${nodeId}-${portId}`
+      return state.portPositions.get(key)
+    },
+
+    updateAllPortPositions: (nodeId: string) => {
+      const state = get()
+      const node = state.nodes.find(n => n.metadata.id === nodeId)
+      if (!node) return
+
+      // Calculate port positions based on node position and metadata
+      const ports = node.metadata.ports || []
+      
+      // Get accurate node dimensions
+      const { width: nodeWidth, height: nodeHeight } = calculateNodeDimensions(node.metadata)
+
+      // Batch update all port positions at once
+      set((state) => {
+        const newPortPositions = new Map(state.portPositions)
+        
+        ports.forEach(port => {
+          let portX = node.position.x
+          let portY = node.position.y
+
+          // Count ports on same side for positioning
+          const portsOnSameSide = ports.filter(p => p.position === port.position)
+          const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
+          const totalPorts = portsOnSameSide.length
+          
+          let offsetRatio = 0.5
+          if (totalPorts > 1) {
+            const spacing = 1 / (totalPorts + 1)
+            offsetRatio = spacing * (portIndex + 1)
+          }
+
+          switch (port.position) {
+            case 'top':
+              portX = node.position.x + nodeWidth * offsetRatio
+              portY = node.position.y
+              break
+            case 'right':
+              portX = node.position.x + nodeWidth
+              portY = node.position.y + nodeHeight * offsetRatio
+              break
+            case 'bottom':
+              portX = node.position.x + nodeWidth * offsetRatio
+              portY = node.position.y + nodeHeight
+              break
+            case 'left':
+              portX = node.position.x
+              portY = node.position.y + nodeHeight * offsetRatio
+              break
+          }
+
+          const key = `${nodeId}-${port.id}`
+          newPortPositions.set(key, { nodeId, portId: port.id, x: portX, y: portY, position: port.position })
+        })
+        
+        return { ...state, portPositions: newPortPositions }
+      })
     },
 
     // History actions
@@ -565,7 +998,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
           ...state,
           nodes: [],
           connections: [],
-          groups: []
+          groups: [],
+          selection: {
+            selectedNodeIds: [],
+            isSelecting: false,
+            selectionStart: null,
+            selectionEnd: null
+          }
         }
         
         // Save snapshot after action

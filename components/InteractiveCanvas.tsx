@@ -13,6 +13,11 @@ interface InteractiveCanvasProps {
   onZoomChange?: (zoom: number) => void
   minZoom?: number
   maxZoom?: number
+  // Selection props
+  onSelectionStart?: (point: { x: number; y: number }) => void
+  onSelectionUpdate?: (point: { x: number; y: number }) => void
+  onSelectionEnd?: () => void
+  onSelectionClear?: () => void
 }
 
 export function InteractiveCanvas({ 
@@ -25,10 +30,15 @@ export function InteractiveCanvas({
   zoom: externalZoom,
   onZoomChange,
   minZoom = 0.1,
-  maxZoom = 3
+  maxZoom = 3,
+  onSelectionStart,
+  onSelectionUpdate,
+  onSelectionEnd,
+  onSelectionClear
 }: InteractiveCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isPanning, setIsPanning] = useState(false)
+  const [isSelecting, setIsSelecting] = useState(false)
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 })
   const [internalOffset, setInternalOffset] = useState({ x: 0, y: 0 })
   const [internalZoom, setInternalZoom] = useState(1)
@@ -50,19 +60,46 @@ export function InteractiveCanvas({
   `
 
   const handleMouseDown = (e: MouseEvent) => {
-    // Check if clicking on the canvas background (not on a node)
-    const target = e.target as HTMLElement
-    const isCanvasClick = target === canvasRef.current || 
-                         target.classList.contains('absolute') && target.classList.contains('inset-0')
+    // Detect if user is on macOS
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    const hasModifier = isMac ? e.metaKey : e.ctrlKey
     
-    // Only pan with middle mouse button or left button + space/cmd on canvas
-    if (isCanvasClick && (e.button === 1 || (e.button === 0 && (e.metaKey || e.ctrlKey)))) {
-      setIsPanning(true)
-      setStartPoint({
-        x: e.clientX - offset.x,
-        y: e.clientY - offset.y
-      })
-      e.preventDefault()
+    // Check if clicking on the canvas background (not on a node or group)
+    const target = e.target as HTMLElement
+    const isGroupClick = target.closest('[data-group-container]') !== null
+    const isNodeClick = target.closest('[data-draggable-node]') !== null
+    const isCanvasClick = !isGroupClick && !isNodeClick && (target === canvasRef.current || 
+                         (target.classList.contains('absolute') && target.classList.contains('inset-0')))
+    
+    if (isCanvasClick) {
+      // Clear selection if clicking on empty space without modifier keys
+      if (e.button === 0 && !e.shiftKey && !hasModifier) {
+        onSelectionClear?.()
+      }
+      
+      // Pan with middle mouse button or left button + modifier key on canvas
+      if (e.button === 1 || (e.button === 0 && hasModifier)) {
+        setIsPanning(true)
+        setStartPoint({
+          x: e.clientX - offset.x,
+          y: e.clientY - offset.y
+        })
+        e.preventDefault()
+      }
+      // Start selection with left mouse button + shift or just left button on empty space
+      else if (e.button === 0 && (e.shiftKey || !hasModifier)) {
+        const rect = canvasRef.current?.getBoundingClientRect()
+        if (rect) {
+          // Convert screen coordinates to canvas coordinates
+          const canvasX = (e.clientX - rect.left - offset.x) / zoom
+          const canvasY = (e.clientY - rect.top - offset.y) / zoom
+          
+          setIsSelecting(true)
+          setStartPoint({ x: canvasX, y: canvasY })
+          onSelectionStart?.({ x: canvasX, y: canvasY })
+          e.preventDefault()
+        }
+      }
     }
   }
 
@@ -77,18 +114,37 @@ export function InteractiveCanvas({
       } else {
         setInternalOffset(newOffset)
       }
+    } else if (isSelecting) {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (rect) {
+        // Convert screen coordinates to canvas coordinates
+        const canvasX = (e.clientX - rect.left - offset.x) / zoom
+        const canvasY = (e.clientY - rect.top - offset.y) / zoom
+        
+        onSelectionUpdate?.({ x: canvasX, y: canvasY })
+      }
     }
   }
 
   const handleMouseUp = () => {
-    setIsPanning(false)
+    if (isPanning) {
+      setIsPanning(false)
+    }
+    if (isSelecting) {
+      setIsSelecting(false)
+      onSelectionEnd?.()
+    }
   }
 
   const handleWheel = (e: WheelEvent) => {
     e.preventDefault()
     
-    if (e.ctrlKey || e.metaKey) {
-      // Zoom with Ctrl/Cmd + wheel
+    // Detect if user is on macOS
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    const hasModifier = isMac ? e.metaKey : e.ctrlKey
+    
+    if (hasModifier) {
+      // Zoom with Cmd + wheel on Mac, Ctrl + wheel on Windows/Linux
       const rect = canvasRef.current?.getBoundingClientRect()
       if (!rect) return
       
@@ -135,10 +191,19 @@ export function InteractiveCanvas({
   }
 
   useEffect(() => {
-    const handleGlobalMouseUp = () => setIsPanning(false)
+    const handleGlobalMouseUp = () => {
+      if (isPanning) setIsPanning(false)
+      if (isSelecting) {
+        setIsSelecting(false)
+        // Only call onSelectionEnd once when selection ends
+        if (onSelectionEnd) {
+          onSelectionEnd()
+        }
+      }
+    }
     window.addEventListener('mouseup', handleGlobalMouseUp)
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
-  }, [])
+  }, [isPanning, isSelecting, onSelectionEnd])
 
   // Calculate background position for infinite scrolling effect with zoom
   const scaledGridSize = gridSize * zoom
@@ -154,7 +219,7 @@ export function InteractiveCanvas({
       onMouseUp={handleMouseUp}
       onWheel={handleWheel}
       style={{
-        cursor: isPanning ? 'grabbing' : 'default'
+        cursor: isPanning ? 'grabbing' : isSelecting ? 'crosshair' : 'default'
       }}
     >
       {/* Infinite grid background */}
