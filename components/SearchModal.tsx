@@ -11,9 +11,11 @@ interface SearchModalProps {
   onClose: () => void
   initialCategory?: string | null
   onNodeAdded?: (nodeId: string) => void
+  canvasOffset?: { x: number; y: number }
+  canvasZoom?: number
 }
 
-export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded }: SearchModalProps) {
+export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, canvasOffset, canvasZoom }: SearchModalProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isNodeCreatorOpen, setIsNodeCreatorOpen] = useState(false)
@@ -156,10 +158,29 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded }: S
       console.error('Failed to apply initial dynamic metadata:', error)
     }
     
-    // Add to canvas at center with slight randomization
-    const position = {
-      x: 400 + Math.random() * 200 - 100,
-      y: 200 + Math.random() * 200 - 100
+    // Calculate viewport-aware position for the new node
+    let position = { x: 400, y: 200 } // Default fallback position
+    
+    if (canvasOffset && canvasZoom) {
+      // Calculate the center of the current viewport in world coordinates
+      const viewportCenterX = window.innerWidth / 2
+      const viewportCenterY = window.innerHeight / 2
+      
+      // Convert viewport center to world coordinates
+      const worldCenterX = (viewportCenterX - canvasOffset.x) / canvasZoom
+      const worldCenterY = (viewportCenterY - canvasOffset.y) / canvasZoom
+      
+      // Add slight randomization to avoid nodes stacking exactly on top of each other
+      position = {
+        x: worldCenterX + Math.random() * 100 - 50,
+        y: worldCenterY + Math.random() * 100 - 50
+      }
+    } else {
+      // Fallback to center with randomization if canvas state not available
+      position = {
+        x: 400 + Math.random() * 200 - 100,
+        y: 200 + Math.random() * 200 - 100
+      }
     }
     
     const addedNodeId = addNode(instanceMetadata, position)

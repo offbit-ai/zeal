@@ -221,6 +221,37 @@ export const logicControlTemplates: NodeTemplate[] = [
       "batch"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "loopType"
+      ],
+      "rules": [
+        {
+          "when": "$.loopType == 'for-each'",
+          "updates": {
+            "title": "For Each Loop",
+            "subtitle": "Iterate Array",
+            "description": "Iterate through each item in an array"
+          }
+        },
+        {
+          "when": "$.loopType == 'while'",
+          "updates": {
+            "title": "While Loop",
+            "subtitle": "Conditional Loop",
+            "description": "Loop while condition is true"
+          }
+        },
+        {
+          "when": "$.loopType == 'do-while'",
+          "updates": {
+            "title": "Do-While Loop",
+            "subtitle": "Execute Then Check",
+            "description": "Execute at least once, then loop while condition is true"
+          }
+        }
+      ]
+    }
   }
 ]

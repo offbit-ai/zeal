@@ -69,7 +69,38 @@ export const toolsUtilitiesTemplates: NodeTemplate[] = [
       "mutation"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operationType"
+      ],
+      "rules": [
+        {
+          "when": "$.operationType == 'query'",
+          "updates": {
+            "title": "GraphQL Query",
+            "subtitle": "Fetch Data",
+            "description": "Execute GraphQL query to fetch data"
+          }
+        },
+        {
+          "when": "$.operationType == 'mutation'",
+          "updates": {
+            "title": "GraphQL Mutation",
+            "subtitle": "Modify Data",
+            "description": "Execute GraphQL mutation to modify data"
+          }
+        },
+        {
+          "when": "$.operationType == 'subscription'",
+          "updates": {
+            "title": "GraphQL Subscription",
+            "subtitle": "Real-time Data",
+            "description": "Subscribe to real-time GraphQL updates"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_http_request",
@@ -263,7 +294,38 @@ export const toolsUtilitiesTemplates: NodeTemplate[] = [
       "protocol"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "protocol"
+      ],
+      "rules": [
+        {
+          "when": "$.protocol == 'json-rpc'",
+          "updates": {
+            "title": "JSON-RPC Call",
+            "subtitle": "JSON Remote Call",
+            "description": "Make JSON-RPC remote procedure call"
+          }
+        },
+        {
+          "when": "$.protocol == 'grpc'",
+          "updates": {
+            "title": "gRPC Call",
+            "subtitle": "Binary RPC",
+            "description": "Make gRPC binary remote procedure call"
+          }
+        },
+        {
+          "when": "$.protocol == 'xml-rpc'",
+          "updates": {
+            "title": "XML-RPC Call",
+            "subtitle": "XML Remote Call",
+            "description": "Make XML-RPC remote procedure call"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_math_absolute",
@@ -1457,6 +1519,61 @@ export const toolsUtilitiesTemplates: NodeTemplate[] = [
       "format"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operation"
+      ],
+      "rules": [
+        {
+          "when": "$.operation == 'format'",
+          "updates": {
+            "title": "Date Format",
+            "subtitle": "Format Date",
+            "description": "Format date using specified pattern"
+          }
+        },
+        {
+          "when": "$.operation == 'parse'",
+          "updates": {
+            "title": "Date Parse",
+            "subtitle": "Parse Date",
+            "description": "Parse date string into date object"
+          }
+        },
+        {
+          "when": "$.operation == 'add'",
+          "updates": {
+            "title": "Date Add",
+            "subtitle": "Add Time",
+            "description": "Add time duration to date"
+          }
+        },
+        {
+          "when": "$.operation == 'subtract'",
+          "updates": {
+            "title": "Date Subtract",
+            "subtitle": "Subtract Time",
+            "description": "Subtract time duration from date"
+          }
+        },
+        {
+          "when": "$.operation == 'diff'",
+          "updates": {
+            "title": "Date Diff",
+            "subtitle": "Calculate Difference",
+            "description": "Calculate difference between two dates"
+          }
+        },
+        {
+          "when": "$.operation == 'now'",
+          "updates": {
+            "title": "Current Time",
+            "subtitle": "Get Now",
+            "description": "Get current date and time"
+          }
+        }
+      ]
+    }
   }
 ]

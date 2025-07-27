@@ -81,7 +81,54 @@ export const storageMemoryTemplates: NodeTemplate[] = [
       "storage"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operation"
+      ],
+      "rules": [
+        {
+          "when": "$.operation == 'get'",
+          "updates": {
+            "title": "Cache Get",
+            "subtitle": "Retrieve Value",
+            "description": "Get cached value by key"
+          }
+        },
+        {
+          "when": "$.operation == 'set'",
+          "updates": {
+            "title": "Cache Set",
+            "subtitle": "Store Value",
+            "description": "Store value in cache with TTL"
+          }
+        },
+        {
+          "when": "$.operation == 'delete'",
+          "updates": {
+            "title": "Cache Delete",
+            "subtitle": "Remove Entry",
+            "description": "Remove cached entry by key"
+          }
+        },
+        {
+          "when": "$.operation == 'clear'",
+          "updates": {
+            "title": "Cache Clear",
+            "subtitle": "Clear All",
+            "description": "Clear all cached entries"
+          }
+        },
+        {
+          "when": "$.operation == 'has'",
+          "updates": {
+            "title": "Cache Has",
+            "subtitle": "Check Existence",
+            "description": "Check if key exists in cache"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_redis",
@@ -164,7 +211,86 @@ export const storageMemoryTemplates: NodeTemplate[] = [
       "nosql"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "command"
+      ],
+      "rules": [
+        {
+          "when": "$.command == 'GET'",
+          "updates": {
+            "title": "Redis GET",
+            "subtitle": "Get Value",
+            "description": "Get value from Redis by key"
+          }
+        },
+        {
+          "when": "$.command == 'SET'",
+          "updates": {
+            "title": "Redis SET",
+            "subtitle": "Set Value",
+            "description": "Set key-value pair in Redis"
+          }
+        },
+        {
+          "when": "$.command == 'DEL'",
+          "updates": {
+            "title": "Redis DEL",
+            "subtitle": "Delete Key",
+            "description": "Delete key from Redis"
+          }
+        },
+        {
+          "when": "$.command == 'EXISTS'",
+          "updates": {
+            "title": "Redis EXISTS",
+            "subtitle": "Check Key",
+            "description": "Check if key exists in Redis"
+          }
+        },
+        {
+          "when": "$.command == 'EXPIRE'",
+          "updates": {
+            "title": "Redis EXPIRE",
+            "subtitle": "Set TTL",
+            "description": "Set expiration time for Redis key"
+          }
+        },
+        {
+          "when": "$.command == 'HGET'",
+          "updates": {
+            "title": "Redis HGET",
+            "subtitle": "Get Hash Field",
+            "description": "Get field value from Redis hash"
+          }
+        },
+        {
+          "when": "$.command == 'HSET'",
+          "updates": {
+            "title": "Redis HSET",
+            "subtitle": "Set Hash Field",
+            "description": "Set field value in Redis hash"
+          }
+        },
+        {
+          "when": "$.command == 'LPUSH'",
+          "updates": {
+            "title": "Redis LPUSH",
+            "subtitle": "Push to List",
+            "description": "Push element to left of Redis list"
+          }
+        },
+        {
+          "when": "$.command == 'RPOP'",
+          "updates": {
+            "title": "Redis RPOP",
+            "subtitle": "Pop from List",
+            "description": "Pop element from right of Redis list"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_event_emitter",
@@ -319,7 +445,88 @@ export const storageMemoryTemplates: NodeTemplate[] = [
       "mq"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": ["operation", "provider"],
+      "rules": [
+        {
+          "when": "$.provider == 'rabbitmq'",
+          "updates": {
+            "title": "RabbitMQ Queue",
+            "subtitle": "AMQP Messaging",
+            "description": "Send and receive messages via RabbitMQ",
+            "icon": "rabbit"
+          }
+        },
+        {
+          "when": "$.provider == 'sqs'",
+          "updates": {
+            "title": "Amazon SQS",
+            "subtitle": "AWS Queue Service",
+            "description": "Send and receive messages via Amazon SQS",
+            "icon": "aws"
+          }
+        },
+        {
+          "when": "$.provider == 'kafka'",
+          "updates": {
+            "title": "Apache Kafka",
+            "subtitle": "Event Streaming",
+            "description": "Send and receive messages via Apache Kafka",
+            "icon": "kafka"
+          }
+        },
+        {
+          "when": "$.provider == 'redis'",
+          "updates": {
+            "title": "Redis Queue",
+            "subtitle": "Redis Lists",
+            "description": "Send and receive messages via Redis lists",
+            "icon": "redis"
+          }
+        },
+        {
+          "when": "$.operation == 'send'",
+          "updates": {
+            "title": "Queue Send",
+            "subtitle": "Send Message",
+            "description": "Send message to queue"
+          }
+        },
+        {
+          "when": "$.operation == 'receive'",
+          "updates": {
+            "title": "Queue Receive",
+            "subtitle": "Receive Message",
+            "description": "Receive message from queue"
+          }
+        },
+        {
+          "when": "$.operation == 'peek'",
+          "updates": {
+            "title": "Queue Peek",
+            "subtitle": "Peek Message",
+            "description": "Peek at message without removing"
+          }
+        },
+        {
+          "when": "$.operation == 'ack'",
+          "updates": {
+            "title": "Queue ACK",
+            "subtitle": "Acknowledge",
+            "description": "Acknowledge message processing"
+          }
+        },
+        {
+          "when": "$.operation == 'nack'",
+          "updates": {
+            "title": "Queue NACK",
+            "subtitle": "Not Acknowledge",
+            "description": "Reject message processing"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_state_store",
@@ -396,7 +603,46 @@ export const storageMemoryTemplates: NodeTemplate[] = [
       "persistence"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operation"
+      ],
+      "rules": [
+        {
+          "when": "$.operation == 'get'",
+          "updates": {
+            "title": "State Get",
+            "subtitle": "Retrieve State",
+            "description": "Get stored state value by key"
+          }
+        },
+        {
+          "when": "$.operation == 'set'",
+          "updates": {
+            "title": "State Set",
+            "subtitle": "Store State",
+            "description": "Store state value with key"
+          }
+        },
+        {
+          "when": "$.operation == 'delete'",
+          "updates": {
+            "title": "State Delete",
+            "subtitle": "Remove State",
+            "description": "Delete stored state by key"
+          }
+        },
+        {
+          "when": "$.operation == 'exists'",
+          "updates": {
+            "title": "State Exists",
+            "subtitle": "Check State",
+            "description": "Check if state key exists"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_variable_lookup",

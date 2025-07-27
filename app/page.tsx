@@ -513,9 +513,25 @@ export default function Home() {
     setIsSearchOpen(true)
   }
 
-  // Handle highlighting newly added nodes
+  // Handle highlighting newly added nodes and pan canvas to show them
   const handleNodeAdded = (nodeId: string) => {
     setHighlightedNodeId(nodeId)
+    
+    // Find the newly added node to get its position
+    const newNode = storeNodes.find(node => node.metadata.id === nodeId)
+    if (newNode) {
+      // Calculate viewport center and pan to the new node
+      const viewportCenterX = window.innerWidth / 2
+      const viewportCenterY = window.innerHeight / 2
+      
+      const newOffset = {
+        x: viewportCenterX - newNode.position.x * canvasZoom,
+        y: viewportCenterY - newNode.position.y * canvasZoom
+      }
+      
+      setCanvasOffset(newOffset)
+    }
+    
     // Highlight will be removed when the node is moved (no timeout)
   }
 
@@ -1203,6 +1219,8 @@ export default function Home() {
           }}
           initialCategory={selectedCategory}
           onNodeAdded={handleNodeAdded}
+          canvasOffset={canvasOffset}
+          canvasZoom={canvasZoom}
         />
       </ModalPortal>
       

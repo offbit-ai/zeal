@@ -864,7 +864,7 @@ export const dataSourcesTemplates: NodeTemplate[] = [
     "category": "data-sources",
     "subcategory": "files",
     "description": "Interact with Google Sheets",
-    "icon": "excel",
+    "icon": "google-sheets",
     "variant": "green-600",
     "shape": "rectangle",
     "size": "medium",

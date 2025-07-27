@@ -80,7 +80,54 @@ export const dataProcessingTemplates: NodeTemplate[] = [
       "analytics"
     ],
     "version": "1.0.0",
-    "isActive": true
+    "isActive": true,
+    "propertyRules": {
+      "triggers": [
+        "operation"
+      ],
+      "rules": [
+        {
+          "when": "$.operation == 'convert'",
+          "updates": {
+            "title": "Arrow Convert",
+            "subtitle": "Data Conversion",
+            "description": "Convert data to Apache Arrow columnar format"
+          }
+        },
+        {
+          "when": "$.operation == 'filter'",
+          "updates": {
+            "title": "Arrow Filter",
+            "subtitle": "Filter Rows",
+            "description": "Filter rows using Apache Arrow operations"
+          }
+        },
+        {
+          "when": "$.operation == 'aggregate'",
+          "updates": {
+            "title": "Arrow Aggregate",
+            "subtitle": "Aggregate Data",
+            "description": "Perform aggregations using Apache Arrow"
+          }
+        },
+        {
+          "when": "$.operation == 'join'",
+          "updates": {
+            "title": "Arrow Join",
+            "subtitle": "Join Tables",
+            "description": "Join datasets using Apache Arrow operations"
+          }
+        },
+        {
+          "when": "$.operation == 'sort'",
+          "updates": {
+            "title": "Arrow Sort",
+            "subtitle": "Sort Data",
+            "description": "Sort data using Apache Arrow operations"
+          }
+        }
+      ]
+    }
   },
   {
     "id": "tpl_csv_reader",
