@@ -1,4 +1,4 @@
-import { History, ListRestart, KeyRound, Plus } from 'lucide-react'
+import { History, ListRestart, KeyRound,  Grid2x2Plus } from 'lucide-react'
 import { Tooltip } from './Tooltip'
 
 interface WorkflowBottomToolbarProps {
@@ -54,7 +54,7 @@ export function WorkflowBottomToolbar({
           className="flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors cursor-pointer rounded"
           onClick={onCreateEmptyGroupClick}
         >
-          <Plus className="w-4 h-4" strokeWidth={1.5} />
+          <Grid2x2Plus className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
     </div>

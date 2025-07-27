@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Database } from 'lucide-react'
+import { X } from 'lucide-react'
 import { DataOperationSet } from '@/types/workflow'
 import { DataOperationBuilder } from './DataOperationBuilder'
 
@@ -11,7 +11,6 @@ interface DataOperationModalProps {
   title: string
   value: DataOperationSet[]
   onChange: (value: DataOperationSet[]) => void
-  availableFields?: string[]
   description?: string
 }
 
@@ -21,7 +20,6 @@ export function DataOperationModal({
   title,
   value,
   onChange,
-  availableFields = [],
   description
 }: DataOperationModalProps) {
   const [localValue, setLocalValue] = useState<DataOperationSet[]>(value)
@@ -55,7 +53,7 @@ export function DataOperationModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-start p-20">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50"
@@ -82,19 +80,10 @@ export function DataOperationModal({
 
         {/* Content */}
         <div className="flex-1 p-6 overflow-y-auto">
-          {availableFields.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-500">
-              <Database className="w-8 h-8 mb-2 text-gray-400" />
-              <div className="text-sm">No fields available</div>
-              <div className="text-xs mt-1">Configure available fields to start building data operations</div>
-            </div>
-          ) : (
-            <DataOperationBuilder
-              value={localValue}
-              onChange={handleChange}
-              availableFields={availableFields}
-            />
-          )}
+          <DataOperationBuilder
+            value={localValue}
+            onChange={handleChange}
+          />
         </div>
 
         {/* Footer */}

@@ -2,7 +2,7 @@
 
 export type NodeShape = 'rectangle' | 'circle' | 'diamond'
 
-export type NodeVariant = 'black' | 'gray-700' | 'gray-600' | 'gray-800' | 'gray-900' | 'blue-600' | 'green-600' | 'orange-600' | 'orange-700'
+export type NodeVariant = 'black' | 'gray-700' | 'gray-600' | 'gray-800' | 'gray-900' | 'blue-600' | 'green-600' | 'orange-600' | 'orange-700' | 'yellow-600' | 'purple-600'
 
 export interface Port {
   id: string

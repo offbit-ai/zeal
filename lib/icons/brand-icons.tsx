@@ -74,7 +74,7 @@ export const BrandIcons = {
     'dropbox': FaDropbox,
     'trello': FaTrello,
     'asana': SiAsana,
-    'notion':SiNotion,
+    'notion': SiNotion,
   },
   
   // AI & ML Companies
@@ -121,7 +121,6 @@ export const BrandIcons = {
   // Cloud & Infrastructure
   cloud: {
     'aws': SiAmazonwebservices,
-    'amazon-aws': SiAmazonwebservices,
     'digitalocean': FaDigitalOcean,
     'vercel': SiVercel,
     'netlify': SiNetlify,
@@ -171,18 +170,13 @@ export const BrandIcons = {
     'adobe': SiAdobe,
     'canva': SiCanva,
     'miro': SiMiro,
-    'airtable': SiAirtable,
     'clickup': SiClickup,
   },
   
   // Productivity & Office
   productivity: {
     'google-sheets': SiGooglesheets,
-    'googlesheets': SiGooglesheets,
-    'sheets': SiGooglesheets,
     'excel': FaFileExcel,
-    'microsoft-excel': FaFileExcel,
-    'notion': SiNotion,
     'airtable': SiAirtable,
   },
   

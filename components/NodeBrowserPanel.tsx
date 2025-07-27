@@ -8,9 +8,10 @@ import { Icon } from '@/lib/icons'
 interface NodeBrowserPanelProps {
   isExpanded: boolean
   onNodeSelect?: (nodeId: string, position: { x: number; y: number }) => void
+  onNodeAdded?: (nodeId: string) => void
 }
 
-export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelProps) {
+export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded }: NodeBrowserPanelProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['all']))
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
@@ -90,7 +91,10 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect }: NodeBrowserPanelP
       x: node.position.x + 50,
       y: node.position.y + 50
     }
-    addNode(newMetadata, newPosition)
+    const addedNodeId = addNode(newMetadata, newPosition)
+    if (addedNodeId && onNodeAdded) {
+      onNodeAdded(addedNodeId)
+    }
   }
 
   const handleDelete = (e: React.MouseEvent, nodeId: string) => {

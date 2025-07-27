@@ -62,6 +62,11 @@ export class IconLibrary {
       custom: CustomSVGIcons,
       brand: FlatBrandIconRegistry
     }
+    console.log('IconLibrary initialized:', {
+      lucide: Object.keys(this.registry.lucide).length,
+      custom: Object.keys(this.registry.custom).length,
+      brand: Object.keys(this.registry.brand).length
+    });
   }
 
   static getInstance(): IconLibrary {
@@ -75,46 +80,141 @@ export class IconLibrary {
    * Build the Lucide icon registry with name variations
    */
   private buildLucideRegistry(): Record<string, LucideIcon> {
+    console.log('buildLucideRegistry called');
+    console.log('Testing individual icon imports:', {
+      Activity: !!LucideIcons.Activity,
+      Box: !!LucideIcons.Box,
+      Circle: !!LucideIcons.Circle,
+      Database: !!LucideIcons.Database
+    });
+    
     const registry: Record<string, LucideIcon> = {}
-
-    // Manually add the most common icons first to ensure they work
-    const commonIcons = {
+    const uniqueNames = new Set<string>()
+    
+    // Manually add the commonly used icons that we know work
+    const knownIcons: Record<string, LucideIcon> = {
+      'Activity': LucideIcons.Activity,
+      'Airplay': LucideIcons.Airplay,
+      'AlertCircle': LucideIcons.AlertCircle,
+      'AlertTriangle': LucideIcons.AlertTriangle,
+      'Archive': LucideIcons.Archive,
+      'ArrowDown': LucideIcons.ArrowDown,
+      'ArrowLeft': LucideIcons.ArrowLeft,
+      'ArrowRight': LucideIcons.ArrowRight,
+      'ArrowUp': LucideIcons.ArrowUp,
+      'BarChart': LucideIcons.BarChart,
+      'Bell': LucideIcons.Bell,
+      'Book': LucideIcons.Book,
+      'Bookmark': LucideIcons.Bookmark,
       'Box': LucideIcons.Box,
+      'Calculator': LucideIcons.Calculator,
+      'Calendar': LucideIcons.Calendar,
+      'Camera': LucideIcons.Camera,
+      'Check': LucideIcons.Check,
+      'ChevronDown': LucideIcons.ChevronDown,
+      'ChevronLeft': LucideIcons.ChevronLeft,
+      'ChevronRight': LucideIcons.ChevronRight,
+      'ChevronUp': LucideIcons.ChevronUp,
       'Circle': LucideIcons.Circle,
-      'Database': LucideIcons.Database,
+      'Clock': LucideIcons.Clock,
+      'Cloud': LucideIcons.Cloud,
       'Code': LucideIcons.Code,
-      'PlusCircle': LucideIcons.PlusCircle,
-      'Brain': LucideIcons.Brain,
+      'Coffee': LucideIcons.Coffee,
+      'Command': LucideIcons.Command,
+      'Copy': LucideIcons.Copy,
+      'Cpu': LucideIcons.Cpu,
+      'CreditCard': LucideIcons.CreditCard,
+      'Database': LucideIcons.Database,
+      'Download': LucideIcons.Download,
+      'Edit': LucideIcons.Edit,
+      'Eye': LucideIcons.Eye,
+      'File': LucideIcons.File,
+      'FileCode': LucideIcons.FileCode,
+      'FileText': LucideIcons.FileText,
+      'Filter': LucideIcons.Filter,
+      'Folder': LucideIcons.Folder,
+      'GitBranch': LucideIcons.GitBranch,
+      'Globe': LucideIcons.Globe,
+      'Grid': LucideIcons.Grid,
+      'HardDrive': LucideIcons.HardDrive,
+      'Heart': LucideIcons.Heart,
+      'Home': LucideIcons.Home,
+      'Image': LucideIcons.Image,
+      'Inbox': LucideIcons.Inbox,
+      'Info': LucideIcons.Info,
+      'Key': LucideIcons.Key,
+      'Layers': LucideIcons.Layers,
+      'Layout': LucideIcons.Layout,
+      'Link': LucideIcons.Link,
+      'List': LucideIcons.List,
+      'Lock': LucideIcons.Lock,
       'Mail': LucideIcons.Mail,
+      'Map': LucideIcons.Map,
+      'Menu': LucideIcons.Menu,
+      'MessageCircle': LucideIcons.MessageCircle,
+      'MessageSquare': LucideIcons.MessageSquare,
+      'Mic': LucideIcons.Mic,
+      'Monitor': LucideIcons.Monitor,
+      'Moon': LucideIcons.Moon,
+      'Music': LucideIcons.Music,
+      'Network': LucideIcons.Network,
+      'Package': LucideIcons.Package,
+      'Pause': LucideIcons.Pause,
+      'Phone': LucideIcons.Phone,
+      'Play': LucideIcons.Play,
+      'Plus': LucideIcons.Plus,
+      'PlusCircle': LucideIcons.PlusCircle,
+      'Power': LucideIcons.Power,
+      'Printer': LucideIcons.Printer,
+      'RefreshCw': LucideIcons.RefreshCw,
+      'Repeat': LucideIcons.Repeat,
+      'Save': LucideIcons.Save,
       'Search': LucideIcons.Search,
-      'Settings': LucideIcons.Settings
+      'Send': LucideIcons.Send,
+      'Server': LucideIcons.Server,
+      'Settings': LucideIcons.Settings,
+      'Share': LucideIcons.Share,
+      'Shield': LucideIcons.Shield,
+      'Shuffle': LucideIcons.Shuffle,
+      'SkipBack': LucideIcons.SkipBack,
+      'SkipForward': LucideIcons.SkipForward,
+      'Smartphone': LucideIcons.Smartphone,
+      'Square': LucideIcons.Square,
+      'Star': LucideIcons.Star,
+      'Sun': LucideIcons.Sun,
+      'Tag': LucideIcons.Tag,
+      'Target': LucideIcons.Target,
+      'Terminal': LucideIcons.Terminal,
+      'Trash': LucideIcons.Trash,
+      'TrendingUp': LucideIcons.TrendingUp,
+      'Truck': LucideIcons.Truck,
+      'Tv': LucideIcons.Tv,
+      'Type': LucideIcons.Type,
+      'Unlock': LucideIcons.Unlock,
+      'Upload': LucideIcons.Upload,
+      'User': LucideIcons.User,
+      'Users': LucideIcons.Users,
+      'Video': LucideIcons.Video,
+      'Volume2': LucideIcons.Volume2,
+      'Wifi': LucideIcons.Wifi,
+      'X': LucideIcons.X,
+      'Zap': LucideIcons.Zap,
+      'ZoomIn': LucideIcons.ZoomIn,
+      'ZoomOut': LucideIcons.ZoomOut
     }
-
-    // Add common icons with variations
-    Object.entries(commonIcons).forEach(([name, component]) => {
-      if (component) {
-        registry[name] = component
-        registry[name.toLowerCase()] = component
-        
-        // kebab-case version
-        const kebabName = name.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '')
-        registry[kebabName] = component
-      }
-    })
-
-    // Then add all other Lucide icons
-    Object.entries(LucideIcons).forEach(([name, component]) => {
-      if (typeof component === 'function' && name !== 'createLucideIcon' && !commonIcons[name]) {
-        const icon = component as LucideIcon
-        
+    
+    // Add all known icons with variations
+    Object.entries(knownIcons).forEach(([name, icon]) => {
+      if (icon) {
         // Original PascalCase name
         registry[name] = icon
         
-        // kebab-case version (e.g., "PlusCircle" -> "plus-circle")
+        // kebab-case version
         const kebabName = name.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '')
         registry[kebabName] = icon
+        uniqueNames.add(kebabName)
         
-        // snake_case version (e.g., "PlusCircle" -> "plus_circle")
+        // snake_case version
         const snakeName = name.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '')
         registry[snakeName] = icon
         
@@ -123,7 +223,8 @@ export class IconLibrary {
       }
     })
 
-    // Registry built successfully
+    console.log(`Lucide registry built with ${Object.keys(registry).length} entries, ${uniqueNames.size} unique icons`);
+    console.log('First 10 unique icons:', Array.from(uniqueNames).slice(0, 10));
 
     return registry
   }
@@ -180,7 +281,23 @@ export class IconLibrary {
    * Get all available icon names for a source
    */
   getAvailableIcons(source: IconSource = 'lucide'): string[] {
-    return Object.keys(this.registry[source] || {})
+    const registry = this.registry[source] || {};
+    
+    if (source === 'lucide') {
+      // Return unique kebab-case icon names
+      const uniqueNames = new Set<string>()
+      
+      Object.keys(registry).forEach(name => {
+        // Only add kebab-case versions to avoid duplicates
+        if (name.includes('-') && !name.includes('_')) {
+          uniqueNames.add(name)
+        }
+      })
+      
+      return Array.from(uniqueNames).sort();
+    }
+    
+    return Object.keys(registry);
   }
 
   /**
@@ -190,9 +307,13 @@ export class IconLibrary {
     const available = this.getAvailableIcons(source)
     const normalizedQuery = query.toLowerCase()
     
+    if (!query) {
+      return available.slice(0, limit);
+    }
+    
     return available
       .filter(name => name.toLowerCase().includes(normalizedQuery))
-      .slice(0, limit)
+      .slice(0, limit);
   }
 
   /**

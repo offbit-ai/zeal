@@ -60,7 +60,9 @@ export function createWorkflowSnapshot(
   name: string = 'Untitled Workflow',
   id?: string,
   existingSnapshot?: WorkflowSnapshot,
-  groups: NodeGroup[] = []
+  groups: NodeGroup[] = [],
+  trigger?: any,
+  canvasState?: { offset: { x: number; y: number }; zoom: number }
 ): WorkflowSnapshot {
   const now = new Date().toISOString()
   
@@ -77,6 +79,8 @@ export function createWorkflowSnapshot(
     nodes: nodes.map(serializeNode),
     connections: connections.map(serializeConnection),
     groups: groups.map(serializeGroup),
+    trigger: trigger || existingSnapshot?.trigger,
+    canvasState: canvasState || existingSnapshot?.canvasState,
     metadata: {
       version: '1.0.0',
       nodeCount: nodes.length,
@@ -92,10 +96,12 @@ export function restoreWorkflowFromSnapshot(snapshot: WorkflowSnapshot): {
   nodes: Array<{ metadata: NodeMetadata; position: { x: number; y: number } }>
   connections: Connection[]
   groups: NodeGroup[]
+  canvasState?: { offset: { x: number; y: number }; zoom: number }
 } {
   return {
     nodes: snapshot.nodes.map(deserializeNode),
     connections: snapshot.connections,
-    groups: snapshot.groups || [] // Handle backwards compatibility
+    groups: snapshot.groups || [], // Handle backwards compatibility
+    canvasState: snapshot.canvasState
   }
 }

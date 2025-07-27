@@ -12,6 +12,11 @@ export interface WorkflowSnapshot {
   nodes: SerializedNode[]
   connections: SerializedConnection[]
   groups: SerializedGroup[]
+  trigger?: any // Will store TriggerConfig from TriggerModal
+  canvasState?: {
+    offset: { x: number; y: number }
+    zoom: number
+  }
   metadata?: {
     version: string
     author?: string

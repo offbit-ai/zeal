@@ -12,6 +12,7 @@ import { storageMemoryTemplates } from './storageMemory'
 import { scriptingTemplates } from './scripting'
 import { logicControlTemplates } from './logicControl'
 import { dataProcessingTemplates } from './dataProcessing'
+import { serverNodeTemplates } from './serverNodes'
 
 // Re-export for convenience
 export { dataSourcesTemplates } from './dataSources'
@@ -22,6 +23,7 @@ export { storageMemoryTemplates } from './storageMemory'
 export { scriptingTemplates } from './scripting'
 export { logicControlTemplates } from './logicControl'
 export { dataProcessingTemplates } from './dataProcessing'
+export { serverNodeTemplates } from './serverNodes'
 
 export type { NodeTemplate, Port, PropertyDefinition, PropertyRule, PropertyRules } from './types'
 
@@ -34,5 +36,6 @@ export const allNodeTemplates = [
   ...storageMemoryTemplates,
   ...scriptingTemplates,
   ...logicControlTemplates,
-  ...dataProcessingTemplates
+  ...dataProcessingTemplates,
+  ...serverNodeTemplates
 ]

@@ -1,19 +1,25 @@
-import { Search, X, Download, Plus, Check, Filter } from 'lucide-react'
+import { Search, X, Download, Plus, Check, Filter, Code, Edit3 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNodeRepository, NodeRepositoryItem } from '@/store/nodeRepository'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
 import { Icon } from '@/lib/icons'
+import { NodeCreatorModal } from './NodeCreatorModal'
 
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
   initialCategory?: string | null
+  onNodeAdded?: (nodeId: string) => void
 }
 
-export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalProps) {
+export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded }: SearchModalProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [isNodeCreatorOpen, setIsNodeCreatorOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'repository' | 'custom'>('repository')
+  const [customNodes, setCustomNodes] = useState<NodeRepositoryItem[]>([])
+  const [editingNode, setEditingNode] = useState<NodeRepositoryItem | null>(null)
   
   const {
     categories,
@@ -29,6 +35,50 @@ export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalPro
   } = useNodeRepository()
 
   const { addNode } = useWorkflowStore()
+
+  // Load custom nodes from localStorage on mount
+  useEffect(() => {
+    const savedNodes = localStorage.getItem('customNodes')
+    if (savedNodes) {
+      try {
+        setCustomNodes(JSON.parse(savedNodes))
+      } catch (err) {
+        console.error('Failed to load custom nodes:', err)
+      }
+    }
+  }, [])
+
+  // Save custom node
+  const saveCustomNode = (nodeTemplate: any, isEditing: boolean = false) => {
+    const customNode: NodeRepositoryItem = {
+      id: isEditing && editingNode ? editingNode.id : nodeTemplate.id,
+      title: nodeTemplate.title,
+      subtitle: nodeTemplate.subtitle,
+      type: nodeTemplate.type,
+      category: 'Custom',
+      subcategory: nodeTemplate.type === 'script' ? 'Scripts' : 'APIs',
+      metadata: nodeTemplate,
+      isInstalled: true,
+      installSize: '0 KB',
+      downloads: 0,
+      lastUpdated: new Date().toISOString()
+    }
+    
+    let updatedNodes: NodeRepositoryItem[]
+    if (isEditing && editingNode) {
+      // Replace the existing node
+      updatedNodes = customNodes.map(node => 
+        node.id === editingNode.id ? customNode : node
+      )
+    } else {
+      // Add new node
+      updatedNodes = [...customNodes, customNode]
+    }
+    
+    setCustomNodes(updatedNodes)
+    localStorage.setItem('customNodes', JSON.stringify(updatedNodes))
+    setEditingNode(null)
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -112,7 +162,10 @@ export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalPro
       y: 200 + Math.random() * 200 - 100
     }
     
-    addNode(instanceMetadata, position)
+    const addedNodeId = addNode(instanceMetadata, position)
+    if (addedNodeId && onNodeAdded) {
+      onNodeAdded(addedNodeId)
+    }
     onClose()
   }
 
@@ -142,22 +195,58 @@ export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalPro
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <Search className="w-5 h-5 text-gray-600" />
-            <h2 className="text-lg font-medium text-gray-900">Node Repository</h2>
+        <div className="border-b border-gray-200">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <Search className="w-5 h-5 text-gray-600" />
+              <h2 className="text-lg font-medium text-gray-900">Node Repository</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsNodeCreatorOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Node
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
+          {/* Tabs */}
+          <div className="flex gap-1 px-4">
+            <button
+              onClick={() => setActiveTab('repository')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'repository'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Repository
+            </button>
+            <button
+              onClick={() => setActiveTab('custom')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'custom'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Custom Nodes ({customNodes.length})
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Categories Sidebar */}
-          <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto">
+          {activeTab === 'repository' ? (
+            <>
+              {/* Categories Sidebar */}
+              <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto">
             <div className="space-y-1">
               <button
                 onClick={() => setSelectedCategory(null)}
@@ -320,8 +409,154 @@ export function SearchModal({ isOpen, onClose, initialCategory }: SearchModalPro
               )}
             </div>
           </div>
+            </>
+          ) : (
+            /* Custom Nodes Tab */
+            <div className="flex-1 p-6 overflow-y-auto">
+              <div className="space-y-6">
+                {/* Group by type */}
+                {['Scripts', 'APIs'].map(type => {
+                  const nodesOfType = customNodes.filter(node => 
+                    type === 'Scripts' ? node.metadata.type === 'script' : node.metadata.type === 'api'
+                  )
+                  
+                  if (nodesOfType.length === 0) return null
+                  
+                  return (
+                    <div key={type}>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">{type}</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {nodesOfType.map((node) => (
+                          <div
+                            key={node.id}
+                            className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                <Icon
+                                  name={node.metadata.icon}
+                                  source={node.metadata.icon && ['python', 'javascript', 'openai', 'aws', 'google', 'slack', 'github', 'mongodb', 'postgresql', 'mysql', 'redis'].includes(node.metadata.icon) ? 'brand' : 'lucide'}
+                                  className="w-6 h-6 text-gray-600"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setEditingNode(node)
+                                    setIsNodeCreatorOpen(true)
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  title="Edit custom node"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const updatedNodes = customNodes.filter(n => n.id !== node.id)
+                                    setCustomNodes(updatedNodes)
+                                    localStorage.setItem('customNodes', JSON.stringify(updatedNodes))
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  title="Delete custom node"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="mb-3">
+                              <h4 className="font-medium text-gray-900 mb-1">{node.metadata.title}</h4>
+                              <p className="text-sm text-gray-500 line-clamp-2">
+                                {node.metadata.subtitle || `Custom ${node.metadata.type} node`}
+                              </p>
+                            </div>
+                            
+                            {/* Node Info */}
+                            <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
+                              <span className="flex items-center gap-1">
+                                <Code className="w-3 h-3" />
+                                {node.metadata.type === 'script' ? 
+                                  (node.metadata.variant?.includes('blue') ? 'Python' : 'JavaScript') : 
+                                  'API'
+                                }
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <span className="w-1 h-1 bg-green-500 rounded-full"></span>
+                                Custom
+                              </span>
+                            </div>
+
+                            {/* Actions */}
+                            <button
+                              onClick={() => handleAddToCanvas(node)}
+                              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Add to Canvas
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+                
+                {customNodes.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-4">No custom nodes yet</p>
+                    <button
+                      onClick={() => setIsNodeCreatorOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Your First Node
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+      
+      {/* Node Creator Modal */}
+      <NodeCreatorModal
+        isOpen={isNodeCreatorOpen}
+        onClose={() => {
+          setIsNodeCreatorOpen(false)
+          setEditingNode(null)
+        }}
+        editingNode={editingNode?.metadata}
+        onNodeCreated={(nodeTemplate) => {
+          // Save the custom node template
+          saveCustomNode(nodeTemplate, !!editingNode)
+          
+          // Only add to canvas if not editing
+          if (!editingNode) {
+            // Create a unique instance of the node template
+            const instanceMetadata = {
+              ...nodeTemplate,
+              id: `${nodeTemplate.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              propertyValues: nodeTemplate.propertyValues || {}
+            }
+            
+            // Add to canvas at center with slight randomization
+            const position = {
+              x: 400 + Math.random() * 200 - 100,
+              y: 200 + Math.random() * 200 - 100
+            }
+            
+            const addedNodeId = addNode(instanceMetadata, position)
+            if (addedNodeId && onNodeAdded) {
+              onNodeAdded(addedNodeId)
+            }
+            onClose() // Close the search modal
+          }
+          
+          setIsNodeCreatorOpen(false)
+          setEditingNode(null)
+        }}
+      />
     </div>
   )
 }

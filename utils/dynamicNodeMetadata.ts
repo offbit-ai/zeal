@@ -196,6 +196,7 @@ export async function updateDynamicNodeMetadata(
           // This would be more complex and require careful handling
         }
         
+        ruleApplied = true
         break // Take first matching simple rule
       }
     }

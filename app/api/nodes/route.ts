@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { allNodeTemplates } from '@/data/nodeTemplates'
+import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
 
 interface NodeTemplateResponse {
   id: string
@@ -71,6 +72,16 @@ const nodeTemplatesStore: NodeTemplateResponse[] = allNodeTemplates.map((templat
 
 // GET /api/nodes - List node templates
 export const GET = withErrorHandling(async (req: NextRequest) => {
+  // Generate cache key
+  const cacheKey = apiCache.generateKey(req)
+  
+  // Check cache first
+  const cachedResponse = apiCache.get(cacheKey)
+  if (cachedResponse) {
+    console.log(`Cache hit for nodes: ${cacheKey}`)
+    return NextResponse.json(cachedResponse)
+  }
+  
   await mockDelay(100)
   
   const { searchParams } = new URL(req.url)
@@ -133,7 +144,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const offset = (pagination.page - 1) * pagination.limit
   const paginatedNodes = filteredNodes.slice(offset, offset + pagination.limit)
   
-  return NextResponse.json(createSuccessResponse(paginatedNodes, {
+  const response = createSuccessResponse(paginatedNodes, {
     pagination: {
       page: pagination.page,
       limit: pagination.limit,
@@ -142,7 +153,12 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     },
     timestamp: new Date().toISOString(),
     requestId: `req_${Date.now()}`
-  }))
+  })
+  
+  // Cache the response
+  apiCache.set(cacheKey, response, CACHE_TTL.NODES)
+  
+  return NextResponse.json(response)
 })
 
 // POST /api/nodes - Create custom node template (admin only)
@@ -193,6 +209,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
   
   nodeTemplatesStore.push(newNodeTemplate)
+  
+  // Invalidate all nodes cache since this affects all users
+  invalidateCache('/api/nodes')
   
   return NextResponse.json(createSuccessResponse(newNodeTemplate), { status: 201 })
 })

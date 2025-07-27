@@ -6,6 +6,7 @@ import { WorkflowSidebar } from '@/components/WorkflowSidebar'
 import { WorkflowBottomToolbar } from '@/components/WorkflowBottomToolbar'
 import { SearchButton } from '@/components/SearchButton'
 import { NodeBrowserButton } from '@/components/NodeBrowserButton'
+import { TriggerManager } from '@/components/TriggerManager'
 import { UndoRedoButtons } from '@/components/UndoRedoButtons'
 import { SearchModal } from '@/components/SearchModal'
 import { NodeBrowserPanel } from '@/components/NodeBrowserPanel'
@@ -18,7 +19,7 @@ import { useEnvVarStore } from '@/store/envVarStore'
 import { DraggableNode } from '@/components/DraggableNode'
 import { Minimap } from '@/components/Minimap'
 import { ZoomControls } from '@/components/ZoomControls'
-import { Save, Upload, Play } from 'lucide-react'
+import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable } from 'lucide-react'
 import { ToastManager } from '@/components/Toast'
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import type { NodeMetadata, Connection } from '@/types/workflow'
@@ -237,6 +238,8 @@ export default function Home() {
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
+  const [isEditingWorkflowName, setIsEditingWorkflowName] = useState(false)
+  const [editedWorkflowName, setEditedWorkflowName] = useState('')
   const { updateNodeBounds, removeNodeBounds, getNodeBoundsArray } = useNodeBounds()
   const { updatePortPosition: oldUpdatePortPosition, getPortPosition: getStoredPortPosition } = usePortPositions()
   
@@ -244,6 +247,7 @@ export default function Home() {
   const { 
     workflowId,
     workflowName,
+    workflowTrigger,
     nodes: storeNodes, 
     connections,
     groups,
@@ -258,12 +262,11 @@ export default function Home() {
     redo,
     canUndo,
     canRedo,
-    saveToStorage,
+    saveToStorageWithCanvasState,
     loadFromStorage,
     createNewWorkflow,
     setWorkflowName,
     publishWorkflow,
-    selectNode,
     clearSelection,
     startSelection,
     updateSelection,
@@ -313,7 +316,11 @@ export default function Home() {
       
       if (savedWorkflowId) {
         // Load existing workflow
-        loadFromStorage(savedWorkflowId)
+        const result = loadFromStorage(savedWorkflowId)
+        if (result?.canvasState) {
+          setCanvasOffset(result.canvasState.offset)
+          setCanvasZoom(result.canvasState.zoom)
+        }
       } else if (storeNodes.length === 0) {
         // Create new empty workflow
         createNewWorkflow('New Workflow')
@@ -415,6 +422,10 @@ export default function Home() {
 
   const handleNodePositionChange = (nodeId: string, position: { x: number; y: number }) => {
     updateNodePosition(nodeId, position)
+    // Clear highlighting when a node is moved
+    if (highlightedNodeId === nodeId) {
+      setHighlightedNodeId(null)
+    }
   }
 
   // Handle node selection
@@ -502,6 +513,12 @@ export default function Home() {
     setIsSearchOpen(true)
   }
 
+  // Handle highlighting newly added nodes
+  const handleNodeAdded = (nodeId: string) => {
+    setHighlightedNodeId(nodeId)
+    // Highlight will be removed when the node is moved (no timeout)
+  }
+
   // Handle node selection from browser
   const handleNodeSelectFromBrowser = (nodeId: string, position: { x: number; y: number }) => {
     // Center the canvas on the selected node
@@ -525,7 +542,7 @@ export default function Home() {
   // Handle save workflow
   const handleSaveWorkflow = () => {
     try {
-      saveToStorage()
+      saveToStorageWithCanvasState({ offset: canvasOffset, zoom: canvasZoom })
       ToastManager.success(`Workflow "${workflowName}" saved successfully!`)
     } catch (error) {
       ToastManager.error('Failed to save workflow. Please try again.')
@@ -549,11 +566,15 @@ export default function Home() {
     try {
       // Save current workflow first if it has changes
       if (workflowId !== selectedWorkflowId && storeNodes.length > 0) {
-        saveToStorage()
+        saveToStorageWithCanvasState({ offset: canvasOffset, zoom: canvasZoom })
       }
       
       // Load the selected workflow
-      loadFromStorage(selectedWorkflowId)
+      const result = loadFromStorage(selectedWorkflowId)
+      if (result?.canvasState) {
+        setCanvasOffset(result.canvasState.offset)
+        setCanvasZoom(result.canvasState.zoom)
+      }
       
       // The workflowName will be updated by the store after loading
       setTimeout(() => {
@@ -862,9 +883,92 @@ export default function Home() {
       <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-medium text-gray-900">Zeal</h1>
-          <div className="text-sm text-gray-500">
-            {workflowName}
-            {workflowId && <span className="text-xs text-gray-400 ml-2">ID: {workflowId.slice(0, 8)}...</span>}
+          <div className="flex items-center gap-2">
+            {isEditingWorkflowName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editedWorkflowName}
+                  onChange={(e) => setEditedWorkflowName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setWorkflowName(editedWorkflowName)
+                      setIsEditingWorkflowName(false)
+                    } else if (e.key === 'Escape') {
+                      setIsEditingWorkflowName(false)
+                      setEditedWorkflowName(workflowName)
+                    }
+                  }}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                  autoFocus
+                />
+                <button
+                  onClick={() => {
+                    setWorkflowName(editedWorkflowName)
+                    setIsEditingWorkflowName(false)
+                  }}
+                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingWorkflowName(false)
+                    setEditedWorkflowName(workflowName)
+                  }}
+                  className="p-1 text-gray-600 hover:bg-gray-50 rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group">
+                <span className="text-sm text-gray-700 font-medium">{workflowName}</span>
+                <button
+                  onClick={() => {
+                    setIsEditingWorkflowName(true)
+                    setEditedWorkflowName(workflowName)
+                  }}
+                  className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            {workflowId && <span className="text-xs text-gray-400">ID: {workflowId.slice(0, 8)}...</span>}
+            {workflowTrigger && (
+              <button
+                onClick={() => {
+                  // Find and click the trigger manager button to open the modal
+                  const triggerButton = document.querySelector('[title="Edit Trigger"]') as HTMLButtonElement;
+                  if (triggerButton) triggerButton.click();
+                }}
+                className="flex items-center gap-2 px-3 py-1 bg-purple-100 hover:bg-purple-200 rounded-full transition-colors group"
+                title={`${workflowTrigger.name}: ${workflowTrigger.description || 'Click to edit trigger'}`}
+              >
+                <span className="text-xs font-medium text-gray-600">Trigger</span>
+                <div className="w-px h-4 bg-purple-300"></div>
+                <div className="flex items-center gap-1.5">
+                  {workflowTrigger.type === 'rest' ? (
+                    <Globe className="w-3 h-3 text-blue-600" />
+                  ) : workflowTrigger.type === 'websocket' ? (
+                    <Cable className="w-3 h-3 text-green-600" />
+                  ) : (
+                    <Clock className="w-3 h-3 text-purple-600" />
+                  )}
+                  <span className="text-xs font-medium text-gray-700">
+                    {workflowTrigger.type === 'rest' ? 'HTTP' :
+                     workflowTrigger.type === 'websocket' ? 'WebSocket' :
+                     workflowTrigger.type === 'scheduler' ? (
+                       (workflowTrigger.config as any).isOneTime ? 'Once' :
+                       (workflowTrigger.config as any).interval ? `Every ${(workflowTrigger.config as any).interval.value} ${(workflowTrigger.config as any).interval.unit}` :
+                       'Cron'
+                     ) : 'Active'}
+                  </span>
+                  <Edit2 className="w-3 h-3 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </button>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1021,6 +1125,7 @@ export default function Home() {
         
         <SearchButton onClick={() => setIsSearchOpen(true)} />
         <NodeBrowserButton onClick={handleNodeBrowserToggle} isActive={isNodeBrowserOpen} />
+        <TriggerManager />
         <UndoRedoButtons onUndo={undo} onRedo={redo} canUndo={canUndo()} canRedo={canRedo()} />
         <WorkflowBottomToolbar 
           onHistoryClick={() => setIsHistoryBrowserOpen(true)}
@@ -1063,6 +1168,7 @@ export default function Home() {
         <NodeBrowserPanel 
           isExpanded={isNodeBrowserOpen}
           onNodeSelect={handleNodeSelectFromBrowser}
+          onNodeAdded={handleNodeAdded}
         />
 
         {/* Property Pane */}
@@ -1096,6 +1202,7 @@ export default function Home() {
             setSelectedCategory(null) // Reset category selection
           }}
           initialCategory={selectedCategory}
+          onNodeAdded={handleNodeAdded}
         />
       </ModalPortal>
       

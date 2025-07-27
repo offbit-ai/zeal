@@ -1,13 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, X, GripVertical, Code, Filter, ArrowUpDown, Shuffle, Users, Calculator, Merge, Split } from 'lucide-react'
+import { Plus, X, GripVertical, Code, Filter, ArrowUpDown, Shuffle, Users, Calculator, Merge, Split, Info } from 'lucide-react'
 import { DataOperationSet, DataOperation, DataOperationType, SortDirection, AggregateFunction } from '@/types/workflow'
 
 interface DataOperationBuilderProps {
   value: DataOperationSet[]
   onChange: (value: DataOperationSet[]) => void
-  availableFields?: string[]
 }
 
 // Operation type configurations
@@ -66,8 +65,7 @@ const AGGREGATE_FUNCTIONS: AggregateFunction[] = ['sum', 'avg', 'count', 'min', 
 
 export function DataOperationBuilder({ 
   value = [], 
-  onChange, 
-  availableFields = [] 
+  onChange
 }: DataOperationBuilderProps) {
   
   const generateId = () => Math.random().toString(36).substr(2, 9)
@@ -166,16 +164,13 @@ export function DataOperationBuilder({
               <div key={mappingIndex} className="grid grid-cols-3 gap-2 p-2 bg-gray-50 rounded">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Source</label>
-                  <select
+                  <input
+                    type="text"
                     value={mapping.sourceField}
                     onChange={(e) => updateMappingField(setIndex, opIndex, mappingIndex, 'sourceField', e.target.value)}
-                    className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-                  >
-                    <option value="">Select field</option>
-                    {availableFields.map(field => (
-                      <option key={field} value={field}>{field}</option>
-                    ))}
-                  </select>
+                    placeholder="e.g., ${input.get('data').data.fieldName}"
+                    className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Target</label>
@@ -201,8 +196,8 @@ export function DataOperationBuilder({
                     type="text"
                     value={mapping.transform || ''}
                     onChange={(e) => updateMappingField(setIndex, opIndex, mappingIndex, 'transform', e.target.value)}
-                    placeholder="e.g., value.toUpperCase(), value * 2"
-                    className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+                    placeholder="e.g., ${input.get('data').data.value}.toUpperCase(), ${input.get('data').data.price} * 2"
+                    className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
                   />
                 </div>
               </div>
@@ -217,9 +212,9 @@ export function DataOperationBuilder({
             <textarea
               value={operation.filterExpression || ''}
               onChange={(e) => updateOperation(setIndex, opIndex, { filterExpression: e.target.value })}
-              placeholder="e.g., item.age > 18 && item.status === 'active'"
+              placeholder="e.g., ${input.get('data').data.age} > 18 && ${input.get('data').data.status} === 'active'"
               rows={2}
-              className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+              className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
             />
           </div>
         )
@@ -229,16 +224,13 @@ export function DataOperationBuilder({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Sort Field</label>
-              <select
+              <input
+                type="text"
                 value={operation.sortField || ''}
                 onChange={(e) => updateOperation(setIndex, opIndex, { sortField: e.target.value })}
-                className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-              >
-                <option value="">Select field</option>
-                {availableFields.map(field => (
-                  <option key={field} value={field}>{field}</option>
-                ))}
-              </select>
+                placeholder="e.g., ${input.get('data').data.timestamp}"
+                className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Direction</label>
@@ -261,9 +253,9 @@ export function DataOperationBuilder({
             <textarea
               value={operation.transformExpression || ''}
               onChange={(e) => updateOperation(setIndex, opIndex, { transformExpression: e.target.value })}
-              placeholder="e.g., { ...item, fullName: item.firstName + ' ' + item.lastName }"
+              placeholder="e.g., { ...${input.get('data').data}, fullName: ${input.get('data').data.firstName} + ' ' + ${input.get('data').data.lastName} }"
               rows={3}
-              className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+              className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
             />
           </div>
         )
@@ -272,16 +264,13 @@ export function DataOperationBuilder({
         return (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Group By Field</label>
-            <select
+            <input
+              type="text"
               value={operation.groupByField || ''}
               onChange={(e) => updateOperation(setIndex, opIndex, { groupByField: e.target.value })}
-              className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-            >
-              <option value="">Select field</option>
-              {availableFields.map(field => (
-                <option key={field} value={field}>{field}</option>
-              ))}
-            </select>
+              placeholder="e.g., ${input.get('data').data.category}"
+              className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
+            />
           </div>
         )
 
@@ -290,16 +279,13 @@ export function DataOperationBuilder({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Field</label>
-              <select
+              <input
+                type="text"
                 value={operation.aggregateField || ''}
                 onChange={(e) => updateOperation(setIndex, opIndex, { aggregateField: e.target.value })}
-                className="w-full text-xs border border-gray-200 rounded px-2 py-1"
-              >
-                <option value="">Select field</option>
-                {availableFields.map(field => (
-                  <option key={field} value={field}>{field}</option>
-                ))}
-              </select>
+                placeholder="e.g., ${input.get('data').data.amount}"
+                className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Function</label>
@@ -327,6 +313,22 @@ export function DataOperationBuilder({
 
   return (
     <div className="space-y-4">
+      {/* Help Section */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+          <div className="text-xs text-blue-800">
+            <div className="font-semibold mb-1">Dynamic Input Syntax</div>
+            <div className="space-y-1">
+              <div>• Access data from specific input port: <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data}'}</code></div>
+              <div>• Access nested fields: <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data.fieldName}'}</code></div>
+              <div>• Array access: <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data[0]}'}</code></div>
+              <div>• Multiple ports: <code className="bg-blue-100 px-1 rounded">${'{input.get("port1").data.value + input.get("port2").data.value}'}</code></div>
+              <div>• Supports JavaScript expressions within template literals</div>
+            </div>
+          </div>
+        </div>
+      </div>
       {value.map((operationSet, setIndex) => (
         <div key={operationSet.id} className="border border-gray-200 rounded-lg bg-gray-50 p-4">
           {/* Operation Set Header */}

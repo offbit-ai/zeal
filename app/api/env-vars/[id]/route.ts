@@ -7,6 +7,7 @@ import {
   mockDelay
 } from '@/lib/api-utils'
 import { ApiError, EnvVarUpdateRequest, EnvVarResponse } from '@/types/api'
+import { invalidateCache } from '@/lib/api-cache'
 
 // Import the mock store (in real app, this would be a database)
 // Note: In a real application, you'd import this from a shared data layer
@@ -61,6 +62,9 @@ export const PUT = withErrorHandling(async (req: NextRequest, { params }: { para
   
   envVarsStore[envVarIndex] = updatedEnvVar
   
+  // Invalidate cache for this user's env vars
+  invalidateCache(`${userId}:/api/env-vars`)
+  
   // Return sanitized response
   const response = {
     ...updatedEnvVar,
@@ -85,6 +89,9 @@ export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { p
   
   // Remove the environment variable
   envVarsStore.splice(envVarIndex, 1)
+  
+  // Invalidate cache for this user's env vars
+  invalidateCache(`${userId}:/api/env-vars`)
   
   return NextResponse.json(createSuccessResponse({ deleted: true }), { status: 200 })
 })

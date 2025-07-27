@@ -145,6 +145,27 @@ function generatePath(source: PortPosition, target: PortPosition): string {
   return `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`
 }
 
+// Generate a clickable path that avoids node port areas
+function generateClickablePath(source: PortPosition, target: PortPosition): string {
+  const sourceControl = getControlPointOffset(source.position)
+  const targetControl = getControlPointOffset(target.position)
+
+  // Start the path a bit away from the source port to avoid blocking it
+  const portClearance = 30 // pixels to stay away from ports
+  
+  const x1 = source.x + (sourceControl.dx > 0 ? portClearance : sourceControl.dx < 0 ? -portClearance : 0)
+  const y1 = source.y + (sourceControl.dy > 0 ? portClearance : sourceControl.dy < 0 ? -portClearance : 0)
+  const x2 = target.x + (targetControl.dx > 0 ? portClearance : targetControl.dx < 0 ? -portClearance : 0)
+  const y2 = target.y + (targetControl.dy > 0 ? portClearance : targetControl.dy < 0 ? -portClearance : 0)
+
+  const c1x = source.x + sourceControl.dx
+  const c1y = source.y + sourceControl.dy
+  const c2x = target.x + targetControl.dx
+  const c2y = target.y + targetControl.dy
+
+  return `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`
+}
+
 // Check if a line segment intersects with a rectangle
 function lineIntersectsRect(
   lineStart: { x: number; y: number },
@@ -219,12 +240,13 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
   
   return (
     <svg 
-      className="absolute inset-0 pointer-events-none" 
+      className="absolute inset-0" 
       style={{ 
         overflow: 'visible', 
         width: '100%', 
         height: '100%',
-        zIndex: 1
+        zIndex: 1,
+        pointerEvents: 'none'
       }}
     >
       <defs>
@@ -350,17 +372,15 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               if (intersection) {
                 modifiedSource = { ...source, x: intersection.x, y: intersection.y }
               } else {
-                // Fallback: always connect to side border (left or right edge)
+                // Fallback: always use right edge for outgoing connections from collapsed group
                 const groupCenterY = groupRect.y + groupRect.height / 2
-                
-                // For outgoing connections from a collapsed group, always use right edge
                 const edgeX = groupRect.x + groupRect.width // Always use right edge for outgoing connections
                 const edgeY = groupCenterY
                 
                 modifiedSource = { ...source, x: edgeX, y: edgeY }
               }
             } else {
-              // If using fallback position, always use right edge for outgoing connections
+              // If using fallback position, always use right edge for outgoing connections from collapsed group
               const groupCenterY = groupRect.y + groupRect.height / 2
               const edgeX = groupRect.x + groupRect.width // Always use right edge for outgoing connections
               const edgeY = groupCenterY
@@ -377,11 +397,40 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
             if (intersection) {
               modifiedTarget = { ...target, x: intersection.x, y: intersection.y }
             } else {
-              // Fallback: always connect to side border
-              // For incoming connections to a collapsed group, always use left edge
+              // Fallback: determine best edge based on source position relative to group
+              const groupCenterX = groupRect.x + groupRect.width / 2
               const groupCenterY = groupRect.y + groupRect.height / 2
-              const edgeX = groupRect.x // Always use left edge for incoming connections
-              const edgeY = groupCenterY
+              
+              // Calculate which edge is closest to the source
+              const sourceRelativeToGroup = {
+                x: source.x - groupCenterX,
+                y: source.y - groupCenterY
+              }
+              
+              let edgeX, edgeY
+              if (Math.abs(sourceRelativeToGroup.x) > Math.abs(sourceRelativeToGroup.y)) {
+                // Source is more horizontal from group - use left or right edge
+                if (sourceRelativeToGroup.x > 0) {
+                  // Source is to the right - use right edge
+                  edgeX = groupRect.x + groupRect.width
+                  edgeY = groupCenterY
+                } else {
+                  // Source is to the left - use left edge
+                  edgeX = groupRect.x
+                  edgeY = groupCenterY
+                }
+              } else {
+                // Source is more vertical from group - use top or bottom edge
+                if (sourceRelativeToGroup.y > 0) {
+                  // Source is below - use bottom edge
+                  edgeX = groupCenterX
+                  edgeY = groupRect.y + groupRect.height
+                } else {
+                  // Source is above - use top edge
+                  edgeX = groupCenterX
+                  edgeY = groupRect.y
+                }
+              }
               
               modifiedTarget = { ...target, x: edgeX, y: edgeY }
             }
@@ -403,6 +452,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
         }
 
         const path = generatePath(modifiedSource, modifiedTarget)
+        const clickablePath = generateClickablePath(modifiedSource, modifiedTarget)
         const styles = getConnectionStyles(connection.state)
         const filterId = styles.glowEffect ? `glow-${connection.state}` : undefined
 
@@ -468,14 +518,14 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               className="group-hover:opacity-100 transition-opacity duration-200"
             />
             
-            {/* Invisible wide path for easier clicking */}
+            {/* Invisible clickable path that avoids port areas */}
             <path
-              d={path}
+              d={clickablePath}
               fill="none"
               stroke="transparent"
-              strokeWidth="12"
+              strokeWidth="8"
               strokeLinecap="round"
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
               onClick={(e) => {
                 e.stopPropagation()
                 onConnectionClick?.(connection.id)

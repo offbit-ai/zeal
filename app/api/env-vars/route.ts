@@ -11,6 +11,7 @@ import {
   mockDelay
 } from '@/lib/api-utils'
 import { ApiError, EnvVarCreateRequest, EnvVarResponse } from '@/types/api'
+import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
 
 // Mock data store (in real app, this would be a database)
 let envVarsStore: EnvVarResponse[] = [
@@ -40,6 +41,16 @@ let envVarsStore: EnvVarResponse[] = [
 
 // GET /api/env-vars - List environment variables
 export const GET = withErrorHandling(async (req: NextRequest) => {
+  // Generate cache key
+  const cacheKey = apiCache.generateKey(req)
+  
+  // Check cache first
+  const cachedResponse = apiCache.get(cacheKey)
+  if (cachedResponse) {
+    console.log(`Cache hit for env-vars: ${cacheKey}`)
+    return NextResponse.json(cachedResponse)
+  }
+  
   await mockDelay(100) // Simulate database query
   
   const { searchParams } = new URL(req.url)
@@ -74,7 +85,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     value: envVar.isSecret ? '***' : envVar.value
   }))
   
-  return NextResponse.json(createSuccessResponse(sanitizedVars, {
+  const response = createSuccessResponse(sanitizedVars, {
     pagination: {
       page: pagination.page,
       limit: pagination.limit,
@@ -83,7 +94,12 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     },
     timestamp: new Date().toISOString(),
     requestId: `req_${Date.now()}`
-  }))
+  })
+  
+  // Cache the response
+  apiCache.set(cacheKey, response, CACHE_TTL.ENV_VARS)
+  
+  return NextResponse.json(response)
 })
 
 // POST /api/env-vars - Create environment variable
@@ -133,6 +149,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
   
   envVarsStore.push(newEnvVar)
+  
+  // Invalidate cache for this user's env vars
+  invalidateCache(`${userId}:/api/env-vars`)
   
   // Return sanitized response
   const response = {

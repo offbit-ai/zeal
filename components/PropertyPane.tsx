@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { NodeMetadata, PropertyDefinition, PropertyType, RuleSet, DataOperationSet } from '@/types/workflow'
-import { X, Settings, Edit3, Database } from 'lucide-react'
+import { X, Settings, Edit3, Database, Trash2, AlertTriangle } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { RuleEditorModal } from './RuleEditorModal'
 import { DataOperationModal } from './DataOperationModal'
@@ -165,7 +165,7 @@ function PropertyField({
 }
 
 export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: PropertyPaneProps) {
-  const { nodes, updateNodeMetadata } = useWorkflowStore()
+  const { nodes, updateNodeMetadata, removeNode } = useWorkflowStore()
   const selectedNode = nodes.find(node => node.metadata.id === selectedNodeId)
   
   const [localPropertyValues, setLocalPropertyValues] = useState<Record<string, any>>({})
@@ -174,15 +174,22 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   const [dataOpEditorOpen, setDataOpEditorOpen] = useState(false)
   const [currentDataOpProperty, setCurrentDataOpProperty] = useState<PropertyDefinition | null>(null)
   const [isInitialRender, setIsInitialRender] = useState(true)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [lastSelectedNodeId, setLastSelectedNodeId] = useState<string | null>(null)
 
-  // Update local state when selected node changes
+  // Initialize local state when node selection changes
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNode && selectedNodeId !== lastSelectedNodeId) {
+      // New node selected - initialize from stored values
       setLocalPropertyValues({ ...selectedNode.metadata.propertyValues || {} })
-    } else {
+      setLastSelectedNodeId(selectedNodeId)
+    } else if (!selectedNode) {
+      // No node selected
       setLocalPropertyValues({})
+      setLastSelectedNodeId(null)
     }
-  }, [selectedNode])
+    // Don't update local values when the same node's metadata changes
+  }, [selectedNodeId, selectedNode, lastSelectedNodeId])
 
   // Handle initial render animation
   useEffect(() => {
@@ -196,17 +203,37 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   }, [isInitialRender])
 
   // Handle property value changes (local only, no auto-save)
-  const handlePropertyChange = (propertyId: string, value: any) => {
+  const handlePropertyChange = async (propertyId: string, value: any) => {
     if (!selectedNode) return
     
     const updatedValues = { ...localPropertyValues, [propertyId]: value }
     setLocalPropertyValues(updatedValues)
     
-    // No real-time metadata updates - only update local property values
-    // Dynamic metadata updates will happen when user clicks "Save & Close"
+    // Apply dynamic metadata updates in real-time for visual feedback
+    if (shouldUpdateDynamicMetadata(selectedNode.metadata.propertyRules, propertyId)) {
+      try {
+        const updatedMetadata = await updateDynamicNodeMetadata(
+          selectedNode.metadata,
+          updatedValues,
+          selectedNode.metadata.propertyRules
+        )
+        
+        // Update the node metadata immediately for visual feedback
+        updateNodeMetadata(selectedNodeId!, updatedMetadata, false) // saveSnapshot = false for real-time updates
+      } catch (error) {
+        console.error('Failed to apply dynamic metadata updates:', error)
+      }
+    }
   }
 
   // Handle save and close
+  const handleDeleteNode = () => {
+    if (!selectedNode) return
+    removeNode(selectedNode.metadata.id)
+    setShowDeleteConfirmation(false)
+    onClose()
+  }
+
   const handleSaveAndClose = async () => {
     if (!selectedNode) return
     
@@ -339,6 +366,21 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
             {properties.map((property) => {
               const currentValue = localPropertyValues[property.id]
               
+              // Check visibility condition using current local values
+              if (property.visibleWhen) {
+                try {
+                  // Use current local property values for immediate visibility feedback
+                  const evalContext = { ...localPropertyValues }
+                  
+                  // Use Function constructor for safe evaluation
+                  const condition = new Function(...Object.keys(evalContext), `return ${property.visibleWhen}`)
+                  const isVisible = condition(...Object.values(evalContext))
+                  if (!isVisible) return null
+                } catch (error) {
+                  console.error(`Error evaluating visibility condition for ${property.id}:`, error)
+                }
+              }
+              
               return (
                 <div key={property.id}>
                   <div className="flex items-center justify-between mb-1">
@@ -384,6 +426,19 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           >
             Cancel
           </button>
+          
+          {/* Divider */}
+          <div className="my-4">
+            <div className="w-full border-t-2 border-gray-300"></div>
+          </div>
+          
+          <button
+            onClick={() => setShowDeleteConfirmation(true)}
+            className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Node
+          </button>
         </div>
         
         {/* Node Info */}
@@ -425,6 +480,47 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           onChange={handleDataOpChange}
           availableFields={currentDataOpProperty?.availableFields || []}
         />
+      </ModalPortal>
+
+      {/* Delete Confirmation Modal */}
+      <ModalPortal isOpen={showDeleteConfirmation}>
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setShowDeleteConfirmation(false)}
+          />
+          <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Node</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete the node "{selectedNode?.metadata.title}"? 
+              All connections to this node will also be removed.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteNode}
+                className="flex-1 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
+              >
+                Delete Node
+              </button>
+            </div>
+          </div>
+        </div>
       </ModalPortal>
     </div>
   )

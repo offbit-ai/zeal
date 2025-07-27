@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { NodeRepositoryService } from '@/services/nodeRepositoryService'
+import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
 
 interface NodeCategoryResponse {
   name: string
@@ -307,6 +308,16 @@ const categoriesStore: NodeCategoryResponse[] = [
 
 // GET /api/nodes/categories - List node categories
 export const GET = withErrorHandling(async (req: NextRequest) => {
+  // Generate cache key
+  const cacheKey = apiCache.generateKey(req)
+  
+  // Check cache first
+  const cachedResponse = apiCache.get(cacheKey)
+  if (cachedResponse) {
+    console.log(`Cache hit for categories: ${cacheKey}`)
+    return NextResponse.json(cachedResponse)
+  }
+  
   await mockDelay(75)
   
   const { searchParams } = new URL(req.url)
@@ -328,10 +339,15 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     }))
   }
   
-  return NextResponse.json(createSuccessResponse(filteredCategories, {
+  const response = createSuccessResponse(filteredCategories, {
     timestamp: new Date().toISOString(),
     requestId: `req_${Date.now()}`
-  }))
+  })
+  
+  // Cache the response
+  apiCache.set(cacheKey, response, CACHE_TTL.CATEGORIES)
+  
+  return NextResponse.json(response)
 })
 
 // POST /api/nodes/categories - Create new category (admin only)
@@ -373,6 +389,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
   
   categoriesStore.push(newCategory)
+  
+  // Invalidate all categories cache since this affects all users
+  invalidateCache('/api/nodes/categories')
   
   return NextResponse.json(createSuccessResponse(newCategory), { status: 201 })
 })
