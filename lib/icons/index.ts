@@ -374,6 +374,8 @@ export const Icon: React.FC<IconProps> = ({
       'settings': LucideIcons.Settings,
       'folder': LucideIcons.Folder,
       'git-branch': LucideIcons.GitBranch,
+      'git-graph': LucideIcons.GitGraph,
+      'link': LucideIcons.Link,
       'shuffle': LucideIcons.Shuffle,
       'cloud': LucideIcons.Cloud,
       'cpu': LucideIcons.Cpu,

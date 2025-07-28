@@ -19,7 +19,7 @@ import { useEnvVarStore } from '@/store/envVarStore'
 import { DraggableNode } from '@/components/DraggableNode'
 import { Minimap } from '@/components/Minimap'
 import { ZoomControls } from '@/components/ZoomControls'
-import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable } from 'lucide-react'
+import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } from 'lucide-react'
 import { ToastManager } from '@/components/Toast'
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import type { NodeMetadata, Connection } from '@/types/workflow'
@@ -42,6 +42,14 @@ import { GroupDeleteModal } from '@/components/GroupDeleteModal'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
+import { TabBar } from '@/components/TabBar'
+import { useGraphStore } from '@/store/graphStore'
+import { SubgraphNode } from '@/components/SubgraphNode'
+import { createWorkflowSnapshot, createWorkflowGraph, restoreWorkflowFromSnapshot, restoreGraphFromSerialized } from '@/utils/workflowSerializer'
+import { LoadingOverlay } from '@/components/LoadingOverlay'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { SaveGraphButton } from '@/components/SaveGraphButton'
+import { toast } from '@/lib/toast'
 
 // Sample nodes metadata
 // const nodes: NodeMetadata[] = [
@@ -223,6 +231,10 @@ export default function Home() {
   const [showEnvVarWarning, setShowEnvVarWarning] = useState(false)
   const missingEnvVars = useEnvVarStore(state => state.missingVars)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [searchModalInitialTab, setSearchModalInitialTab] = useState<'repository' | 'custom' | 'subgraphs' | undefined>(undefined)
+  const [autosaveEnabled, setAutosaveEnabled] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadingMessage, setLoadingMessage] = useState('Initializing workflow...')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null)
   const [isPropertyPaneOpen, setIsPropertyPaneOpen] = useState(false)
@@ -243,7 +255,7 @@ export default function Home() {
   const { updateNodeBounds, removeNodeBounds, getNodeBoundsArray } = useNodeBounds()
   const { updatePortPosition: oldUpdatePortPosition, getPortPosition: getStoredPortPosition } = usePortPositions()
   
-  // Zustand store
+  // Zustand stores
   const { 
     workflowId,
     workflowName,
@@ -281,12 +293,39 @@ export default function Home() {
     isNodeSelected,
     updatePortPosition,
     getPortPosition,
-    autoResizeGroup
+    updateAllPortPositions,
+    autoResizeGroup,
+    saveCurrentGraphState,
+    loadGraphState
   } = useWorkflowStore()
+  
+  // Graph store
+  const {
+    graphs,
+    currentGraphId,
+    addGraph,
+    removeGraph,
+    switchGraph,
+    renameGraph,
+    setMainGraph,
+    setGraphDirty,
+    updateCanvasState,
+    updateWorkflowState,
+    loadGraphs,
+    getCurrentGraph,
+    getMainGraph,
+    getGraphById
+  } = useGraphStore()
   
   const { dragState, startDrag, updateDrag, endDrag } = useConnectionDrag(connections)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
+  const [unsavedChangesDialog, setUnsavedChangesDialog] = useState<{
+    isOpen: boolean
+    pendingAction: (() => void) | null
+    graphName?: string
+  }>({ isOpen: false, pendingAction: null })
+  const [isSavingGraph, setIsSavingGraph] = useState(false)
   
   // Update configured environment variables in the store
   const updateConfiguredEnvVars = async () => {
@@ -308,30 +347,175 @@ export default function Home() {
     }
   }
 
+  // Track unsaved changes and warn before page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const currentGraph = getCurrentGraph()
+      if (currentGraph?.isDirty) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return 'You have unsaved changes. Are you sure you want to leave?'
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [getCurrentGraph])
+
+  // Update document title with workflow name and unsaved indicator
+  useEffect(() => {
+    const currentGraph = getCurrentGraph()
+    const hasUnsaved = graphs.some(g => g.isDirty)
+    
+    if (workflowName) {
+      const unsavedIndicator = hasUnsaved ? '• ' : ''
+      document.title = `${unsavedIndicator}${workflowName} - Zeal`
+    } else {
+      document.title = 'Zeal - Workflow Orchestrator'
+    }
+  }, [workflowName, graphs, getCurrentGraph])
+
   // Initialize workflow on mount
   useEffect(() => {
-    if (!initialized) {
-      // Check if there's a saved workflow to load
-      const savedWorkflowId = WorkflowStorageService.getCurrentWorkflowId()
-      
-      if (savedWorkflowId) {
-        // Load existing workflow
-        const result = loadFromStorage(savedWorkflowId)
-        if (result?.canvasState) {
-          setCanvasOffset(result.canvasState.offset)
-          setCanvasZoom(result.canvasState.zoom)
+    if (!initialized && isLoading) {
+      const initializeWorkflow = async () => {
+        try {
+          setLoadingMessage('Loading workflow data...')
+          
+          // Check if there's a saved workflow to load
+          const savedWorkflowId = WorkflowStorageService.getCurrentWorkflowId()
+          console.log('🏁 Initializing workflow with saved ID:', savedWorkflowId)
+          console.log('🏁 Current store nodes:', storeNodes?.length || 0)
+          console.log('🔍 Looking for saved workflow ID:', savedWorkflowId)
+          
+          if (savedWorkflowId) {
+            // Load existing workflow
+            try {
+              const result = await loadFromStorage(savedWorkflowId)
+              if (result?.canvasState) {
+                setCanvasOffset(result.canvasState.offset)
+                setCanvasZoom(result.canvasState.zoom)
+              }
+            } catch (error) {
+              console.error('Failed to load workflow:', error)
+              // Clear invalid workflow ID and create new workflow
+              WorkflowStorageService.clearCurrentWorkflowId()
+              toast.error('Previous workflow not found. Creating new workflow.')
+              try {
+                await createNewWorkflow('New Workflow')
+              } catch (createError) {
+                console.error('Failed to create new workflow:', createError)
+                toast.error(createError)
+              }
+            }
+          } else if (!storeNodes || storeNodes.length === 0) {
+            // Create new empty workflow
+            createNewWorkflow('New Workflow').catch(error => {
+              console.error('Failed to create new workflow:', error)
+              toast.error(error)
+            })
+          }
+          
+          // Skip loading env vars during initialization - will load on demand
+          
+          // Initialize graphs from storage
+          setLoadingMessage('Loading graphs...')
+          
+          // Get the most recent workflow
+          let recentWorkflows: any[] = []
+          try {
+            console.log('🔍 Loading workflow history...')
+            recentWorkflows = await WorkflowStorageService.getWorkflowHistory(1)
+            console.log('📚 Found workflows:', recentWorkflows.length, recentWorkflows.map(w => ({ id: w.id, name: w.name, activeGraphId: w.activeGraphId })))
+          } catch (error) {
+            console.error('❌ Failed to load workflow history:', error)
+            // Continue without history
+          }
+          if (recentWorkflows.length > 0) {
+            const snapshot = recentWorkflows[0]
+            
+            // Check if it's a multi-graph snapshot
+            const restored = restoreWorkflowFromSnapshot(snapshot)
+            console.log('📊 Restored snapshot with activeGraphId:', snapshot.activeGraphId)
+            if (restored.graphs) {
+              // Multi-graph workflow - convert to GraphInfo format and load
+              const graphInfos = restored.graphs.map(graph => {
+                const graphState = restoreGraphFromSerialized(graph)
+                return {
+                  id: graph.id,
+                  name: graph.name,
+                  namespace: graph.namespace,
+                  isMain: graph.isMain,
+                  isDirty: false,
+                  canvasState: graph.canvasState || { offset: { x: 0, y: 0 }, zoom: 1 },
+                  workflowState: {
+                    nodes: graphState.nodes,
+                    connections: graphState.connections,
+                    groups: graphState.groups,
+                    trigger: graph.isMain ? snapshot.trigger : null,
+                    portPositions: graphState.portPositions
+                  }
+                }
+              })
+              
+              // Determine the target graph BEFORE loading graphs
+              const targetGraphId = snapshot.activeGraphId && graphInfos.some(g => g.id === snapshot.activeGraphId)
+                ? snapshot.activeGraphId
+                : graphInfos.find(g => g.isMain)?.id || graphInfos[0].id
+              
+              console.log('📊 Available graphs:', graphInfos.map(g => ({ id: g.id, name: g.name, isMain: g.isMain })))
+              console.log('📊 Saved activeGraphId:', snapshot.activeGraphId)
+              console.log('📊 Target graph determined:', targetGraphId)
+              
+              // Load graphs with the correct active graph ID from the start
+              loadGraphs(graphInfos, targetGraphId)
+              console.log('✅ Loaded graphs with activeGraphId:', targetGraphId)
+            } else if (restored.nodes) {
+              // Legacy single-graph workflow
+              const mainGraphInfo = {
+                id: 'main',
+                name: 'Main',
+                namespace: 'main',
+                isMain: true,
+                isDirty: false,
+                canvasState: restored.canvasState || { offset: { x: 0, y: 0 }, zoom: 1 },
+                workflowState: {
+                  nodes: restored.nodes,
+                  connections: restored.connections || [],
+                  groups: restored.groups || [],
+                  trigger: snapshot.trigger,
+                  portPositions: undefined // Legacy workflows don't have saved port positions
+                }
+              }
+              
+              loadGraphs([mainGraphInfo])
+              switchGraph('main')
+            }
+            
+            // Set workflow metadata
+            setWorkflowName(snapshot.name)
+            
+            // IMPORTANT: Set the current workflow ID so it persists across refreshes
+            useWorkflowStore.setState({ workflowId: snapshot.id })
+            WorkflowStorageService.setCurrentWorkflowId(snapshot.id)
+            console.log('💾 Set current workflow ID:', snapshot.id)
+          }
+          
+          setInitialized(true)
+          
+          // Small delay to ensure everything is rendered
+          await new Promise(resolve => setTimeout(resolve, 200))
+          
+          setIsLoading(false)
+        } catch (error) {
+          console.error('Failed to initialize workflow:', error)
+          setIsLoading(false)
         }
-      } else if (storeNodes.length === 0) {
-        // Create new empty workflow
-        createNewWorkflow('New Workflow')
       }
       
-      setInitialized(true)
-      
-      // Load configured environment variables
-      updateConfiguredEnvVars()
+      initializeWorkflow()
     }
-  }, [initialized, storeNodes.length, setInitialized, loadFromStorage, createNewWorkflow])
+  }, [initialized, isLoading, storeNodes?.length, setInitialized, loadFromStorage, createNewWorkflow, loadGraphs, switchGraph])
 
   // Keyboard shortcut to test environment variable warning (Cmd+Shift+T)
   // useEffect(() => {
@@ -365,6 +549,56 @@ export default function Home() {
   useEffect(() => {
     setShowEnvVarWarning(missingEnvVars.length > 0)
   }, [missingEnvVars])
+  
+  
+  // Handle graph switching
+  useEffect(() => {
+    const currentGraph = getCurrentGraph()
+    if (!currentGraph) return
+    
+    // Load canvas state
+    if (currentGraph.canvasState) {
+      setCanvasOffset(currentGraph.canvasState.offset)
+      setCanvasZoom(currentGraph.canvasState.zoom)
+    } else {
+      // Reset canvas state for new graph
+      setCanvasOffset({ x: 0, y: 0 })
+      setCanvasZoom(1)
+    }
+    
+    // Load workflow state
+    if (currentGraph.workflowState) {
+      loadGraphState(currentGraph.workflowState)
+      
+      // Trigger port position measurement by applying a tiny transform to each node
+      // This mimics what happens when a node is moved, which correctly calculates port positions
+      setTimeout(() => {
+        const state = useWorkflowStore.getState()
+        state.nodes.forEach(node => {
+          // Apply a tiny position change to trigger port position recalculation
+          const currentPos = node.position
+          updateNodePosition(node.metadata.id, { 
+            x: currentPos.x + 0.1, 
+            y: currentPos.y + 0.1 
+          })
+          // Immediately revert to original position
+          setTimeout(() => {
+            updateNodePosition(node.metadata.id, currentPos)
+          }, 10)
+        })
+      }, 300)
+    } else if (currentGraph.id !== 'main' || !initialized) {
+      // Only clear for non-main graphs or if not initialized
+      loadGraphState({
+        nodes: [],
+        connections: [],
+        groups: [],
+        trigger: null
+      })
+    }
+  }, [currentGraphId, getCurrentGraph, loadGraphState, initialized, updateAllPortPositions])
+  
+  
 
   // Check for nodes that need configuration and show toast
   useEffect(() => {
@@ -420,8 +654,40 @@ export default function Home() {
     return () => window.removeEventListener('resize', updateViewportSize)
   }, [])
 
+  // Automatic graph state persistence - save current graph state to graph store when changes occur
+  useEffect(() => {
+    if (!initialized) return // Don't persist before initialization
+    
+    const currentGraph = getCurrentGraph()
+    if (currentGraph) {
+      const workflowState = saveCurrentGraphState()
+      updateWorkflowState(currentGraph.id, workflowState)
+      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+      console.log('📝 Graph state persisted to store:', currentGraph.id)
+    }
+  }, [storeNodes, connections, groups, workflowTrigger, canvasOffset, canvasZoom, initialized])
+
+  // Opt-in autosave to storage/server - only when enabled
+  useEffect(() => {
+    if (!autosaveEnabled || !initialized) return
+    
+    const autosaveDelay = 5000 // 5 seconds delay for actual persistence
+    const autosaveTimer = setTimeout(() => {
+      try {
+        saveWorkflowSilent()
+        console.log('🔄 Autosaved to storage (activeGraphId:', currentGraphId, ')')
+      } catch (error) {
+        console.error('Autosave failed:', error)
+      }
+    }, autosaveDelay)
+
+    return () => clearTimeout(autosaveTimer)
+  }, [storeNodes, connections, groups, workflowTrigger, graphs, currentGraphId, autosaveEnabled, initialized])
+
   const handleNodePositionChange = (nodeId: string, position: { x: number; y: number }) => {
     updateNodePosition(nodeId, position)
+    // Mark graph as dirty when nodes are moved
+    setGraphDirty(currentGraphId, true)
     // Clear highlighting when a node is moved
     if (highlightedNodeId === nodeId) {
       setHighlightedNodeId(null)
@@ -555,10 +821,10 @@ export default function Home() {
     }, 2000)
   }
 
-  // Handle save workflow
-  const handleSaveWorkflow = () => {
+  // Handle save workflow (with toast)
+  const handleSaveWorkflow = async () => {
     try {
-      saveToStorageWithCanvasState({ offset: canvasOffset, zoom: canvasZoom })
+      await saveWorkflowSilent()
       ToastManager.success(`Workflow "${workflowName}" saved successfully!`)
     } catch (error) {
       ToastManager.error('Failed to save workflow. Please try again.')
@@ -566,10 +832,162 @@ export default function Home() {
     }
   }
 
-  // Handle publish workflow
-  const handlePublishWorkflow = () => {
+  // Handle save individual graph
+  const handleSaveGraph = async () => {
+    const currentGraph = getCurrentGraph()
+    if (!currentGraph || !currentGraph.isDirty) return
+    
+    setIsSavingGraph(true)
     try {
-      publishWorkflow()
+      // Save the current graph state
+      const workflowState = saveCurrentGraphState()
+      updateWorkflowState(currentGraph.id, workflowState)
+      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+      
+      // Save to storage
+      await saveWorkflowSilent()
+      
+      // Mark only the current graph as clean
+      setGraphDirty(currentGraph.id, false)
+      
+      // Success message
+      toast.success(`Graph "${currentGraph.name}" saved successfully`)
+    } catch (error) {
+      console.error('Failed to save graph:', error)
+      toast.error('Failed to save graph')
+    } finally {
+      setIsSavingGraph(false)
+    }
+  }
+
+  // Silent save function for autosave (no toast)
+  const saveWorkflowSilent = async () => {
+    try {
+      // Save current graph state first
+      const currentGraph = getCurrentGraph()
+      if (currentGraph) {
+        const workflowState = saveCurrentGraphState()
+        console.log('💾 Saving workflow state:', {
+          nodeCount: workflowState.nodes.length,
+          subgraphNodes: workflowState.nodes.filter(n => n.metadata.type === 'subgraph'),
+          allNodeTypes: workflowState.nodes.map(n => n.metadata.type)
+        })
+        updateWorkflowState(currentGraph.id, workflowState)
+        updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+      }
+      
+      // Create workflow graphs from graph store
+      const workflowGraphs = graphs.map(g => {
+        const graphState = g.workflowState || { nodes: [], connections: [], groups: [], trigger: null }
+        // Get current port positions from store when saving
+        const currentPortPositions = g.id === currentGraphId ? useWorkflowStore.getState().portPositions : undefined
+        return createWorkflowGraph(
+          g.id,
+          g.name,
+          g.namespace,
+          g.isMain,
+          graphState.nodes || [],
+          graphState.connections || [],
+          graphState.groups || [],
+          g.canvasState,
+          currentPortPositions
+        )
+      })
+      
+      // Get existing snapshot if available
+      const existingSnapshot = workflowId ? await WorkflowStorageService.getWorkflow(workflowId) : null
+      
+      // Create multi-graph snapshot
+      const snapshot = createWorkflowSnapshot(
+        workflowGraphs,
+        currentGraphId,
+        workflowName,
+        workflowId || undefined,
+        existingSnapshot || undefined,
+        workflowTrigger
+      )
+      
+      // Save to storage
+      console.log('🔄 Saving workflow with activeGraphId:', snapshot.activeGraphId)
+      const savedWorkflow = await WorkflowStorageService.saveWorkflow(snapshot)
+      console.log('✅ Workflow saved successfully:', savedWorkflow.id)
+      
+      // Update workflowId if it was a new workflow
+      if (!workflowId && savedWorkflow.id) {
+        // Update the workflowId in the store
+        useWorkflowStore.setState({ workflowId: savedWorkflow.id })
+        WorkflowStorageService.setCurrentWorkflowId(savedWorkflow.id)
+      }
+      
+      // Mark all graphs as clean after successful save
+      graphs.forEach(graph => {
+        setGraphDirty(graph.id, false)
+      })
+    } catch (error) {
+      console.error('Failed to save workflow:', error)
+      toast.error(error)
+      throw error // Re-throw to let autosave handler catch it
+    }
+  }
+
+  // Check if there are any unsaved changes across all graphs
+  const hasUnsavedChanges = () => {
+    return graphs.some(graph => graph.isDirty)
+  }
+
+  // Handle navigation with unsaved changes check
+  const handleNavigationWithCheck = (action: () => void, actionGraphName?: string) => {
+    const dirtyGraphs = graphs.filter(graph => graph.isDirty)
+    
+    if (dirtyGraphs.length > 0) {
+      // Show dialog with the first dirty graph's name
+      const graphName = actionGraphName || dirtyGraphs[0].name
+      setUnsavedChangesDialog({
+        isOpen: true,
+        pendingAction: action,
+        graphName
+      })
+    } else {
+      // No unsaved changes, proceed with action
+      action()
+    }
+  }
+
+  // Handle unsaved changes dialog actions
+  const handleUnsavedChangesSave = async () => {
+    try {
+      await handleSaveWorkflow()
+      // After successful save, execute the pending action
+      if (unsavedChangesDialog.pendingAction) {
+        unsavedChangesDialog.pendingAction()
+      }
+      setUnsavedChangesDialog({ isOpen: false, pendingAction: null })
+    } catch (error) {
+      // Error already handled in handleSaveWorkflow
+    }
+  }
+
+  const handleUnsavedChangesDiscard = () => {
+    // Mark all graphs as clean since we're discarding changes
+    graphs.forEach(graph => {
+      setGraphDirty(graph.id, false)
+    })
+    
+    // Execute the pending action
+    if (unsavedChangesDialog.pendingAction) {
+      unsavedChangesDialog.pendingAction()
+    }
+    setUnsavedChangesDialog({ isOpen: false, pendingAction: null })
+  }
+
+  const handleUnsavedChangesCancel = () => {
+    setUnsavedChangesDialog({ isOpen: false, pendingAction: null })
+  }
+
+  // Handle publish workflow
+  const handlePublishWorkflow = async () => {
+    try {
+      await publishWorkflow()
       ToastManager.success(`Workflow "${workflowName}" published successfully!`)
     } catch (error) {
       ToastManager.error('Failed to publish workflow. Please try again.')
@@ -578,28 +996,93 @@ export default function Home() {
   }
 
   // Handle load workflow from history
-  const handleLoadWorkflow = (selectedWorkflowId: string) => {
-    try {
-      // Save current workflow first if it has changes
-      if (workflowId !== selectedWorkflowId && storeNodes.length > 0) {
-        saveToStorageWithCanvasState({ offset: canvasOffset, zoom: canvasZoom })
+  const handleLoadWorkflow = async (selectedWorkflowId: string) => {
+    const action = async () => {
+      try {
+        // Save current workflow first if it has changes
+        if (workflowId !== selectedWorkflowId && storeNodes.length > 0) {
+          await saveToStorageWithCanvasState({ offset: canvasOffset, zoom: canvasZoom })
+        }
+        
+        // Load the selected workflow with multi-graph support
+        const snapshot = await WorkflowStorageService.getWorkflow(selectedWorkflowId)
+        if (!snapshot) {
+          throw new Error('Workflow not found')
+        }
+        
+        // Restore the workflow
+        const restored = restoreWorkflowFromSnapshot(snapshot)
+        
+        if (restored.graphs && restored.graphs.length > 0) {
+          // Multi-graph workflow
+          const graphInfos = restored.graphs.map(graph => {
+            const graphState = restoreGraphFromSerialized(graph)
+            return {
+              id: graph.id,
+              name: graph.name,
+              namespace: graph.namespace,
+              isMain: graph.isMain,
+              isDirty: false,
+              canvasState: graph.canvasState || { offset: { x: 0, y: 0 }, zoom: 1 },
+              workflowState: {
+                nodes: graphState.nodes,
+                connections: graphState.connections,
+                groups: graphState.groups,
+                trigger: graph.isMain ? snapshot.trigger : null,
+                portPositions: graphState.portPositions
+              }
+            }
+          })
+          
+          // Determine the target graph BEFORE loading graphs
+          const targetGraphId = snapshot.activeGraphId && graphInfos.some(g => g.id === snapshot.activeGraphId)
+            ? snapshot.activeGraphId
+            : graphInfos.find(g => g.isMain)?.id || graphInfos[0].id
+          
+          // Load all graphs with the correct active graph ID from the start
+          loadGraphs(graphInfos, targetGraphId)
+          
+          // Load the target graph state
+          const targetGraph = graphInfos.find(g => g.id === targetGraphId)
+          if (targetGraph && targetGraph.workflowState) {
+            loadGraphState(targetGraph.workflowState)
+            if (targetGraph.canvasState) {
+              setCanvasOffset(targetGraph.canvasState.offset)
+              setCanvasZoom(targetGraph.canvasState.zoom)
+            }
+          }
+          
+          // Update workflow metadata
+          useWorkflowStore.setState({
+            workflowId: snapshot.id,
+            workflowName: snapshot.name,
+            workflowTrigger: snapshot.trigger || null
+          })
+        } else {
+          // Legacy single-graph workflow
+          const result = await loadFromStorage(selectedWorkflowId)
+          if (result?.canvasState) {
+            setCanvasOffset(result.canvasState.offset)
+            setCanvasZoom(result.canvasState.zoom)
+          }
+        }
+        
+        // The workflowName will be updated by the store after loading
+        setTimeout(() => {
+          const { workflowName: newName } = useWorkflowStore.getState()
+          ToastManager.info(`Loaded workflow "${newName}"`)
+        }, 100)
+      } catch (error) {
+        ToastManager.error('Failed to load workflow. Please try again.')
+        console.error('Load error:', error)
       }
-      
-      // Load the selected workflow
-      const result = loadFromStorage(selectedWorkflowId)
-      if (result?.canvasState) {
-        setCanvasOffset(result.canvasState.offset)
-        setCanvasZoom(result.canvasState.zoom)
-      }
-      
-      // The workflowName will be updated by the store after loading
-      setTimeout(() => {
-        const { workflowName: newName } = useWorkflowStore.getState()
-        ToastManager.info(`Loaded workflow "${newName}"`)
-      }, 100)
-    } catch (error) {
-      ToastManager.error('Failed to load workflow. Please try again.')
-      console.error('Load error:', error)
+    }
+    
+    // Check for unsaved changes before loading a different workflow
+    if (hasUnsavedChanges()) {
+      handleNavigationWithCheck(action, workflowName)
+    } else {
+      await action()
     }
   }
 
@@ -615,7 +1098,9 @@ export default function Home() {
   }
 
   // Handle opening config from warning
-  const handleOpenConfigFromWarning = () => {
+  const handleOpenConfigFromWarning = async () => {
+    // Fetch env vars when opening configuration
+    await updateConfiguredEnvVars()
     setIsConfigOpen(true)
   }
 
@@ -643,6 +1128,7 @@ export default function Home() {
     setEmptyGroupPosition(canvasPosition)
     setIsEmptyGroupModalOpen(true)
   }
+
 
   const handleNodeDropIntoGroup = (nodeId: string, groupId: string) => {
     addNodeToGroup(groupId, nodeId)
@@ -697,6 +1183,70 @@ export default function Home() {
     setDeletingGroupId(null)
   }
   
+  // Tab bar handlers
+  const handleTabSelect = (graphId: string) => {
+    // Don't do anything if we're selecting the current graph
+    if (graphId === currentGraphId) return
+    
+    const currentGraph = getCurrentGraph()
+    
+    // Always save current graph state before switching (in memory, not to storage)
+    if (currentGraph) {
+      // Save canvas state
+      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+      
+      // Save workflow state
+      const workflowState = saveCurrentGraphState()
+      updateWorkflowState(currentGraph.id, workflowState)
+    }
+    
+    // Switch to new graph
+    switchGraph(graphId)
+  }
+  
+  const handleTabClose = (graphId: string) => {
+    const graph = graphs.find(g => g.id === graphId)
+    if (graph?.isMain) {
+      // Can't close main graph
+      return
+    }
+    
+    // Check if this graph has unsaved changes
+    if (graph?.isDirty) {
+      handleNavigationWithCheck(() => {
+        if (removeGraph(graphId)) {
+          // Graph was removed successfully
+        }
+      }, graph.name)
+    } else {
+      if (removeGraph(graphId)) {
+        // Graph was removed successfully
+      }
+    }
+  }
+  
+  const handleTabAdd = () => {
+    const currentGraph = getCurrentGraph()
+    
+    // Save current graph state before adding new graph (in memory, not to storage)
+    if (currentGraph) {
+      const workflowState = saveCurrentGraphState()
+      updateWorkflowState(currentGraph.id, workflowState)
+      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+    }
+    
+    const newGraphId = addGraph(`Graph ${graphs.length + 1}`)
+    switchGraph(newGraphId)
+  }
+  
+  const handleTabRename = (graphId: string, newName: string) => {
+    renameGraph(graphId, newName)
+  }
+  
+  const handleSetMainTab = (graphId: string) => {
+    setMainGraph(graphId)
+  }
+  
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
     const portPosition = getPortPosition(nodeId, portId)
     
@@ -723,6 +1273,8 @@ export default function Home() {
           ...newConnection, 
           state: 'pending' as const 
         })
+        // Mark graph as dirty when connections are created
+        setGraphDirty(currentGraphId, true)
       }
     }
   }
@@ -738,6 +1290,8 @@ export default function Home() {
   const handleDeleteConnection = () => {
     if (connectionToDelete) {
       removeConnection(connectionToDelete)
+      // Mark graph as dirty when connections are deleted
+      setGraphDirty(currentGraphId, true)
       setConnectionToDelete(null)
       setDeleteDialogOpen(false)
     }
@@ -784,6 +1338,12 @@ export default function Home() {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
     
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't handle keyboard shortcuts if user is typing in an input field
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
+      
       // Press '1', '2', '3', '4' to set the first connection to different states
       if (['1', '2', '3', '4'].includes(e.key) && connections.length > 0) {
         const states: ('pending' | 'warning' | 'error' | 'success')[] = ['pending', 'warning', 'error', 'success']
@@ -847,6 +1407,15 @@ export default function Home() {
           ToastManager.info('Environment variable storage cleared')
         }
         
+        // Cmd+Shift+D to clear dirty state on all graphs (for debugging)
+        if (e.key === 'd') {
+          e.preventDefault()
+          graphs.forEach(graph => {
+            setGraphDirty(graph.id, false)
+          })
+          ToastManager.info('Cleared dirty state on all graphs')
+        }
+        
         // Cmd+Shift+C to create test connection (for debugging)
         if (e.key === 'c') {
           e.preventDefault()
@@ -895,8 +1464,11 @@ export default function Home() {
 
   return (
     <main className="flex h-screen flex-col bg-gray-50 overflow-hidden">
+      {/* Loading Overlay */}
+      {isLoading && <LoadingOverlay message={loadingMessage} />}
+      
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shadow-sm relative z-10">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-medium text-gray-900">Zeal</h1>
           <div className="flex items-center gap-2">
@@ -952,7 +1524,7 @@ export default function Home() {
               </div>
             )}
             {workflowId && <span className="text-xs text-gray-400">ID: {workflowId.slice(0, 8)}...</span>}
-            {workflowTrigger && (
+            {workflowTrigger && getCurrentGraph()?.isMain && (
               <button
                 onClick={() => {
                   // Find and click the trigger manager button to open the modal
@@ -988,13 +1560,30 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button 
-            onClick={handleSaveWorkflow}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
-          >
-            <Save className="w-3.5 h-3.5" />
-            Save
-          </button>
+          {/* Save button group with shared border */}
+          <div className="flex items-center border border-gray-200 rounded-md overflow-hidden">
+            <button 
+              onClick={handleSaveWorkflow}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              <Save className="w-3.5 h-3.5" />
+              Save
+            </button>
+            
+            {/* Autosave Toggle */}
+            <button
+              onClick={() => setAutosaveEnabled(!autosaveEnabled)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-l cursor-pointer ${
+                autosaveEnabled 
+                  ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200' 
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
+              }`}
+              title={autosaveEnabled ? 'Autosave: ON - Click to disable' : 'Autosave: OFF - Click to enable'}
+            >
+              <RotateCcw className={`w-3 h-3 ${autosaveEnabled ? 'animate-spin' : ''}`} />
+              {autosaveEnabled ? 'Auto' : 'Manual'}
+            </button>
+          </div>
           <button 
             onClick={handlePublishWorkflow}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
@@ -1011,6 +1600,22 @@ export default function Home() {
           </button>
         </div>
       </header>
+      
+      {/* Tab Bar */}
+      <TabBar
+        tabs={graphs.map(g => ({
+          id: g.id,
+          name: g.name,
+          isMain: g.isMain,
+          isDirty: g.isDirty
+        }))}
+        activeTabId={currentGraphId}
+        onTabSelect={handleTabSelect}
+        onTabClose={handleTabClose}
+        onTabAdd={handleTabAdd}
+        onTabRename={handleTabRename}
+        onSetMainTab={handleSetMainTab}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex relative overflow-hidden">
@@ -1059,15 +1664,53 @@ export default function Home() {
                 zoom={canvasZoom}
               >
                 {/* Render nodes that belong to this group */}
-                {groupNodes.map(node => (
-                  <DraggableNode
-                    key={`group-${group.id}-node-${node.metadata.id}`}
-                    metadata={node.metadata}
-                    position={{
-                      x: node.position.x - group.position.x,
-                      y: node.position.y - group.position.y - (group.description ? 60 : 32)
-                    }}
-                    onPositionChange={(nodeId, position) => {
+                {groupNodes.map(node => {
+                  // Check if this is a subgraph node
+                  if (node.metadata.type === 'subgraph') {
+                    return (
+                      <SubgraphNode
+                        key={`group-${group.id}-node-${node.metadata.id}`}
+                        metadata={node.metadata as any}
+                        position={{
+                          x: node.position.x - group.position.x,
+                          y: node.position.y - group.position.y - (group.description ? 60 : 32)
+                        }}
+                        onPositionChange={(nodeId, position) => {
+                          // Convert relative position back to absolute
+                          handleNodePositionChange(nodeId, {
+                            x: position.x + group.position.x,
+                            y: position.y + group.position.y + (group.description ? 60 : 32)
+                          })
+                        }}
+                        onBoundsChange={(nodeId, bounds) => {
+                          // Use absolute node position for bounds
+                          updateNodeBounds(nodeId, {
+                            x: node.position.x,
+                            y: node.position.y,
+                            width: bounds.width,
+                            height: bounds.height
+                          })
+                        }}
+                        onPortPositionUpdate={updatePortPosition}
+                        onPortDragStart={handlePortDragStart}
+                        onPortDragEnd={handlePortDragEnd}
+                        onClick={() => handleNodeSelect(node.metadata.id)}
+                        isHighlighted={node.metadata.id === highlightedNodeId}
+                        isNodeSelected={isNodeSelected(node.metadata.id)}
+                        zoom={canvasZoom}
+                      />
+                    )
+                  }
+                  
+                  return (
+                    <DraggableNode
+                      key={`group-${group.id}-node-${node.metadata.id}`}
+                      metadata={node.metadata}
+                      position={{
+                        x: node.position.x - group.position.x,
+                        y: node.position.y - group.position.y - (group.description ? 60 : 32)
+                      }}
+                      onPositionChange={(nodeId, position) => {
                       // Convert relative position back to absolute
                       handleNodePositionChange(nodeId, {
                         x: position.x + group.position.x,
@@ -1094,7 +1737,8 @@ export default function Home() {
                     groups={groups}
                     zoom={canvasZoom}
                   />
-                ))}
+                  )
+                })}
               </NodeGroupContainer>
             )
           })}
@@ -1111,25 +1755,58 @@ export default function Home() {
           {/* Ungrouped Workflow Nodes */}
           {storeNodes
             .filter(node => !groups.some(group => group.nodeIds.includes(node.metadata.id)))
-            .map(node => (
-              <DraggableNode
-                key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                metadata={node.metadata}
-                position={node.position}
-                onPositionChange={handleNodePositionChange}
-                onBoundsChange={updateNodeBounds}
-                onPortPositionUpdate={updatePortPosition}
-                onPortDragStart={handlePortDragStart}
-                onPortDragEnd={handlePortDragEnd}
-                onClick={handleNodeSelect}
-                isHighlighted={node.metadata.id === highlightedNodeId}
-                isSelected={isNodeSelected(node.metadata.id)}
-                onNodeDropIntoGroup={handleNodeDropIntoGroup}
-                onNodeHoverGroup={handleNodeHoverGroup}
-                groups={groups}
-                zoom={canvasZoom}
-              />
-            ))}
+            .map(node => {
+              // Debug log for subgraph nodes
+              // if (node.metadata.type === 'subgraph') {
+              //   console.log('🔍 Rendering subgraph node:', {
+              //     id: node.metadata.id,
+              //     type: node.metadata.type,
+              //     title: node.metadata.title,
+              //     graphId: (node.metadata as any).graphId,
+              //     graphNamespace: (node.metadata as any).graphNamespace
+              //   })
+              // }
+              
+              // Check if this is a subgraph node
+              if (node.metadata.type === 'subgraph') {
+                return (
+                  <SubgraphNode
+                    key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
+                    metadata={node.metadata as any}
+                    position={node.position}
+                    onPositionChange={handleNodePositionChange}
+                    onBoundsChange={updateNodeBounds}
+                    onPortPositionUpdate={updatePortPosition}
+                    onPortDragStart={handlePortDragStart}
+                    onPortDragEnd={handlePortDragEnd}
+                    onClick={() => handleNodeSelect(node.metadata.id)}
+                    isHighlighted={node.metadata.id === highlightedNodeId}
+                    isNodeSelected={isNodeSelected(node.metadata.id)}
+                    zoom={canvasZoom}
+                  />
+                )
+              }
+              
+              return (
+                <DraggableNode
+                  key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
+                  metadata={node.metadata}
+                  position={node.position}
+                  onPositionChange={handleNodePositionChange}
+                  onBoundsChange={updateNodeBounds}
+                  onPortPositionUpdate={updatePortPosition}
+                  onPortDragStart={handlePortDragStart}
+                  onPortDragEnd={handlePortDragEnd}
+                  onClick={handleNodeSelect}
+                  isHighlighted={node.metadata.id === highlightedNodeId}
+                  isSelected={isNodeSelected(node.metadata.id)}
+                  onNodeDropIntoGroup={handleNodeDropIntoGroup}
+                  onNodeHoverGroup={handleNodeHoverGroup}
+                  groups={groups}
+                  zoom={canvasZoom}
+                />
+              )
+            })}
         </InteractiveCanvas>
 
         {/* Floating UI Components */}
@@ -1152,7 +1829,16 @@ export default function Home() {
             const centerY = (-canvasOffset.y + viewportSize.height / 2) / canvasZoom
             handleCreateEmptyGroup({ x: centerX, y: centerY })
           }}
-          onConfigClick={() => setIsConfigOpen(true)}
+          onConfigClick={async () => {
+            // Fetch env vars when opening configuration
+            await updateConfiguredEnvVars()
+            setIsConfigOpen(true)
+          }}
+          onAddSubgraphClick={() => {
+            setSelectedCategory(null) // Reset category
+            setSearchModalInitialTab('subgraphs') // Open to subgraphs tab
+            setIsSearchOpen(true)
+          }}
         />
         
         <Minimap
@@ -1161,6 +1847,15 @@ export default function Home() {
             id: bounds.id,
             position: { x: bounds.x, y: bounds.y },
             size: { width: bounds.width, height: bounds.height }
+          }))}
+          groups={groups.map(group => ({
+            id: group.id,
+            position: group.position,
+            size: group.size,
+            color: group.color,
+            collapsed: group.collapsed,
+            title: group.title,
+            nodeIds: group.nodeIds
           }))}
           viewportSize={viewportSize}
           onViewportChange={setCanvasOffset}
@@ -1171,6 +1866,14 @@ export default function Home() {
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onZoomReset={handleZoomReset}
+        />
+        
+        {/* Save Graph Button */}
+        <SaveGraphButton
+          isVisible={getCurrentGraph()?.isDirty || false}
+          graphName={getCurrentGraph()?.name || ''}
+          onSave={handleSaveGraph}
+          isSaving={isSavingGraph}
         />
         </div>
 
@@ -1216,8 +1919,10 @@ export default function Home() {
           onClose={() => {
             setIsSearchOpen(false)
             setSelectedCategory(null) // Reset category selection
+            setSearchModalInitialTab(undefined) // Reset tab selection
           }}
           initialCategory={selectedCategory}
+          initialTab={searchModalInitialTab}
           onNodeAdded={handleNodeAdded}
           canvasOffset={canvasOffset}
           canvasZoom={canvasZoom}
@@ -1232,6 +1937,15 @@ export default function Home() {
           onCancel={handleCancelDelete}
         />
       </ModalPortal>
+
+      {/* Unsaved Changes Dialog */}
+      <UnsavedChangesDialog
+        isOpen={unsavedChangesDialog.isOpen}
+        onSave={handleUnsavedChangesSave}
+        onDiscard={handleUnsavedChangesDiscard}
+        onCancel={handleUnsavedChangesCancel}
+        graphName={unsavedChangesDialog.graphName}
+      />
 
       {/* History Browser */}
       <HistoryBrowser

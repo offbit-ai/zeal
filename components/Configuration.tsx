@@ -12,7 +12,6 @@ interface ConfigurationProps {
 
 export function Configuration({ isOpen, onClose, onVariableConfigured }: ConfigurationProps) {
   const [activeSection, setActiveSection] = useState<string>('environment')
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
   const [editingVar, setEditingVar] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
   const [newVar, setNewVar] = useState({ key: '', value: '', isSecret: false })
@@ -30,28 +29,61 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
     }
   }, [isOpen])
 
-  const toggleSecretVisibility = (varId: string) => {
-    setShowSecrets(prev => ({ ...prev, [varId]: !prev[varId] }))
-  }
 
   const addVariable = async (sectionId: string) => {
     if (!newVar.key.trim()) return
     
-    const newVariable: EnvironmentVariable = {
-      id: Date.now().toString(),
-      ...newVar
+    // Validate environment variable key format
+    if (!/^[A-Z][A-Z0-9_]*$/.test(newVar.key)) {
+      alert('Environment variable key must start with uppercase letter and contain only uppercase letters, numbers, and underscores')
+      return
     }
     
-    const updatedSections = configSections.map(section => 
-      section.id === sectionId 
-        ? { ...section, variables: [...section.variables, newVariable] }
-        : section
-    )
+    // If we're in the secrets section, force isSecret to true
+    const isSecret = sectionId === 'secrets' || newVar.isSecret
+    
+    // Create the new variable
+    const newVariable: EnvironmentVariable = {
+      id: Date.now().toString(),
+      key: newVar.key,
+      value: isSecret ? '••••••••' : newVar.value, // Mask secrets immediately
+      isSecret: isSecret
+    }
+    
+    // Add to the appropriate section
+    const updatedSections = configSections.map(section => {
+      // For secrets, always add to the secrets section
+      if (isSecret && section.id === 'secrets') {
+        return { ...section, variables: [...section.variables, newVariable] }
+      }
+      // For non-secrets, add to the specified section (usually environment)
+      if (!isSecret && section.id === sectionId) {
+        return { ...section, variables: [...section.variables, newVariable] }
+      }
+      return section
+    })
     
     setConfigSections(updatedSections)
     
+    // If we added a secret, switch to the secrets section
+    if (isSecret && activeSection !== 'secrets') {
+      setActiveSection('secrets')
+    }
+    
     try {
-      await EnvVarService.saveConfigSections(updatedSections)
+      // Send to API (even though backend doesn't persist yet, we follow the pattern)
+      if (isSecret) {
+        // For secrets, send the actual value to API
+        await EnvVarService.saveSecret({
+          key: newVar.key,
+          value: newVar.value, // Send actual value to API
+          isSecret: true
+        })
+      } else {
+        // For non-secrets, save normally
+        await EnvVarService.saveConfigSections(updatedSections)
+      }
+      
       setNewVar({ key: '', value: '', isSecret: false })
       
       // Notify parent that a variable was configured
@@ -60,8 +92,8 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
       }
     } catch (error) {
       console.error('Failed to save variable:', error)
-      // Revert the optimistic update
-      setConfigSections(configSections)
+      // Don't revert on error since backend doesn't persist anyway
+      // Just log the error
     }
   }
 
@@ -119,9 +151,9 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
   }
 
   const renderVariable = (variable: EnvironmentVariable, sectionId: string) => {
-    const isVisible = showSecrets[variable.id]
-    const displayValue = variable.isSecret && !isVisible 
-      ? '••••••••••••••••' 
+    // Secrets are always masked
+    const displayValue = variable.isSecret 
+      ? '••••••••' 
       : variable.value
     const needsAttention = variable.needsAttention || (!variable.value && variable.addedAutomatically)
 
@@ -151,20 +183,8 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
         </div>
         
         <div className="flex items-center gap-1">
-          {variable.isSecret && (
-            <button
-              onClick={() => toggleSecretVisibility(variable.id)}
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
-              title={isVisible ? 'Hide value' : 'Show value'}
-            >
-              {isVisible ? (
-                <EyeOff className="w-4 h-4 text-gray-500" />
-              ) : (
-                <Eye className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-          )}
-          {editingVar === variable.id ? (
+          {/* Only show edit button for non-secrets */}
+          {!variable.isSecret && editingVar === variable.id ? (
             <div className="flex items-center gap-1">
               <input
                 type="text"
@@ -195,7 +215,7 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
                 <Edit3 className="w-4 h-4 text-green-600" />
               </button>
             </div>
-          ) : (
+          ) : !variable.isSecret ? (
             <button
               onClick={() => {
                 setEditingVar(variable.id)
@@ -205,6 +225,15 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
               title="Edit"
             >
               <Edit3 className="w-4 h-4 text-gray-500" />
+            </button>
+          ) : (
+            // Secrets show a disabled edit button
+            <button
+              disabled
+              className="p-1 opacity-30 cursor-not-allowed"
+              title="Secrets cannot be edited"
+            >
+              <Edit3 className="w-4 h-4 text-gray-400" />
             </button>
           )}
           <button
@@ -301,11 +330,11 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
                       type="text"
                       placeholder="Variable name (e.g., API_KEY)"
                       value={newVar.key}
-                      onChange={(e) => setNewVar(prev => ({ ...prev, key: e.target.value }))}
+                      onChange={(e) => setNewVar(prev => ({ ...prev, key: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') }))}
                       className="px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                     <input
-                      type="text"
+                      type={(activeSection === 'secrets' || newVar.isSecret) ? "password" : "text"}
                       placeholder="Variable value"
                       value={newVar.value}
                       onChange={(e) => setNewVar(prev => ({ ...prev, value: e.target.value }))}
@@ -316,11 +345,13 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
                     <label className="flex items-center gap-2 text-sm text-gray-600">
                       <input
                         type="checkbox"
-                        checked={newVar.isSecret}
+                        checked={activeSection === 'secrets' || newVar.isSecret}
                         onChange={(e) => setNewVar(prev => ({ ...prev, isSecret: e.target.checked }))}
                         className="rounded border-gray-300"
+                        disabled={activeSection === 'secrets'}
                       />
                       Mark as secret
+                      {activeSection === 'secrets' && <span className="text-xs text-gray-500">(auto-enabled in Secrets section)</span>}
                     </label>
                     <button
                       onClick={() => addVariable(currentSection.id)}

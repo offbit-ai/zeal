@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Zap, Edit2, Trash2, AlertCircle, Globe, Cable, Clock } from "lucide-react";
+import { Zap, Edit2, Trash2, AlertCircle, Globe, Cable, Clock, Lock } from "lucide-react";
 import { TriggerModal, TriggerConfig } from "./TriggerModal";
 import { useWorkflowStore } from "@/store/workflowStore";
 import { ModalPortal } from "./ModalPortal";
+import { useGraphStore } from "@/store/graphStore";
 
 export function TriggerManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -13,9 +14,14 @@ export function TriggerManager() {
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { workflowTrigger, setWorkflowTrigger } = useWorkflowStore();
+  const { getCurrentGraph, currentGraphId, setGraphDirty } = useGraphStore();
+  
+  const currentGraph = getCurrentGraph();
+  const isMainGraph = currentGraph?.isMain || false;
 
   const handleTriggerConfigured = (trigger: TriggerConfig) => {
     setWorkflowTrigger(trigger);
+    setGraphDirty(currentGraphId, true);
     setEditingTrigger(null);
   };
 
@@ -28,6 +34,7 @@ export function TriggerManager() {
 
   const handleDelete = () => {
     setWorkflowTrigger(null);
+    setGraphDirty(currentGraphId, true);
     setShowDeleteConfirm(false);
   };
 
@@ -71,18 +78,29 @@ export function TriggerManager() {
   return (
     <>
       {/* Floating Button */}
-      <div className="fixed left-4 top-56 z-20">
+      <div className="fixed left-4 top-65 z-20">
         <div className="relative group">
           <button
-            onClick={() => setIsModalOpen(true)}
-            className={`p-3 rounded-lg shadow-lg transition-all transform hover:scale-105 ${
-              workflowTrigger
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-gray-800 hover:bg-gray-900"
+            onClick={() => isMainGraph && setIsModalOpen(true)}
+            className={`p-3 rounded-lg shadow-lg transition-all transform ${
+              !isMainGraph
+                ? "bg-gray-400 cursor-not-allowed"
+                : workflowTrigger
+                ? "bg-green-600 hover:bg-green-700 hover:scale-105"
+                : "bg-gray-800 hover:bg-gray-900 hover:scale-105"
             }`}
-            title={workflowTrigger ? "Edit Trigger" : "Configure Trigger"}
+            title={
+              !isMainGraph
+                ? "Triggers are only available for the main graph"
+                : workflowTrigger
+                ? "Edit Trigger"
+                : "Configure Trigger"
+            }
+            disabled={!isMainGraph}
           >
-            {workflowTrigger ? (
+            {!isMainGraph ? (
+              <Lock className="w-5 h-5 text-white" />
+            ) : workflowTrigger ? (
               React.createElement(getTriggerIcon(), { className: "w-5 h-5 text-white" })
             ) : (
               <Zap className="w-5 h-5 text-white" />
@@ -90,7 +108,20 @@ export function TriggerManager() {
           </button>
 
           {/* Hover Details */}
-          {workflowTrigger && (
+          {!isMainGraph ? (
+            <div className="absolute left-full ml-2 top-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+              <div className="bg-gray-800 text-white rounded-lg shadow-xl p-3 min-w-[250px]">
+                <div className="flex items-center gap-2 mb-1">
+                  <Lock className="w-4 h-4" />
+                  <h4 className="font-medium text-sm">Triggers Disabled</h4>
+                </div>
+                <p className="text-xs text-gray-300">
+                  Triggers are only available for the main graph. 
+                  This is a subgraph that can be called from other graphs.
+                </p>
+              </div>
+            </div>
+          ) : workflowTrigger ? (
             <div className="absolute left-full ml-2 top-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
               <div className="bg-white rounded-lg shadow-xl p-3 min-w-[200px]">
                 <div className="flex items-center justify-between mb-1">
@@ -128,11 +159,11 @@ export function TriggerManager() {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Status Indicator */}
-        {workflowTrigger && (
+        {workflowTrigger && isMainGraph && (
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
         )}
       </div>

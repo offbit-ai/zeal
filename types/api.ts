@@ -79,16 +79,32 @@ export interface EnvVarResponse {
 export interface WorkflowCreateRequest {
   name: string
   description?: string
+  graphs: WorkflowGraphData[]
+  activeGraphId?: string
+  triggerConfig?: any
+  metadata?: Record<string, any>
+}
+
+export interface WorkflowGraphData {
+  id: string
+  name: string
+  namespace: string
+  isMain: boolean
   nodes: WorkflowNodeData[]
   connections: WorkflowConnectionData[]
-  metadata?: Record<string, any>
+  groups?: WorkflowGroupData[]
+  canvasState?: {
+    offset: { x: number; y: number }
+    zoom: number
+  }
 }
 
 export interface WorkflowUpdateRequest {
   name?: string
   description?: string
-  nodes?: WorkflowNodeData[]
-  connections?: WorkflowConnectionData[]
+  graphs?: WorkflowGraphData[]
+  activeGraphId?: string
+  triggerConfig?: any
   metadata?: Record<string, any>
 }
 

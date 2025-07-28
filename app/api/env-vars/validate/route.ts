@@ -6,6 +6,7 @@ import {
   mockDelay
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
+import { EnvVarDatabase } from '@/services/envVarDatabase'
 
 interface NodeTemplateResponse {
   id: string
@@ -130,13 +131,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     }))
   }
   
-  // Mock configured environment variables
-  // In real implementation, this would query the user's actual env var configuration
-  const configuredVars = [
-    'NODE_ENV',
-    'API_BASE_URL'
-    // Intentionally missing: DATABASE_URL, DB_PASSWORD, ANTHROPIC_API_KEY, CRM_API_KEY, CRM_BASE_URL
-  ]
+  // Get actual configured environment variables from database
+  const { data: envVars } = await EnvVarDatabase.list()
+  const configuredVars = envVars.map(v => v.key)
   
   const missingVars = requiredVars.filter(varName => 
     !configuredVars.includes(varName)

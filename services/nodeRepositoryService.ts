@@ -133,7 +133,7 @@ export class NodeRepositoryService {
         propertyRules: apiNode.propertyRules // Include property rules from template
       },
       isBuiltIn: true,
-      isInstalled: true,
+      isInstalled: !['tpl_gemini', 'tpl_huggingface', 'tpl_mongodb', 'tpl_redis'].includes(apiNode.id),
       version: apiNode.version || '1.0.0',
       author: 'Zeal Team',
       documentation: `Documentation for ${apiNode.title}`

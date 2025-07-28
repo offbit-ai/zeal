@@ -6,6 +6,7 @@ import { WorkflowStorageService } from '@/services/workflowStorage'
 import type { WorkflowSnapshot } from '@/types/snapshot'
 import { formatDistanceToNow } from '@/utils/dateUtils'
 import { useWorkflowStore } from '@/store/workflowStore'
+import { toast } from '@/lib/toast'
 
 interface HistoryBrowserProps {
   isOpen: boolean
@@ -32,35 +33,51 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
     }
   }, [isOpen])
 
-  const loadWorkflows = () => {
-    const allWorkflows = WorkflowStorageService.getAllWorkflows()
-    
-    // Group workflows by ID to show only the latest version of each
-    const workflowMap = new Map<string, WorkflowSnapshot>()
-    
-    allWorkflows.forEach(workflow => {
-      const existing = workflowMap.get(workflow.id)
-      if (!existing || new Date(workflow.updatedAt) > new Date(existing.updatedAt)) {
-        workflowMap.set(workflow.id, workflow)
-      }
-    })
-    
-    const uniqueWorkflows = Array.from(workflowMap.values())
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    
-    setWorkflows(uniqueWorkflows)
+  const loadWorkflows = async () => {
+    try {
+      const allWorkflows = await WorkflowStorageService.getAllWorkflows()
+      
+      // Group workflows by ID to show only the latest version of each
+      const workflowMap = new Map<string, WorkflowSnapshot>()
+      
+      allWorkflows.forEach(workflow => {
+        const existing = workflowMap.get(workflow.id)
+        if (!existing || new Date(workflow.updatedAt) > new Date(existing.updatedAt)) {
+          workflowMap.set(workflow.id, workflow)
+        }
+      })
+      
+      const uniqueWorkflows = Array.from(workflowMap.values())
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      
+      setWorkflows(uniqueWorkflows)
+    } catch (error) {
+      console.error('Failed to load workflows:', error)
+      toast.error(error)
+    }
   }
   
-  const loadVersionHistory = (workflowId: string) => {
-    const versions = WorkflowStorageService.getWorkflowVersions(workflowId)
-    setVersionHistory(versions)
-    setShowVersionHistory(true)
+  const loadVersionHistory = async (workflowId: string) => {
+    try {
+      const versions = await WorkflowStorageService.getWorkflowVersions(workflowId)
+      setVersionHistory(versions)
+      setShowVersionHistory(true)
+    } catch (error) {
+      console.error('Failed to load version history:', error)
+      toast.error(error)
+    }
   }
   
-  const handleRollback = (version: WorkflowSnapshot) => {
+  const handleRollback = async (version: WorkflowSnapshot) => {
     if (confirm(`Rollback to version published on ${new Date(version.publishedAt!).toLocaleString()}?`)) {
-      rollbackToVersion(version.updatedAt)
-      onClose()
+      try {
+        await rollbackToVersion(version.updatedAt)
+        toast.success('Successfully rolled back to previous version')
+        onClose()
+      } catch (error) {
+        console.error('Failed to rollback:', error)
+        toast.error(error)
+      }
     }
   }
 
@@ -77,30 +94,42 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
     return true
   })
 
-  const handleDelete = (workflowId: string, e: React.MouseEvent) => {
+  const handleDelete = async (workflowId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (confirm('Are you sure you want to delete this workflow?')) {
-      WorkflowStorageService.deleteWorkflow(workflowId)
-      loadWorkflows()
-      if (selectedWorkflow?.id === workflowId) {
-        setSelectedWorkflow(null)
+      try {
+        await WorkflowStorageService.deleteWorkflow(workflowId)
+        toast.success('Workflow deleted successfully')
+        loadWorkflows()
+        if (selectedWorkflow?.id === workflowId) {
+          setSelectedWorkflow(null)
+        }
+      } catch (error) {
+        console.error('Failed to delete workflow:', error)
+        toast.error(error)
       }
     }
   }
 
-  const handleExport = (workflowId: string, workflowName: string, e: React.MouseEvent) => {
+  const handleExport = async (workflowId: string, workflowName: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    const json = WorkflowStorageService.exportWorkflow(workflowId)
-    if (json) {
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${workflowName.replace(/[^a-z0-9]/gi, '_')}_workflow.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+    try {
+      const json = await WorkflowStorageService.exportWorkflow(workflowId)
+      if (json) {
+        const blob = new Blob([json], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${workflowName.replace(/[^a-z0-9]/gi, '_')}_workflow.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        toast.success('Workflow exported successfully')
+      }
+    } catch (error) {
+      console.error('Failed to export workflow:', error)
+      toast.error(error)
     }
   }
 
@@ -356,7 +385,8 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
                       <div className="space-y-2 max-h-60 overflow-y-auto">
                         {versionHistory.map((version, index) => {
                           // A version is current if it's the latest draft
-                          const isCurrentVersion = !version.isPublished && version.isDraft && index === 0
+                          const isCurrentVersion = version.isDraft && index === 0
+                          const versionStatus = version.isPublished ? 'Published' : (version.isDraft ? 'Draft' : 'Saved')
                           
                           return (
                             <div
@@ -371,23 +401,26 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
                                     <span className={`text-xs px-2 py-0.5 rounded ${
                                       version.isPublished 
                                         ? 'bg-green-100 text-green-700' 
+                                        : version.isDraft
+                                        ? 'bg-blue-100 text-blue-700'
                                         : 'bg-gray-100 text-gray-600'
                                     }`}>
-                                      {version.isPublished ? 'Published' : 'Draft'}
+                                      {versionStatus}
                                     </span>
                                     {isCurrentVersion && (
                                       <span className="text-xs text-gray-500">(Current)</span>
                                     )}
+                                    <span className="text-xs text-gray-400">v{version.version || index + 1}</span>
                                   </div>
                                   <p className="text-xs text-gray-600 mt-1">
-                                    {new Date(version.updatedAt).toLocaleString()}
+                                    {new Date(version.updatedAt || version.createdAt).toLocaleString()}
                                   </p>
                                   <p className="text-xs text-gray-500 mt-0.5">
-                                    {version.saveCount} saves • {version.metadata?.nodeCount || 0} nodes
+                                    {version.saveCount || 0} saves • {version.metadata?.totalNodeCount || 0} nodes
                                   </p>
                                 </div>
                                 
-                                {version.isPublished && (
+                                {(version.isPublished || (!version.isDraft && !version.isPublished)) && (
                                   <button
                                     onClick={() => handleRollback(version)}
                                     className="p-1.5 hover:bg-gray-100 rounded transition-colors"

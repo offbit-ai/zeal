@@ -50,15 +50,19 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   }
   
   // Validate workflow can be published
-  if (versionToPublish.nodes.length === 0) {
+  if (!versionToPublish.graphs || versionToPublish.graphs.length === 0) {
     throw new ApiError('EMPTY_WORKFLOW', 'Cannot publish empty workflow', 400)
   }
   
   // Check for required environment variables
   const requiredEnvVars = new Set<string>()
-  versionToPublish.nodes.forEach(node => {
-    if (node.requiredEnvVars) {
-      node.requiredEnvVars.forEach(varName => requiredEnvVars.add(varName))
+  versionToPublish.graphs.forEach(graph => {
+    if (graph.nodes) {
+      graph.nodes.forEach((node: any) => {
+        if (node.requiredEnvVars) {
+          node.requiredEnvVars.forEach((varName: string) => requiredEnvVars.add(varName))
+        }
+      })
     }
   })
   
@@ -69,7 +73,7 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   }
   
   // Publish the version
-  const publishedVersion = await WorkflowDatabase.publishWorkflow(id, targetVersionId, userId)
+  const publishedVersion = await WorkflowDatabase.publishWorkflow(id, targetVersionId)
   
   // Get updated workflow
   const updatedWorkflow = await WorkflowDatabase.getWorkflow(id)
@@ -83,11 +87,9 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
     id: updatedWorkflow.id,
     name: updatedWorkflow.name,
     description: updatedWorkflow.description || '',
-    nodes: publishedVersion.nodes,
-    connections: publishedVersion.connections,
+    graphs: publishedVersion.graphs,
+    triggerConfig: publishedVersion.triggerConfig,
     metadata: {
-      nodeCount: publishedVersion.nodes.length,
-      connectionCount: publishedVersion.connections.length,
       ...publishedVersion.metadata
     },
     status: 'published',
@@ -134,31 +136,8 @@ export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { p
     throw new ApiError('PUBLISHED_VERSION_NOT_FOUND', 'Published version not found', 500)
   }
   
-  // Unpublish by removing published version reference and updating version status
-  const db = await import('@/lib/database').then(m => m.getDatabase())
-  
-  await (await db).run('BEGIN TRANSACTION')
-  
-  try {
-    // Update the published version to mark as unpublished
-    await (await db).run(`
-      UPDATE workflow_versions 
-      SET isPublished = 0, publishedAt = NULL 
-      WHERE id = ?
-    `, [workflow.publishedVersionId])
-    
-    // Remove published version reference from workflow
-    await (await db).run(`
-      UPDATE workflows 
-      SET publishedVersionId = NULL, updatedAt = ?
-      WHERE id = ?
-    `, [new Date().toISOString(), id])
-    
-    await (await db).run('COMMIT')
-  } catch (error) {
-    await (await db).run('ROLLBACK')
-    throw error
-  }
+  // Unpublish using the database service
+  await WorkflowDatabase.unpublishWorkflow(id)
   
   // Get latest version for response
   const { versions } = await WorkflowDatabase.getWorkflowVersions(id, { limit: 1 })
@@ -176,11 +155,9 @@ export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { p
     id: updatedWorkflow.id,
     name: updatedWorkflow.name,
     description: updatedWorkflow.description || '',
-    nodes: latestVersion.nodes,
-    connections: latestVersion.connections,
+    graphs: latestVersion.graphs,
+    triggerConfig: latestVersion.triggerConfig,
     metadata: {
-      nodeCount: latestVersion.nodes.length,
-      connectionCount: latestVersion.connections.length,
       ...latestVersion.metadata
     },
     status: 'draft',

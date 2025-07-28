@@ -1,4 +1,4 @@
-import { History, ListRestart, KeyRound,  Grid2x2Plus } from 'lucide-react'
+import { History, ListRestart, KeyRound, Grid2x2Plus, GitBranch } from 'lucide-react'
 import { Tooltip } from './Tooltip'
 
 interface WorkflowBottomToolbarProps {
@@ -6,13 +6,15 @@ interface WorkflowBottomToolbarProps {
   onDebuggerClick?: () => void
   onConfigClick?: () => void
   onCreateEmptyGroupClick?: () => void
+  onAddSubgraphClick?: () => void
 }
 
 export function WorkflowBottomToolbar({ 
   onHistoryClick,
   onDebuggerClick,
   onConfigClick,
-  onCreateEmptyGroupClick
+  onCreateEmptyGroupClick,
+  onAddSubgraphClick
 }: WorkflowBottomToolbarProps) {
   return (
     <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 flex items-center gap-3 z-20 w-fit">
@@ -55,6 +57,17 @@ export function WorkflowBottomToolbar({
           onClick={onCreateEmptyGroupClick}
         >
           <Grid2x2Plus className="w-4 h-4" strokeWidth={1.5} />
+        </button>
+      </Tooltip>
+      
+      <div className="w-px h-4 bg-gray-300"></div>
+      
+      <Tooltip content="Add Subgraph" position="top">
+        <button 
+          className="flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 transition-colors cursor-pointer rounded"
+          onClick={onAddSubgraphClick}
+        >
+          <GitBranch className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
     </div>

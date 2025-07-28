@@ -1,27 +1,31 @@
-import { Search, X, Download, Plus, Check, Filter, Code, Edit3 } from 'lucide-react'
+import { Search, X, Download, Plus, Filter, Code, Edit3, Loader2, GitBranch } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNodeRepository, NodeRepositoryItem } from '@/store/nodeRepository'
 import { useWorkflowStore } from '@/store/workflowStore'
 import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
 import { Icon } from '@/lib/icons'
 import { NodeCreatorModal } from './NodeCreatorModal'
+import { useGraphStore } from '@/store/graphStore'
+import type { SubgraphNodeMetadata } from '@/types/workflow'
 
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
   initialCategory?: string | null
+  initialTab?: 'repository' | 'custom' | 'subgraphs'
   onNodeAdded?: (nodeId: string) => void
   canvasOffset?: { x: number; y: number }
   canvasZoom?: number
 }
 
-export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, canvasOffset, canvasZoom }: SearchModalProps) {
+export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNodeAdded, canvasOffset, canvasZoom }: SearchModalProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isNodeCreatorOpen, setIsNodeCreatorOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'repository' | 'custom'>('repository')
+  const [activeTab, setActiveTab] = useState<'repository' | 'custom' | 'subgraphs'>(initialTab || 'repository')
   const [customNodes, setCustomNodes] = useState<NodeRepositoryItem[]>([])
   const [editingNode, setEditingNode] = useState<NodeRepositoryItem | null>(null)
+  const [installingNodes, setInstallingNodes] = useState<Set<string>>(new Set())
   
   const {
     categories,
@@ -32,11 +36,40 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
     setSearchQuery,
     setSelectedCategory,
     setSelectedSubcategory,
-    installNode,
-    uninstallNode
+    installNode
   } = useNodeRepository()
 
   const { addNode } = useWorkflowStore()
+  const { graphs, currentGraphId, setGraphDirty } = useGraphStore()
+
+  // Handle node installation with animation
+  const handleInstallNode = async (node: NodeRepositoryItem) => {
+    // Add to installing set
+    setInstallingNodes(prev => new Set(Array.from(prev).concat(node.id)))
+    
+    try {
+      // Simulate installation delay
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Install the node
+      installNode(node.id)
+      
+      // Remove from installing set
+      setInstallingNodes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(node.id)
+        return newSet
+      })
+    } catch (error) {
+      console.error('Failed to install node:', error)
+      // Remove from installing set on error
+      setInstallingNodes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(node.id)
+        return newSet
+      })
+    }
+  }
 
   // Load custom nodes from localStorage on mount
   useEffect(() => {
@@ -54,16 +87,15 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
   const saveCustomNode = (nodeTemplate: any, isEditing: boolean = false) => {
     const customNode: NodeRepositoryItem = {
       id: isEditing && editingNode ? editingNode.id : nodeTemplate.id,
-      title: nodeTemplate.title,
-      subtitle: nodeTemplate.subtitle,
-      type: nodeTemplate.type,
+      name: nodeTemplate.title,
+      description: nodeTemplate.subtitle || '',
       category: 'Custom',
       subcategory: nodeTemplate.type === 'script' ? 'Scripts' : 'APIs',
+      keywords: [],
+      tags: [],
       metadata: nodeTemplate,
       isInstalled: true,
-      installSize: '0 KB',
-      downloads: 0,
-      lastUpdated: new Date().toISOString()
+      isBuiltIn: false
     }
     
     let updatedNodes: NodeRepositoryItem[]
@@ -89,6 +121,10 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
       if (initialCategory) {
         setSelectedCategory(initialCategory)
       }
+      // Set initial tab if provided
+      if (initialTab) {
+        setActiveTab(initialTab)
+      }
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -103,7 +139,7 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
       }, 200)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, initialCategory, setSearchQuery, setSelectedCategory])
+  }, [isOpen, initialCategory, initialTab, setSearchQuery, setSelectedCategory])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -114,6 +150,58 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
+
+  const handleAddSubgraph = (graphId: string) => {
+    const graph = graphs.find(g => g.id === graphId)
+    if (!graph) return
+    
+    // Create subgraph node metadata
+    const subgraphMetadata: SubgraphNodeMetadata = {
+      id: `subgraph-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      templateId: 'subgraph',
+      type: 'subgraph',
+      title: graph.name,
+      subtitle: `Subgraph: ${graph.namespace}`,
+      icon: 'git-branch',
+      variant: 'orange-600',
+      shape: 'rectangle',
+      graphId: graph.id,
+      graphNamespace: graph.namespace,
+      graphName: graph.name,
+      ports: [
+        { id: 'input', label: 'Input', type: 'input', position: 'left' },
+        { id: 'output', label: 'Output', type: 'output', position: 'right' }
+      ]
+    }
+    
+    // Calculate position
+    let position: { x: number; y: number }
+    if (canvasOffset && canvasZoom !== undefined) {
+      const viewportCenterX = window.innerWidth / 2
+      const viewportCenterY = window.innerHeight / 2
+      const worldCenterX = (viewportCenterX - canvasOffset.x) / canvasZoom
+      const worldCenterY = (viewportCenterY - canvasOffset.y) / canvasZoom
+      
+      position = {
+        x: worldCenterX + Math.random() * 100 - 50,
+        y: worldCenterY + Math.random() * 100 - 50
+      }
+    } else {
+      position = {
+        x: 400 + Math.random() * 200 - 100,
+        y: 200 + Math.random() * 200 - 100
+      }
+    }
+    
+    const addedNodeId = addNode(subgraphMetadata, position)
+    if (addedNodeId) {
+      setGraphDirty(currentGraphId, true)
+      if (onNodeAdded) {
+        onNodeAdded(addedNodeId)
+      }
+    }
+    onClose()
+  }
 
   const handleAddToCanvas = async (nodeItem: NodeRepositoryItem) => {
     console.log('🔍 SEARCH: Adding node from search modal:', {
@@ -153,7 +241,7 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
     
     // Apply dynamic metadata updates based on default values
     try {
-      instanceMetadata = await updateDynamicNodeMetadata(instanceMetadata, propertyValues, nodeItem.metadata.propertyRules)
+      instanceMetadata = await updateDynamicNodeMetadata(instanceMetadata, propertyValues, nodeItem.metadata.propertyRules) as any
     } catch (error) {
       console.error('Failed to apply initial dynamic metadata:', error)
     }
@@ -184,8 +272,11 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
     }
     
     const addedNodeId = addNode(instanceMetadata, position)
-    if (addedNodeId && onNodeAdded) {
-      onNodeAdded(addedNodeId)
+    if (addedNodeId) {
+      setGraphDirty(currentGraphId, true)
+      if (onNodeAdded) {
+        onNodeAdded(addedNodeId)
+      }
     }
     onClose()
   }
@@ -259,6 +350,16 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
               }`}
             >
               Custom Nodes ({customNodes.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('subgraphs')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'subgraphs'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Subgraphs ({graphs.filter(g => g.id !== currentGraphId).length})
             </button>
           </div>
         </div>
@@ -391,36 +492,30 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
 
                       {/* Actions */}
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleAddToCanvas(node)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Add to Canvas
-                        </button>
-                        
-                        {!node.isBuiltIn && (
+                        {node.isInstalled ? (
                           <button
-                            onClick={() => 
-                              node.isInstalled ? uninstallNode(node.id) : installNode(node.id)
-                            }
+                            onClick={() => handleAddToCanvas(node)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add to Canvas
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleInstallNode(node)}
+                            disabled={installingNodes.has(node.id)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                              node.isInstalled
-                                ? 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-                                : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                              installingNodes.has(node.id)
+                                ? 'bg-orange-100 text-orange-700 cursor-not-allowed'
+                                : 'bg-orange-500 text-white hover:bg-orange-600'
                             }`}
                           >
-                            {node.isInstalled ? (
-                              <>
-                                <Check className="w-3.5 h-3.5" />
-                                Installed
-                              </>
+                            {installingNodes.has(node.id) ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (
-                              <>
-                                <Download className="w-3.5 h-3.5" />
-                                Install
-                              </>
+                              <Download className="w-3.5 h-3.5" />
                             )}
+                            {installingNodes.has(node.id) ? 'Installing...' : 'Install'}
                           </button>
                         )}
                       </div>
@@ -431,7 +526,7 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
             </div>
           </div>
             </>
-          ) : (
+          ) : activeTab === 'custom' ? (
             /* Custom Nodes Tab */
             <div className="flex-1 p-6 overflow-y-auto">
               <div className="space-y-6">
@@ -536,7 +631,58 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
                 )}
               </div>
             </div>
-          )}
+          ) : activeTab === 'subgraphs' ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Available Subgraphs</h3>
+                <p className="text-sm text-gray-500 mt-1">Add references to other graphs in your workflow</p>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4">
+                {graphs.filter(g => g.id !== currentGraphId).length === 0 ? (
+                  <div className="text-center py-12">
+                    <GitBranch className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No other graphs available</h3>
+                    <p className="text-gray-500">Create more graphs to use them as subgraphs</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {graphs.filter(g => g.id !== currentGraphId).map((graph) => (
+                      <div
+                        key={graph.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <GitBranch className="w-6 h-6 text-orange-600" />
+                          </div>
+                          {graph.isMain && (
+                            <span className="text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">Main</span>
+                          )}
+                        </div>
+                        
+                        <div className="mb-3">
+                          <h4 className="font-medium text-gray-900 mb-1">{graph.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            Namespace: {graph.namespace}
+                          </p>
+                        </div>
+                        
+                        {/* Actions */}
+                        <button
+                          onClick={() => handleAddSubgraph(graph.id)}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add as Subgraph
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
       
@@ -568,8 +714,11 @@ export function SearchModal({ isOpen, onClose, initialCategory, onNodeAdded, can
             }
             
             const addedNodeId = addNode(instanceMetadata, position)
-            if (addedNodeId && onNodeAdded) {
-              onNodeAdded(addedNodeId)
+            if (addedNodeId) {
+              setGraphDirty(currentGraphId, true)
+              if (onNodeAdded) {
+                onNodeAdded(addedNodeId)
+              }
             }
             onClose() // Close the search modal
           }

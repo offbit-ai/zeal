@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { NodeMetadata, PropertyDefinition, PropertyType, RuleSet, DataOperationSet } from '@/types/workflow'
 import { X, Settings, Edit3, Database, Trash2, AlertTriangle } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflowStore'
+import { useGraphStore } from '@/store/graphStore'
 import { RuleEditorModal } from './RuleEditorModal'
 import { DataOperationModal } from './DataOperationModal'
 import { ModalPortal } from './ModalPortal'
@@ -166,6 +167,7 @@ function PropertyField({
 
 export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: PropertyPaneProps) {
   const { nodes, updateNodeMetadata, removeNode } = useWorkflowStore()
+  const { currentGraphId, setGraphDirty } = useGraphStore()
   const selectedNode = nodes.find(node => node.metadata.id === selectedNodeId)
   
   const [localPropertyValues, setLocalPropertyValues] = useState<Record<string, any>>({})
@@ -220,6 +222,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
         
         // Update the node metadata immediately for visual feedback
         updateNodeMetadata(selectedNodeId!, updatedMetadata, false) // saveSnapshot = false for real-time updates
+        // Don't mark as dirty for real-time preview updates
       } catch (error) {
         console.error('Failed to apply dynamic metadata updates:', error)
       }
@@ -230,6 +233,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   const handleDeleteNode = () => {
     if (!selectedNode) return
     removeNode(selectedNode.metadata.id)
+    setGraphDirty(currentGraphId, true)
     setShowDeleteConfirmation(false)
     onClose()
   }
@@ -274,6 +278,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
     }
     
     updateNodeMetadata(selectedNodeId!, updatedMetadata, true) // saveSnapshot = true
+    setGraphDirty(currentGraphId, true)
     onClose()
   }
 

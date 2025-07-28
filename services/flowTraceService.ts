@@ -1,110 +1,240 @@
 import type { FlowTrace, FlowTraceSession, TraceNode, TraceData } from '@/types/flowTrace'
 import type { WorkflowNode } from '@/store/workflowStore'
 import type { Connection } from '@/types/workflow'
-
-const TRACE_STORAGE_KEY = 'zeal_flow_traces'
-const MAX_SESSIONS = 50
+import { ApiError } from '@/types/api'
 
 export class FlowTraceService {
-  private static activeSessions = new Map<string, FlowTraceSession>()
-
-  // Get all trace sessions from storage
-  static getAllSessions(): FlowTraceSession[] {
+  // Get all trace sessions from API
+  static async getAllSessions(filters?: {
+    search?: string
+    status?: string
+    timeFilter?: '1h' | '6h' | '24h' | '7d'
+    page?: number
+    limit?: number
+  }): Promise<{ sessions: FlowTraceSession[], total: number }> {
     try {
-      const data = localStorage.getItem(TRACE_STORAGE_KEY)
-      return data ? JSON.parse(data) : []
+      const params = new URLSearchParams()
+      if (filters?.search) params.append('search', filters.search)
+      if (filters?.status) params.append('status', filters.status)
+      if (filters?.timeFilter) params.append('timeFilter', filters.timeFilter)
+      if (filters?.page) params.append('page', filters.page.toString())
+      if (filters?.limit) params.append('limit', filters.limit.toString())
+
+      const response = await fetch(`/api/flow-traces?${params}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch sessions: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return {
+        sessions: result.data || [],
+        total: result.meta?.pagination?.total || 0
+      }
     } catch (error) {
       console.error('Error loading trace sessions:', error)
-      return []
-    }
-  }
-
-  // Save sessions to storage
-  private static saveToStorage() {
-    try {
-      const sessions = Array.from(this.activeSessions.values())
-        .concat(this.getAllSessions().filter(s => !this.activeSessions.has(s.id)))
-        .slice(0, MAX_SESSIONS)
-      
-      localStorage.setItem(TRACE_STORAGE_KEY, JSON.stringify(sessions))
-    } catch (error) {
-      console.error('Error saving trace sessions:', error)
+      return { sessions: [], total: 0 }
     }
   }
 
   // Start a new trace session
-  static startSession(workflowId: string, workflowName: string): FlowTraceSession {
-    const session: FlowTraceSession = {
-      id: crypto.randomUUID(),
-      workflowId,
-      workflowName,
-      startTime: new Date().toISOString(),
-      traces: [],
-      status: 'running',
-      summary: {
-        totalTraces: 0,
-        successCount: 0,
-        errorCount: 0,
-        warningCount: 0,
-        totalDataSize: 0,
-        averageDuration: 0
-      }
-    }
+  static async startSession(workflowId: string, workflowName: string, workflowVersionId?: string): Promise<FlowTraceSession> {
+    try {
+      const response = await fetch('/api/flow-traces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflowId, workflowName, workflowVersionId })
+      })
 
-    this.activeSessions.set(session.id, session)
-    return session
+      if (!response.ok) {
+        throw new Error(`Failed to create session: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.data
+    } catch (error) {
+      console.error('Error starting trace session:', error)
+      throw error
+    }
   }
 
   // End a trace session
-  static endSession(sessionId: string, status: 'completed' | 'failed' = 'completed') {
-    const session = this.activeSessions.get(sessionId)
-    if (!session) return
+  static async endSession(sessionId: string, status: 'completed' | 'failed' = 'completed'): Promise<void> {
+    try {
+      const response = await fetch(`/api/flow-traces/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
 
-    session.endTime = new Date().toISOString()
-    session.status = status
-    
-    this.saveToStorage()
-    this.activeSessions.delete(sessionId)
+      if (!response.ok) {
+        throw new Error(`Failed to end session: ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error('Error ending trace session:', error)
+      throw error
+    }
   }
 
   // Add a trace to the active session
-  static addTrace(sessionId: string, trace: Omit<FlowTrace, 'id'>) {
-    const session = this.activeSessions.get(sessionId)
-    if (!session || session.status !== 'running') return
+  static async addTrace(sessionId: string, trace: Omit<FlowTrace, 'id' | 'timestamp'>): Promise<FlowTrace> {
+    try {
+      const response = await fetch(`/api/flow-traces/sessions/${sessionId}/traces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trace)
+      })
 
-    const fullTrace: FlowTrace = {
-      ...trace,
-      id: crypto.randomUUID()
+      if (!response.ok) {
+        throw new Error(`Failed to add trace: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.data
+    } catch (error) {
+      console.error('Error adding trace:', error)
+      throw error
     }
-
-    session.traces.push(fullTrace)
-    
-    // Update summary
-    session.summary.totalTraces++
-    if (trace.status === 'success') session.summary.successCount++
-    else if (trace.status === 'error') session.summary.errorCount++
-    else if (trace.status === 'warning') session.summary.warningCount++
-    
-    session.summary.totalDataSize += trace.data.size
-    session.summary.averageDuration = session.traces.reduce((sum, t) => sum + t.duration, 0) / session.traces.length
   }
 
-  // Get a specific session
-  static getSession(sessionId: string): FlowTraceSession | null {
-    return this.activeSessions.get(sessionId) || 
-           this.getAllSessions().find(s => s.id === sessionId) || 
-           null
+  // Get a specific session with all traces
+  static async getSession(sessionId: string): Promise<FlowTraceSession | null> {
+    try {
+      const response = await fetch(`/api/flow-traces/sessions/${sessionId}`)
+      if (!response.ok) {
+        if (response.status === 404) return null
+        throw new Error(`Failed to fetch session: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.data
+    } catch (error) {
+      console.error('Error fetching session:', error)
+      return null
+    }
   }
 
-  // Clear all sessions
-  static clearAllSessions() {
-    this.activeSessions.clear()
-    localStorage.removeItem(TRACE_STORAGE_KEY)
+  // Get replay data for a session
+  static async getReplayData(sessionId: string, filters?: {
+    search?: string
+    status?: string
+  }): Promise<any> {
+    try {
+      const params = new URLSearchParams()
+      if (filters?.search) params.append('search', filters.search)
+      if (filters?.status) params.append('status', filters.status)
+
+      const response = await fetch(`/api/flow-traces/sessions/${sessionId}/replay?${params}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch replay data: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.data
+    } catch (error) {
+      console.error('Error fetching replay data:', error)
+      throw error
+    }
+  }
+
+  // Generate report for a session
+  static async generateReport(sessionId: string, filters?: {
+    search?: string
+    status?: string
+    format?: 'json' | 'text'
+  }): Promise<any> {
+    try {
+      const params = new URLSearchParams()
+      if (filters?.search) params.append('search', filters.search)
+      if (filters?.status) params.append('status', filters.status)
+      if (filters?.format) params.append('format', filters.format)
+
+      const response = await fetch(`/api/flow-traces/sessions/${sessionId}/report?${params}`)
+      if (!response.ok) {
+        throw new Error(`Failed to generate report: ${response.statusText}`)
+      }
+
+      if (filters?.format === 'text') {
+        return await response.text()
+      }
+
+      const result = await response.json()
+      return result.data
+    } catch (error) {
+      console.error('Error generating report:', error)
+      throw error
+    }
+  }
+
+  // Get subgraph traces
+  static async getSubgraphTraces(parentTraceId: string): Promise<FlowTrace[]> {
+    try {
+      const response = await fetch(`/api/flow-traces/traces/${parentTraceId}/subgraph`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch subgraph traces: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.data || []
+    } catch (error) {
+      console.error('Error fetching subgraph traces:', error)
+      return []
+    }
+  }
+
+  // Get workflow sessions
+  static async getWorkflowSessions(workflowId: string, filters?: {
+    page?: number
+    limit?: number
+    status?: string
+    startTimeFrom?: string
+    startTimeTo?: string
+  }): Promise<{ sessions: FlowTraceSession[], total: number }> {
+    try {
+      const params = new URLSearchParams()
+      if (filters?.page) params.append('page', filters.page.toString())
+      if (filters?.limit) params.append('limit', filters.limit.toString())
+      if (filters?.status) params.append('status', filters.status)
+      if (filters?.startTimeFrom) params.append('startTimeFrom', filters.startTimeFrom)
+      if (filters?.startTimeTo) params.append('startTimeTo', filters.startTimeTo)
+
+      const response = await fetch(`/api/workflows/${workflowId}/flow-traces?${params}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workflow sessions: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return {
+        sessions: result.data || [],
+        total: result.meta?.pagination?.total || 0
+      }
+    } catch (error) {
+      console.error('Error loading workflow sessions:', error)
+      return { sessions: [], total: 0 }
+    }
+  }
+
+  // Clear old sessions (admin function)
+  static async clearOldSessions(daysToKeep: number = 30): Promise<{ deleted: number }> {
+    try {
+      const response = await fetch(`/api/flow-traces/cleanup?daysToKeep=${daysToKeep}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to clear sessions: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.data
+    } catch (error) {
+      console.error('Error clearing old sessions:', error)
+      throw error
+    }
   }
 
   // Generate simulated traces for testing
-  static generateSimulatedTraces(nodes: WorkflowNode[], connections: Connection[]): FlowTraceSession {
-    const session = this.startSession('demo-workflow', 'Demo Workflow')
+  static async generateSimulatedTraces(nodes: WorkflowNode[], connections: Connection[]): Promise<FlowTraceSession> {
+    const session = await this.startSession('demo-workflow', 'Demo Workflow')
     
     // Sample data payloads
     const sampleData = {
@@ -143,16 +273,17 @@ export class FlowTraceService {
     }
 
     // Generate traces for each connection
-    connections.forEach((connection, index) => {
+    for (let index = 0; index < connections.length; index++) {
+      const connection = connections[index]
       const sourceNode = nodes.find(n => n.metadata.id === connection.source.nodeId)
       const targetNode = nodes.find(n => n.metadata.id === connection.target.nodeId)
       
-      if (!sourceNode || !targetNode) return
+      if (!sourceNode || !targetNode) continue
 
       const sourcePort = sourceNode.metadata.ports.find(p => p.id === connection.source.portId)
       const targetPort = targetNode.metadata.ports.find(p => p.id === connection.target.portId)
       
-      if (!sourcePort || !targetPort) return
+      if (!sourcePort || !targetPort) continue
 
       // Determine data based on node type
       let data: any = {}
@@ -183,8 +314,7 @@ export class FlowTraceService {
       const statuses: FlowTrace['status'][] = ['success', 'success', 'success', 'warning']
       const status = statuses[Math.floor(Math.random() * statuses.length)]
 
-      const trace: Omit<FlowTrace, 'id'> = {
-        timestamp: new Date(Date.now() + index * 1000).toISOString(),
+      const trace: Omit<FlowTrace, 'id' | 'timestamp'> = {
         duration,
         status,
         source: {
@@ -219,10 +349,10 @@ export class FlowTraceService {
         }
       }
 
-      this.addTrace(session.id, trace)
-    })
+      await this.addTrace(session.id, trace)
+    }
 
-    this.endSession(session.id, 'completed')
+    await this.endSession(session.id, 'completed')
     return session
   }
 }

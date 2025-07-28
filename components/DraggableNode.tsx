@@ -55,6 +55,9 @@ export function DraggableNode({
       // Skip if node is already in this group
       if (group.nodeIds.includes(metadata.id)) continue
       
+      // Skip if group is collapsed - don't allow drops into collapsed groups
+      if (group.collapsed) continue
+      
       const groupLeft = group.position.x
       const groupTop = group.position.y
       const groupRight = group.position.x + group.size.width

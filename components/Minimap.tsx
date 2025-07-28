@@ -11,6 +11,15 @@ interface MinimapProps {
     position: { x: number; y: number }
     size?: { width: number; height: number }
   }>
+  groups?: Array<{
+    id: string
+    position: { x: number; y: number }
+    size: { width: number; height: number }
+    color?: string
+    collapsed?: boolean
+    title: string
+    nodeIds?: string[]
+  }>
   viewportSize: { width: number; height: number }
   onViewportChange?: (offset: { x: number; y: number }) => void
 }
@@ -18,6 +27,7 @@ interface MinimapProps {
 export function Minimap({ 
   canvasOffset, 
   nodes, 
+  groups = [],
   viewportSize,
   onViewportChange 
 }: MinimapProps) {
@@ -25,16 +35,17 @@ export function Minimap({
   const [isDragging, setIsDragging] = useState(false)
   const minimapRef = useRef<HTMLDivElement>(null)
   
-  // Calculate bounds of all nodes
-  const bounds = nodes.length > 0 ? nodes.reduce((acc, node) => {
-    const nodeRight = node.position.x + (node.size?.width || 200)
-    const nodeBottom = node.position.y + (node.size?.height || 80)
+  // Calculate bounds of all nodes and groups
+  const allElements = [...nodes, ...groups]
+  const bounds = allElements.length > 0 ? allElements.reduce((acc, element) => {
+    const elementRight = element.position.x + (element.size?.width || 200)
+    const elementBottom = element.position.y + (element.size?.height || 80)
     
     return {
-      minX: Math.min(acc.minX, node.position.x),
-      minY: Math.min(acc.minY, node.position.y),
-      maxX: Math.max(acc.maxX, nodeRight),
-      maxY: Math.max(acc.maxY, nodeBottom)
+      minX: Math.min(acc.minX, element.position.x),
+      minY: Math.min(acc.minY, element.position.y),
+      maxX: Math.max(acc.maxX, elementRight),
+      maxY: Math.max(acc.maxY, elementBottom)
     }
   }, {
     minX: Infinity,
@@ -193,8 +204,39 @@ export function Minimap({
           }}
         />
         
-        {/* Nodes */}
-        {nodes.map(node => {
+        {/* Groups - rendered before nodes so they appear behind */}
+        {groups.map(group => {
+          const groupX = offsetX + (group.position.x - worldLeft) * scale
+          const groupY = offsetY + (group.position.y - worldTop) * scale
+          const groupWidth = group.size.width * scale
+          const groupHeight = (group.collapsed ? 40 : group.size.height) * scale
+          
+          return (
+            <div
+              key={group.id}
+              className="absolute rounded-sm"
+              style={{
+                left: groupX,
+                top: groupY,
+                width: groupWidth,
+                height: groupHeight,
+                backgroundColor: group.color ? `${group.color}20` : 'rgba(156, 163, 175, 0.1)', // 20% opacity
+                border: `1px solid ${group.color || '#9CA3AF'}`,
+                borderStyle: 'dashed'
+              }}
+              title={group.title}
+            />
+          )
+        })}
+        
+        {/* Nodes - filter out nodes in collapsed groups */}
+        {nodes.filter(node => {
+          // Check if this node belongs to any collapsed group
+          const isInCollapsedGroup = groups.some(group => 
+            group.collapsed && group.nodeIds?.includes(node.id)
+          )
+          return !isInCollapsedGroup
+        }).map(node => {
           const nodeX = offsetX + (node.position.x - worldLeft) * scale
           const nodeY = offsetY + (node.position.y - worldTop) * scale
           const nodeWidth = (node.size?.width || 200) * scale

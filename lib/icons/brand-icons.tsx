@@ -27,7 +27,7 @@ import {
   SiVercel, SiNetlify, SiHeroku, SiFigma, SiSketch, SiAdobe,
   SiCanva, SiMiro, SiNotion, SiAirtable, SiClickup,
   SiZapier, SiMake, SiN8N, SiRetool, SiPostman, SiInsomnia,
-  SiGooglesheets,  SiDocker, SiApachekafka,
+  SiGooglesheets,  SiDocker, SiApachekafka, SiHuggingface,
   SiAmazonwebservices, SiGooglegemini, SiLangchain, SiJavascript, SiPython, SiNushell
 } from 'react-icons/si'
 
@@ -87,7 +87,7 @@ export const BrandIcons = {
     'pytorch': SiPytorch,
     'keras': SiKeras,
     'jupyter': SiJupyter,
-    'huggingface': SiOpenai, // Fallback until specific icon available
+    'huggingface': SiHuggingface, 
   },
   
   // Databases

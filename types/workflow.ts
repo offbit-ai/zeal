@@ -4,6 +4,14 @@ export type NodeShape = 'rectangle' | 'circle' | 'diamond'
 
 export type NodeVariant = 'black' | 'gray-700' | 'gray-600' | 'gray-800' | 'gray-900' | 'blue-600' | 'green-600' | 'orange-600' | 'orange-700' | 'yellow-600' | 'purple-600'
 
+// Special type for subgraph nodes
+export interface SubgraphNodeMetadata extends NodeMetadata {
+  type: 'subgraph'
+  graphId: string // ID of the graph this node references
+  graphNamespace: string // Namespace of the referenced graph
+  graphName: string // Display name of the referenced graph
+}
+
 export interface Port {
   id: string
   label: string

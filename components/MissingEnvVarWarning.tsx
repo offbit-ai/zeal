@@ -13,7 +13,7 @@ export function MissingEnvVarWarning({ missingVars, onDismiss, onOpenConfig }: M
   if (missingVars.length === 0) return null
 
   return (
-    <div className="fixed top-[60px] left-0 right-0 z-50 bg-yellow-50 border-b border-yellow-200 px-6 py-3">
+    <div className="fixed top-[60px] left-0 right-0 z-50 bg-yellow-50/90 border-b border-yellow-200 px-6 py-3">
       <div className="flex items-center gap-8 justify-center min-w-fit  mx-auto">
         <div className="flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />

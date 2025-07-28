@@ -33,7 +33,7 @@ export class EnvVarService {
     }
 
     try {
-      // Fetch from API - no localStorage fallback
+      // Try to fetch from API first
       const response = await apiClient.getPaginated<EnvironmentVariableResponse>('/env-vars', {
         limit: 100 // Get all environment variables
       })
@@ -65,9 +65,9 @@ export class EnvVarService {
             .map(v => ({
               id: v.id,
               key: v.key,
-              value: v.value,
+              value: '••••••••', // Always mask secret values
               isSecret: v.isSecret,
-              needsAttention: !v.value || v.value.trim() === '',
+              needsAttention: false, // Secrets don't show as needing attention since we can't see their values
               addedAutomatically: false
             }))
         }
@@ -80,7 +80,15 @@ export class EnvVarService {
       return sections
     } catch (error) {
       console.error('Failed to fetch environment variables from API:', error)
-      throw error // Don't fall back to localStorage
+      
+      // Fall back to localStorage since backend doesn't persist yet
+      const localSections = this.getConfigSectionsFromLocal()
+      
+      // Update cache with local data
+      this.cache = localSections
+      this.lastFetch = now
+      
+      return localSections
     }
   }
 
@@ -88,52 +96,113 @@ export class EnvVarService {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY)
       if (stored) {
-        return JSON.parse(stored)
+        const sections = JSON.parse(stored) as ConfigSection[]
+        
+        // Ensure proper structure and separation of secrets vs env vars
+        const allVariables: EnvironmentVariable[] = []
+        
+        // Collect all variables from all sections
+        sections.forEach(section => {
+          if (section.variables) {
+            allVariables.push(...section.variables)
+          }
+        })
+        
+        // Reorganize into proper sections
+        return [
+          {
+            id: 'environment',
+            name: 'Environment Variables',
+            description: 'Global environment variables available to all nodes',
+            variables: allVariables.filter(v => !v.isSecret)
+          },
+          {
+            id: 'secrets',
+            name: 'Secrets',
+            description: 'Sensitive data like API keys, tokens, and passwords',
+            variables: allVariables.filter(v => v.isSecret).map(v => ({
+              ...v,
+              value: '••••••••' // Ensure secrets are always masked
+            }))
+          }
+        ]
       }
     } catch (error) {
       console.error('Failed to load environment variables from localStorage:', error)
     }
 
-    // Return default mock data if nothing is stored
+    // Return default structure if nothing is stored
     return [
       {
         id: 'environment',
         name: 'Environment Variables',
         description: 'Global environment variables available to all nodes',
-        variables: [
-          { id: '1', key: 'NODE_ENV', value: 'development', isSecret: false },
-          { id: '3', key: 'API_BASE_URL', value: 'https://api.example.com', isSecret: false }
-        ]
+        variables: []
       },
       {
         id: 'secrets',
         name: 'Secrets',
         description: 'Sensitive data like API keys, tokens, and passwords',
-        variables: [
-          { id: '6', key: 'STRIPE_SECRET_KEY', value: 'sk_test_1234567890', isSecret: true },
-          { id: '7', key: 'AWS_ACCESS_KEY_ID', value: 'AKIAIOSFODNN7EXAMPLE', isSecret: true }
-        ]
+        variables: []
       }
     ]
   }
 
   private static saveConfigSectionsToLocal(sections: ConfigSection[]): void {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sections))
+      // Ensure secrets are always masked before saving to localStorage
+      const sectionsToSave = sections.map(section => ({
+        ...section,
+        variables: section.variables.map(v => 
+          v.isSecret ? { ...v, value: '••••••••' } : v
+        )
+      }))
+      
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sectionsToSave))
     } catch (error) {
       console.error('Failed to save environment variables to localStorage:', error)
     }
   }
 
+  static async saveSecret(secret: { key: string; value: string; isSecret: boolean }): Promise<EnvironmentVariableResponse | undefined> {
+    try {
+      const request: EnvVarCreateRequest = {
+        key: secret.key,
+        value: secret.value,
+        isSecret: true,
+        description: 'Secret variable',
+        category: 'secrets'
+      }
+      
+      const response = await apiClient.post<EnvironmentVariableResponse>('/env-vars', request)
+      
+      // Clear cache to force refresh from backend
+      this.cache = null
+      
+      return response
+    } catch (error) {
+      console.error('Failed to save secret:', error)
+      throw error
+    }
+  }
+
   static async saveConfigSections(sections: ConfigSection[]): Promise<void> {
     try {
-      // Update each variable via API only
+      // Save to localStorage first (since backend doesn't persist yet)
+      this.saveConfigSectionsToLocal(sections)
+      
+      // Update cache
+      this.cache = sections
+      this.lastFetch = Date.now()
+      
+      // Still try to send to API for validation
       const updatePromises: Promise<any>[] = []
       
       sections.forEach(section => {
         section.variables.forEach(variable => {
           // Only save variables that have actual values (user configured)
-          if (variable.value && variable.value.trim() !== '') {
+          // Skip masked secret values
+          if (variable.value && variable.value.trim() !== '' && variable.value !== '••••••••') {
             const request: EnvVarCreateRequest = {
               key: variable.key,
               value: variable.value,
@@ -154,12 +223,9 @@ export class EnvVarService {
       })
       
       await Promise.all(updatePromises)
-      
-      // Clear cache to force refresh from backend
-      this.cache = null
     } catch (error) {
-      console.error('Failed to save environment variables to API:', error)
-      throw error // Don't fall back to localStorage
+      console.error('Failed to save environment variables:', error)
+      // Don't throw since we saved to localStorage
     }
   }
 

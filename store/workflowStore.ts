@@ -2,10 +2,11 @@ import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { NodeMetadata, Connection, WorkflowNodeData, NodeGroup } from '@/types/workflow'
 import { WorkflowStorageService } from '@/services/workflowStorage'
-import { createWorkflowSnapshot, restoreWorkflowFromSnapshot } from '@/utils/workflowSerializer'
+import { createWorkflowSnapshot, restoreWorkflowFromSnapshot, restoreGraphFromSerialized } from '@/utils/workflowSerializer'
 import { Database, Bot } from 'lucide-react'
 import { useEnvVarStore } from './envVarStore'
 import type { TriggerConfig } from '@/components/TriggerModal'
+import { toast } from '@/lib/toast'
 
 // Helper function to estimate node dimensions based on metadata
 // Note: These are estimates since actual nodes use w-fit and content-dependent sizing
@@ -158,14 +159,18 @@ interface WorkflowActions {
   setInitialized: (initialized: boolean) => void
   
   // Storage actions
-  saveToStorage: () => void
-  saveToStorageWithCanvasState: (canvasState: { offset: { x: number; y: number }; zoom: number }) => void
-  loadFromStorage: (workflowId: string) => { canvasState?: { offset: { x: number; y: number }; zoom: number } } | null
-  createNewWorkflow: (name?: string) => void
+  saveToStorage: () => Promise<void>
+  saveToStorageWithCanvasState: (canvasState: { offset: { x: number; y: number }; zoom: number }) => Promise<void>
+  loadFromStorage: (workflowId: string) => Promise<{ canvasState?: { offset: { x: number; y: number }; zoom: number } } | null>
+  createNewWorkflow: (name?: string) => Promise<void>
   setWorkflowName: (name: string) => void
   setWorkflowTrigger: (trigger: TriggerConfig | null) => void
-  publishWorkflow: () => void
-  rollbackToVersion: (versionTimestamp: string) => void
+  publishWorkflow: () => Promise<void>
+  rollbackToVersion: (versionTimestamp: string) => Promise<void>
+  
+  // Graph state management
+  saveCurrentGraphState: () => { nodes: WorkflowNode[]; connections: Connection[]; groups: NodeGroup[]; trigger: TriggerConfig | null }
+  loadGraphState: (state: { nodes: WorkflowNode[]; connections: Connection[]; groups: NodeGroup[]; trigger: TriggerConfig | null; portPositions?: Map<string, PortPosition> }) => void
 }
 
 // Combine state and actions
@@ -1145,11 +1150,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
     },
 
     // Storage actions
-    saveToStorage: () => {
+    saveToStorage: async () => {
       const state = get()
       if (!state.workflowId) {
         // Create new workflow if no ID exists
-        const snapshot = WorkflowStorageService.createDraftWorkflow(state.workflowName)
+        const snapshot = await WorkflowStorageService.createDraftWorkflow(state.workflowName)
         set({ workflowId: snapshot.id })
         
         // Update with current state
@@ -1162,10 +1167,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
           state.groups,
           state.workflowTrigger
         )
-        WorkflowStorageService.saveWorkflow(updatedSnapshot)
+        await WorkflowStorageService.saveWorkflow(updatedSnapshot)
       } else {
         // Update existing workflow
-        const existingSnapshot = WorkflowStorageService.getWorkflow(state.workflowId)
+        const existingSnapshot = await WorkflowStorageService.getWorkflow(state.workflowId)
         const snapshot = createWorkflowSnapshot(
           state.nodes,
           state.connections,
@@ -1175,15 +1180,15 @@ export const useWorkflowStore = create<WorkflowStore>()(
           state.groups,
           state.workflowTrigger
         )
-        WorkflowStorageService.saveWorkflow(snapshot)
+        await WorkflowStorageService.saveWorkflow(snapshot)
       }
     },
 
-    saveToStorageWithCanvasState: (canvasState: { offset: { x: number; y: number }; zoom: number }) => {
+    saveToStorageWithCanvasState: async (canvasState: { offset: { x: number; y: number }; zoom: number }) => {
       const state = get()
       if (!state.workflowId) {
         // Create new workflow if no ID exists
-        const snapshot = WorkflowStorageService.createDraftWorkflow(state.workflowName)
+        const snapshot = await WorkflowStorageService.createDraftWorkflow(state.workflowName)
         set({ workflowId: snapshot.id })
         
         // Update with current state including canvas state
@@ -1197,10 +1202,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
           state.workflowTrigger,
           canvasState
         )
-        WorkflowStorageService.saveWorkflow(updatedSnapshot)
+        await WorkflowStorageService.saveWorkflow(updatedSnapshot)
       } else {
         // Update existing workflow
-        const existingSnapshot = WorkflowStorageService.getWorkflow(state.workflowId)
+        const existingSnapshot = await WorkflowStorageService.getWorkflow(state.workflowId)
         const snapshot = createWorkflowSnapshot(
           state.nodes,
           state.connections,
@@ -1211,57 +1216,88 @@ export const useWorkflowStore = create<WorkflowStore>()(
           state.workflowTrigger,
           canvasState
         )
-        WorkflowStorageService.saveWorkflow(snapshot)
+        await WorkflowStorageService.saveWorkflow(snapshot)
       }
     },
 
-    loadFromStorage: (workflowId: string) => {
-      const snapshot = WorkflowStorageService.getWorkflow(workflowId)
+    loadFromStorage: async (workflowId: string) => {
+      const snapshot = await WorkflowStorageService.getWorkflow(workflowId)
       if (!snapshot) {
         console.error('Workflow not found:', workflowId)
         return null
       }
 
-      const { nodes, connections, groups, canvasState } = restoreWorkflowFromSnapshot(snapshot)
+      const restored = restoreWorkflowFromSnapshot(snapshot)
       
-      set({
-        workflowId: snapshot.id,
-        workflowName: snapshot.name,
-        workflowTrigger: snapshot.trigger || null,
-        nodes,
-        connections,
-        groups,
-        history: [],
-        historyIndex: -1
-      })
-      
-      // Port positions will be initialized by DOM measurements when nodes are rendered
-      
-      // Save initial snapshot for undo/redo
-      setTimeout(() => get().saveSnapshot(), 0)
-      
-      // Return canvas state for the caller to use
-      return { canvasState }
+      // Handle multi-graph snapshots
+      if (restored.graphs && restored.graphs.length > 0) {
+        // For now, load the main graph
+        const mainGraph = restored.graphs.find(g => g.isMain) || restored.graphs[0]
+        const { nodes, connections, groups, canvasState } = restoreGraphFromSerialized(mainGraph)
+        
+        set({
+          workflowId: snapshot.id,
+          workflowName: snapshot.name,
+          workflowTrigger: snapshot.triggerConfig || null,
+          nodes: nodes || [],
+          connections: connections || [],
+          groups: groups || [],
+          history: [],
+          historyIndex: -1
+        })
+        
+        // Save initial snapshot for undo/redo
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return { canvasState }
+      } else {
+        // Legacy single-graph format
+        const { nodes, connections, groups, canvasState } = restored
+        
+        set({
+          workflowId: snapshot.id,
+          workflowName: snapshot.name,
+          workflowTrigger: snapshot.trigger || null,
+          nodes: nodes || [],
+          connections: connections || [],
+          groups: groups || [],
+          history: [],
+          historyIndex: -1
+        })
+        
+        // Save initial snapshot for undo/redo
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        return { canvasState }
+      }
     },
 
-    createNewWorkflow: (name?: string) => {
-      const snapshot = WorkflowStorageService.createDraftWorkflow(name)
-      
-      console.log('CREATING NEW EMPTY WORKFLOW')
-      
-      set({
-        workflowId: snapshot.id,
-        workflowName: snapshot.name,
-        workflowTrigger: null,
-        nodes: [], // Start with empty workflow
-        connections: [],
-        groups: [],
-        history: [],
-        historyIndex: -1
-      })
-      
-      // Save initial snapshot
-      setTimeout(() => get().saveSnapshot(), 0)
+    createNewWorkflow: async (name?: string) => {
+      try {
+        const snapshot = await WorkflowStorageService.createDraftWorkflow(name)
+        
+        console.log('CREATING NEW EMPTY WORKFLOW')
+        
+        set({
+          workflowId: snapshot.id,
+          workflowName: snapshot.name,
+          workflowTrigger: null,
+          nodes: [], // Start with empty workflow
+          connections: [],
+          groups: [],
+          history: [],
+          historyIndex: -1
+        })
+        
+        // Save initial snapshot
+        setTimeout(() => get().saveSnapshot(), 0)
+        
+        toast.success(`Created new workflow: ${snapshot.name}`)
+      } catch (error) {
+        console.error('Failed to create workflow:', error)
+        toast.error(error)
+        throw error // Re-throw to let caller handle if needed
+      }
     },
 
     setWorkflowName: (name: string) => {
@@ -1271,51 +1307,69 @@ export const useWorkflowStore = create<WorkflowStore>()(
     setWorkflowTrigger: (trigger: TriggerConfig | null) => {
       set({ workflowTrigger: trigger })
       // Save to storage when trigger is updated
-      get().saveToStorage()
+      get().saveToStorage().catch(error => {
+        console.error('Failed to save workflow after trigger update:', error)
+        toast.error(error)
+      })
     },
 
-    publishWorkflow: () => {
+    publishWorkflow: async () => {
       const state = get()
       if (!state.workflowId) {
-        console.error('No workflow to publish')
+        toast.error('No workflow to publish')
         return
       }
       
-      // Save current state first
-      get().saveToStorage()
-      
-      // Publish the workflow
-      const publishedSnapshot = WorkflowStorageService.publishWorkflow(state.workflowId)
-      if (publishedSnapshot) {
-        console.log('Workflow published successfully:', publishedSnapshot.publishedAt)
+      try {
+        // Save current state first
+        await get().saveToStorage()
+        
+        // Publish the workflow
+        const publishedSnapshot = await WorkflowStorageService.publishWorkflow(state.workflowId)
+        if (publishedSnapshot) {
+          console.log('Workflow published successfully:', publishedSnapshot.publishedAt)
+          toast.success('Workflow published successfully')
+        }
+      } catch (error) {
+        console.error('Failed to publish workflow:', error)
+        toast.error(error)
+        throw error
       }
     },
 
-    rollbackToVersion: (versionTimestamp: string) => {
+    rollbackToVersion: async (versionTimestamp: string) => {
       const state = get()
       if (!state.workflowId) {
-        console.error('No workflow to rollback')
+        toast.error('No workflow to rollback')
         return
       }
       
-      const rolledBackSnapshot = WorkflowStorageService.rollbackToVersion(state.workflowId, versionTimestamp)
-      if (rolledBackSnapshot) {
-        // Load the rolled back version
-        const { nodes, connections, groups } = restoreWorkflowFromSnapshot(rolledBackSnapshot)
-        
-        set({
-          nodes,
-          connections,
-          groups,
-          workflowTrigger: rolledBackSnapshot.trigger || null,
-          history: [],
-          historyIndex: -1
-        })
-        
-        // Port positions will be initialized by DOM measurements when nodes are rendered
-        
-        // Save initial snapshot for undo/redo
-        setTimeout(() => get().saveSnapshot(), 0)
+      try {
+        const rolledBackSnapshot = await WorkflowStorageService.rollbackToVersion(state.workflowId, versionTimestamp)
+        if (rolledBackSnapshot) {
+          // Load the rolled back version
+          const { nodes, connections, groups } = restoreWorkflowFromSnapshot(rolledBackSnapshot)
+          
+          set({
+            nodes,
+            connections,
+            groups,
+            workflowTrigger: rolledBackSnapshot.trigger || null,
+            history: [],
+            historyIndex: -1
+          })
+          
+          // Port positions will be initialized by DOM measurements when nodes are rendered
+          
+          // Save initial snapshot for undo/redo
+          setTimeout(() => get().saveSnapshot(), 0)
+          
+          toast.success('Successfully rolled back to previous version')
+        }
+      } catch (error) {
+        console.error('Failed to rollback to version:', error)
+        toast.error(error)
+        throw error
       }
     },
 
@@ -1385,6 +1439,38 @@ export const useWorkflowStore = create<WorkflowStore>()(
         ...state,
         isGroupDragging: isDragging
       }))
+    },
+    
+    // Graph state management
+    saveCurrentGraphState: () => {
+      const state = get()
+      return {
+        nodes: state.nodes,
+        connections: state.connections,
+        groups: state.groups,
+        trigger: state.workflowTrigger
+      }
+    },
+    
+    loadGraphState: (graphState: { nodes: WorkflowNode[]; connections: Connection[]; groups: NodeGroup[]; trigger: TriggerConfig | null; portPositions?: Map<string, PortPosition> }) => {
+      set({
+        nodes: graphState.nodes,
+        connections: graphState.connections,
+        groups: graphState.groups,
+        workflowTrigger: graphState.trigger,
+        portPositions: new Map(), // Always start with empty port positions - let nodes recalculate
+        history: [],
+        historyIndex: -1,
+        selection: {
+          selectedNodeIds: [],
+          isSelecting: false,
+          selectionStart: null,
+          selectionEnd: null
+        }
+      })
+      
+      // Save initial snapshot for undo/redo
+      setTimeout(() => get().saveSnapshot(), 0)
     }
   }))
 )

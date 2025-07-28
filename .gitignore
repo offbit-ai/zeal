@@ -84,3 +84,6 @@ temp/
 
 # Storybook
 storybook-static/
+
+
+*.db

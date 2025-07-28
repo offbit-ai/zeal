@@ -29,6 +29,8 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
   const [sessions, setSessions] = useState<FlowTraceSession[]>([])
   const [selectedSession, setSelectedSession] = useState<FlowTraceSession | null>(null)
   const [selectedTrace, setSelectedTrace] = useState<FlowTrace | null>(null)
+  const [subgraphTraces, setSubgraphTraces] = useState<FlowTrace[]>([])
+  const [showSubgraphTraces, setShowSubgraphTraces] = useState(false)
   const [replay, setReplay] = useState<TraceReplay | null>(null)
   const [currentReplayTrace, setCurrentReplayTrace] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState('')
@@ -46,11 +48,24 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
     }
   }, [isOpen])
 
-  const loadSessions = () => {
-    const allSessions = FlowTraceService.getAllSessions()
-    setSessions(allSessions.sort((a, b) => 
-      new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-    ))
+  // Reload sessions when filters change
+  useEffect(() => {
+    if (isOpen) {
+      loadSessions()
+    }
+  }, [timeFilter, statusFilter, searchQuery])
+
+  const loadSessions = async () => {
+    try {
+      const { sessions: allSessions } = await FlowTraceService.getAllSessions({
+        timeFilter: timeFilter !== 'all' ? timeFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        search: searchQuery || undefined
+      })
+      setSessions(allSessions)
+    } catch (error) {
+      console.error('Error loading sessions:', error)
+    }
   }
 
   // Filter sessions by time
@@ -95,147 +110,91 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
 
   const filteredSessions = filterSessionsByTime(sessions)
 
-  const handleGenerateSimulation = () => {
-    const session = FlowTraceService.generateSimulatedTraces(nodes, connections)
-    loadSessions()
-    setSelectedSession(session)
-  }
-
-  const generateReport = () => {
-    if (!selectedSession) return
-
-    const report = {
-      title: 'Flow Trace Report',
-      generatedAt: new Date().toISOString(),
-      session: {
-        id: selectedSession.id,
-        workflowName: selectedSession.workflowName,
-        startTime: selectedSession.startTime,
-        endTime: selectedSession.endTime,
-        status: selectedSession.status,
-        duration: selectedSession.endTime 
-          ? new Date(selectedSession.endTime).getTime() - new Date(selectedSession.startTime).getTime()
-          : 0
-      },
-      summary: selectedSession.summary,
-      traces: filterTraces(selectedSession.traces).map(trace => ({
-        id: trace.id,
-        timestamp: trace.timestamp,
-        duration: trace.duration,
-        status: trace.status,
-        flow: `${trace.source.nodeName} (${trace.source.portName}) → ${trace.target.nodeName} (${trace.target.portName})`,
-        dataSize: trace.data.size,
-        dataType: trace.data.type,
-        error: trace.error?.message || null
-      })),
-      analysis: {
-        totalTraces: selectedSession.summary.totalTraces,
-        successRate: selectedSession.summary.totalTraces > 0 
-          ? ((selectedSession.summary.successCount / selectedSession.summary.totalTraces) * 100).toFixed(1) + '%'
-          : '0%',
-        averageLatency: selectedSession.summary.averageDuration.toFixed(2) + 'ms',
-        totalDataTransferred: (selectedSession.summary.totalDataSize / 1024).toFixed(2) + 'KB',
-        errorTraces: selectedSession.traces.filter(t => t.status === 'error').map(t => ({
-          flow: `${t.source.nodeName} → ${t.target.nodeName}`,
-          error: t.error?.message || 'Unknown error',
-          timestamp: new Date(t.timestamp).toLocaleString()
-        }))
-      }
+  const handleGenerateSimulation = async () => {
+    try {
+      const session = await FlowTraceService.generateSimulatedTraces(nodes, connections)
+      await loadSessions()
+      setSelectedSession(session)
+    } catch (error) {
+      console.error('Error generating simulation:', error)
     }
-
-    // Generate and download report
-    const reportContent = `
-FLOW TRACE REPORT
-================
-
-Generated: ${new Date(report.generatedAt).toLocaleString()}
-
-SESSION INFORMATION
-------------------
-Workflow: ${report.session.workflowName}
-Session ID: ${report.session.id}
-Status: ${report.session.status}
-Start Time: ${new Date(report.session.startTime).toLocaleString()}
-${report.session.endTime ? `End Time: ${new Date(report.session.endTime).toLocaleString()}` : ''}
-Duration: ${(report.session.duration / 1000).toFixed(2)}s
-
-SUMMARY STATISTICS
------------------
-Total Traces: ${report.summary.totalTraces}
-Successful: ${report.summary.successCount}
-Errors: ${report.summary.errorCount}
-Warnings: ${report.summary.warningCount}
-Success Rate: ${report.analysis.successRate}
-Average Latency: ${report.analysis.averageLatency}
-Total Data Transferred: ${report.analysis.totalDataTransferred}
-
-TRACE DETAILS
--------------
-${report.traces.map((trace, i) => `
-${i + 1}. ${trace.flow}
-   Status: ${trace.status}
-   Duration: ${trace.duration}ms
-   Data Size: ${(trace.dataSize / 1024).toFixed(2)}KB
-   Data Type: ${trace.dataType}
-   Timestamp: ${new Date(trace.timestamp).toLocaleString()}
-   ${trace.error ? `Error: ${trace.error}` : ''}
-`).join('\n')}
-
-${report.analysis.errorTraces.length > 0 ? `
-ERROR ANALYSIS
---------------
-${report.analysis.errorTraces.map((error, i) => `
-${i + 1}. ${error.flow}
-   Error: ${error.error}
-   Time: ${error.timestamp}
-`).join('\n')}
-` : ''}
-
-FILTERS APPLIED
---------------
-Time Filter: ${timeFilter}
-Status Filter: ${statusFilter}
-Search Query: ${searchQuery || 'None'}
-`
-
-    // Create and download file
-    const blob = new Blob([reportContent], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `flow-trace-report-${selectedSession.workflowName.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-
-    // Also generate JSON version
-    const jsonBlob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-    const jsonUrl = URL.createObjectURL(jsonBlob)
-    const jsonA = document.createElement('a')
-    jsonA.href = jsonUrl
-    jsonA.download = `flow-trace-report-${selectedSession.workflowName.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.json`
-    document.body.appendChild(jsonA)
-    jsonA.click()
-    document.body.removeChild(jsonA)
-    URL.revokeObjectURL(jsonUrl)
   }
 
-  const startReplay = () => {
+  const generateReport = async () => {
+    if (!selectedSession) return
+
+    try {
+      // Get text report from API
+      const textReport = await FlowTraceService.generateReport(selectedSession.id, {
+        search: searchQuery || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        format: 'text'
+      })
+
+      // Download text report
+      const blob = new Blob([textReport], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `flow-trace-report-${selectedSession.workflowName.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      // Also get JSON report
+      const jsonReport = await FlowTraceService.generateReport(selectedSession.id, {
+        search: searchQuery || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        format: 'json'
+      })
+
+      // Download JSON report
+      const jsonBlob = new Blob([JSON.stringify(jsonReport, null, 2)], { type: 'application/json' })
+      const jsonUrl = URL.createObjectURL(jsonBlob)
+      const jsonA = document.createElement('a')
+      jsonA.href = jsonUrl
+      jsonA.download = `flow-trace-report-${selectedSession.workflowName.replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(jsonA)
+      jsonA.click()
+      document.body.removeChild(jsonA)
+      URL.revokeObjectURL(jsonUrl)
+    } catch (error) {
+      console.error('Error generating report:', error)
+    }
+  }
+
+  const startReplay = async () => {
     if (!selectedSession) return
     
-    setReplay({
-      sessionId: selectedSession.id,
-      currentTraceIndex: 0,
-      isPlaying: true,
-      playbackSpeed: 1,
-      startTime: Date.now(),
-      elapsedTime: 0
-    })
-    
-    replayStartTimeRef.current = Date.now()
-    setCurrentReplayTrace(0)
-    animateReplay()
+    try {
+      // Get replay data from API with current filters
+      const replayData = await FlowTraceService.getReplayData(selectedSession.id, {
+        search: searchQuery || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined
+      })
+      
+      // Update selected session with filtered traces
+      setSelectedSession({
+        ...selectedSession,
+        traces: replayData.traces
+      })
+      
+      setReplay({
+        sessionId: selectedSession.id,
+        currentTraceIndex: 0,
+        isPlaying: true,
+        playbackSpeed: 1,
+        startTime: Date.now(),
+        elapsedTime: 0
+      })
+      
+      replayStartTimeRef.current = Date.now()
+      setCurrentReplayTrace(0)
+      animateReplay()
+    } catch (error) {
+      console.error('Error starting replay:', error)
+    }
   }
 
   const animateReplay = () => {
@@ -555,7 +514,22 @@ Search Query: ${searchQuery || 'None'}
                             ? 'border-black bg-gray-50' 
                             : 'border-gray-200 hover:bg-gray-50'
                         } ${isReplaying ? 'animate-pulse bg-blue-50' : ''}`}
-                        onClick={() => setSelectedTrace(trace)}
+                        onClick={async () => {
+                          setSelectedTrace(trace)
+                          // Check if this trace involves a subgraph node
+                          if (trace.source.nodeType === 'subgraph' || trace.target.nodeType === 'subgraph') {
+                            try {
+                              const subTraces = await FlowTraceService.getSubgraphTraces(trace.id)
+                              setSubgraphTraces(subTraces)
+                              setShowSubgraphTraces(true)
+                            } catch (error) {
+                              console.error('Error loading subgraph traces:', error)
+                            }
+                          } else {
+                            setSubgraphTraces([])
+                            setShowSubgraphTraces(false)
+                          }
+                        }}
                       >
                         <div className="flex items-center gap-2">
                           {getStatusIcon(trace.status)}
@@ -739,6 +713,63 @@ Search Query: ${searchQuery || 'None'}
                       </pre>
                     </div>
                   </div>
+
+                  {/* Subgraph Traces */}
+                  {showSubgraphTraces && subgraphTraces.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Subgraph Execution Traces</h4>
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <p className="text-sm text-blue-700 mb-3">
+                          This trace executed a subgraph. Below are the traces from inside the subgraph:
+                        </p>
+                        <div className="space-y-2">
+                          {subgraphTraces.map((subTrace) => {
+                            const SubSourceIcon = iconMap[subTrace.source.nodeType] || Zap
+                            const SubTargetIcon = iconMap[subTrace.target.nodeType] || Zap
+                            
+                            return (
+                              <div
+                                key={subTrace.id}
+                                className="bg-white p-3 rounded border border-blue-200"
+                              >
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(subTrace.status)}
+                                  
+                                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <SubSourceIcon className="w-3 h-3 text-gray-600" />
+                                      <span className="text-xs font-medium text-gray-900 truncate">
+                                        {subTrace.source.nodeName}
+                                      </span>
+                                    </div>
+                                    
+                                    <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />
+                                    
+                                    <div className="flex items-center gap-1">
+                                      <SubTargetIcon className="w-3 h-3 text-gray-600" />
+                                      <span className="text-xs font-medium text-gray-900 truncate">
+                                        {subTrace.target.nodeName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <span className="text-xs text-gray-500">
+                                    {subTrace.duration}ms
+                                  </span>
+                                </div>
+                                
+                                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                  <span>{subTrace.source.portName} → {subTrace.target.portName}</span>
+                                  <span>•</span>
+                                  <span>{(subTrace.data.size / 1024).toFixed(1)}KB</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

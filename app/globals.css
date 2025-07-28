@@ -13,6 +13,16 @@
     height: 100%;
     margin: 0;
   }
+  
+  /* Global cursor pointer for all buttons */
+  button {
+    cursor: pointer;
+  }
+  
+  /* Ensure disabled buttons show not-allowed cursor */
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @layer utilities {

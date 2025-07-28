@@ -34,28 +34,23 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
   
   // Measure and report actual port position using world coordinates
   useEffect(() => {
-    // console.log(`🔍 Port ${port.id} in node ${nodeId}: setting up position measurement`, { hasPortRef: !!portRef.current, hasCallback: !!onPortPositionUpdate })
     if (portRef.current && onPortPositionUpdate) {
       const measurePortPosition = () => {
-        // console.log(`📏 Measuring port position for ${nodeId}-${port.id}`)
         const portElement = portRef.current
         const nodeElement = portElement?.closest('[data-node-id]') as HTMLElement
         if (!portElement || !nodeElement) {
-          // console.log('❌ Port measurement failed: missing port or node element', { portElement, nodeElement })
           return
         }
         
         // Get the canvas container to calculate relative positions
         const canvasElement = nodeElement.closest('[data-canvas]') as HTMLElement
         if (!canvasElement) {
-          // console.log('❌ Port measurement failed: no canvas element found')
           return
         }
         
         // Get the transformed content container within the canvas
         const contentContainer = canvasElement.querySelector('div[style*="transform"]') as HTMLElement
         if (!contentContainer) {
-          // console.log('❌ Port measurement failed: no transform container found')
           return
         }
         
@@ -74,9 +69,6 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
         // If node is in a group, the port position is already correctly calculated
         // relative to the content container since the group itself is positioned
         // within the content container. No additional offset needed.
-        
-        // Debug: Log port position updates
-        // console.log(`🔗 Port position update: ${nodeId}-${port.id} at (${portCenterX.toFixed(1)}, ${portCenterY.toFixed(1)})`)
         
         // Report the coordinates in the transformed space
         onPortPositionUpdate(port.id, portCenterX, portCenterY, port.position)

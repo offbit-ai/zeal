@@ -230,13 +230,21 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
   // Get all groups to check for collapsed ones
   const groups = useWorkflowStore(state => state.groups)
   
-  // Debug: Log connection count and port positions
-  // console.log(`🔗 ConnectionLines rendering ${connections.length} connections`)
-  
   // Hide connection lines during group dragging for smooth UX
   if (isGroupDragging) {
     return null
   }
+  
+  // Check if we have port positions for connections that should render
+  const connectionsWithPositions = connections.filter(conn => {
+    const sourcePos = getPortPosition(conn.source.nodeId, conn.source.portId)
+    const targetPos = getPortPosition(conn.target.nodeId, conn.target.portId)
+    return sourcePos && targetPos
+  })
+  
+  // Only render connections that have both port positions available
+  const connectionsToRender = connectionsWithPositions
+  
   
   return (
     <svg 
@@ -284,7 +292,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
         </filter>
       </defs>
       
-      {connections.map(connection => {
+      {connectionsToRender.map(connection => {
         let source = getPortPosition(connection.source.nodeId, connection.source.portId)
         let target = getPortPosition(connection.target.nodeId, connection.target.portId)
 

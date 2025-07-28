@@ -44,12 +44,12 @@ export function createErrorResponse(
 }
 
 // API route wrapper with error handling
-export function withErrorHandling(
-  handler: (req: NextRequest) => Promise<NextResponse>
+export function withErrorHandling<T = any>(
+  handler: (req: NextRequest, context?: T) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest): Promise<NextResponse> => {
+  return async (req: NextRequest, context?: T): Promise<NextResponse> => {
     try {
-      return await handler(req)
+      return await handler(req, context)
     } catch (error) {
       console.error('API Error:', error)
       
@@ -216,12 +216,16 @@ export function validateWorkflowConnections(connections: any[], nodeIds: Set<str
   }
   
   for (const connection of connections) {
-    if (!connection.sourceNodeId || !nodeIds.has(connection.sourceNodeId)) {
-      throw new ApiError('VALIDATION_ERROR', `Invalid source node ID: ${connection.sourceNodeId}`, 400)
+    // Handle both old format (sourceNodeId/targetNodeId) and new format (source.nodeId/target.nodeId)
+    const sourceNodeId = connection.sourceNodeId || connection.source?.nodeId
+    const targetNodeId = connection.targetNodeId || connection.target?.nodeId
+    
+    if (!sourceNodeId || !nodeIds.has(sourceNodeId)) {
+      throw new ApiError('VALIDATION_ERROR', `Invalid source node ID: ${sourceNodeId}`, 400)
     }
     
-    if (!connection.targetNodeId || !nodeIds.has(connection.targetNodeId)) {
-      throw new ApiError('VALIDATION_ERROR', `Invalid target node ID: ${connection.targetNodeId}`, 400)
+    if (!targetNodeId || !nodeIds.has(targetNodeId)) {
+      throw new ApiError('VALIDATION_ERROR', `Invalid target node ID: ${targetNodeId}`, 400)
     }
   }
 }

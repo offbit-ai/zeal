@@ -1,3 +1,25 @@
+export interface WorkflowGraph {
+  id: string
+  name: string
+  namespace: string // Used for referencing in subgraph nodes
+  isMain: boolean
+  nodes: SerializedNode[]
+  connections: SerializedConnection[]
+  groups: SerializedGroup[]
+  canvasState?: {
+    offset: { x: number; y: number }
+    zoom: number
+  }
+  portPositions?: Array<{
+    key: string // nodeId-portId
+    nodeId: string
+    portId: string
+    x: number
+    y: number
+    position: 'top' | 'right' | 'bottom' | 'left'
+  }>
+}
+
 export interface WorkflowSnapshot {
   id: string
   name: string
@@ -9,21 +31,17 @@ export interface WorkflowSnapshot {
   isDraft: boolean
   isPublished: boolean
   publishedAt?: string
-  nodes: SerializedNode[]
-  connections: SerializedConnection[]
-  groups: SerializedGroup[]
+  graphs: WorkflowGraph[] // Changed from single graph to array of graphs
+  activeGraphId?: string // Currently active graph tab
   trigger?: any // Will store TriggerConfig from TriggerModal
-  canvasState?: {
-    offset: { x: number; y: number }
-    zoom: number
-  }
   metadata?: {
     version: string
     author?: string
     tags?: string[]
-    nodeCount?: number
-    connectionCount?: number
-    groupCount?: number
+    totalNodeCount?: number // Total across all graphs
+    totalConnectionCount?: number
+    totalGroupCount?: number
+    graphCount?: number
   }
 }
 
@@ -53,6 +71,11 @@ export interface SerializedNode {
       [key: string]: any
     }>
     propertyValues: Record<string, any>
+    // Subgraph-specific fields
+    graphId?: string
+    graphNamespace?: string
+    templateId?: string
+    requiredEnvVars?: string[]
   }
 }
 

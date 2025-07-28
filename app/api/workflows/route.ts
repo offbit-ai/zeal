@@ -45,11 +45,10 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       id: workflow.id,
       name: workflow.name,
       description: workflow.description || '',
-      nodes: latestVersion?.nodes || [],
-      connections: latestVersion?.connections || [],
+      graphs: latestVersion?.graphs || [],
+      activeGraphId: latestVersion?.metadata?.activeGraphId || 'main',
+      triggerConfig: latestVersion?.triggerConfig,
       metadata: {
-        nodeCount: latestVersion?.nodes?.length || 0,
-        connectionCount: latestVersion?.connections?.length || 0,
         ...latestVersion?.metadata
       },
       status: publishedVersion ? 'published' : 'draft',
@@ -124,37 +123,38 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const body: WorkflowCreateRequest = await req.json()
   
   // Validate required fields
-  validateRequired(body, ['name', 'nodes', 'connections'])
+  validateRequired(body, ['name', 'graphs'])
   
-  // Validate nodes
-  validateWorkflowNodes(body.nodes)
-  
-  // Validate connections
-  const nodeIds = new Set(body.nodes.map(node => node.id))
-  validateWorkflowConnections(body.connections, nodeIds)
-  
-  // Check for duplicate workflow name for this user
-  const { workflows } = await WorkflowDatabase.getWorkflows(userId, { search: body.name })
-  const existingWorkflow = workflows.find(workflow => 
-    workflow.name.toLowerCase() === body.name.toLowerCase()
-  )
-  
-  if (existingWorkflow) {
-    throw new ApiError(
-      'DUPLICATE_WORKFLOW_NAME',
-      `Workflow with name '${body.name}' already exists`,
-      409
-    )
+  // Validate graphs structure
+  if (!Array.isArray(body.graphs) || body.graphs.length === 0) {
+    throw new ApiError('INVALID_GRAPHS', 'At least one graph is required', 400)
   }
+  
+  // Validate each graph
+  body.graphs.forEach((graph, index) => {
+    if (!graph.nodes || !Array.isArray(graph.nodes)) {
+      throw new ApiError('INVALID_GRAPH_NODES', `Graph ${index} must have nodes array`, 400)
+    }
+    if (!graph.connections || !Array.isArray(graph.connections)) {
+      throw new ApiError('INVALID_GRAPH_CONNECTIONS', `Graph ${index} must have connections array`, 400)
+    }
+    
+    validateWorkflowNodes(graph.nodes)
+    const nodeIds = new Set(graph.nodes.map(node => node.id))
+    validateWorkflowConnections(graph.connections, nodeIds)
+  })
   
   // Create new workflow with initial version
   const { workflow, version } = await WorkflowDatabase.createWorkflow({
     name: body.name,
     description: body.description,
     userId,
-    nodes: body.nodes,
-    connections: body.connections,
-    metadata: body.metadata
+    graphs: body.graphs,
+    triggerConfig: body.triggerConfig,
+    metadata: {
+      ...body.metadata,
+      activeGraphId: body.activeGraphId || 'main'
+    }
   })
   
   // Transform to API response format
@@ -162,11 +162,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     id: workflow.id,
     name: workflow.name,
     description: workflow.description || '',
-    nodes: version.nodes,
-    connections: version.connections,
+    graphs: version.graphs || [],
+    activeGraphId: version.metadata?.activeGraphId || 'main',
+    triggerConfig: version.triggerConfig,
     metadata: {
-      nodeCount: version.nodes.length,
-      connectionCount: version.connections.length,
       ...version.metadata
     },
     status: 'draft',

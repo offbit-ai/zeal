@@ -8,7 +8,7 @@ import type {
   WorkflowNodeData,
   WorkflowConnectionData
 } from '@/types/api'
-import type { WorkflowSnapshot } from '@/types/snapshot'
+import type { WorkflowSnapshot, WorkflowGraph } from '@/types/snapshot'
 
 export class WorkflowService {
   private static cache: Map<string, WorkflowResponse> = new Map()
@@ -16,28 +16,53 @@ export class WorkflowService {
   private static CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
   // Convert API response to frontend workflow format
-  private static convertToWorkflow(apiWorkflow: WorkflowResponse): WorkflowSnapshot {
+  private static convertToWorkflow(apiWorkflow: any): WorkflowSnapshot {
+    // Handle both old format (nodes/connections) and new format (graphs)
+    let graphs: WorkflowGraph[]
+    
+    if (apiWorkflow.graphs) {
+      graphs = apiWorkflow.graphs
+    } else if (apiWorkflow.nodes && apiWorkflow.connections) {
+      // Convert old format to new format
+      graphs = [{
+        id: 'main',
+        name: 'Main',
+        namespace: 'main',
+        isMain: true,
+        nodes: apiWorkflow.nodes,
+        connections: apiWorkflow.connections,
+        groups: apiWorkflow.groups || []
+      }]
+    } else {
+      graphs = []
+    }
+
     return {
       id: apiWorkflow.id,
       name: apiWorkflow.name,
       description: apiWorkflow.description,
-      nodes: apiWorkflow.nodes,
-      connections: apiWorkflow.connections,
-      metadata: apiWorkflow.metadata,
+      graphs,
+      activeGraphId: apiWorkflow.activeGraphId || 'main',
+      trigger: apiWorkflow.triggerConfig || apiWorkflow.trigger,
+      metadata: apiWorkflow.metadata || {},
       createdAt: apiWorkflow.createdAt,
       updatedAt: apiWorkflow.updatedAt,
-      version: apiWorkflow.version,
-      status: apiWorkflow.status
+      lastSavedAt: apiWorkflow.lastSavedAt || apiWorkflow.updatedAt,
+      saveCount: apiWorkflow.saveCount || 0,
+      isDraft: apiWorkflow.isDraft !== undefined ? apiWorkflow.isDraft : true,
+      isPublished: apiWorkflow.isPublished || false,
+      publishedAt: apiWorkflow.publishedAt
     }
   }
 
   // Convert frontend workflow to API request format
-  private static convertToApiRequest(workflow: Partial<WorkflowSnapshot>): WorkflowCreateRequest | WorkflowUpdateRequest {
+  private static convertToApiRequest(workflow: Partial<WorkflowSnapshot>): any {
     return {
       name: workflow.name!,
       description: workflow.description,
-      nodes: workflow.nodes!,
-      connections: workflow.connections!,
+      graphs: workflow.graphs!,
+      activeGraphId: workflow.activeGraphId,
+      triggerConfig: workflow.trigger,
       metadata: workflow.metadata
     }
   }
@@ -302,13 +327,23 @@ export class WorkflowService {
       id: `wf_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       name: workflow.name || 'Untitled Workflow',
       description: workflow.description,
-      nodes: workflow.nodes || [],
-      connections: workflow.connections || [],
+      graphs: workflow.graphs || [{
+        id: 'main',
+        name: 'Main',
+        namespace: 'main',
+        isMain: true,
+        nodes: [],
+        connections: [],
+        groups: []
+      }],
+      trigger: workflow.trigger,
       metadata: workflow.metadata || {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      version: 1,
-      status: 'draft'
+      lastSavedAt: new Date().toISOString(),
+      saveCount: 0,
+      isDraft: true,
+      isPublished: false
     }
 
     try {

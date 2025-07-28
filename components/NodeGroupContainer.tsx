@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { NodeGroup } from "@/types/workflow";
 import { useWorkflowStore } from "@/store/workflowStore";
+import { useGraphStore } from "@/store/graphStore";
 import { Edit2, Trash2 } from "lucide-react";
 
 interface NodeGroupContainerProps {
@@ -37,6 +38,7 @@ export function NodeGroupContainer({
 
   const { moveGroup, resizeGroup, updateGroup, setGroupDragging } =
     useWorkflowStore();
+  const { currentGraphId, setGraphDirty } = useGraphStore();
 
   // Handle group dragging
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -112,6 +114,7 @@ export function NodeGroupContainer({
           const newX = (e.clientX - dragStart.x) / zoom;
           const newY = (e.clientY - dragStart.y) / zoom;
           moveGroup(group.id, { x: newX, y: newY });
+          setGraphDirty(currentGraphId, true);
         }
 
         if (isResizing && resizeStart) {
@@ -124,6 +127,7 @@ export function NodeGroupContainer({
             resizeStart.height + (e.clientY - resizeStart.y) / zoom
           );
           resizeGroup(group.id, { width: newWidth, height: newHeight });
+          setGraphDirty(currentGraphId, true);
         }
       });
     };
@@ -156,7 +160,7 @@ export function NodeGroupContainer({
       className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto transition-all duration-200 ${
         group.collapsed ? "border-gray-600" : ""
       } ${isDragging ? "shadow-2xl border-blue-500" : ""} ${
-        isDropTarget ? "border-blue-500 bg-blue-50/40 shadow-lg ring-2 ring-blue-300 ring-opacity-50" : ""
+        isDropTarget && !group.collapsed ? "border-blue-500 bg-blue-50/40 shadow-lg ring-2 ring-blue-300 ring-opacity-50" : ""
       }`}
       style={{
         left: group.position.x,
@@ -217,6 +221,7 @@ export function NodeGroupContainer({
             onClick={(e) => {
               e.stopPropagation();
               updateGroup(group.id, { collapsed: !group.collapsed });
+              setGraphDirty(currentGraphId, true);
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >
