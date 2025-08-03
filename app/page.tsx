@@ -2760,14 +2760,39 @@ export default function Home() {
 
                             // Only clamp if the node would be completely outside the group
                             // Use more sensible bounds to prevent nodes jumping to top-left
-                            if (relativePos.x < 0) relativePos.x = 20
-                            if (relativePos.y < 0) relativePos.y = 20
+                            let wasClamped = false
+                            if (relativePos.x < 0) {
+                              relativePos.x = 20
+                              wasClamped = true
+                            }
+                            if (relativePos.y < 0) {
+                              relativePos.y = 20
+                              wasClamped = true
+                            }
 
                             // Also clamp to prevent nodes being too far outside
                             const maxX = (group.size?.width || 200) - 50
                             const maxY = (group.size?.height || 150) - 50
-                            if (relativePos.x > maxX) relativePos.x = maxX - 20
-                            if (relativePos.y > maxY) relativePos.y = maxY - 20
+                            if (relativePos.x > maxX) {
+                              relativePos.x = maxX - 20
+                              wasClamped = true
+                            }
+                            if (relativePos.y > maxY) {
+                              relativePos.y = maxY - 20
+                              wasClamped = true
+                            }
+                            
+                            // If position was clamped, update the absolute position to match
+                            if (wasClamped && !localStoredPosition) {
+                              const newAbsolutePos = {
+                                x: groupPos.x + relativePos.x,
+                                y: groupPos.y + relativePos.y + headerOffset
+                              }
+                              // Defer the update to avoid immediate re-render
+                              setTimeout(() => {
+                                updateNodePosition(nodeId, newAbsolutePos)
+                              }, 0)
+                            }
 
                             return relativePos
                           })()
@@ -3024,11 +3049,30 @@ export default function Home() {
           <Minimap
             canvasOffset={canvasOffset}
             nodes={(() => {
-              const minimapNodes = storeNodes.map((node: any) => ({
-                id: getNodeId(node),
-                position: node.position || { x: 0, y: 0 },
-                size: { width: 200, height: 80 }, // Default node size
-              }))
+              const minimapNodes = storeNodes.map((node: any) => {
+                const nodeId = getNodeId(node)
+                
+                // Check if node is in a group
+                const parentGroup = groups.find(g => g.nodeIds?.includes(nodeId))
+                
+                let visualPosition = node.position || { x: 0, y: 0 }
+                
+                // If node is in a group and we have a local position stored, calculate the absolute visual position
+                if (parentGroup && groupNodePositions[parentGroup.id]?.[nodeId]) {
+                  const localPos = groupNodePositions[parentGroup.id][nodeId]
+                  const headerOffset = parentGroup.description ? 100 : 32
+                  visualPosition = {
+                    x: parentGroup.position.x + localPos.x,
+                    y: parentGroup.position.y + localPos.y + headerOffset
+                  }
+                }
+                
+                return {
+                  id: nodeId,
+                  position: visualPosition,
+                  size: { width: 200, height: 80 }, // Default node size
+                }
+              })
 
               return minimapNodes
             })()}
@@ -3037,7 +3081,7 @@ export default function Home() {
               position: group.position,
               size: group.size,
               color: group.color,
-              collapsed: group.isCollapsed,
+              collapsed: localGroupCollapseState[group.id] || false,
               title: group.title,
               nodeIds: group.nodeIds,
             }))}
