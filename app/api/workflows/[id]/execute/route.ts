@@ -11,16 +11,20 @@ import { ApiError, WorkflowExecutionRequest, WorkflowExecutionResponse } from '@
 let executionsStore: WorkflowExecutionResponse[] = []
 
 // POST /api/workflows/[id]/execute - Execute workflow
-export const POST = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const POST = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(100)
+
+  if (!context?.params) {
+    return NextResponse.json(createSuccessResponse({}), { status: 400 })
+  }
   
   const userId = extractUserId(req)
-  const { id: workflowId } = params
+  const { id: workflowId } = context.params
   const body: WorkflowExecutionRequest = await req.json()
   
   // Validate workflow exists and is published
   // In real implementation, this would query the database
-  console.log(`Executing workflow ${workflowId} for user ${userId}`)
+  // console.log removed
   
   // Create execution record
   const execution: WorkflowExecutionResponse = {
@@ -77,11 +81,16 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
 })
 
 // GET /api/workflows/[id]/execute - Get execution history
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(75)
   
+  if (!context?.params) {
+    return NextResponse.json(createSuccessResponse([]), { status: 400 })
+  }
+  
+
   const userId = extractUserId(req)
-  const { id: workflowId } = params
+  const { id: workflowId } = context.params
   const { searchParams } = new URL(req.url)
   
   const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)

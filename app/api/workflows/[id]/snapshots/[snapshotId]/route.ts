@@ -10,9 +10,13 @@ import { WorkflowDatabase } from '@/services/workflowDatabase'
 // GET /api/workflows/[id]/snapshots/[snapshotId] - Get specific snapshot
 export const GET = withErrorHandling(async (
   req: NextRequest, 
-  { params }: { params: { id: string; snapshotId: string } }
+  context?: { params: { id: string; snapshotId: string } }
 ) => {
-  const { id: workflowId, snapshotId } = params
+  if (!context || !context.params || !context.params.id || !context.params.snapshotId) {
+    throw new ApiError('PARAMS_REQUIRED', 'Workflow ID and Snapshot ID are required', 400)
+  }
+  
+  const { id: workflowId, snapshotId } = context.params
   const userId = extractUserId(req)
   
   // Verify workflow ownership
@@ -37,9 +41,13 @@ export const GET = withErrorHandling(async (
 // PUT /api/workflows/[id]/snapshots/[snapshotId] - Update snapshot
 export const PUT = withErrorHandling(async (
   req: NextRequest, 
-  { params }: { params: { id: string; snapshotId: string } }
+  context?: { params: { id: string; snapshotId: string } }
 ) => {
-  const { id: workflowId, snapshotId } = params
+  if (!context || !context.params || !context.params.id || !context.params.snapshotId) {
+    throw new ApiError('PARAMS_REQUIRED', 'Workflow ID and Snapshot ID are required', 400)
+  }
+  
+  const { id: workflowId, snapshotId } = context.params
   const userId = extractUserId(req)
   const body = await req.json()
   
@@ -65,7 +73,7 @@ export const PUT = withErrorHandling(async (
     name: body.name,
     description: body.description,
     graphs: body.graphs,
-    triggerConfig: body.triggerConfig,
+    trigger: body.triggerConfig,
     metadata: body.metadata
   })
   
@@ -79,9 +87,13 @@ export const PUT = withErrorHandling(async (
 // DELETE /api/workflows/[id]/snapshots/[snapshotId] - Delete snapshot
 export const DELETE = withErrorHandling(async (
   req: NextRequest, 
-  { params }: { params: { id: string; snapshotId: string } }
+  context?: { params: { id: string; snapshotId: string } }
 ) => {
-  const { id: workflowId, snapshotId } = params
+  if (!context || !context.params || !context.params.id || !context.params.snapshotId) {
+    throw new ApiError('PARAMS_REQUIRED', 'Workflow ID and Snapshot ID are required', 400)
+  }
+  
+  const { id: workflowId, snapshotId } = context.params
   const userId = extractUserId(req)
   
   // Verify workflow ownership

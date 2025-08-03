@@ -294,7 +294,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   
   // Simulate report generation
   setTimeout(() => {
-    console.log(`Report ${reportConfig.reportId} generated successfully`)
+    // console.log removed
     // In real implementation, update report status and send notification
   }, 5000)
   

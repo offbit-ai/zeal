@@ -45,11 +45,13 @@ interface WebSocketConfig {
   authentication?: "none" | "token";
 }
 
+type IntervalUnit = "minutes" | "hours" | "days" | "weeks";
+
 interface SchedulerConfig {
   cronExpression?: string;
   interval?: {
     value: number;
-    unit: "minutes" | "hours" | "days" | "weeks";
+    unit: IntervalUnit;
   };
   timezone?: string;
   isOneTime?: boolean;
@@ -111,7 +113,7 @@ export function TriggerModal({
     (existingTrigger?.config as SchedulerConfig)?.interval?.value || 1
   );
   const [intervalUnit, setIntervalUnit] = useState<
-    SchedulerConfig["interval"]["unit"]
+    IntervalUnit
   >(
     (existingTrigger?.config as SchedulerConfig)?.interval?.unit || "hours"
   );
@@ -549,7 +551,7 @@ export function TriggerModal({
                                 key={`${option.value}-${option.unit}`}
                                 onClick={() => {
                                   setIntervalValue(option.value);
-                                  setIntervalUnit(option.unit as SchedulerConfig["interval"]["unit"]);
+                                  setIntervalUnit(option.unit as IntervalUnit);
                                 }}
                                 className={`px-3 py-2 text-sm rounded-md border transition-all ${
                                   intervalValue === option.value && intervalUnit === option.unit
@@ -595,7 +597,7 @@ export function TriggerModal({
                               value={intervalUnit}
                               onChange={(e) =>
                                 setIntervalUnit(
-                                  e.target.value as SchedulerConfig["interval"]["unit"]
+                                  e.target.value as IntervalUnit
                                 )
                               }
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

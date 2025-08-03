@@ -16,12 +16,13 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
   
-  const { sessions, total } = await FlowTraceDatabase.getAllSessions(userId, {
+  const { sessions, total } = await FlowTraceDatabase.getSessions(userId, {
     limit: pagination.limit,
     offset: (pagination.page - 1) * pagination.limit,
     search: filters.search,
-    status: filters.status,
-    timeFilter: filters.timeFilter as '1h' | '6h' | '24h' | '7d' | undefined
+    status: filters.status as 'running' | 'completed' | 'failed' | undefined,
+    startDate: filters.dateFrom,
+    endDate: filters.dateTo
   })
   
   const totalPages = Math.ceil(total / pagination.limit)

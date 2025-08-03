@@ -8,9 +8,14 @@ import { ApiError } from '@/types/api'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
 
 // GET /api/flow-traces/sessions/[sessionId]/report - Generate trace report
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { sessionId: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { sessionId: string } }) => {
   const userId = extractUserId(req)
-  const { sessionId } = params
+  
+  if (!context || !context.params || !context.params.sessionId) {
+    throw new ApiError('TRACE_SESSION_NOT_FOUND', 'Session ID is required', 400)
+  }
+  
+  const { sessionId } = context.params
   const { searchParams } = new URL(req.url)
   
   // Get optional filters

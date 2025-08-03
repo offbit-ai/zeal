@@ -12,6 +12,7 @@ interface DataOperationModalProps {
   value: DataOperationSet[]
   onChange: (value: DataOperationSet[]) => void
   description?: string
+  availableFields?: string[]
 }
 
 export function DataOperationModal({
@@ -20,7 +21,8 @@ export function DataOperationModal({
   title,
   value,
   onChange,
-  description
+  description,
+  
 }: DataOperationModalProps) {
   const [localValue, setLocalValue] = useState<DataOperationSet[]>(value)
 

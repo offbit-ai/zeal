@@ -1,9 +1,9 @@
 import { apiClient } from './apiClient'
-import { NodeRepositoryItem, NodeCategory } from '@/store/nodeRepository'
+import { NodeRepositoryItem, NodeCategory } from '@/types/nodeRepository'
 import { iconLibrary } from '@/lib/icons'
 import { 
   Database, Code, GitBranch, Shuffle, Cloud, 
-  Mail, Brain, Cpu, PencilRuler, Folder
+  Mail, Brain, Cpu, PencilRuler, Folder, ArrowRightLeft
 } from 'lucide-react'
 
 // Icon mapping for categories (Lucide components for categories)
@@ -16,7 +16,8 @@ const CATEGORY_ICONS: Record<string, any> = {
   'scripting': Code,
   'tools-utilities': PencilRuler,
   'storage-memory': Cpu,
-  'cloud-services': Cloud
+  'cloud-services': Cloud,
+  'graph-io': ArrowRightLeft
 }
 
 // Note: Icon mapping is now handled by the Icon Library
@@ -128,7 +129,7 @@ export class NodeRepositoryService {
         shape: (apiNode.shape || 'rectangle') as any,
         size: apiNode.size || 'medium',
         ports: apiNode.ports || [],
-        properties: NodeRepositoryService.convertApiPropertiesToMetadata(apiNode.properties),
+        properties: apiNode.properties || {},
         requiredEnvVars: apiNode.requiredEnvVars || [],
         propertyRules: apiNode.propertyRules // Include property rules from template
       },
@@ -140,68 +141,4 @@ export class NodeRepositoryService {
     }
   }
 
-  // Convert API properties schema to metadata properties
-  private static convertApiPropertiesToMetadata(apiProperties: Record<string, any>): any[] {
-    const properties: any[] = []
-    
-    Object.entries(apiProperties).forEach(([key, schema]: [string, any]) => {
-      let defaultValue: any
-      
-      if (schema.defaultValue !== undefined) {
-        defaultValue = schema.defaultValue
-      } else if (schema.default !== undefined) {
-        defaultValue = schema.default
-      } else if (schema.type === 'string' || schema.type === 'text') {
-        defaultValue = ''
-      } else if (schema.type === 'number') {
-        defaultValue = 0
-      } else if (schema.type === 'boolean') {
-        defaultValue = false
-      } else if (schema.type === 'select' && schema.options?.[0]) {
-        defaultValue = schema.options[0]
-      } else if (schema.type === 'textarea') {
-        defaultValue = ''
-      } else if (schema.type === 'code' || schema.type === 'code-editor') {
-        defaultValue = ''
-      } else if (schema.type === 'rules') {
-        defaultValue = []
-      } else if (schema.type === 'dataOperations' || schema.type === 'data-operations') {
-        defaultValue = []
-      }
-      
-      const property: any = {
-        id: key,
-        label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1'),
-        type: schema.type,
-        defaultValue: defaultValue,
-        required: schema.required || false,
-        placeholder: schema.placeholder,
-        description: schema.description
-      }
-
-      // Add type-specific properties
-      if (schema.options) property.options = schema.options
-      if (schema.min !== undefined) property.min = schema.min
-      if (schema.max !== undefined) property.max = schema.max
-      if (schema.step !== undefined) property.step = schema.step
-      if (schema.language) property.language = schema.language
-      if (schema.lineNumbers !== undefined) property.lineNumbers = schema.lineNumbers
-      if (schema.wordWrap !== undefined) property.wordWrap = schema.wordWrap
-      
-      // For rules type
-      if (schema.type === 'rules') {
-        if (schema.availableFields) property.availableFields = schema.availableFields
-        if (schema.availableOperators) property.availableOperators = schema.availableOperators
-      }
-      
-      // For dataOperations type
-      if (schema.type === 'dataOperations' || schema.type === 'data-operations') {
-        if (schema.availableFields) property.availableFields = schema.availableFields
-      }
-      
-      properties.push(property)
-    })
-    
-    return properties
-  }
 }

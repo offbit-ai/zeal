@@ -231,7 +231,14 @@ export class FlowTracingService {
     estimatedDuration: number
   }> {
     try {
-      const replayConfig = await apiClient.post(`/flow-traces/sessions/${sessionId}/replay`, options || {})
+      const replayConfig = await apiClient.post<{
+        originalSessionId: string
+        replaySessionId: string
+        replayExecutionId: string
+        status: string
+        queuedAt: string
+        estimatedDuration: number
+      }>(`/flow-traces/sessions/${sessionId}/replay`, options || {})
       return replayConfig
     } catch (error) {
       console.error(`Failed to replay session ${sessionId}:`, error)
@@ -279,7 +286,14 @@ export class FlowTracingService {
     downloadUrl: string | null
   }> {
     try {
-      const report = await apiClient.post('/flow-traces/analytics/report', config)
+      const report = await apiClient.post<{
+        reportId: string
+        format: string
+        status: string
+        createdAt: string
+        estimatedCompletionTime: string
+        downloadUrl: string | null
+      }>('/flow-traces/analytics/report', config)
       return report
     } catch (error) {
       console.error('Failed to generate flow trace report:', error)

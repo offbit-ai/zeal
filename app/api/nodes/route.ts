@@ -7,43 +7,9 @@ import {
   extractUserId,
   mockDelay
 } from '@/lib/api-utils'
-import { ApiError } from '@/types/api'
+import { ApiError, NodeTemplateResponse } from '@/types/api'
 import { allNodeTemplates } from '@/data/nodeTemplates'
 import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
-
-interface NodeTemplateResponse {
-  id: string
-  type: string
-  title: string
-  subtitle: string
-  category: string
-  subcategory?: string
-  description: string
-  icon: string
-  variant?: string
-  shape?: string
-  size?: string
-  ports?: Array<{
-    id: string
-    label: string
-    type: 'input' | 'output'
-    position: string
-  }>
-  properties: Record<string, any>
-  requiredEnvVars?: string[]
-  tags: string[]
-  version: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  propertyRules?: {
-    triggers: string[]
-    rules: Array<{
-      when: string
-      updates: Record<string, any>
-    }>
-  }
-}
 
 // Initialize node templates from modules with proper timestamps
 const nodeTemplatesStore: NodeTemplateResponse[] = allNodeTemplates.map((template: any, index: number) => ({
@@ -78,7 +44,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // Check cache first
   const cachedResponse = apiCache.get(cacheKey)
   if (cachedResponse) {
-    console.log(`Cache hit for nodes: ${cacheKey}`)
+    // Cache hit for nodes
     return NextResponse.json(cachedResponse)
   }
   
@@ -94,13 +60,13 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   
   if (filters.category) {
     filteredNodes = filteredNodes.filter(node => 
-      node.category.toLowerCase() === filters.category.toLowerCase()
+      node.category.toLowerCase() === filters.category?.toLowerCase()
     )
   }
   
   if (filters.subcategory) {
     filteredNodes = filteredNodes.filter(node => 
-      node.subcategory?.toLowerCase() === filters.subcategory.toLowerCase()
+      node.subcategory?.toLowerCase() === filters.subcategory?.toLowerCase()
     )
   }
   
@@ -205,7 +171,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     version: body.version || '1.0.0',
     isActive: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    variant: body.variant,
+    shape: body.shape,
+    size: body.size,
+    ports: body.ports
   }
   
   nodeTemplatesStore.push(newNodeTemplate)

@@ -62,11 +62,10 @@ export class IconLibrary {
       custom: CustomSVGIcons,
       brand: FlatBrandIconRegistry
     }
-    console.log('IconLibrary initialized:', {
-      lucide: Object.keys(this.registry.lucide).length,
-      custom: Object.keys(this.registry.custom).length,
-      brand: Object.keys(this.registry.brand).length
-    });
+    // // console.log removed.length,
+    //   custom: Object.keys(this.registry.custom).length,
+    //   brand: Object.keys(this.registry.brand).length
+    // });
   }
 
   static getInstance(): IconLibrary {
@@ -80,13 +79,8 @@ export class IconLibrary {
    * Build the Lucide icon registry with name variations
    */
   private buildLucideRegistry(): Record<string, LucideIcon> {
-    console.log('buildLucideRegistry called');
-    console.log('Testing individual icon imports:', {
-      Activity: !!LucideIcons.Activity,
-      Box: !!LucideIcons.Box,
-      Circle: !!LucideIcons.Circle,
-      Database: !!LucideIcons.Database
-    });
+    // // console.log removed
+    // // console.log removed
     
     const registry: Record<string, LucideIcon> = {}
     const uniqueNames = new Set<string>()
@@ -223,8 +217,8 @@ export class IconLibrary {
       }
     })
 
-    console.log(`Lucide registry built with ${Object.keys(registry).length} entries, ${uniqueNames.size} unique icons`);
-    console.log('First 10 unique icons:', Array.from(uniqueNames).slice(0, 10));
+    // // console.log removed.length} entries, ${uniqueNames.size} unique icons`);
+    // // console.log removed.slice(0, 10));
 
     return registry
   }

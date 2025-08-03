@@ -43,7 +43,7 @@ export class WorkflowService {
       description: apiWorkflow.description,
       graphs,
       activeGraphId: apiWorkflow.activeGraphId || 'main',
-      trigger: apiWorkflow.triggerConfig || apiWorkflow.trigger,
+      triggerConfig: apiWorkflow.triggerConfig ,
       metadata: apiWorkflow.metadata || {},
       createdAt: apiWorkflow.createdAt,
       updatedAt: apiWorkflow.updatedAt,
@@ -62,7 +62,7 @@ export class WorkflowService {
       description: workflow.description,
       graphs: workflow.graphs!,
       activeGraphId: workflow.activeGraphId,
-      triggerConfig: workflow.trigger,
+      triggerConfig: workflow.triggerConfig,
       metadata: workflow.metadata
     }
   }
@@ -336,8 +336,8 @@ export class WorkflowService {
         connections: [],
         groups: []
       }],
-      trigger: workflow.trigger,
-      metadata: workflow.metadata || {},
+      triggerConfig: workflow.triggerConfig,
+      metadata: workflow.metadata || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lastSavedAt: new Date().toISOString(),

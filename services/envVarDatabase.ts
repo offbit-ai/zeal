@@ -1,8 +1,8 @@
 import { getDatabase, generateEnvVarId } from '@/lib/database'
-import type { EnvironmentVariableResponse, EnvVarCreateRequest, EnvVarUpdateRequest } from '@/types/api'
+import type { EnvVarResponse, EnvVarCreateRequest, EnvVarUpdateRequest } from '@/types/api'
 
 export class EnvVarDatabase {
-  static async create(data: EnvVarCreateRequest & { userId: string }): Promise<EnvironmentVariableResponse> {
+  static async create(data: EnvVarCreateRequest & { userId: string }): Promise<EnvVarResponse> {
     const db = await getDatabase()
     const id = generateEnvVarId()
     const now = new Date().toISOString()
@@ -10,14 +10,14 @@ export class EnvVarDatabase {
     // For secrets, we should hash the value in a real implementation
     // For now, we'll store it as-is for simulation purposes
     
-    await db.run(
-      `INSERT INTO env_vars (id, key, value, isSecret, description, category, userId, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    await db.query(
+      `INSERT INTO env_vars (id, key, value, "isSecret", description, category, "userId", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         id,
         data.key,
         data.value,
-        data.isSecret ? 1 : 0,
+        data.isSecret || false,
         data.description || null,
         data.category || (data.isSecret ? 'secrets' : 'environment'),
         data.userId,
@@ -33,40 +33,42 @@ export class EnvVarDatabase {
       isSecret: data.isSecret,
       description: data.description,
       category: data.category || (data.isSecret ? 'secrets' : 'environment'),
+      createdBy: data.userId,
       createdAt: now,
       updatedAt: now
     }
   }
   
-  static async update(id: string, data: EnvVarUpdateRequest): Promise<EnvironmentVariableResponse | null> {
+  static async update(id: string, data: EnvVarUpdateRequest): Promise<EnvVarResponse | null> {
     const db = await getDatabase()
     const now = new Date().toISOString()
     
     // Build dynamic update query
     const updates: string[] = []
     const values: any[] = []
+    let paramCount = 0
     
     if (data.value !== undefined) {
-      updates.push('value = ?')
       values.push(data.value)
+      updates.push(`value = $${++paramCount}`)
     }
     
     if (data.description !== undefined) {
-      updates.push('description = ?')
       values.push(data.description)
+      updates.push(`description = $${++paramCount}`)
     }
     
     if (updates.length === 0) {
       return this.getById(id)
     }
     
-    updates.push('updatedAt = ?')
     values.push(now)
+    updates.push(`"updatedAt" = $${++paramCount}`)
     
     values.push(id)
     
-    await db.run(
-      `UPDATE env_vars SET ${updates.join(', ')} WHERE id = ?`,
+    await db.query(
+      `UPDATE env_vars SET ${updates.join(', ')} WHERE id = $${++paramCount}`,
       values
     )
     
@@ -75,13 +77,14 @@ export class EnvVarDatabase {
   
   static async delete(id: string): Promise<boolean> {
     const db = await getDatabase()
-    const result = await db.run('DELETE FROM env_vars WHERE id = ?', id)
-    return result.changes > 0
+    const result = await db.query('DELETE FROM env_vars WHERE id = $1', [id])
+    return (result.rowCount || 0) > 0
   }
   
-  static async getById(id: string): Promise<EnvironmentVariableResponse | null> {
+  static async getById(id: string): Promise<EnvVarResponse | null> {
     const db = await getDatabase()
-    const row = await db.get('SELECT * FROM env_vars WHERE id = ?', id)
+    const result = await db.query('SELECT * FROM env_vars WHERE id = $1', [id])
+    const row = result.rows[0]
     
     if (!row) return null
     
@@ -92,14 +95,16 @@ export class EnvVarDatabase {
       isSecret: Boolean(row.isSecret),
       description: row.description,
       category: row.category,
+      createdBy: row.userId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt
     }
   }
   
-  static async getByKey(key: string): Promise<EnvironmentVariableResponse | null> {
+  static async getByKey(key: string): Promise<EnvVarResponse | null> {
     const db = await getDatabase()
-    const row = await db.get('SELECT * FROM env_vars WHERE key = ?', key)
+    const result = await db.query('SELECT * FROM env_vars WHERE key = $1', [key])
+    const row = result.rows[0]
     
     if (!row) return null
     
@@ -110,6 +115,7 @@ export class EnvVarDatabase {
       isSecret: Boolean(row.isSecret),
       description: row.description,
       category: row.category,
+      createdBy: row.userId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt
     }
@@ -119,37 +125,49 @@ export class EnvVarDatabase {
     category?: string
     limit?: number
     offset?: number
-  }): Promise<{ data: EnvironmentVariableResponse[], total: number }> {
+  }): Promise<{ data: EnvVarResponse[], total: number }> {
     const db = await getDatabase()
     const { category, limit = 100, offset = 0 } = params || {}
     
     let query = 'SELECT * FROM env_vars'
     let countQuery = 'SELECT COUNT(*) as total FROM env_vars'
     const queryParams: any[] = []
+    let paramCount = 0
     
     if (category) {
-      query += ' WHERE category = ?'
-      countQuery += ' WHERE category = ?'
       queryParams.push(category)
+      query += ` WHERE category = $${++paramCount}`
+      countQuery += ' WHERE category = $1'
     }
     
-    query += ' ORDER BY key ASC LIMIT ? OFFSET ?'
+    const countParamCount = paramCount
     
-    const rows = await db.all(query, [...queryParams, limit, offset])
-    const { total } = await db.get(countQuery, queryParams)
+    queryParams.push(limit)
+    query += ` ORDER BY key ASC LIMIT $${++paramCount}`
+    queryParams.push(offset)
+    query += ` OFFSET $${++paramCount}`
     
-    const data = rows.map(row => ({
+    const [rowsResult, countResult] = await Promise.all([
+      db.query(query, queryParams),
+      db.query(countQuery, category ? [category] : [])
+    ])
+    
+    const data = rowsResult.rows.map(row => ({
       id: row.id,
       key: row.key,
       value: row.isSecret ? '••••••••' : row.value, // Mask secrets
       isSecret: Boolean(row.isSecret),
       description: row.description,
       category: row.category,
+      createdBy: row.userId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt
     }))
     
-    return { data, total }
+    return { 
+      data, 
+      total: parseInt(countResult.rows[0]?.total || '0') 
+    }
   }
   
   static async validateTemplateVars(templateIds: string[]): Promise<{
@@ -171,11 +189,11 @@ export class EnvVarDatabase {
   
   static async checkSecretExists(key: string): Promise<boolean> {
     const db = await getDatabase()
-    const row = await db.get('SELECT id FROM env_vars WHERE key = ? AND isSecret = 1', key)
-    return row !== null
+    const result = await db.query('SELECT id FROM env_vars WHERE key = $1 AND "isSecret" = $2', [key, true])
+    return result.rowCount !== null && result.rowCount > 0
   }
   
-  static async upsert(data: EnvVarCreateRequest & { userId: string }): Promise<EnvironmentVariableResponse> {
+  static async upsert(data: EnvVarCreateRequest & { userId: string }): Promise<EnvVarResponse> {
     const existing = await this.getByKey(data.key)
     
     if (existing) {
@@ -183,7 +201,7 @@ export class EnvVarDatabase {
       return await this.update(existing.id, {
         value: data.value,
         description: data.description
-      }) as EnvironmentVariableResponse
+      }) as EnvVarResponse
     } else {
       // Create new
       return await this.create(data)

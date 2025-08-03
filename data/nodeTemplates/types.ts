@@ -2,6 +2,8 @@
  * Node Template Type Definitions
  */
 
+import { NodeShape, NodeVariant } from "@/types/workflow"
+
 export interface Port {
   id: string
   label: string
@@ -27,6 +29,7 @@ export interface PropertyDefinition {
   minimap?: boolean
   availableFields?: string[]
   availableOperators?: string[]
+  id?: string,
   [key:string]: any
 }
 
@@ -57,8 +60,8 @@ export interface NodeTemplate {
   subcategory?: string
   description: string
   icon: string
-  variant?: string
-  shape?: 'rectangle' | 'circle' | 'diamond' | 'hexagon' | 'octagon' | 'cylinder'
+  variant?: NodeVariant
+  shape: NodeShape
   size?: 'small' | 'medium' | 'large'
   ports: Port[]
   properties: Record<string, PropertyDefinition>

@@ -1,6 +1,6 @@
 import type { NodeMetadata } from '@/types/workflow'
 import { apiClient } from './apiClient'
-import type { EnvironmentVariableResponse, EnvVarCreateRequest } from '@/types/api'
+import type { EnvVarResponse, EnvVarCreateRequest } from '@/types/api'
 
 export interface EnvironmentVariable {
   id: string
@@ -34,7 +34,7 @@ export class EnvVarService {
 
     try {
       // Try to fetch from API first
-      const response = await apiClient.getPaginated<EnvironmentVariableResponse>('/env-vars', {
+      const response = await apiClient.getPaginated<EnvVarResponse>('/env-vars', {
         limit: 100 // Get all environment variables
       })
       
@@ -164,7 +164,7 @@ export class EnvVarService {
     }
   }
 
-  static async saveSecret(secret: { key: string; value: string; isSecret: boolean }): Promise<EnvironmentVariableResponse | undefined> {
+  static async saveSecret(secret: { key: string; value: string; isSecret: boolean }): Promise<EnvVarResponse | undefined> {
     try {
       const request: EnvVarCreateRequest = {
         key: secret.key,
@@ -174,7 +174,7 @@ export class EnvVarService {
         category: 'secrets'
       }
       
-      const response = await apiClient.post<EnvironmentVariableResponse>('/env-vars', request)
+      const response = await apiClient.post<EnvVarResponse>('/env-vars', request)
       
       // Clear cache to force refresh from backend
       this.cache = null
@@ -212,7 +212,7 @@ export class EnvVarService {
             }
             
             updatePromises.push(
-              apiClient.post<EnvironmentVariableResponse>('/env-vars', request)
+              apiClient.post<EnvVarResponse>('/env-vars', request)
                 .catch(error => {
                   console.error(`Failed to save variable ${variable.key}:`, error)
                   return null
@@ -349,7 +349,7 @@ export class EnvVarService {
     try {
       localStorage.removeItem(this.STORAGE_KEY)
       localStorage.removeItem(this.WARNING_DISMISSED_KEY)
-      console.log('Environment variable storage cleared')
+      // console.log removed
     } catch (error) {
       console.error('Failed to clear storage:', error)
     }

@@ -5,7 +5,7 @@ import { Clock, FileText, GitBranch, ChevronRight, Trash2, Download, Upload, Cal
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import type { WorkflowSnapshot } from '@/types/snapshot'
 import { formatDistanceToNow } from '@/utils/dateUtils'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 import { toast } from '@/lib/toast'
 
 interface HistoryBrowserProps {
@@ -232,7 +232,7 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
                             {workflow.isPublished ? 'Published' : 'Draft'}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {workflow.metadata?.nodeCount || 0} nodes • {workflow.metadata?.connectionCount || 0} connections
+                            {workflow.metadata?.totalNodeCount || 0} nodes • {workflow.metadata?.totalConnectionCount || 0} connections
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
@@ -312,11 +312,11 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
                     <dl className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <dt className="text-gray-500">Nodes</dt>
-                        <dd className="text-gray-900">{selectedWorkflow.metadata?.nodeCount || 0}</dd>
+                        <dd className="text-gray-900">{selectedWorkflow.metadata?.totalNodeCount|| 0}</dd>
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-gray-500">Connections</dt>
-                        <dd className="text-gray-900">{selectedWorkflow.metadata?.connectionCount || 0}</dd>
+                        <dd className="text-gray-900">{selectedWorkflow.metadata?.totalConnectionCount || 0}</dd>
                       </div>
                     </dl>
                   </div>
@@ -410,7 +410,7 @@ export function HistoryBrowser({ isOpen, onClose, onSelectWorkflow, onViewFlowTr
                                     {isCurrentVersion && (
                                       <span className="text-xs text-gray-500">(Current)</span>
                                     )}
-                                    <span className="text-xs text-gray-400">v{version.version || index + 1}</span>
+                                    <span className="text-xs text-gray-400">v{version.publishedAt || index + 1}</span>
                                   </div>
                                   <p className="text-xs text-gray-600 mt-1">
                                     {new Date(version.updatedAt || version.createdAt).toLocaleString()}

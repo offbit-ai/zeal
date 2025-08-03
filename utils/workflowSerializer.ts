@@ -2,7 +2,7 @@ import type { WorkflowSnapshot, WorkflowGraph, SerializedNode, SerializedConnect
 import type { NodeMetadata, Connection, NodeGroup } from '@/types/workflow'
 
 // Serialize a single node
-export function serializeNode(node: { metadata: NodeMetadata; position: { x: number; y: number } }): SerializedNode {
+export function serializeNode(node: { metadata: NodeMetadata; position: { x: number; y: number } }): any {
   return {
     id: node.metadata.id,
     type: node.metadata.type,
@@ -16,7 +16,7 @@ export function serializeNode(node: { metadata: NodeMetadata; position: { x: num
 }
 
 // Deserialize a single node
-export function deserializeNode(serialized: SerializedNode): { metadata: NodeMetadata; position: { x: number; y: number } } {
+export function deserializeNode(serialized: SerializedNode): any {
   return {
     position: serialized.position,
     metadata: {
@@ -47,7 +47,7 @@ export function serializeGroup(group: NodeGroup): SerializedGroup {
     position: group.position,
     size: group.size,
     color: group.color,
-    collapsed: group.collapsed,
+    isCollapsed: group.isCollapsed,
     createdAt: group.createdAt,
     updatedAt: group.updatedAt
   }
@@ -113,7 +113,7 @@ export function createWorkflowSnapshot(
     publishedAt: existingSnapshot?.publishedAt,
     graphs,
     activeGraphId,
-    trigger: trigger || existingSnapshot?.trigger,
+    triggerConfig: trigger || existingSnapshot?.triggerConfig,
     metadata: {
       version: '2.0.0', // Updated version for multi-graph support
       totalNodeCount,
@@ -191,14 +191,14 @@ export function restoreWorkflowFromSnapshot(snapshot: WorkflowSnapshot): {
   }
   
   // Legacy single-graph snapshot (backwards compatibility)
-  if (snapshot.nodes) {
-    return {
-      nodes: snapshot.nodes.map(deserializeNode),
-      connections: snapshot.connections || [],
-      groups: snapshot.groups || [],
-      canvasState: snapshot.canvasState
-    }
-  }
+  // if (snapshot.nodes) {
+  //   return {
+  //     nodes: snapshot.nodes.map(deserializeNode),
+  //     connections: (snapshot.graphs as ).map((graph:WorkflowGraph)=> graph.connections).connections || [],
+  //     groups: snapshot.groups || [],
+  //     canvasState: snapshot.canvasState
+  //   }
+  // }
   
   // Empty workflow
   return {

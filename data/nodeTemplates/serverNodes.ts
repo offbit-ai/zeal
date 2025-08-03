@@ -224,28 +224,34 @@ export const serverNodeTemplates: NodeTemplate[] = [
         {
           "when": "$.responseType == 'Success'",
           "updates": {
-            "statusCode": 200,
             "icon": "check-circle",
             "variant": "green-600",
-            "subtitle": "Success Response"
+            "subtitle": "Success Response",
+            "properties": {
+              "statusCode": 200
+            }
           }
         },
         {
           "when": "$.responseType == 'Error'",
           "updates": {
-            "statusCode": 400,
             "icon": "alert-circle",
             "variant": "red-600",
-            "subtitle": "Error Response"
+            "subtitle": "Error Response",
+            "properties": {
+              "statusCode": 400
+            }
           }
         },
         {
           "when": "$.responseType == 'Redirect'",
           "updates": {
-            "statusCode": 302,
             "icon": "external-link",
             "variant": "yellow-600",
-            "subtitle": "Redirect Response"
+            "subtitle": "Redirect Response",
+            "properties": {
+              "statusCode": 302
+            }
           }
         },
         {

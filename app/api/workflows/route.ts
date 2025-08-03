@@ -23,14 +23,15 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const filters = parseFilterParams(searchParams)
   
   // Get workflows from database
-  const { workflows, total } = await WorkflowDatabase.getWorkflows(userId, {
+  const { workflows, total } = await WorkflowDatabase.listWorkflows({
+    userId: userId,
     limit: pagination.limit,
     offset: (pagination.page - 1) * pagination.limit,
-    search: filters.search
+    searchTerm: filters.search
   })
   
   // Transform to API response format
-  const workflowResponses = await Promise.all(workflows.map(async (workflow) => {
+  const workflowResponses = await Promise.all(workflows.map(async (workflow: any) => {
     // Get latest version for each workflow
     const { versions } = await WorkflowDatabase.getWorkflowVersions(workflow.id, { limit: 1 })
     const latestVersion = versions[0]
@@ -64,7 +65,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // Apply status filter if specified
   let filteredWorkflows = workflowResponses
   if (filters.status) {
-    filteredWorkflows = filteredWorkflows.filter(workflow => 
+    filteredWorkflows = filteredWorkflows.filter((workflow: any) => 
       workflow.status === filters.status
     )
   }
@@ -72,20 +73,20 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // Apply date filters
   if (filters.dateFrom) {
     const fromDate = new Date(filters.dateFrom)
-    filteredWorkflows = filteredWorkflows.filter(workflow => 
+    filteredWorkflows = filteredWorkflows.filter((workflow: any) => 
       new Date(workflow.createdAt) >= fromDate
     )
   }
   
   if (filters.dateTo) {
     const toDate = new Date(filters.dateTo)
-    filteredWorkflows = filteredWorkflows.filter(workflow => 
+    filteredWorkflows = filteredWorkflows.filter((workflow: any) => 
       new Date(workflow.createdAt) <= toDate
     )
   }
   
   // Sort workflows
-  filteredWorkflows.sort((a, b) => {
+  filteredWorkflows.sort((a: any, b: any) => {
     let aValue: any = a[pagination.sortBy as keyof typeof a]
     let bValue: any = b[pagination.sortBy as keyof typeof b]
     
@@ -149,7 +150,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     name: body.name,
     description: body.description,
     userId,
-    graphs: body.graphs,
+    graphs: body.graphs as any,
     triggerConfig: body.triggerConfig,
     metadata: {
       ...body.metadata,

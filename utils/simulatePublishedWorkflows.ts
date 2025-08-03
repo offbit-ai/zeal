@@ -1,40 +1,41 @@
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import type { WorkflowSnapshot } from '@/types/snapshot'
 
-export function simulatePublishedWorkflows() {
+export async function simulatePublishedWorkflows() {
   // Get current workflows
-  const workflows = WorkflowStorageService.getAllWorkflows()
+  const workflows = await WorkflowStorageService.getAllWorkflows()
   
   // For each unique workflow ID, create a few published versions
   const workflowIds = Array.from(new Set(workflows.map(w => w.id)))
   
-  workflowIds.forEach(workflowId => {
-    const latestDraft = WorkflowStorageService.getLatestDraft(workflowId)
-    if (!latestDraft) return
+  for (const workflowId of workflowIds) {
+    const latestDraft = await WorkflowStorageService.getLatestDraft(workflowId)
+    if (!latestDraft) continue
     
     // Create 2-3 published versions with different timestamps
     const publishedVersions = [
       {
         daysAgo: 7,
-        nodeCount: Math.max(1, (latestDraft.metadata?.nodeCount || 5) - 2),
-        connectionCount: Math.max(0, (latestDraft.metadata?.connectionCount || 3) - 1),
+        nodeCount: Math.max(1, (latestDraft.metadata?.totalNodeCount || 5) - 2),
+        connectionCount: Math.max(0, (latestDraft.metadata?.totalConnectionCount || 3) - 1),
         saveCount: 15
       },
       {
         daysAgo: 3,
-        nodeCount: Math.max(1, (latestDraft.metadata?.nodeCount || 5) - 1),
-        connectionCount: Math.max(0, (latestDraft.metadata?.connectionCount || 3)),
+        nodeCount: Math.max(1, (latestDraft.metadata?.totalNodeCount || 5) - 1),
+        connectionCount: Math.max(0, (latestDraft.metadata?.totalConnectionCount || 3)),
         saveCount: 28
       },
       {
         daysAgo: 1,
-        nodeCount: latestDraft.metadata?.nodeCount || 5,
-        connectionCount: latestDraft.metadata?.connectionCount || 3,
+        nodeCount: latestDraft.metadata?.totalNodeCount || 5,
+        connectionCount: latestDraft.metadata?.totalConnectionCount || 3,
         saveCount: 42
       }
     ]
     
-    publishedVersions.forEach((versionData, index) => {
+    for (let index = 0; index < publishedVersions.length; index++) {
+      const versionData = publishedVersions[index]
       const publishDate = new Date()
       publishDate.setDate(publishDate.getDate() - versionData.daysAgo)
       publishDate.setHours(publishDate.getHours() - index) // Ensure unique timestamps
@@ -47,18 +48,23 @@ export function simulatePublishedWorkflows() {
         updatedAt: publishDate.toISOString(),
         lastSavedAt: publishDate.toISOString(),
         saveCount: versionData.saveCount,
-        metadata: {
+        metadata: latestDraft.metadata ? {
           ...latestDraft.metadata,
-          nodeCount: versionData.nodeCount,
-          connectionCount: versionData.connectionCount,
+          totalNodeCount: versionData.nodeCount,
+          totalConnectionCount: versionData.connectionCount,
+          tags: ['published', `v${index + 1}`]
+        } : {
+          version: '1.0.0',
+          totalNodeCount: versionData.nodeCount,
+          totalConnectionCount: versionData.connectionCount,
           tags: ['published', `v${index + 1}`]
         }
       }
       
       // Save the published version
-      WorkflowStorageService.saveWorkflow(publishedVersion)
-    })
-  })
+      await WorkflowStorageService.saveWorkflow(publishedVersion)
+    }
+  }
   
-  console.log('Simulated published workflows created successfully')
+  // console.log removed
 }

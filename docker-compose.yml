@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: zeal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zeal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zeal_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zeal_db}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zeal}"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - zeal-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: zeal-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispass123}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispass123}", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - zeal-network
+
+  # Rust CRDT Server
+  crdt-server:
+    build:
+      context: ./crdt-server
+      dockerfile: Dockerfile
+    container_name: zeal-crdt-server
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      MAX_CLIENTS_PER_ROOM: ${MAX_CLIENTS_PER_ROOM:-100}
+      CLIENT_TIMEOUT_MINUTES: ${CLIENT_TIMEOUT_MINUTES:-30}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass123}@redis:6379
+      DISABLE_REDIS_PERSISTENCE: ${DISABLE_REDIS_PERSISTENCE:-false}
+    ports:
+      - "8080:8080"
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zeal-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      crdt-server:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zeal}:${POSTGRES_PASSWORD:-zeal_password}@postgres:5432/${POSTGRES_DB:-zeal_db}?schema=public
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass123}@redis:6379
+      
+      # CRDT Server
+      NEXT_PUBLIC_CRDT_SERVER_URL: ${CRDT_SERVER_URL:-ws://localhost:8080}
+      
+      # NextAuth
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+    
+      
+      # App Config
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    volumes:
+      # For development, you can mount the source code
+      # - ./:/app
+      # - /app/node_modules
+      # - /app/.next
+      - uploads:/app/uploads
+
+  # Nginx Reverse Proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: zeal-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+      - crdt-server
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    networks:
+      - zeal-network
+    profiles:
+      - production
+
+networks:
+  zeal-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads:
+    driver: local
+  nginx_cache:
+    driver: local

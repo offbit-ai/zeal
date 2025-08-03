@@ -107,6 +107,8 @@ export function parseFilterParams(searchParams: URLSearchParams) {
   return {
     search: searchParams.get('search') || undefined,
     category: searchParams.get('category') || undefined,
+    subcategory: searchParams.get('subcategory') || undefined,
+    tags: searchParams.get('tags') || undefined,
     status: searchParams.get('status') || undefined,
     dateFrom: searchParams.get('dateFrom') || undefined,
     dateTo: searchParams.get('dateTo') || undefined
@@ -126,7 +128,7 @@ export async function callMicroservice<T>(
   data?: any
 ): Promise<T> {
   // In real implementation, this would make HTTP calls to microservices through a gateway
-  console.log(`[MOCK] Calling ${service} microservice: ${method} ${endpoint}`, data)
+  // [MOCK] log removed
   
   // Simulate network delay
   await mockDelay(50)

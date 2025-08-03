@@ -3,12 +3,13 @@
 import { Connection, ConnectionState } from '@/types/workflow'
 import { PortPosition } from '@/hooks/usePortPositions'
 import { usePortPositionSubscription } from '@/hooks/usePortPositionSubscription'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 
 interface ConnectionLinesProps {
   connections: Connection[]
   getPortPosition: (nodeId: string, portId: string) => PortPosition | undefined
   onConnectionClick?: (connectionId: string) => void
+  localGroupCollapseState?: Record<string, boolean>
 }
 
 // Get visual styles for connection states
@@ -63,6 +64,15 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         glowEffect: true,
         glowColor: '#3B82F6',
         animated: true
+      }
+    default:
+      // Default to pending style for any unknown state
+      return {
+        ...baseStyles,
+        stroke: '#6B7280', // Gray
+        strokeDasharray: '5 5',
+        shadowColor: 'rgba(107, 114, 128, 0.2)',
+        glowEffect: false
       }
   }
 }
@@ -129,8 +139,9 @@ function findBorderIntersection(
 
 // Generate bezier curve path
 function generatePath(source: PortPosition, target: PortPosition): string {
-  const sourceControl = getControlPointOffset(source.position)
-  const targetControl = getControlPointOffset(target.position)
+  // Default to 'right' and 'left' if position is undefined
+  const sourceControl = getControlPointOffset(source.position || 'right')
+  const targetControl = getControlPointOffset(target.position || 'left')
 
   const x1 = source.x
   const y1 = source.y
@@ -147,8 +158,9 @@ function generatePath(source: PortPosition, target: PortPosition): string {
 
 // Generate a clickable path that avoids node port areas
 function generateClickablePath(source: PortPosition, target: PortPosition): string {
-  const sourceControl = getControlPointOffset(source.position)
-  const targetControl = getControlPointOffset(target.position)
+  // Default to 'right' and 'left' if position is undefined
+  const sourceControl = getControlPointOffset(source.position || 'right')
+  const targetControl = getControlPointOffset(target.position || 'left')
 
   // Start the path a bit away from the source port to avoid blocking it
   const portClearance = 30 // pixels to stay away from ports
@@ -220,20 +232,15 @@ function lineIntersectsRect(
   )
 }
 
-export function ConnectionLines({ connections, getPortPosition, onConnectionClick }: ConnectionLinesProps) {
+export function ConnectionLines({ connections, getPortPosition, onConnectionClick, localGroupCollapseState = {} }: ConnectionLinesProps) {
   // Subscribe to port position changes for immediate updates
   usePortPositionSubscription()
-  
-  // Get group dragging state to hide connections during drag
-  const isGroupDragging = useWorkflowStore(state => state.isGroupDragging)
   
   // Get all groups to check for collapsed ones
   const groups = useWorkflowStore(state => state.groups)
   
-  // Hide connection lines during group dragging for smooth UX
-  if (isGroupDragging) {
-    return null
-  }
+  // TODO: Re-implement group dragging state in V2 store
+  // For now, connections will remain visible during group drag
   
   // Check if we have port positions for connections that should render
   const connectionsWithPositions = connections.filter(conn => {
@@ -296,14 +303,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
         let source = getPortPosition(connection.source.nodeId, connection.source.portId)
         let target = getPortPosition(connection.target.nodeId, connection.target.portId)
 
-        // console.log(`🔗 Connection ${connection.id}:`, {
-        //   sourceNodeId: connection.source.nodeId,
-        //   sourcePortId: connection.source.portId,
-        //   targetNodeId: connection.target.nodeId,
-        //   targetPortId: connection.target.portId,
-        //   sourcePos: source,
-        //   targetPos: target
-        // })
+        // // console.log removed
 
         // Handle missing port positions for nodes in collapsed groups
         if (!source || !target) {
@@ -315,7 +315,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
           
           // Find if the missing port positions are for nodes in collapsed groups
           for (const group of groups) {
-            if (!group.collapsed) continue
+            if (!localGroupCollapseState[group.id]) continue
             
             if (missingSource && group.nodeIds.includes(connection.source.nodeId)) {
               // Source node is in a collapsed group - we'll handle this in the group logic below
@@ -346,7 +346,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
         let shouldHide = false
 
         for (const group of groups) {
-          if (!group.collapsed) continue
+          if (!localGroupCollapseState[group.id]) continue
           
           const sourceInGroup = group.nodeIds.includes(connection.source.nodeId)
           const targetInGroup = group.nodeIds.includes(connection.target.nodeId)
@@ -461,8 +461,8 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
 
         const path = generatePath(modifiedSource, modifiedTarget)
         const clickablePath = generateClickablePath(modifiedSource, modifiedTarget)
-        const styles = getConnectionStyles(connection.state)
-        const filterId = styles.glowEffect ? `glow-${connection.state}` : undefined
+        const styles = getConnectionStyles(connection.state || 'pending')
+        const filterId = styles?.glowEffect ? `glow-${connection.state}` : undefined
 
         return (
           <g key={connection.id} className="group">

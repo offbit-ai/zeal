@@ -9,10 +9,14 @@ import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 
 // POST /api/workflows/[id]/publish - Publish workflow
-export const POST = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const POST = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(200) // Publishing might take longer
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const userId = extractUserId(req)
   const { versionId } = await req.json() // Optionally specify which version to publish
   
@@ -69,11 +73,11 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   // In real implementation, validate that all required env vars are configured
   // For now, just log them
   if (requiredEnvVars.size > 0) {
-    console.log(`Publishing workflow ${id} requires env vars:`, Array.from(requiredEnvVars))
+    // console.log removed)
   }
   
   // Publish the version
-  const publishedVersion = await WorkflowDatabase.publishWorkflow(id, targetVersionId)
+  const publishedVersion = await WorkflowDatabase.publishWorkflowVersion(id, targetVersionId, userId)
   
   // Get updated workflow
   const updatedWorkflow = await WorkflowDatabase.getWorkflow(id)
@@ -102,16 +106,20 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   }
   
   // In real implementation, this would trigger deployment to execution engine
-  console.log(`Workflow ${id} version ${publishedVersion.version} published successfully`)
+  // console.log removed
   
   return NextResponse.json(createSuccessResponse(response))
 })
 
 // DELETE /api/workflows/[id]/publish - Unpublish workflow
-export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(150)
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const userId = extractUserId(req)
   
   // Get workflow to verify ownership and current status
@@ -169,7 +177,7 @@ export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { p
   }
   
   // In real implementation, this would remove from execution engine
-  console.log(`Workflow ${id} unpublished successfully`)
+  // console.log removed
   
   return NextResponse.json(createSuccessResponse(response))
 })

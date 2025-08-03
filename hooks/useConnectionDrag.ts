@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Connection } from '@/types/workflow'
+import { Connection, ConnectionState } from '@/types/workflow'
 import { PortPosition } from './usePortPositions'
 
 interface DragState {
@@ -72,10 +72,13 @@ export function useConnectionDrag(existingConnections: Connection[] = []) {
     
     if (isDuplicate) return null
     
-    // Return valid connection
+    // Return valid connection with generated ID
+    const connectionId = `conn-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
     return {
+      id: connectionId,
       source: { nodeId: sourceNodeId, portId: sourcePortId },
-      target: { nodeId: targetNodeId, portId: targetPortId }
+      target: { nodeId: targetNodeId, portId: targetPortId },
+      state: 'pending' as ConnectionState
     }
   }, [dragState])
 

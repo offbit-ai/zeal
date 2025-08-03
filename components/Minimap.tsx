@@ -38,12 +38,13 @@ export function Minimap({
   // Calculate bounds of all nodes and groups
   const allElements = [...nodes, ...groups]
   const bounds = allElements.length > 0 ? allElements.reduce((acc, element) => {
-    const elementRight = element.position.x + (element.size?.width || 200)
-    const elementBottom = element.position.y + (element.size?.height || 80)
+    const position = element.position || { x: 0, y: 0 }
+    const elementRight = position.x + (element.size?.width || 200)
+    const elementBottom = position.y + (element.size?.height || 80)
     
     return {
-      minX: Math.min(acc.minX, element.position.x),
-      minY: Math.min(acc.minY, element.position.y),
+      minX: Math.min(acc.minX, position.x),
+      minY: Math.min(acc.minY, position.y),
       maxX: Math.max(acc.maxX, elementRight),
       maxY: Math.max(acc.maxY, elementBottom)
     }
@@ -206,39 +207,50 @@ export function Minimap({
         
         {/* Groups - rendered before nodes so they appear behind */}
         {groups.map(group => {
-          const groupX = offsetX + (group.position.x - worldLeft) * scale
-          const groupY = offsetY + (group.position.y - worldTop) * scale
-          const groupWidth = group.size.width * scale
-          const groupHeight = (group.collapsed ? 40 : group.size.height) * scale
+          const groupX = offsetX + ((group.position?.x || 0) - worldLeft) * scale
+          const groupY = offsetY + ((group.position?.y || 0) - worldTop) * scale
+          const groupWidth = (group.size?.width || 200) * scale
+          const groupHeight = (group.collapsed ? 40 : (group.size?.height || 150)) * scale
           
           return (
             <div
               key={group.id}
-              className="absolute rounded-sm"
+              className="absolute rounded-sm transition-all duration-200"
               style={{
                 left: groupX,
                 top: groupY,
                 width: groupWidth,
                 height: groupHeight,
-                backgroundColor: group.color ? `${group.color}20` : 'rgba(156, 163, 175, 0.1)', // 20% opacity
+                backgroundColor: group.collapsed 
+                  ? (group.color ? `${group.color}40` : 'rgba(156, 163, 175, 0.25)') // Higher opacity when collapsed
+                  : (group.color ? `${group.color}20` : 'rgba(156, 163, 175, 0.1)'), // Lower opacity when expanded
                 border: `1px solid ${group.color || '#9CA3AF'}`,
-                borderStyle: 'dashed'
+                borderStyle: group.collapsed ? 'solid' : 'dashed',
+                borderWidth: group.collapsed ? '2px' : '1px'
               }}
-              title={group.title}
+              title={`${group.title}${group.collapsed ? ' (collapsed)' : ''}`}
             />
           )
         })}
         
         {/* Nodes - filter out nodes in collapsed groups */}
-        {nodes.filter(node => {
-          // Check if this node belongs to any collapsed group
-          const isInCollapsedGroup = groups.some(group => 
-            group.collapsed && group.nodeIds?.includes(node.id)
-          )
-          return !isInCollapsedGroup
-        }).map(node => {
+        {(() => {
+          const filteredNodes = nodes.filter(node => {
+            // Check if this node belongs to any collapsed group
+            const isInCollapsedGroup = groups.some(group => 
+              group.collapsed && group.nodeIds?.includes(node.id)
+            )
+            return !isInCollapsedGroup
+          });
+          return filteredNodes;
+        })().map(node => {
+          // Check if this node belongs to a group
+          const parentGroup = groups.find(group => group.nodeIds?.includes(node.id))
+          
+          // Now that node positions are updated when groups move, we can use absolute positions directly
           const nodeX = offsetX + (node.position.x - worldLeft) * scale
           const nodeY = offsetY + (node.position.y - worldTop) * scale
+          
           const nodeWidth = (node.size?.width || 200) * scale
           const nodeHeight = (node.size?.height || 80) * scale
           
@@ -250,7 +262,8 @@ export function Minimap({
                 left: nodeX,
                 top: nodeY,
                 width: nodeWidth,
-                height: nodeHeight
+                height: nodeHeight,
+                opacity: parentGroup ? 0.8 : 1 // Slightly transparent when in a group
               }}
             />
           )

@@ -1,5 +1,6 @@
-import { getDatabase, generateId, generateVersionId, generateExecutionId, generateSnapshotId } from '@/lib/database'
+import { getDatabase, generateId, generateVersionId, generateExecutionId, generateSnapshotId, withTransaction } from '@/lib/database'
 import { ApiError } from '@/types/api'
+import { Pool } from 'pg'
 
 export interface WorkflowRecord {
   id: string
@@ -56,46 +57,23 @@ import type { WorkflowSnapshot, WorkflowGraph } from '@/types/snapshot'
 
 export class WorkflowDatabase {
   
-  // Create a new workflow
-  static async createWorkflow(data: {
+  // Create a new workflow with a specific ID
+  static async createWorkflowWithId(workflowId: string, data: {
     name: string
     description?: string
     userId: string
-    graphs: WorkflowGraph[]
-    triggerConfig?: any
-    metadata?: any
-  }): Promise<{ workflow: WorkflowRecord; version: WorkflowVersionRecord }> {
+  }): Promise<WorkflowRecord> {
     const db = await getDatabase()
-    
-    const workflowId = generateId()
-    const versionId = generateVersionId()
     const now = new Date().toISOString()
     
-    await db.run('BEGIN TRANSACTION')
-    
     try {
-      // Create workflow record
-      await db.run(`
-        INSERT INTO workflows (id, name, description, userId, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [workflowId, data.name, data.description, data.userId, now, now])
+      // Create workflow record with the specified ID
+      await db.query(`
+        INSERT INTO workflows (id, name, description, "userId", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [workflowId, data.name, data.description || '', data.userId, now, now])
       
-      // Create initial draft version
-      await db.run(`
-        INSERT INTO workflow_versions (
-          id, workflowId, name, description, version, isDraft, isPublished,
-          graphs, triggerConfig, metadata, userId, createdAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        versionId, workflowId, data.name, data.description, 1, 1, 0,
-        JSON.stringify(data.graphs),
-        data.triggerConfig ? JSON.stringify(data.triggerConfig) : null,
-        JSON.stringify(data.metadata || {}), data.userId, now
-      ])
-      
-      await db.run('COMMIT')
-      
-      // Construct the workflow and version objects directly instead of re-querying
+      // Return the created workflow
       const workflow: WorkflowRecord = {
         id: workflowId,
         name: data.name,
@@ -106,40 +84,88 @@ export class WorkflowDatabase {
         updatedAt: now
       }
       
+      return workflow
+    } catch (error) {
+      console.error('Error creating workflow with ID:', error)
+      throw error
+    }
+  }
+
+  // Create a new workflow
+  static async createWorkflow(data: {
+    name: string
+    description?: string
+    userId: string
+    graphs: WorkflowGraph[]
+    triggerConfig?: any
+    metadata?: any
+  }): Promise<{ workflow: WorkflowRecord; version: WorkflowVersionRecord }> {
+    const workflowId = generateId()
+    const versionId = generateVersionId()
+    const now = new Date().toISOString()
+    
+    return withTransaction(async (client) => {
+      // Create workflow record
+      await client.query(`
+        INSERT INTO workflows (id, name, description, "userId", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [workflowId, data.name, data.description, data.userId, now, now])
+      
+      // Create initial draft version
+      await client.query(`
+        INSERT INTO workflow_versions (
+          id, "workflowId", name, description, version, "isDraft", "isPublished",
+          graphs, "triggerConfig", metadata, "userId", "createdAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `, [
+        versionId, workflowId, data.name, data.description, 1, true, false,
+        JSON.stringify(data.graphs), data.triggerConfig ? JSON.stringify(data.triggerConfig) : null,
+        data.metadata ? JSON.stringify(data.metadata) : null, data.userId, now
+      ])
+      
+      // Construct the workflow and version objects directly instead of re-querying
+      const workflow: WorkflowRecord = {
+        id: workflowId,
+        name: data.name,
+        description: data.description,
+        userId: data.userId,
+        publishedVersionId: undefined,
+        createdAt: now,
+        updatedAt: now
+      }
+      
       const version: WorkflowVersionRecord = {
         id: versionId,
         workflowId: workflowId,
         name: data.name,
-        description: data.description || '',
+        description: data.description,
         version: 1,
         isDraft: true,
         isPublished: false,
-        publishedAt: undefined,
         graphs: data.graphs,
         triggerConfig: data.triggerConfig || null,
-        metadata: data.metadata || {},
+        metadata: data.metadata || null,
         userId: data.userId,
-        createdAt: now
+        createdAt: now,
+        publishedAt: undefined
       }
       
       return { workflow, version }
-    } catch (error) {
-      await db.run('ROLLBACK')
-      throw error
-    }
+    })
   }
   
   // Get workflow by ID
   static async getWorkflow(id: string): Promise<WorkflowRecord | null> {
     const db = await getDatabase()
-    const row = await db.get('SELECT * FROM workflows WHERE id = ?', [id])
-    return row || null
+    const result = await db.query('SELECT * FROM workflows WHERE id = $1', [id])
+    return result.rows[0] || null
   }
   
   // Get workflow version by ID
   static async getWorkflowVersion(id: string): Promise<WorkflowVersionRecord | null> {
     const db = await getDatabase()
-    const row = await db.get('SELECT * FROM workflow_versions WHERE id = ?', [id])
+    const result = await db.query('SELECT * FROM workflow_versions WHERE id = $1', [id])
+    const row = result.rows[0]
     
     if (!row) return null
     
@@ -147,92 +173,105 @@ export class WorkflowDatabase {
       ...row,
       graphs: row.graphs ? JSON.parse(row.graphs) : [],
       triggerConfig: row.triggerConfig ? JSON.parse(row.triggerConfig) : null,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-      isDraft: Boolean(row.isDraft),
-      isPublished: Boolean(row.isPublished)
+      metadata: row.metadata ? JSON.parse(row.metadata) : null
     }
   }
   
-  // Get all workflows for a user
-  static async getWorkflows(userId: string, options?: {
+  // List workflows with pagination
+  static async listWorkflows(params: {
+    userId?: string
     limit?: number
     offset?: number
-    search?: string
+    searchTerm?: string
   }): Promise<{ workflows: WorkflowRecord[]; total: number }> {
     const db = await getDatabase()
+    const { userId, limit = 20, offset = 0, searchTerm } = params
     
-    let whereClause = 'WHERE userId = ?'
-    let params: any[] = [userId]
+    let whereClause = 'WHERE 1=1'
+    const queryParams: any[] = []
+    let paramCount = 0
     
-    if (options?.search) {
-      whereClause += ' AND (name LIKE ? OR description LIKE ?)'
-      params.push(`%${options.search}%`, `%${options.search}%`)
+    if (userId) {
+      queryParams.push(userId)
+      whereClause += ` AND "userId" = $${++paramCount}`
+    }
+    
+    if (searchTerm) {
+      queryParams.push(`%${searchTerm}%`, `%${searchTerm}%`)
+      whereClause += ` AND (name ILIKE $${++paramCount} OR description ILIKE $${++paramCount})`
     }
     
     // Get total count
-    const countResult = await db.get(`SELECT COUNT(*) as count FROM workflows ${whereClause}`, params)
-    const total = countResult?.count || 0
+    const countResult = await db.query(`SELECT COUNT(*) as count FROM workflows ${whereClause}`, queryParams)
+    const total = parseInt(countResult.rows[0]?.count || '0')
     
     // Get workflows with pagination
-    let query = `SELECT * FROM workflows ${whereClause} ORDER BY updatedAt DESC`
+    let query = `SELECT * FROM workflows ${whereClause} ORDER BY "updatedAt" DESC`
     
-    if (options?.limit) {
-      query += ` LIMIT ${options.limit}`
-      if (options?.offset) {
-        query += ` OFFSET ${options.offset}`
+    if (limit) {
+      queryParams.push(limit)
+      query += ` LIMIT $${++paramCount}`
+      
+      if (offset) {
+        queryParams.push(offset)
+        query += ` OFFSET $${++paramCount}`
       }
     }
     
-    const rows = await db.all(query, params)
+    const result = await db.query(query, queryParams)
     
-    return { workflows: rows || [], total }
+    return { workflows: result.rows || [], total }
   }
   
   // Get workflow versions (history)
-  static async getWorkflowVersions(workflowId: string, options?: {
+  static async getWorkflowVersions(workflowId: string, params?: {
     limit?: number
     offset?: number
-    includePublishedOnly?: boolean
+    includePublished?: boolean
   }): Promise<{ versions: WorkflowVersionRecord[]; total: number }> {
     const db = await getDatabase()
+    const { limit = 50, offset = 0, includePublished = true } = params || {}
     
-    let whereClause = 'WHERE workflowId = ?'
-    let params: any[] = [workflowId]
+    let whereClause = 'WHERE "workflowId" = $1'
+    const queryParams: any[] = [workflowId]
+    let paramCount = 1
     
-    if (options?.includePublishedOnly) {
-      whereClause += ' AND isPublished = 1'
+    if (!includePublished) {
+      queryParams.push(false)
+      whereClause += ` AND "isPublished" = $${++paramCount}`
     }
     
     // Get total count
-    const countResult = await db.get(`SELECT COUNT(*) as count FROM workflow_versions ${whereClause}`, params)
-    const total = countResult?.count || 0
+    const countResult = await db.query(`SELECT COUNT(*) as count FROM workflow_versions ${whereClause}`, queryParams)
+    const total = parseInt(countResult.rows[0]?.count || '0')
     
     // Get versions with pagination
     let query = `SELECT * FROM workflow_versions ${whereClause} ORDER BY version DESC`
     
-    if (options?.limit) {
-      query += ` LIMIT ${options.limit}`
-      if (options?.offset) {
-        query += ` OFFSET ${options.offset}`
+    if (limit) {
+      queryParams.push(limit)
+      query += ` LIMIT $${++paramCount}`
+      
+      if (offset) {
+        queryParams.push(offset)
+        query += ` OFFSET $${++paramCount}`
       }
     }
     
-    const rows = await db.all(query, params)
+    const result = await db.query(query, queryParams)
     
-    const versions = rows.map(row => ({
+    const versions = result.rows.map(row => ({
       ...row,
       graphs: row.graphs ? JSON.parse(row.graphs) : [],
       triggerConfig: row.triggerConfig ? JSON.parse(row.triggerConfig) : null,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-      isDraft: Boolean(row.isDraft),
-      isPublished: Boolean(row.isPublished)
+      metadata: row.metadata ? JSON.parse(row.metadata) : null
     }))
     
     return { versions, total }
   }
   
-  // Update workflow (updates existing draft or creates new version)
-  static async updateWorkflow(workflowId: string, data: {
+  // Update workflow draft version
+  static async updateWorkflowDraft(workflowId: string, data: {
     name?: string
     description?: string
     graphs: WorkflowGraph[]
@@ -240,152 +279,157 @@ export class WorkflowDatabase {
     metadata?: any
     userId: string
   }): Promise<WorkflowVersionRecord> {
-    const db = await getDatabase()
     const now = new Date().toISOString()
     
-    await db.run('BEGIN TRANSACTION')
-    
-    try {
+    return withTransaction(async (client) => {
       // Check if there's an existing draft version
-      const existingDraft = await db.get(`
+      const existingDraftResult = await client.query(`
         SELECT id, version FROM workflow_versions 
-        WHERE workflowId = ? AND isDraft = 1 AND isPublished = 0
+        WHERE "workflowId" = $1 AND "isDraft" = $2 AND "isPublished" = $3
         ORDER BY version DESC
         LIMIT 1
-      `, [workflowId])
+      `, [workflowId, true, false])
+      
+      const existingDraft = existingDraftResult.rows[0]
       
       let versionId: string
       let version: number
       
       if (existingDraft) {
-        // Update existing draft version
+        // Update existing draft
         versionId = existingDraft.id
         version = existingDraft.version
         
-        await db.run(`
+        await client.query(`
           UPDATE workflow_versions 
-          SET name = ?, description = ?, graphs = ?, triggerConfig = ?, 
-              metadata = ?, userId = ?, createdAt = ?
-          WHERE id = ?
+          SET name = $1, description = $2, graphs = $3, "triggerConfig" = $4, 
+              metadata = $5, "userId" = $6, "createdAt" = $7
+          WHERE id = $8
         `, [
           data.name || '', 
-          data.description || '', 
+          data.description || null,
           JSON.stringify(data.graphs),
           data.triggerConfig ? JSON.stringify(data.triggerConfig) : null,
-          JSON.stringify(data.metadata || {}), 
-          data.userId, 
+          data.metadata ? JSON.stringify(data.metadata) : null,
+          data.userId,
           now,
           versionId
         ])
       } else {
         // No draft exists - create new version
         // First, get the latest version number
-        const latestVersion = await db.get(`
-          SELECT MAX(version) as maxVersion FROM workflow_versions WHERE workflowId = ?
+        const latestVersionResult = await client.query(`
+          SELECT MAX(version) as "maxVersion" FROM workflow_versions WHERE "workflowId" = $1
         `, [workflowId])
         
-        version = (latestVersion?.maxVersion || 0) + 1
+        version = (latestVersionResult.rows[0]?.maxVersion || 0) + 1
         versionId = generateVersionId()
         
-        await db.run(`
+        await client.query(`
           INSERT INTO workflow_versions (
-            id, workflowId, name, description, version, isDraft, isPublished,
-            graphs, triggerConfig, metadata, userId, createdAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, "workflowId", name, description, version, "isDraft", "isPublished",
+            graphs, "triggerConfig", metadata, "userId", "createdAt"
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `, [
-          versionId, workflowId,
-          data.name || '', data.description || '', version, 1, 0,
-          JSON.stringify(data.graphs),
+          versionId, workflowId, data.name || '', data.description || null,
+          version, true, false, JSON.stringify(data.graphs),
           data.triggerConfig ? JSON.stringify(data.triggerConfig) : null,
-          JSON.stringify(data.metadata || {}), data.userId, now
+          data.metadata ? JSON.stringify(data.metadata) : null,
+          data.userId, now
         ])
       }
       
       // Update workflow metadata if provided
       if (data.name || data.description) {
-        await db.run(`
+        await client.query(`
           UPDATE workflows 
-          SET name = COALESCE(?, name), description = COALESCE(?, description), updatedAt = ?
-          WHERE id = ?
+          SET name = COALESCE($1, name), description = COALESCE($2, description), "updatedAt" = $3
+          WHERE id = $4
         `, [data.name, data.description, now, workflowId])
       }
       
-      await db.run('COMMIT')
-      
-      const updatedVersion = await this.getWorkflowVersion(versionId)
-      if (!updatedVersion) {
-        throw new ApiError('VERSION_UPDATE_FAILED', 'Failed to retrieve updated version')
+      // Return the version data directly instead of querying again
+      const updatedVersion: WorkflowVersionRecord = {
+        id: versionId,
+        workflowId: workflowId,
+        name: data.name || '',
+        description: data.description || undefined,
+        version: version,
+        isDraft: true,
+        isPublished: false,
+        graphs: data.graphs,
+        triggerConfig: data.triggerConfig || null,
+        metadata: data.metadata || null,
+        userId: data.userId,
+        createdAt: now,
+        publishedAt: undefined
       }
       
       return updatedVersion
-    } catch (error) {
-      await db.run('ROLLBACK')
-      throw error
-    }
+    })
   }
   
   // Publish a workflow version
-  static async publishWorkflow(workflowId: string, versionId: string): Promise<WorkflowVersionRecord> {
+  static async publishWorkflowVersion(workflowId: string, versionId: string, userId: string): Promise<WorkflowVersionRecord> {
     const db = await getDatabase()
     const now = new Date().toISOString()
     
-    await db.run('BEGIN TRANSACTION')
-    
-    try {
+    return withTransaction(async (client) => {
       // Get the version to publish
-      const versionToPublish = await db.get(`
-        SELECT * FROM workflow_versions WHERE id = ? AND workflowId = ?
+      const versionResult = await client.query(`
+        SELECT * FROM workflow_versions WHERE id = $1 AND "workflowId" = $2
       `, [versionId, workflowId])
+      
+      const versionToPublish = versionResult.rows[0]
       
       if (!versionToPublish) {
         throw new ApiError('VERSION_NOT_FOUND', 'Version not found', 404)
       }
       
       // Unpublish all other versions
-      await db.run(`
+      await client.query(`
         UPDATE workflow_versions 
-        SET isPublished = 0, publishedAt = NULL 
-        WHERE workflowId = ? AND id != ?
-      `, [workflowId, versionId])
+        SET "isPublished" = $1, "publishedAt" = NULL 
+        WHERE "workflowId" = $2 AND id != $3
+      `, [false, workflowId, versionId])
       
       // Publish the specified version (mark as non-draft)
-      await db.run(`
+      await client.query(`
         UPDATE workflow_versions 
-        SET isPublished = 1, isDraft = 0, publishedAt = ?
-        WHERE id = ? AND workflowId = ?
-      `, [now, versionId, workflowId])
+        SET "isPublished" = $1, "isDraft" = $2, "publishedAt" = $3
+        WHERE id = $4 AND "workflowId" = $5
+      `, [true, false, now, versionId, workflowId])
       
       // Update workflow's published version reference
-      await db.run(`
+      await client.query(`
         UPDATE workflows 
-        SET publishedVersionId = ?, updatedAt = ?
-        WHERE id = ?
+        SET "publishedVersionId" = $1, "updatedAt" = $2
+        WHERE id = $3
       `, [versionId, now, workflowId])
       
-      // Create a new draft version for continued editing
+      // Create a new draft version with the same content
       const newDraftId = generateVersionId()
       const nextVersion = versionToPublish.version + 1
       
-      await db.run(`
+      await client.query(`
         INSERT INTO workflow_versions (
-          id, workflowId, name, description, version, isDraft, isPublished,
-          graphs, triggerConfig, metadata, userId, createdAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, "workflowId", name, description, version, "isDraft", "isPublished",
+          graphs, "triggerConfig", metadata, "userId", "createdAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `, [
-        newDraftId, workflowId,
-        versionToPublish.name, 
-        versionToPublish.description, 
-        nextVersion, 
-        1, // isDraft = true
-        0, // isPublished = false
+        newDraftId,
+        workflowId,
+        versionToPublish.name,
+        versionToPublish.description,
+        nextVersion,
+        true,
+        false,
         versionToPublish.graphs,
         versionToPublish.triggerConfig,
         versionToPublish.metadata,
-        versionToPublish.userId,
+        userId,
         now
       ])
-      
-      await db.run('COMMIT')
       
       const version = await this.getWorkflowVersion(versionId)
       if (!version) {
@@ -393,10 +437,7 @@ export class WorkflowDatabase {
       }
       
       return version
-    } catch (error) {
-      await db.run('ROLLBACK')
-      throw error
-    }
+    })
   }
   
   // Delete workflow and all its versions
@@ -404,7 +445,9 @@ export class WorkflowDatabase {
     const db = await getDatabase()
     
     // Verify ownership
-    const workflow = await db.get('SELECT userId FROM workflows WHERE id = ?', [workflowId])
+    const result = await db.query('SELECT "userId" FROM workflows WHERE id = $1', [workflowId])
+    const workflow = result.rows[0]
+    
     if (!workflow) {
       throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
     }
@@ -413,41 +456,34 @@ export class WorkflowDatabase {
     }
     
     // Foreign key constraints will handle cascading deletes
-    await db.run('DELETE FROM workflows WHERE id = ?', [workflowId])
+    await db.query('DELETE FROM workflows WHERE id = $1', [workflowId])
   }
 
   // Unpublish a workflow
   static async unpublishWorkflow(workflowId: string): Promise<void> {
-    const db = await getDatabase()
     const now = new Date().toISOString()
     
-    await db.run('BEGIN TRANSACTION')
-    
-    try {
+    return withTransaction(async (client) => {
       // Get current published version
-      const workflow = await db.get('SELECT publishedVersionId FROM workflows WHERE id = ?', [workflowId])
+      const workflowResult = await client.query('SELECT "publishedVersionId" FROM workflows WHERE id = $1', [workflowId])
+      const workflow = workflowResult.rows[0]
       
       if (workflow?.publishedVersionId) {
         // Update the published version to mark as unpublished
-        await db.run(`
+        await client.query(`
           UPDATE workflow_versions 
-          SET isPublished = 0, publishedAt = NULL 
-          WHERE id = ?
-        `, [workflow.publishedVersionId])
+          SET "isPublished" = $1, "publishedAt" = NULL 
+          WHERE id = $2
+        `, [false, workflow.publishedVersionId])
       }
       
       // Remove published version reference from workflow
-      await db.run(`
+      await client.query(`
         UPDATE workflows 
-        SET publishedVersionId = NULL, updatedAt = ?
-        WHERE id = ?
+        SET "publishedVersionId" = NULL, "updatedAt" = $1
+        WHERE id = $2
       `, [now, workflowId])
-      
-      await db.run('COMMIT')
-    } catch (error) {
-      await db.run('ROLLBACK')
-      throw error
-    }
+    })
   }
   
   // Create workflow execution record
@@ -458,31 +494,34 @@ export class WorkflowDatabase {
     userId: string
   }): Promise<WorkflowExecutionRecord> {
     const db = await getDatabase()
-    
     const executionId = generateExecutionId()
     const now = new Date().toISOString()
     
-    await db.run(`
+    await db.query(`
       INSERT INTO workflow_executions (
-        id, workflowId, workflowVersionId, status, startedAt, inputData, userId
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, "workflowId", "workflowVersionId", status, "startedAt", "inputData", "userId"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       executionId, data.workflowId, data.workflowVersionId, 'running',
-      now, JSON.stringify(data.inputData || {}), data.userId
+      now, data.inputData ? JSON.stringify(data.inputData) : null, data.userId
     ])
     
-    const execution = await this.getExecution(executionId)
-    if (!execution) {
-      throw new ApiError('EXECUTION_CREATION_FAILED', 'Failed to retrieve created execution')
+    return {
+      id: executionId,
+      workflowId: data.workflowId,
+      workflowVersionId: data.workflowVersionId,
+      status: 'running',
+      startedAt: now,
+      inputData: data.inputData,
+      userId: data.userId
     }
-    
-    return execution
   }
   
   // Get execution by ID
   static async getExecution(id: string): Promise<WorkflowExecutionRecord | null> {
     const db = await getDatabase()
-    const row = await db.get('SELECT * FROM workflow_executions WHERE id = ?', [id])
+    const result = await db.query('SELECT * FROM workflow_executions WHERE id = $1', [id])
+    const row = result.rows[0]
     
     if (!row) return null
     
@@ -493,39 +532,50 @@ export class WorkflowDatabase {
     }
   }
   
-  // Get executions for a workflow
-  static async getExecutions(workflowId: string, options?: {
+  // List executions with pagination
+  static async listExecutions(params: {
+    workflowId?: string
+    status?: string
     limit?: number
     offset?: number
-    status?: string
   }): Promise<{ executions: WorkflowExecutionRecord[]; total: number }> {
     const db = await getDatabase()
+    const { workflowId, status, limit = 20, offset = 0 } = params
     
-    let whereClause = 'WHERE workflowId = ?'
-    let params: any[] = [workflowId]
+    let whereClause = 'WHERE 1=1'
+    const queryParams: any[] = []
+    let paramCount = 0
     
-    if (options?.status) {
-      whereClause += ' AND status = ?'
-      params.push(options.status)
+    if (workflowId) {
+      queryParams.push(workflowId)
+      whereClause += ` AND "workflowId" = $${++paramCount}`
+    }
+    
+    if (status) {
+      queryParams.push(status)
+      whereClause += ` AND status = $${++paramCount}`
     }
     
     // Get total count
-    const countResult = await db.get(`SELECT COUNT(*) as count FROM workflow_executions ${whereClause}`, params)
-    const total = countResult?.count || 0
+    const countResult = await db.query(`SELECT COUNT(*) as count FROM workflow_executions ${whereClause}`, queryParams)
+    const total = parseInt(countResult.rows[0]?.count || '0')
     
     // Get executions with pagination
-    let query = `SELECT * FROM workflow_executions ${whereClause} ORDER BY startedAt DESC`
+    let query = `SELECT * FROM workflow_executions ${whereClause} ORDER BY "startedAt" DESC`
     
-    if (options?.limit) {
-      query += ` LIMIT ${options.limit}`
-      if (options?.offset) {
-        query += ` OFFSET ${options.offset}`
+    if (limit) {
+      queryParams.push(limit)
+      query += ` LIMIT $${++paramCount}`
+      
+      if (offset) {
+        queryParams.push(offset)
+        query += ` OFFSET $${++paramCount}`
       }
     }
     
-    const rows = await db.all(query, params)
+    const result = await db.query(query, queryParams)
     
-    const executions = rows.map(row => ({
+    const executions = result.rows.map(row => ({
       ...row,
       inputData: row.inputData ? JSON.parse(row.inputData) : undefined,
       outputData: row.outputData ? JSON.parse(row.outputData) : undefined
@@ -534,167 +584,140 @@ export class WorkflowDatabase {
     return { executions, total }
   }
   
-  // Snapshot methods
-  static async saveSnapshot(data: {
-    workflowId: string
-    name: string
-    description?: string
-    graphs: WorkflowGraph[]
-    activeGraphId?: string
-    triggerConfig?: any
-    metadata?: any
-    userId: string
-  }): Promise<WorkflowSnapshot> {
+  // Create workflow snapshot
+  static async createSnapshot(data: WorkflowSnapshot): Promise<string> {
     const db = await getDatabase()
+    const snapshotId = data.id || generateSnapshotId()
     const now = new Date().toISOString()
-    const snapshotId = generateSnapshotId()
     
-    // Calculate metadata
-    const totalNodeCount = data.graphs.reduce((sum, g) => sum + g.nodes.length, 0)
-    const totalConnectionCount = data.graphs.reduce((sum, g) => sum + g.connections.length, 0)
-    const totalGroupCount = data.graphs.reduce((sum, g) => sum + (g.groups?.length || 0), 0)
+    // Convert graphs to the expected format
+    const firstGraph = data.graphs?.[0]
+    const graphs = data.graphs || [{
+      id: 'main',
+      name: 'Main',
+      namespace: 'main',
+      isMain: true,
+      nodes: firstGraph?.nodes || [],
+      connections: firstGraph?.connections || [],
+      groups: firstGraph?.groups || []
+    }]
     
-    const metadata = {
-      ...data.metadata,
-      totalNodeCount,
-      totalConnectionCount,
-      totalGroupCount,
-      graphCount: data.graphs.length
-    }
-    
-    await db.run(`
+    await db.query(`
       INSERT INTO workflow_snapshots (
-        id, workflowId, name, description, graphs, activeGraphId, triggerConfig, metadata,
-        isDraft, isPublished, saveCount, userId, createdAt, updatedAt, lastSavedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, "workflowId", name, description, graphs, "activeGraphId", "triggerConfig", metadata,
+        "isDraft", "isPublished", "saveCount", "userId", "createdAt", "updatedAt", "lastSavedAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     `, [
       snapshotId,
-      data.workflowId,
+      data.id,
       data.name,
       data.description || null,
-      JSON.stringify(data.graphs),
+      JSON.stringify(graphs),
       data.activeGraphId || 'main',
       data.triggerConfig ? JSON.stringify(data.triggerConfig) : null,
-      JSON.stringify(metadata),
-      1, // isDraft
-      0, // isPublished
-      1, // saveCount
-      data.userId,
-      now,
-      now,
-      now
+      data.metadata ? JSON.stringify(data.metadata) : null,
+      data.isDraft !== false,
+      data.isPublished || false,
+      data.saveCount || 0,
+      'system', // userId is not part of WorkflowSnapshot
+      data.createdAt || now,
+      data.updatedAt || now,
+      data.lastSavedAt || now
     ])
     
-    return {
-      id: snapshotId,
-      name: data.name,
-      description: data.description,
-      createdAt: now,
-      updatedAt: now,
-      lastSavedAt: now,
-      saveCount: 1,
-      isDraft: true,
-      isPublished: false,
-      graphs: data.graphs,
-      activeGraphId: data.activeGraphId || 'main',
-      trigger: data.triggerConfig,
-      metadata
-    }
+    return snapshotId
   }
   
-  static async updateSnapshot(snapshotId: string, data: {
-    name?: string
-    description?: string
-    graphs?: WorkflowGraph[]
-    activeGraphId?: string
-    triggerConfig?: any
-    metadata?: any
-  }): Promise<WorkflowSnapshot | null> {
+  // Update workflow snapshot
+  static async updateSnapshot(snapshotId: string, data: Partial<WorkflowSnapshot>): Promise<WorkflowSnapshot | null> {
     const db = await getDatabase()
     const now = new Date().toISOString()
     
     // Get existing snapshot
-    const existing = await db.get('SELECT * FROM workflow_snapshots WHERE id = ?', snapshotId)
+    const existingResult = await db.query('SELECT * FROM workflow_snapshots WHERE id = $1', [snapshotId])
+    const existing = existingResult.rows[0]
+    
     if (!existing) return null
     
     // Build update query
-    const updates: string[] = ['updatedAt = ?', 'lastSavedAt = ?', 'saveCount = saveCount + 1']
+    const updates: string[] = ['"updatedAt" = $1', '"lastSavedAt" = $2', '"saveCount" = "saveCount" + 1']
     const values: any[] = [now, now]
+    let paramCount = 2
     
     if (data.name !== undefined) {
-      updates.push('name = ?')
       values.push(data.name)
+      updates.push(`name = $${++paramCount}`)
     }
     
     if (data.description !== undefined) {
-      updates.push('description = ?')
       values.push(data.description)
-    }
-    
-    if (data.activeGraphId !== undefined) {
-      updates.push('activeGraphId = ?')
-      values.push(data.activeGraphId)
+      updates.push(`description = $${++paramCount}`)
     }
     
     if (data.graphs !== undefined) {
-      updates.push('graphs = ?')
       values.push(JSON.stringify(data.graphs))
-      
-      // Update metadata
-      const totalNodeCount = data.graphs.reduce((sum, g) => sum + g.nodes.length, 0)
-      const totalConnectionCount = data.graphs.reduce((sum, g) => sum + g.connections.length, 0)
-      const totalGroupCount = data.graphs.reduce((sum, g) => sum + (g.groups?.length || 0), 0)
-      
-      const existingMetadata = existing.metadata ? JSON.parse(existing.metadata) : {}
-      const metadata = {
-        ...existingMetadata,
-        ...data.metadata,
-        totalNodeCount,
-        totalConnectionCount,
-        totalGroupCount,
-        graphCount: data.graphs.length
-      }
-      
-      updates.push('metadata = ?')
-      values.push(JSON.stringify(metadata))
+      updates.push(`graphs = $${++paramCount}`)
+    }
+    
+    if (data.activeGraphId !== undefined) {
+      values.push(data.activeGraphId)
+      updates.push(`"activeGraphId" = $${++paramCount}`)
     }
     
     if (data.triggerConfig !== undefined) {
-      updates.push('triggerConfig = ?')
       values.push(data.triggerConfig ? JSON.stringify(data.triggerConfig) : null)
+      updates.push(`"triggerConfig" = $${++paramCount}`)
+    }
+    
+    if (data.metadata !== undefined) {
+      values.push(data.metadata ? JSON.stringify(data.metadata) : null)
+      updates.push(`metadata = $${++paramCount}`)
+    }
+    
+    if (data.isDraft !== undefined) {
+      values.push(data.isDraft)
+      updates.push(`"isDraft" = $${++paramCount}`)
+    }
+    
+    if (data.isPublished !== undefined) {
+      values.push(data.isPublished)
+      updates.push(`"isPublished" = $${++paramCount}`)
     }
     
     values.push(snapshotId)
     
-    await db.run(
-      `UPDATE workflow_snapshots SET ${updates.join(', ')} WHERE id = ?`,
+    await db.query(
+      `UPDATE workflow_snapshots SET ${updates.join(', ')} WHERE id = $${++paramCount}`,
       values
     )
     
     // Return updated snapshot
-    const updated = await db.get('SELECT * FROM workflow_snapshots WHERE id = ?', snapshotId)
+    const updatedResult = await db.query('SELECT * FROM workflow_snapshots WHERE id = $1', [snapshotId])
+    const updated = updatedResult.rows[0]
     
     return {
       id: updated.id,
       name: updated.name,
       description: updated.description,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-      lastSavedAt: updated.lastSavedAt,
-      saveCount: updated.saveCount,
-      isDraft: Boolean(updated.isDraft),
-      isPublished: Boolean(updated.isPublished),
-      publishedAt: updated.publishedAt,
       graphs: JSON.parse(updated.graphs),
       activeGraphId: updated.activeGraphId,
-      trigger: updated.triggerConfig ? JSON.parse(updated.triggerConfig) : undefined,
-      metadata: updated.metadata ? JSON.parse(updated.metadata) : undefined
+      triggerConfig: updated.triggerConfig ? JSON.parse(updated.triggerConfig) : null,
+      metadata: updated.metadata ? JSON.parse(updated.metadata) : null,
+      isDraft: updated.isDraft,
+      isPublished: updated.isPublished,
+      publishedAt: updated.publishedAt,
+      saveCount: updated.saveCount,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      lastSavedAt: updated.lastSavedAt
     }
   }
   
+  // Get workflow snapshot by ID
   static async getSnapshot(snapshotId: string): Promise<WorkflowSnapshot | null> {
     const db = await getDatabase()
-    const row = await db.get('SELECT * FROM workflow_snapshots WHERE id = ?', snapshotId)
+    const result = await db.query('SELECT * FROM workflow_snapshots WHERE id = $1', [snapshotId])
+    const row = result.rows[0]
     
     if (!row) return null
     
@@ -702,48 +725,50 @@ export class WorkflowDatabase {
       id: row.id,
       name: row.name,
       description: row.description,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      lastSavedAt: row.lastSavedAt,
-      saveCount: row.saveCount,
-      isDraft: Boolean(row.isDraft),
-      isPublished: Boolean(row.isPublished),
-      publishedAt: row.publishedAt,
       graphs: JSON.parse(row.graphs),
       activeGraphId: row.activeGraphId,
-      trigger: row.triggerConfig ? JSON.parse(row.triggerConfig) : undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      triggerConfig: row.triggerConfig ? JSON.parse(row.triggerConfig) : null,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      isDraft: row.isDraft,
+      isPublished: row.isPublished,
+      publishedAt: row.publishedAt,
+      saveCount: row.saveCount,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      lastSavedAt: row.lastSavedAt
     }
   }
   
+  // Get all snapshots for a workflow
   static async getWorkflowSnapshots(workflowId: string): Promise<WorkflowSnapshot[]> {
     const db = await getDatabase()
-    const rows = await db.all(
-      'SELECT * FROM workflow_snapshots WHERE workflowId = ? ORDER BY updatedAt DESC',
-      workflowId
+    const result = await db.query(
+      'SELECT * FROM workflow_snapshots WHERE "workflowId" = $1 ORDER BY "updatedAt" DESC',
+      [workflowId]
     )
     
-    return rows.map(row => ({
+    return result.rows.map(row => ({
       id: row.id,
       name: row.name,
       description: row.description,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      lastSavedAt: row.lastSavedAt,
-      saveCount: row.saveCount,
-      isDraft: Boolean(row.isDraft),
-      isPublished: Boolean(row.isPublished),
-      publishedAt: row.publishedAt,
       graphs: JSON.parse(row.graphs),
       activeGraphId: row.activeGraphId,
-      trigger: row.triggerConfig ? JSON.parse(row.triggerConfig) : undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      triggerConfig: row.triggerConfig ? JSON.parse(row.triggerConfig) : null,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      isDraft: row.isDraft,
+      isPublished: row.isPublished,
+      publishedAt: row.publishedAt,
+      saveCount: row.saveCount,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      lastSavedAt: row.lastSavedAt
     }))
   }
   
+  // Delete a workflow snapshot
   static async deleteSnapshot(snapshotId: string): Promise<boolean> {
     const db = await getDatabase()
-    const result = await db.run('DELETE FROM workflow_snapshots WHERE id = ?', snapshotId)
-    return (result.changes || 0) > 0
+    const result = await db.query('DELETE FROM workflow_snapshots WHERE id = $1', [snapshotId])
+    return (result.rowCount || 0) > 0
   }
 }

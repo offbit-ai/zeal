@@ -1,12 +1,14 @@
-import { Search, X, Download, Plus, Filter, Code, Edit3, Loader2, GitBranch } from 'lucide-react'
+import { Search, X, Download, Plus, Filter, Code, Edit3, Loader2, GitBranch, Link, Database, Brain, Shuffle, MessageSquare, PencilRuler, HardDrive, Cloud, ArrowRightLeft, Folder } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { useNodeRepository, NodeRepositoryItem } from '@/store/nodeRepository'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useNodeRepository, NodeRepositoryItem } from '@/hooks/useNodeRepository'
+import { useWorkflowStore } from '@/store/workflow-store'
+import { useNodeRepositoryStore } from '@/store/nodeRepositoryStore'
 import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
 import { Icon } from '@/lib/icons'
 import { NodeCreatorModal } from './NodeCreatorModal'
-import { useGraphStore } from '@/store/graphStore'
+import { SubgraphPortSelector } from './SubgraphPortSelector'
 import type { SubgraphNodeMetadata } from '@/types/workflow'
+import { findEmptyArea, calculatePanToCenter, animateCanvasPan } from '@/utils/findEmptyArea'
 
 interface SearchModalProps {
   isOpen: boolean
@@ -16,9 +18,23 @@ interface SearchModalProps {
   onNodeAdded?: (nodeId: string) => void
   canvasOffset?: { x: number; y: number }
   canvasZoom?: number
+  viewportSize?: { width: number; height: number }
+  onCanvasOffsetChange?: (offset: { x: number; y: number }) => void
+  onHighlightNode?: (nodeId: string) => void
 }
 
-export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNodeAdded, canvasOffset, canvasZoom }: SearchModalProps) {
+export function SearchModal({ 
+  isOpen, 
+  onClose, 
+  initialCategory, 
+  initialTab, 
+  onNodeAdded, 
+  canvasOffset, 
+  canvasZoom,
+  viewportSize,
+  onCanvasOffsetChange,
+  onHighlightNode
+}: SearchModalProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isNodeCreatorOpen, setIsNodeCreatorOpen] = useState(false)
@@ -26,21 +42,91 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
   const [customNodes, setCustomNodes] = useState<NodeRepositoryItem[]>([])
   const [editingNode, setEditingNode] = useState<NodeRepositoryItem | null>(null)
   const [installingNodes, setInstallingNodes] = useState<Set<string>>(new Set())
+  const [portSelectorState, setPortSelectorState] = useState<{
+    isOpen: boolean
+    subgraphId: string
+    subgraphName: string
+  }>({ isOpen: false, subgraphId: '', subgraphName: '' })
   
-  const {
-    categories,
-    filteredNodes,
-    searchQuery,
-    selectedCategory,
-    selectedSubcategory,
-    setSearchQuery,
-    setSelectedCategory,
-    setSelectedSubcategory,
-    installNode
-  } = useNodeRepository()
+  const nodeRepository = useNodeRepository()
+  const { categories: apiCategories, fetchAll: fetchApiData } = useNodeRepositoryStore()
+  
+  // Fetch API data on mount if not already loaded
+  useEffect(() => {
+    if (apiCategories.length === 0) {
+      fetchApiData()
+    }
+  }, [])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null)
 
-  const { addNode } = useWorkflowStore()
-  const { graphs, currentGraphId, setGraphDirty } = useGraphStore()
+  const { addNode, graphs, currentGraphId, workflowName, workflowId, nodes: storeNodes, groups, setGraphDirty } = useWorkflowStore()
+
+  // Filter nodes based on search and category
+  const filteredNodes = nodeRepository.filter(node => {
+    // Search filter
+    if (searchQuery && !node.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !node.description.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !node.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))) {
+      return false
+    }
+    
+    // Category filter
+    if (selectedCategory && node.category !== selectedCategory) {
+      return false
+    }
+    
+    // Subcategory filter
+    if (selectedSubcategory && node.subcategory !== selectedSubcategory) {
+      return false
+    }
+    
+    return true
+  })
+  
+  // Extract unique categories with structure
+  const categoriesMap = new Map<string, { subcategories: Set<string> }>()
+  nodeRepository.forEach(node => {
+    if (!categoriesMap.has(node.category)) {
+      categoriesMap.set(node.category, { subcategories: new Set() })
+    }
+    if (node.subcategory) {
+      categoriesMap.get(node.category)!.subcategories.add(node.subcategory)
+    }
+  })
+  
+  // Icon mapping for categories
+  const CATEGORY_ICONS: Record<string, any> = {
+    'data-sources': Database,
+    'ai-models': Brain,
+    'logic-control': GitBranch,
+    'data-processing': Shuffle,
+    'communication': MessageSquare,
+    'scripting': Code,
+    'tools-utilities': PencilRuler,
+    'storage-memory': HardDrive,
+    'cloud-services': Cloud,
+    'graph-io': ArrowRightLeft
+  }
+  
+  const categories = Array.from(categoriesMap.entries()).map(([name, data]) => {
+    // Try to find the category in API data to get display name
+    const apiCategory = apiCategories.find(cat => cat.name === name)
+    const displayName = apiCategory?.displayName || name
+    
+    return {
+      id: name,
+      name: displayName,
+      icon: CATEGORY_ICONS[name] || Folder,
+      subcategories: Array.from(data.subcategories).map(sub => ({
+        id: sub.toLowerCase().replace(/\s+/g, '-'),
+        name: sub.split(/[-_]/).map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ')
+      }))
+    }
+  })
 
   // Handle node installation with animation
   const handleInstallNode = async (node: NodeRepositoryItem) => {
@@ -51,8 +137,8 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
       // Simulate installation delay
       await new Promise(resolve => setTimeout(resolve, 2000))
       
-      // Install the node
-      installNode(node.id)
+      // Mark node as installed (in real app, this would persist)
+      // For now, just update the UI
       
       // Remove from installing set
       setInstallingNodes(prev => {
@@ -87,15 +173,16 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
   const saveCustomNode = (nodeTemplate: any, isEditing: boolean = false) => {
     const customNode: NodeRepositoryItem = {
       id: isEditing && editingNode ? editingNode.id : nodeTemplate.id,
-      name: nodeTemplate.title,
+      title: nodeTemplate.title,
+      subtitle: nodeTemplate.subtitle || '',
       description: nodeTemplate.subtitle || '',
+      icon: nodeTemplate.icon,
+      variant: nodeTemplate.variant,
       category: 'Custom',
       subcategory: nodeTemplate.type === 'script' ? 'Scripts' : 'APIs',
-      keywords: [],
       tags: [],
-      metadata: nodeTemplate,
-      isInstalled: true,
-      isBuiltIn: false
+      template: nodeTemplate as any,
+      isInstalled: nodeTemplate.isInstalled || false,
     }
     
     let updatedNodes: NodeRepositoryItem[]
@@ -161,41 +248,66 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
       templateId: 'subgraph',
       type: 'subgraph',
       title: graph.name,
-      subtitle: `Subgraph: ${graph.namespace}`,
+      subtitle: `Subgraph: ${graph.namespace || `${workflowName}/${graph.id}`}`,
       icon: 'git-branch',
       variant: 'orange-600',
       shape: 'rectangle',
       graphId: graph.id,
-      graphNamespace: graph.namespace,
+      graphNamespace: graph.namespace || `${workflowName}/${graph.id}`,
       graphName: graph.name,
+      workflowId: workflowId,
+      workflowName: workflowName,
       ports: [
         { id: 'input', label: 'Input', type: 'input', position: 'left' },
         { id: 'output', label: 'Output', type: 'output', position: 'right' }
-      ]
+      ],
+      properties: {}, // Subgraph nodes don't have editable properties
+      propertyValues: {}
     }
     
-    // Calculate position
+    // Find an empty area for the new subgraph node
     let position: { x: number; y: number }
-    if (canvasOffset && canvasZoom !== undefined) {
-      const viewportCenterX = window.innerWidth / 2
-      const viewportCenterY = window.innerHeight / 2
+    if (canvasOffset && canvasZoom !== undefined && viewportSize) {
+      const viewportCenterX = viewportSize.width / 2
+      const viewportCenterY = viewportSize.height / 2
       const worldCenterX = (viewportCenterX - canvasOffset.x) / canvasZoom
       const worldCenterY = (viewportCenterY - canvasOffset.y) / canvasZoom
       
-      position = {
-        x: worldCenterX + Math.random() * 100 - 50,
-        y: worldCenterY + Math.random() * 100 - 50
-      }
+      position = findEmptyArea(
+        storeNodes,
+        groups,
+        { width: 200, height: 100 },
+        { x: worldCenterX, y: worldCenterY }
+      )
     } else {
-      position = {
-        x: 400 + Math.random() * 200 - 100,
-        y: 200 + Math.random() * 200 - 100
-      }
+      position = findEmptyArea(storeNodes, groups)
     }
     
     const addedNodeId = addNode(subgraphMetadata, position)
     if (addedNodeId) {
       setGraphDirty(currentGraphId, true)
+      
+      // Pan canvas to the new node and highlight it
+      if (canvasOffset && canvasZoom && viewportSize && onCanvasOffsetChange && onHighlightNode) {
+        const targetOffset = calculatePanToCenter(
+          position,
+          viewportSize,
+          canvasOffset,
+          canvasZoom
+        )
+        
+        animateCanvasPan(
+          canvasOffset,
+          targetOffset,
+          500,
+          (offset) => onCanvasOffsetChange(offset),
+          () => {
+            onHighlightNode(addedNodeId)
+            setTimeout(() => onHighlightNode(''), 2000)
+          }
+        )
+      }
+      
       if (onNodeAdded) {
         onNodeAdded(addedNodeId)
       }
@@ -204,76 +316,98 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
   }
 
   const handleAddToCanvas = async (nodeItem: NodeRepositoryItem) => {
-    console.log('🔍 SEARCH: Adding node from search modal:', {
-      id: nodeItem.id,
-      hasMetadata: !!nodeItem.metadata,
-      metadataKeys: nodeItem.metadata ? Object.keys(nodeItem.metadata) : [],
-      hasPropertyRules: !!nodeItem.metadata?.propertyRules,
-      propertyRules: nodeItem.metadata?.propertyRules
-    })
     
-    if (!nodeItem.isInstalled) {
-      installNode(nodeItem.id)
-    }
+    // Skip installation check - all repository nodes are available
     
     // Initialize property values with defaults from the template
     const propertyValues: Record<string, any> = {}
-    if (nodeItem.metadata.properties) {
-      nodeItem.metadata.properties.forEach((prop: any) => {
+    if (nodeItem.template.properties) {
+      // Properties is an object, iterate over its entries
+      Object.entries(nodeItem.template.properties).forEach(([propId, prop]: [string, any]) => {
         if (prop.defaultValue !== undefined) {
-          propertyValues[prop.id] = prop.defaultValue
+          propertyValues[propId] = prop.defaultValue
+        } else if (prop.type === 'code-editor') {
+          // Initialize code-editor properties with empty string
+          propertyValues[propId] = ''
         }
       })
     }
     
     // Create a new instance with unique ID from the template
     let instanceMetadata = {
-      ...nodeItem.metadata,
-      id: `${nodeItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique instance ID
+      ...nodeItem.template,
+      id: `${nodeItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as string, // Generate unique instance ID
+      variant: nodeItem.template.variant || 'gray-600', // Ensure variant has a default value
       propertyValues // Include initialized property values
     }
     
-    console.log('🔍 SEARCH: Instance metadata after creation:', {
-      hasPropertyRules: !!instanceMetadata.propertyRules,
-      metadataKeys: Object.keys(instanceMetadata),
-      propertyRules: instanceMetadata.propertyRules
-    })
     
     // Apply dynamic metadata updates based on default values
     try {
-      instanceMetadata = await updateDynamicNodeMetadata(instanceMetadata, propertyValues, nodeItem.metadata.propertyRules) as any
+      instanceMetadata = await updateDynamicNodeMetadata(instanceMetadata as any, propertyValues, nodeItem.template.propertyRules) as any
     } catch (error) {
       console.error('Failed to apply initial dynamic metadata:', error)
     }
     
-    // Calculate viewport-aware position for the new node
+    // Find an empty area for the new node
     let position = { x: 400, y: 200 } // Default fallback position
     
-    if (canvasOffset && canvasZoom) {
+    if (canvasOffset && canvasZoom && viewportSize) {
       // Calculate the center of the current viewport in world coordinates
-      const viewportCenterX = window.innerWidth / 2
-      const viewportCenterY = window.innerHeight / 2
+      const viewportCenterX = viewportSize.width / 2
+      const viewportCenterY = viewportSize.height / 2
       
       // Convert viewport center to world coordinates
       const worldCenterX = (viewportCenterX - canvasOffset.x) / canvasZoom
       const worldCenterY = (viewportCenterY - canvasOffset.y) / canvasZoom
       
-      // Add slight randomization to avoid nodes stacking exactly on top of each other
-      position = {
-        x: worldCenterX + Math.random() * 100 - 50,
-        y: worldCenterY + Math.random() * 100 - 50
-      }
+      // Find an empty area near the viewport center
+      position = findEmptyArea(
+        storeNodes,
+        groups,
+        { width: 200, height: 100 },
+        { x: worldCenterX, y: worldCenterY }
+      )
+      
+      // Found empty area for node at position
     } else {
-      // Fallback to center with randomization if canvas state not available
-      position = {
-        x: 400 + Math.random() * 200 - 100,
-        y: 200 + Math.random() * 200 - 100
-      }
+      // Fallback to finding empty area without viewport info
+      position = findEmptyArea(storeNodes, groups)
+      // Using fallback empty area search
     }
     
-    const addedNodeId = addNode(instanceMetadata, position)
+    const addedNodeId = addNode(instanceMetadata as any, position)
     if (addedNodeId) {
       setGraphDirty(currentGraphId, true)
+      
+      // Pan canvas to the new node and highlight it
+      if (canvasOffset && canvasZoom && viewportSize && onCanvasOffsetChange && onHighlightNode) {
+        // Calculate the new offset to center the node
+        const targetOffset = calculatePanToCenter(
+          position,
+          viewportSize,
+          canvasOffset,
+          canvasZoom
+        )
+        
+        // Animate the pan
+        animateCanvasPan(
+          canvasOffset,
+          targetOffset,
+          500, // 500ms animation
+          (offset) => onCanvasOffsetChange(offset),
+          () => {
+            // After panning, highlight the node
+            onHighlightNode(addedNodeId)
+            
+            // Clear highlight after 2 seconds
+            setTimeout(() => {
+              onHighlightNode('')
+            }, 2000)
+          }
+        )
+      }
+      
       if (onNodeAdded) {
         onNodeAdded(addedNodeId)
       }
@@ -282,13 +416,20 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
   }
 
   const getStatusBadge = (node: NodeRepositoryItem) => {
-    if (node.isBuiltIn) {
-      return <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Built-in</span>
-    }
-    if (node.isInstalled) {
-      return <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">Installed</span>
+    // All repository nodes are available
+    if (node.category === 'Custom') {
+      return <span className="text-xs text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Custom</span>
     }
     return <span className="text-xs text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Available</span>
+  }
+
+  const handleOpenPortSelector = (graphId: string, graphName: string) => {
+    // Opening port selector for graph
+    setPortSelectorState({
+      isOpen: true,
+      subgraphId: graphId,
+      subgraphName: graphName
+    })
   }
 
   if (!isVisible) return null
@@ -391,7 +532,7 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
-                    <category.icon className="w-4 h-4" />
+                    {category.icon && <category.icon className="w-4 h-4" />}
                     {category.name}
                   </button>
                   
@@ -454,14 +595,14 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-gray-100 rounded-md">
-                            <Icon name={node.metadata.icon} className="w-5 h-5 text-gray-700" />
+                            <Icon name={node.template.icon} className="w-5 h-5 text-gray-700" />
                           </div>
                           <div>
-                            <h3 className="font-medium text-gray-900">{node.name}</h3>
+                            <h3 className="font-medium text-gray-900">{node.title}</h3>
                             <div className="flex items-center gap-2 mt-1">
                               {getStatusBadge(node)}
-                              {node.version && (
-                                <span className="text-xs text-gray-500">v{node.version}</span>
+                              {node.template.version && (
+                                <span className="text-xs text-gray-500">v{node.template.version}</span>
                               )}
                             </div>
                           </div>
@@ -532,8 +673,8 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
               <div className="space-y-6">
                 {/* Group by type */}
                 {['Scripts', 'APIs'].map(type => {
-                  const nodesOfType = customNodes.filter(node => 
-                    type === 'Scripts' ? node.metadata.type === 'script' : node.metadata.type === 'api'
+                  const nodesOfType = customNodes.filter((node: any) => 
+                    type === 'Scripts' ? node.template.type === 'script' : node.template.type === 'api'
                   )
                   
                   if (nodesOfType.length === 0) return null
@@ -550,8 +691,8 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
                             <div className="flex items-start justify-between mb-3">
                               <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                                 <Icon
-                                  name={node.metadata.icon}
-                                  source={node.metadata.icon && ['python', 'javascript', 'openai', 'aws', 'google', 'slack', 'github', 'mongodb', 'postgresql', 'mysql', 'redis'].includes(node.metadata.icon) ? 'brand' : 'lucide'}
+                                  name={node.template.icon}
+                                  source={node.template.icon && ['python', 'javascript', 'openai', 'aws', 'google', 'slack', 'github', 'mongodb', 'postgresql', 'mysql', 'redis'].includes(node.template.icon) ? 'brand' : 'lucide'}
                                   className="w-6 h-6 text-gray-600"
                                 />
                               </div>
@@ -581,9 +722,9 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
                             </div>
                             
                             <div className="mb-3">
-                              <h4 className="font-medium text-gray-900 mb-1">{node.metadata.title}</h4>
+                              <h4 className="font-medium text-gray-900 mb-1">{node.template.title}</h4>
                               <p className="text-sm text-gray-500 line-clamp-2">
-                                {node.metadata.subtitle || `Custom ${node.metadata.type} node`}
+                                {node.template.subtitle || `Custom ${node.template.type} node`}
                               </p>
                             </div>
                             
@@ -591,8 +732,8 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
                             <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
                               <span className="flex items-center gap-1">
                                 <Code className="w-3 h-3" />
-                                {node.metadata.type === 'script' ? 
-                                  (node.metadata.variant?.includes('blue') ? 'Python' : 'JavaScript') : 
+                                {node.template.type === 'script' ? 
+                                  (node.template.variant?.includes('blue') ? 'Python' : 'JavaScript') : 
                                   'API'
                                 }
                               </span>
@@ -664,18 +805,31 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
                         <div className="mb-3">
                           <h4 className="font-medium text-gray-900 mb-1">{graph.name}</h4>
                           <p className="text-sm text-gray-500">
-                            Namespace: {graph.namespace}
+                            Namespace: {graph.namespace || `${workflowName}/${graph.id}`}
                           </p>
                         </div>
                         
                         {/* Actions */}
-                        <button
-                          onClick={() => handleAddSubgraph(graph.id)}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Add as Subgraph
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAddSubgraph(graph.id)}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add Subgraph
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenPortSelector(graph.id, graph.name)
+                            }}
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
+                            title="Create proxy connection to specific port"
+                          >
+                            <Link className="w-3.5 h-3.5" />
+                            Proxy
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -693,7 +847,20 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
           setIsNodeCreatorOpen(false)
           setEditingNode(null)
         }}
-        editingNode={editingNode?.metadata}
+        editingNode={{
+          id: editingNode?.template.id || '',
+          title: editingNode?.template.title || '',
+          subtitle: editingNode?.template.subtitle || '',
+          description: editingNode?.template.description || '',
+          icon: editingNode?.template.icon || '',
+          variant: editingNode?.template.variant || 'gray-600',
+          type: editingNode?.template.type || 'script',
+          properties: editingNode?.template.properties || {} as any,
+          propertyValues: editingNode?.template.properties ? Object.entries(editingNode?.template.properties as any) : {},
+          shape: editingNode?.template.shape || 'rectangle',
+          ports: editingNode?.template.ports || [],
+          requiredEnvVars: editingNode?.template.requiredEnvVars || [],
+        }}
         onNodeCreated={(nodeTemplate) => {
           // Save the custom node template
           saveCustomNode(nodeTemplate, !!editingNode)
@@ -707,15 +874,49 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
               propertyValues: nodeTemplate.propertyValues || {}
             }
             
-            // Add to canvas at center with slight randomization
-            const position = {
-              x: 400 + Math.random() * 200 - 100,
-              y: 200 + Math.random() * 200 - 100
+            // Find an empty area for the new custom node
+            let position: { x: number; y: number }
+            if (canvasOffset && canvasZoom && viewportSize) {
+              const viewportCenterX = viewportSize.width / 2
+              const viewportCenterY = viewportSize.height / 2
+              const worldCenterX = (viewportCenterX - canvasOffset.x) / canvasZoom
+              const worldCenterY = (viewportCenterY - canvasOffset.y) / canvasZoom
+              
+              position = findEmptyArea(
+                storeNodes,
+                groups,
+                { width: 200, height: 100 },
+                { x: worldCenterX, y: worldCenterY }
+              )
+            } else {
+              position = findEmptyArea(storeNodes, groups)
             }
             
             const addedNodeId = addNode(instanceMetadata, position)
             if (addedNodeId) {
               setGraphDirty(currentGraphId, true)
+              
+              // Pan canvas to the new node and highlight it
+              if (canvasOffset && canvasZoom && viewportSize && onCanvasOffsetChange && onHighlightNode) {
+                const targetOffset = calculatePanToCenter(
+                  position,
+                  viewportSize,
+                  canvasOffset,
+                  canvasZoom
+                )
+                
+                animateCanvasPan(
+                  canvasOffset,
+                  targetOffset,
+                  500,
+                  (offset) => onCanvasOffsetChange(offset),
+                  () => {
+                    onHighlightNode(addedNodeId)
+                    setTimeout(() => onHighlightNode(''), 2000)
+                  }
+                )
+              }
+              
               if (onNodeAdded) {
                 onNodeAdded(addedNodeId)
               }
@@ -727,6 +928,23 @@ export function SearchModal({ isOpen, onClose, initialCategory, initialTab, onNo
           setEditingNode(null)
         }}
       />
+      
+      {/* Subgraph Port Selector Modal - render outside of main modal to avoid z-index issues */}
+      {portSelectorState.isOpen && (
+        <SubgraphPortSelector
+          isOpen={portSelectorState.isOpen}
+          onClose={() => setPortSelectorState({ isOpen: false, subgraphId: '', subgraphName: '' })}
+          subgraphId={portSelectorState.subgraphId}
+          subgraphName={portSelectorState.subgraphName}
+          canvasOffset={canvasOffset}
+          canvasZoom={canvasZoom}
+          onSelectPort={(nodeId, portId, portType) => {
+            // Close both modals after creating the proxy node
+            setPortSelectorState({ isOpen: false, subgraphId: '', subgraphName: '' })
+            onClose()
+          }}
+        />
+      )}
     </div>
   )
 }

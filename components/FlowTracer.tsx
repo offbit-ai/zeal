@@ -10,7 +10,7 @@ import {
 import { FlowTraceService } from '@/services/flowTraceService'
 import type { FlowTrace, FlowTraceSession, TraceReplay } from '@/types/flowTrace'
 import { formatDistanceToNow } from '@/utils/dateUtils'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 
 interface FlowTracerProps {
   isOpen: boolean
@@ -37,7 +37,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
   const [timeFilter, setTimeFilter] = useState<'all' | '1h' | '6h' | '24h' | '7d'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'error' | 'warning'>('all')
   const [showFilters, setShowFilters] = useState(false)
-  const animationFrameRef = useRef<number>()
+  const animationFrameRef = useRef<number>(0)
   const replayStartTimeRef = useRef<number>(0)
   
   const { nodes, connections } = useWorkflowStore()

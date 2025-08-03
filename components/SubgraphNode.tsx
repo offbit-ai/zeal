@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ChevronRight, GitBranch } from 'lucide-react'
 import { DraggableNode } from './DraggableNode'
-import { useGraphStore } from '@/store/graphStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 import { NodeShape, SubgraphNodeMetadata } from '@/types/workflow'
 
 interface SubgraphNodeProps {
@@ -18,6 +18,7 @@ interface SubgraphNodeProps {
   zoom?: number
   isHighlighted?: boolean
   isNodeSelected?: boolean
+  isInGroup?: boolean
 }
 
 export function SubgraphNode({
@@ -31,12 +32,13 @@ export function SubgraphNode({
   onPortDragEnd,
   zoom = 1,
   isHighlighted,
-  isNodeSelected
+  isNodeSelected,
+  isInGroup = false
 }: SubgraphNodeProps) {
-  const { switchGraph, getGraphById } = useGraphStore()
+  const { switchGraph, graphs } = useWorkflowStore()
   const [isHovered, setIsHovered] = useState(false)
   
-  const targetGraph = getGraphById(metadata.graphId)
+  const targetGraph = graphs.find(g => g.id === metadata.graphId)
   
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -44,11 +46,16 @@ export function SubgraphNode({
   }
   
   // Override metadata for visual appearance
+  // Use dynamic namespace if workflowName is available
+  const dynamicNamespace = metadata.workflowName 
+    ? `${metadata.workflowName}/${metadata.graphId}`
+    : metadata.graphNamespace
+    
   const subgraphMetadata = {
     ...metadata,
     variant: 'orange-600' as const,
     icon: 'link',
-    subtitle: `Subgraph: ${metadata.graphNamespace}`,
+    subtitle: `${dynamicNamespace}`,
     shape: 'diamond' as NodeShape
   }
   
@@ -62,7 +69,7 @@ export function SubgraphNode({
       <DraggableNode
         metadata={subgraphMetadata}
         position={position}
-        onClick={()=>{}}
+        onClick={onClick}
         onPositionChange={onPositionChange}
         onBoundsChange={onBoundsChange}
         onPortPositionUpdate={onPortPositionUpdate}
@@ -71,6 +78,7 @@ export function SubgraphNode({
         zoom={zoom}
         isHighlighted={isHighlighted}
         isSelected={isNodeSelected}
+        isInGroup={isInGroup}
       />
       
     </div>

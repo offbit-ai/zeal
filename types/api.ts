@@ -1,3 +1,5 @@
+import { NodeMetadata } from "./workflow"
+
 // Base API response types
 export interface ApiResponse<T = any> {
   success: boolean
@@ -92,7 +94,7 @@ export interface WorkflowGraphData {
   isMain: boolean
   nodes: WorkflowNodeData[]
   connections: WorkflowConnectionData[]
-  groups?: WorkflowGroupData[]
+  groups?: WorkflowGraphData[]
   canvasState?: {
     offset: { x: number; y: number }
     zoom: number
@@ -114,7 +116,7 @@ export interface WorkflowNodeData {
   title: string
   subtitle?: string
   position: { x: number; y: number }
-  properties: Record<string, any>
+  properties: NodeMetadata
   requiredEnvVars?: string[]
 }
 
@@ -146,34 +148,38 @@ export interface WorkflowResponse {
 // Node Repository API types
 export interface NodeTemplateResponse {
   id: string
-  name: string
-  description: string
+  type: string
+  title: string
+  subtitle: string
   category: string
   subcategory?: string
-  version: string
-  author: string
-  isBuiltIn: boolean
-  isInstalled: boolean
-  metadata: {
-    type: string
-    title: string
-    subtitle?: string
-    iconName: string
-    variant: string
-    shape: string
-    size: string
-    ports: NodePortData[]
-    properties: NodePropertyData[]
-    requiredEnvVars?: string[]
-  }
-  documentation?: string
-  keywords: string[]
+  description: string
+  icon: string
+  variant?: string
+  shape?: string
+  size?: string
+  ports?: Array<{
+    id: string
+    label: string
+    type: 'input' | 'output'
+    position: string
+  }>
+  properties: Record<string, any>
+  requiredEnvVars?: string[]
   tags: string[]
-  downloadCount: number
-  rating: number
+  version: string
+  isActive: boolean
   createdAt: string
   updatedAt: string
+  propertyRules?: {
+    triggers: string[]
+    rules: Array<{
+      when: string
+      updates: Record<string, any>
+    }>
+  }
 }
+
 
 export interface NodePortData {
   id: string

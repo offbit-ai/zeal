@@ -303,6 +303,15 @@ const categoriesStore: NodeCategoryResponse[] = [
     ],
     totalNodes: 12,
     isActive: true
+  },
+  {
+    name: 'graph-io',
+    displayName: 'Graph I/O',
+    description: 'Input and output nodes for data flow between graphs and subgraphs',
+    icon: 'arrow-right-left',
+    subcategories: [],
+    totalNodes: 4,
+    isActive: true
   }
 ]
 
@@ -314,7 +323,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // Check cache first
   const cachedResponse = apiCache.get(cacheKey)
   if (cachedResponse) {
-    console.log(`Cache hit for categories: ${cacheKey}`)
+    // console.log removed
     return NextResponse.json(cachedResponse)
   }
   

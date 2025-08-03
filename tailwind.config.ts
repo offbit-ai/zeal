@@ -60,18 +60,6 @@ const config: Config = {
       }
     },
   },
-  safelist: [
-    // Node variant colors
-    'bg-black',
-    'bg-gray-600',
-    'bg-gray-700', 
-    'bg-gray-800',
-    'bg-gray-900',
-    'bg-blue-600',
-    'bg-green-600',
-    'bg-orange-600',
-    'bg-orange-700'
-  ],
   plugins: [],
 }
 

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "node",
-      "args": ["/Users/amaterasu/Vibranium/zeal/node_modules/@executeautomation/playwright-mcp-server/dist/index.js"]
-    }
-  }
-}

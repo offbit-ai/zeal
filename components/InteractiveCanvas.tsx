@@ -18,6 +18,10 @@ interface InteractiveCanvasProps {
   onSelectionUpdate?: (point: { x: number; y: number }) => void
   onSelectionEnd?: () => void
   onSelectionClear?: () => void
+  // Mouse tracking
+  onMouseMove?: (point: { x: number; y: number }) => void
+  // Context menu
+  onContextMenu?: (e: MouseEvent) => void
 }
 
 export function InteractiveCanvas({ 
@@ -34,7 +38,9 @@ export function InteractiveCanvas({
   onSelectionStart,
   onSelectionUpdate,
   onSelectionEnd,
-  onSelectionClear
+  onSelectionClear,
+  onMouseMove,
+  onContextMenu
 }: InteractiveCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isPanning, setIsPanning] = useState(false)
@@ -69,7 +75,14 @@ export function InteractiveCanvas({
     const isGroupClick = target.closest('[data-group-container]') !== null
     const isNodeClick = target.closest('[data-draggable-node]') !== null
     const isCanvasClick = !isGroupClick && !isNodeClick && (target === canvasRef.current || 
-                         (target.classList.contains('absolute') && target.classList.contains('inset-0')))
+                         target.getAttribute('data-canvas') === 'true' ||
+                         (target.classList.contains('absolute') && target.classList.contains('inset-0') && !target.closest('[data-draggable-node]')))
+    
+    // If clicking on a node, don't handle the event
+    if (isNodeClick) {
+      // [InteractiveCanvas] log removed
+      return
+    }
     
     if (isCanvasClick) {
       // Clear selection if clicking on empty space without modifier keys
@@ -104,6 +117,15 @@ export function InteractiveCanvas({
   }
 
   const handleMouseMove = (e: MouseEvent) => {
+    // Always track mouse position for collaborative cursors
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (rect && onMouseMove) {
+      // Convert screen coordinates to canvas coordinates
+      const canvasX = (e.clientX - rect.left - offset.x) / zoom
+      const canvasY = (e.clientY - rect.top - offset.y) / zoom
+      onMouseMove({ x: canvasX, y: canvasY })
+    }
+    
     if (isPanning) {
       const newOffset = {
         x: e.clientX - startPoint.x,
@@ -219,6 +241,7 @@ export function InteractiveCanvas({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onWheel={handleWheel}
+      onContextMenu={onContextMenu}
       style={{
         cursor: isPanning ? 'grabbing' : isSelecting ? 'crosshair' : 'default'
       }}

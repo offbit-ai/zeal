@@ -19,7 +19,11 @@ export const DELETE = withErrorHandling(async (req: NextRequest) => {
     throw new ApiError('VALIDATION_ERROR', 'daysToKeep must be a positive number', 400)
   }
   
-  const deletedCount = await FlowTraceDatabase.deleteOldSessions(daysToKeep)
+  // Calculate the date threshold
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
+  
+  const deletedCount = await FlowTraceDatabase.deleteOldSessions(cutoffDate)
   
   return NextResponse.json(createSuccessResponse({
     deleted: deletedCount,

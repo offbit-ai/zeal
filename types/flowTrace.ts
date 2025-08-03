@@ -1,5 +1,9 @@
 export interface FlowTrace {
   id: string
+  graphId: string | undefined,
+  graphName: string | undefined,
+  parentTraceId?: string,
+  depth?: number
   timestamp: string
   duration: number // milliseconds
   status: 'success' | 'error' | 'warning'

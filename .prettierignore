@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Rust
+crdt-server/target/
+crdt-server/Cargo.lock
+
+# Database
+*.sql
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.pid
+*.seed
+*.pid.lock
+coverage/
+.nyc_output/
+.DS_Store
+*.pem
+
+# Test
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Generated
+public/sw.js
+public/workbox-*.js

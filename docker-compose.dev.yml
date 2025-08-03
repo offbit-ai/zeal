@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: zeal-postgres
+    environment:
+      POSTGRES_DB: zeal_db
+      POSTGRES_USER: zeal_user
+      POSTGRES_PASSWORD: zeal_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - zeal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zeal_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: zeal-redis
+    command: redis-server --requirepass redispass123
+    ports:
+      - "6379:6379"
+    volumes:
+      - zeal-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redispass123", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Adminer for database management
+  adminer:
+    image: adminer
+    container_name: zeal-adminer
+    restart: always
+    ports:
+      - "8090:8080"
+    depends_on:
+      - postgres
+
+  # Optional: If you have a CRDT server
+  # crdt-server:
+  #   image: your-crdt-server-image
+  #   container_name: zeal-crdt-server
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - DATABASE_URL=postgresql://zeal_user:zeal_password@postgres:5432/zeal_db
+
+volumes:
+  zeal-postgres-data:
+    name: zeal-postgres-data
+  zeal-redis-data:
+    name: zeal-redis-data

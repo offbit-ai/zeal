@@ -10,10 +10,14 @@ import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 
 // GET /api/workflows/[id]/history - Get workflow version history
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(100)
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const { searchParams } = new URL(req.url)
   const userId = extractUserId(req)
   const pagination = parsePaginationParams(searchParams)
@@ -34,7 +38,7 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
   const { versions, total } = await WorkflowDatabase.getWorkflowVersions(id, {
     limit: pagination.limit,
     offset: (pagination.page - 1) * pagination.limit,
-    includePublishedOnly: publishedOnly
+    includePublished: publishedOnly
   })
   
   // Transform versions to API response format
@@ -46,11 +50,10 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
     version: version.version,
     isDraft: version.isDraft,
     isPublished: version.isPublished,
-    nodes: version.nodes,
-    connections: version.connections,
+    graphs: version.graphs,
     metadata: {
-      nodeCount: version.nodes.length,
-      connectionCount: version.connections.length,
+      nodeCount: version.graphs?.[0]?.nodes?.length || 0,
+      connectionCount: version.graphs?.[0]?.connections?.length || 0,
       ...version.metadata
     },
     createdAt: version.createdAt,
@@ -61,17 +64,19 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
   
   const totalPages = Math.ceil(total / pagination.limit)
   
-  return NextResponse.json(createSuccessResponse(historyEntries, {
+  return NextResponse.json(createSuccessResponse({
+    history: historyEntries,
+    workflowInfo: {
+      id: workflow.id,
+      name: workflow.name,
+      currentPublishedVersionId: workflow.publishedVersionId
+    }
+  }, {
     pagination: {
       page: pagination.page,
       limit: pagination.limit,
       total,
       totalPages
-    },
-    workflowInfo: {
-      id: workflow.id,
-      name: workflow.name,
-      currentPublishedVersionId: workflow.publishedVersionId
     },
     timestamp: new Date().toISOString(),
     requestId: `req_${Date.now()}`

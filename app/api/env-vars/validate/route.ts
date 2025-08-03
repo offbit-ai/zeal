@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { EnvVarDatabase } from '@/services/envVarDatabase'
+import { allNodeTemplates } from '@/data/nodeTemplates'
 
 interface NodeTemplateResponse {
   id: string
@@ -16,41 +17,29 @@ interface NodeTemplateResponse {
 }
 
 // Same mock data store as node endpoints (should be shared database in real app)
-const nodeTemplatesStore: NodeTemplateResponse[] = [
-  {
-    id: 'tpl_postgresql',
-    type: 'database',
-    title: 'PostgreSQL',
-    requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD']
-  },
-  {
-    id: 'tpl_gpt4',
-    type: 'ai-model',
-    title: 'Claude',
-    requiredEnvVars: ['ANTHROPIC_API_KEY']
-  },
-  {
-    id: 'tpl_branch',
-    type: 'logic',
-    title: 'Branch'
-  },
-  {
-    id: 'tpl_python_script',
-    type: 'script',
-    title: 'Python Script',
-    requiredEnvVars: ['CRM_API_KEY', 'CRM_BASE_URL']
-  },
-  {
-    id: 'tpl_javascript_script',
-    type: 'script',
-    title: 'JavaScript Script'
-  },
-  {
-    id: 'tpl_data_transformer',
-    type: 'transform',
-    title: 'Data Transformer'
-  }
-]
+const nodeTemplatesStore: NodeTemplateResponse[] = allNodeTemplates.map((template: any, index: number) => ({
+  // Map JSON structure to API structure
+  id: template.id,
+  type: template.type,
+  title: template.title,
+  subtitle: template.subtitle,
+  category: template.category,
+  subcategory: template.subcategory,
+  description: template.description,
+  icon: template.icon,
+  variant: template.variant,
+  shape: template.shape,
+  size: template.size,
+  ports: template.ports,
+  properties: template.properties,
+  requiredEnvVars: template.requiredEnvVars,
+  tags: template.tags,
+  version: template.version || '1.0.0',
+  isActive: template.isActive !== false, // Default to true unless explicitly false
+  createdAt: template.createdAt || new Date(Date.now() - 86400000 * (30 - index)).toISOString(),
+  updatedAt: template.updatedAt || new Date().toISOString(),
+  ...(template.propertyRules ? { propertyRules: template.propertyRules } : {})
+}))
 
 interface ValidateEnvVarsRequest {
   requiredVars?: string[] // Legacy support
@@ -80,7 +69,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     body = await req.json()
   } catch (error) {
     // Handle empty or malformed JSON body
-    if (error instanceof SyntaxError || error?.message?.includes('Unexpected end of JSON input')) {
+    if (error instanceof SyntaxError || (error instanceof Error && error.message.includes('Unexpected end of JSON input'))) {
       body = {} // Default to empty object
     } else {
       throw error // Re-throw other errors

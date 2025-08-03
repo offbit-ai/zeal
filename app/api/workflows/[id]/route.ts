@@ -12,10 +12,14 @@ import { ApiError, WorkflowUpdateRequest } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 
 // GET /api/workflows/[id] - Get specific workflow
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(100)
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const userId = extractUserId(req)
   
   // Get workflow
@@ -68,21 +72,41 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // PUT /api/workflows/[id] - Update workflow (creates new version)
-export const PUT = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const PUT = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(200)
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const userId = extractUserId(req)
   const body: WorkflowUpdateRequest = await req.json()
   
   // Get workflow to verify ownership
-  const workflow = await WorkflowDatabase.getWorkflow(id)
+  let workflow = await WorkflowDatabase.getWorkflow(id)
   
   if (!workflow) {
-    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
-  }
-  
-  if (workflow.userId !== userId) {
+    // Create the workflow if it doesn't exist (upsert behavior)
+    // Workflow not found, creating new workflow
+    
+    // Extract name from body or use a default
+    const workflowName = body.name || 'Untitled Workflow'
+    
+    // Create the workflow with the specific ID
+    await WorkflowDatabase.createWorkflowWithId(id, {
+      name: workflowName,
+      description: body.description || '',
+      userId
+    })
+    
+    // Fetch the newly created workflow
+    workflow = await WorkflowDatabase.getWorkflow(id)
+    
+    if (!workflow) {
+      throw new ApiError('CREATE_FAILED', 'Failed to create workflow', 500)
+    }
+  } else if (workflow.userId !== userId) {
     throw new ApiError('FORBIDDEN', 'Not authorized to update this workflow', 403)
   }
   
@@ -109,10 +133,10 @@ export const PUT = withErrorHandling(async (req: NextRequest, { params }: { para
   })
   
   // Create new version
-  const newVersion = await WorkflowDatabase.updateWorkflow(id, {
+  const newVersion = await WorkflowDatabase.updateWorkflowDraft(id, {
     name: body.name,
     description: body.description,
-    graphs: body.graphs,
+    graphs: body.graphs as any,
     triggerConfig: body.triggerConfig,
     metadata: {
       ...body.metadata,
@@ -158,10 +182,14 @@ export const PUT = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // DELETE /api/workflows/[id] - Delete workflow
-export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(150)
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const userId = extractUserId(req)
   
   // Delete workflow (includes authorization check)

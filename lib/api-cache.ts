@@ -125,12 +125,12 @@ export function withCache<T>(
     // Check if we have a cached response
     const cachedData = apiCache.get<T>(cacheKey)
     if (cachedData !== null) {
-      console.log(`Cache hit for ${cacheKey}`)
+      // console.log removed
       return cachedData
     }
 
     // If not cached, execute the handler
-    console.log(`Cache miss for ${cacheKey}`)
+    // console.log removed
     const result = await handler(req)
     
     // Cache the result
@@ -145,5 +145,5 @@ export function withCache<T>(
  */
 export function invalidateCache(pattern: string): void {
   apiCache.clearPattern(pattern)
-  console.log(`Cache invalidated for pattern: ${pattern}`)
+  // console.log removed
 }

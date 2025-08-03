@@ -4,17 +4,17 @@ import { NodeMetadata, PropertyDefinition } from '@/types/workflow'
  * Check if a node has properties with default values that haven't been explicitly configured by the user
  */
 export function hasUnconfiguredDefaults(metadata: NodeMetadata): boolean {
-  if (!metadata.properties || metadata.properties.length === 0) {
+  if (!metadata.properties || Object.keys(metadata.properties).length === 0) {
     return false
   }
 
   const propertyValues = metadata.propertyValues || {}
   
   // Check each property for unconfigured defaults
-  for (const property of metadata.properties) {
+  for (const [propertyId, property] of Object.entries(metadata.properties)) {
     // Only check required fields
     if (property.required) {
-      const currentValue = propertyValues[property.id]
+      const currentValue = propertyValues[propertyId]
       
       // If property value is undefined, null, or empty string
       if (currentValue === undefined || currentValue === null || currentValue === '') {
@@ -29,20 +29,22 @@ export function hasUnconfiguredDefaults(metadata: NodeMetadata): boolean {
  * Get list of properties that need user configuration
  */
 export function getUnconfiguredProperties(metadata: NodeMetadata): PropertyDefinition[] {
-  if (!metadata.properties || metadata.properties.length === 0) {
+  if (!metadata.properties || Object.keys(metadata.properties).length === 0) {
     return []
   }
 
   const propertyValues = metadata.propertyValues || {}
   const unconfigured: PropertyDefinition[] = []
   
-  for (const property of metadata.properties) {
+  for (const [propertyId, property] of Object.entries(metadata.properties)) {
     // Only check required fields
     if (property.required) {
-      const currentValue = propertyValues[property.id]
+      const currentValue = propertyValues[propertyId]
       
       // If property value is undefined, null, or empty string
       if (currentValue === undefined || currentValue === null || currentValue === '') {
+        property.id = propertyId // Ensure property has an ID for display
+        property.label = property.label || propertyId // Use ID as label if not provided
         unconfigured.push(property)
       }
     }

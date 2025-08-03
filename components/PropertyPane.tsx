@@ -1,10 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { NodeMetadata, PropertyDefinition, PropertyType, RuleSet, DataOperationSet } from '@/types/workflow'
+import {
+  NodeMetadata,
+  PropertyDefinition,
+  PropertyType,
+  RuleSet,
+  DataOperationSet,
+} from '@/types/workflow'
 import { X, Settings, Edit3, Database, Trash2, AlertTriangle } from 'lucide-react'
-import { useWorkflowStore } from '@/store/workflowStore'
-import { useGraphStore } from '@/store/graphStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 import { RuleEditorModal } from './RuleEditorModal'
 import { DataOperationModal } from './DataOperationModal'
 import { ModalPortal } from './ModalPortal'
@@ -18,13 +23,13 @@ interface PropertyPaneProps {
 }
 
 // Component for rendering individual property fields
-function PropertyField({ 
-  property, 
-  value, 
+function PropertyField({
+  property,
+  value,
   onChange,
   onOpenRuleEditor,
-  onOpenDataOpEditor
-}: { 
+  onOpenDataOpEditor,
+}: {
   property: PropertyDefinition
   value: any
   onChange: (value: any) => void
@@ -41,7 +46,7 @@ function PropertyField({
         <input
           type="text"
           value={value || ''}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={e => handleChange(e.target.value)}
           placeholder={property.placeholder}
           required={property.required}
           className="w-full px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
@@ -53,7 +58,7 @@ function PropertyField({
         <input
           type="number"
           value={value || ''}
-          onChange={(e) => handleChange(Number(e.target.value))}
+          onChange={e => handleChange(Number(e.target.value))}
           placeholder={property.placeholder}
           required={property.required}
           className="w-full px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
@@ -64,7 +69,7 @@ function PropertyField({
       return (
         <select
           value={value || property.defaultValue || ''}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={e => handleChange(e.target.value)}
           required={property.required}
           className="w-full px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
         >
@@ -82,11 +87,17 @@ function PropertyField({
           <input
             type="checkbox"
             checked={value !== undefined ? value : property.defaultValue}
-            onChange={(e) => handleChange(e.target.checked)}
+            onChange={e => handleChange(e.target.checked)}
             className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-400 focus:ring-1"
           />
           <span className="text-sm text-gray-700">
-            {value !== undefined ? (value ? 'Enabled' : 'Disabled') : (property.defaultValue ? 'Enabled' : 'Disabled')}
+            {value !== undefined
+              ? value
+                ? 'Enabled'
+                : 'Disabled'
+              : property.defaultValue
+                ? 'Enabled'
+                : 'Disabled'}
           </span>
         </label>
       )
@@ -95,7 +106,7 @@ function PropertyField({
       return (
         <textarea
           value={value || ''}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={e => handleChange(e.target.value)}
           placeholder={property.placeholder}
           required={property.required}
           rows={3}
@@ -113,7 +124,9 @@ function PropertyField({
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-gray-700">
-                {ruleCount === 0 ? 'No rules configured' : `${ruleCount} rule set${ruleCount !== 1 ? 's' : ''}`}
+                {ruleCount === 0
+                  ? 'No rules configured'
+                  : `${ruleCount} rule set${ruleCount !== 1 ? 's' : ''}`}
               </div>
               <div className="text-xs text-gray-500 mt-1">
                 Click to {ruleCount === 0 ? 'create' : 'edit'} rules
@@ -125,7 +138,9 @@ function PropertyField({
       )
 
     case 'dataOperations':
-      const operationCount = Array.isArray(value) ? value.reduce((total: number, set: any) => total + (set.operations?.length || 0), 0) : 0
+      const operationCount = Array.isArray(value)
+        ? value.reduce((total: number, set: any) => total + (set.operations?.length || 0), 0)
+        : 0
       return (
         <button
           onClick={() => onOpenDataOpEditor?.(property)}
@@ -134,7 +149,9 @@ function PropertyField({
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-gray-700">
-                {operationCount === 0 ? 'No operations configured' : `${operationCount} operation${operationCount !== 1 ? 's' : ''}`}
+                {operationCount === 0
+                  ? 'No operations configured'
+                  : `${operationCount} operation${operationCount !== 1 ? 's' : ''}`}
               </div>
               <div className="text-xs text-gray-500 mt-1">
                 Click to {operationCount === 0 ? 'create' : 'edit'} data operations
@@ -166,15 +183,21 @@ function PropertyField({
 }
 
 export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: PropertyPaneProps) {
-  const { nodes, updateNodeMetadata, removeNode } = useWorkflowStore()
-  const { currentGraphId, setGraphDirty } = useGraphStore()
-  const selectedNode = nodes.find(node => node.metadata.id === selectedNodeId)
-  
+  const { nodes, updateNodeProperty, updateNodeMetadata, removeNode, currentGraphId } = useWorkflowStore()
+  const setGraphDirty = (graphId: string, isDirty: boolean) => {
+    // TODO: Track dirty state locally if needed
+  }
+  const selectedNode = nodes.find(
+    node => node.metadata.id === selectedNodeId
+  )
+
   const [localPropertyValues, setLocalPropertyValues] = useState<Record<string, any>>({})
   const [ruleEditorOpen, setRuleEditorOpen] = useState(false)
   const [currentRuleProperty, setCurrentRuleProperty] = useState<PropertyDefinition | null>(null)
   const [dataOpEditorOpen, setDataOpEditorOpen] = useState(false)
-  const [currentDataOpProperty, setCurrentDataOpProperty] = useState<PropertyDefinition | null>(null)
+  const [currentDataOpProperty, setCurrentDataOpProperty] = useState<PropertyDefinition | null>(
+    null
+  )
   const [isInitialRender, setIsInitialRender] = useState(true)
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [lastSelectedNodeId, setLastSelectedNodeId] = useState<string | null>(null)
@@ -183,7 +206,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   useEffect(() => {
     if (selectedNode && selectedNodeId !== lastSelectedNodeId) {
       // New node selected - initialize from stored values
-      setLocalPropertyValues({ ...selectedNode.metadata.propertyValues || {} })
+      setLocalPropertyValues({ ...(selectedNode.metadata.propertyValues || {}) })
       setLastSelectedNodeId(selectedNodeId)
     } else if (!selectedNode) {
       // No node selected
@@ -207,10 +230,10 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   // Handle property value changes (local only, no auto-save)
   const handlePropertyChange = async (propertyId: string, value: any) => {
     if (!selectedNode) return
-    
+
     const updatedValues = { ...localPropertyValues, [propertyId]: value }
     setLocalPropertyValues(updatedValues)
-    
+
     // Apply dynamic metadata updates in real-time for visual feedback
     if (shouldUpdateDynamicMetadata(selectedNode.metadata.propertyRules, propertyId)) {
       try {
@@ -219,9 +242,14 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           updatedValues,
           selectedNode.metadata.propertyRules
         )
-        
-        // Update the node metadata immediately for visual feedback
-        updateNodeMetadata(selectedNodeId!, updatedMetadata, false) // saveSnapshot = false for real-time updates
+        Object.keys(updatedMetadata.propertyValues ?? {}).forEach(key => {
+          if (updatedMetadata.propertyValues && updatedMetadata.propertyValues[key] === undefined) {
+            delete updatedMetadata.propertyValues[key]
+          }
+          // Update the node metadata immediately for visual feedback
+          updateNodeProperty(selectedNodeId!,key , updatedMetadata.propertyValues ? updatedMetadata.propertyValues[key] : null) // saveSnapshot = false for real-time updates
+        })
+
         // Don't mark as dirty for real-time preview updates
       } catch (error) {
         console.error('Failed to apply dynamic metadata updates:', error)
@@ -240,43 +268,26 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
 
   const handleSaveAndClose = async () => {
     if (!selectedNode) return
-    
-    console.log('💾 SAVE: Starting save process for node:', selectedNodeId)
-    console.log('💾 SAVE: Current property values:', localPropertyValues)
-    console.log('💾 SAVE: Property rules available:', !!selectedNode.metadata.propertyRules)
-    console.log('💾 SAVE: Full node metadata keys:', Object.keys(selectedNode.metadata))
-    console.log('💾 SAVE: PropertyRules content:', selectedNode.metadata.propertyRules)
-    console.log('💾 SAVE: Properties field:', selectedNode.metadata.properties)
-    console.log('💾 SAVE: Check if propertyRules in properties:', selectedNode.metadata.properties?.propertyRules)
-    
+
     // Update the node metadata with new property values and create undo snapshot
-    let updatedMetadata = {
+    let updatedMetadata: NodeMetadata = {
       ...selectedNode.metadata,
-      propertyValues: localPropertyValues
+      propertyValues: localPropertyValues,
     }
-    
-    console.log('💾 SAVE: Base metadata before dynamic updates:', {
-      title: updatedMetadata.title,
-      icon: updatedMetadata.icon,
-      variant: updatedMetadata.variant,
-      subtitle: updatedMetadata.subtitle
-    })
-    
+
     try {
       // Apply any final dynamic metadata updates before saving
-      updatedMetadata = await updateDynamicNodeMetadata(updatedMetadata, localPropertyValues, selectedNode.metadata.propertyRules)
-      
-      console.log('💾 SAVE: Metadata after dynamic updates:', {
-        title: updatedMetadata.title,
-        icon: updatedMetadata.icon,
-        variant: updatedMetadata.variant,
-        subtitle: updatedMetadata.subtitle
-      })
+      const finalMetadata = await updateDynamicNodeMetadata(
+        updatedMetadata,
+        localPropertyValues,
+        selectedNode.metadata.propertyRules
+      )
+      updatedMetadata = finalMetadata
     } catch (error) {
       console.error('Failed to apply final dynamic metadata updates:', error)
       // Continue with basic metadata if dynamic updates fail
     }
-    
+
     updateNodeMetadata(selectedNodeId!, updatedMetadata, true) // saveSnapshot = true
     setGraphDirty(currentGraphId, true)
     onClose()
@@ -320,7 +331,6 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
     }
   }
 
-
   if (!selectedNodeId || !selectedNode) {
     return (
       <div className="w-80 h-full bg-white border-l border-gray-200 flex items-center justify-center">
@@ -334,14 +344,20 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   }
 
   const { metadata } = selectedNode
-  const properties = metadata.properties || []
+  
+ 
+  // Convert properties from object format to array format for rendering
+  const properties = metadata.properties
+    ? Object.entries(metadata.properties).map(([id, prop]: [string, any]) => ({
+        id,
+        ...prop,
+      }))
+    : []
 
   return (
-    <div 
+    <div
       className={`w-80 h-full bg-white border-l border-gray-200 flex flex-col transform transition-all duration-300 ease-out ${
-        isClosing || isInitialRender
-          ? 'translate-x-full opacity-0' 
-          : 'translate-x-0 opacity-100'
+        isClosing || isInitialRender ? 'translate-x-full opacity-0' : 'translate-x-0 opacity-100'
       }`}
     >
       {/* Header */}
@@ -349,17 +365,42 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
         <div>
           <h2 className="text-sm font-medium text-gray-900">Properties</h2>
           <div className="text-xs text-gray-500 mt-0.5">{metadata.title}</div>
+          {metadata.type === 'subgraph' && metadata.graphId && (
+            <div className="text-xs text-gray-400 mt-0.5">Graph ID: {metadata.graphId}</div>
+          )}
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 hover:bg-gray-100 rounded transition-colors"
-        >
+        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded transition-colors">
           <X className="w-4 h-4 text-gray-500" />
         </button>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
+        {/* Subgraph Information Section */}
+        {metadata.type === 'subgraph' && (
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-xs font-medium text-gray-600 mb-2">Subgraph Information</h3>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Name:</span>
+                <span className="text-gray-700">{metadata.graphName || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Namespace:</span>
+                <span className="text-gray-700">
+                  {metadata.workflowName
+                    ? `${metadata.workflowName}/${metadata.graphId}`
+                    : metadata.graphNamespace || 'Unknown'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">ID:</span>
+                <span className="text-gray-700 font-mono">{metadata.graphId || 'Unknown'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {properties.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-gray-500">
             <Settings className="w-6 h-6 mb-2 text-gray-400" />
@@ -368,45 +409,46 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           </div>
         ) : (
           <div className="p-4 space-y-4">
-            {properties.map((property) => {
+            {properties.map(property => {
               const currentValue = localPropertyValues[property.id]
-              
+
               // Check visibility condition using current local values
               if (property.visibleWhen) {
                 try {
                   // Use current local property values for immediate visibility feedback
                   const evalContext = { ...localPropertyValues }
-                  
+
                   // Use Function constructor for safe evaluation
-                  const condition = new Function(...Object.keys(evalContext), `return ${property.visibleWhen}`)
+                  const condition = new Function(
+                    ...Object.keys(evalContext),
+                    `return ${property.visibleWhen}`
+                  )
                   const isVisible = condition(...Object.values(evalContext))
                   if (!isVisible) return null
                 } catch (error) {
                   console.error(`Error evaluating visibility condition for ${property.id}:`, error)
                 }
               }
-              
+
               return (
                 <div key={property.id}>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-medium text-gray-600">
-                      {property.label}
+                      {property.id}
                       {property.required && <span className="text-red-500 ml-1">*</span>}
                     </label>
                   </div>
-                  
+
                   <PropertyField
                     property={property}
                     value={currentValue}
-                    onChange={(value) => handlePropertyChange(property.id, value)}
+                    onChange={value => handlePropertyChange(property.id, value)}
                     onOpenRuleEditor={handleOpenRuleEditor}
                     onOpenDataOpEditor={handleOpenDataOpEditor}
                   />
-                  
+
                   {property.description && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {property.description}
-                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{property.description}</div>
                   )}
                 </div>
               )
@@ -431,12 +473,12 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           >
             Cancel
           </button>
-          
+
           {/* Divider */}
           <div className="my-4">
             <div className="w-full border-t-2 border-gray-300"></div>
           </div>
-          
+
           <button
             onClick={() => setShowDeleteConfirmation(true)}
             className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
@@ -445,12 +487,16 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
             Delete Node
           </button>
         </div>
-        
+
         {/* Node Info */}
         <div className="p-4">
           <div className="text-xs text-gray-500 space-y-1">
-            <div><span className="font-medium">Type:</span> {metadata.type}</div>
-            <div><span className="font-medium">ID:</span> {metadata.id}</div>
+            <div>
+              <span className="font-medium">Type:</span> {metadata.type}
+            </div>
+            <div>
+              <span className="font-medium">ID:</span> {metadata.id}
+            </div>
             {metadata.ports && (
               <div>
                 <span className="font-medium">Ports:</span> {metadata.ports.length} configured
@@ -467,7 +513,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           onClose={handleRuleEditorClose}
           title={currentRuleProperty ? currentRuleProperty.label : 'Rule Editor'}
           description={currentRuleProperty?.description}
-          value={currentRuleProperty ? (localPropertyValues[currentRuleProperty.id] || []) : []}
+          value={currentRuleProperty ? localPropertyValues[currentRuleProperty.id] || [] : []}
           onChange={handleRuleChange}
           availableFields={currentRuleProperty?.availableFields || []}
           availableOperators={currentRuleProperty?.availableOperators}
@@ -481,7 +527,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
           onClose={handleDataOpEditorClose}
           title={currentDataOpProperty ? currentDataOpProperty.label : 'Data Operations'}
           description={currentDataOpProperty?.description}
-          value={currentDataOpProperty ? (localPropertyValues[currentDataOpProperty.id] || []) : []}
+          value={currentDataOpProperty ? localPropertyValues[currentDataOpProperty.id] || [] : []}
           onChange={handleDataOpChange}
           availableFields={currentDataOpProperty?.availableFields || []}
         />
@@ -490,7 +536,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
       {/* Delete Confirmation Modal */}
       <ModalPortal isOpen={showDeleteConfirmation}>
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div 
+          <div
             className="absolute inset-0 bg-black/30"
             onClick={() => setShowDeleteConfirmation(false)}
           />
@@ -504,12 +550,12 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
                 <p className="text-sm text-gray-500">This action cannot be undone</p>
               </div>
             </div>
-            
+
             <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete the node "{selectedNode?.metadata.title}"? 
-              All connections to this node will also be removed.
+              Are you sure you want to delete the node "{selectedNode?.metadata.title}"? All
+              connections to this node will also be removed.
             </p>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirmation(false)}

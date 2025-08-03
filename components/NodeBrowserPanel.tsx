@@ -2,20 +2,21 @@
 
 import { useState } from 'react'
 import { ChevronRight, ChevronDown, Trash2, Copy, ExternalLink, Users } from 'lucide-react'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 import { Icon } from '@/lib/icons'
 
 interface NodeBrowserPanelProps {
   isExpanded: boolean
   onNodeSelect?: (nodeId: string, position: { x: number; y: number }) => void
   onNodeAdded?: (nodeId: string) => void
+  onGroupCreationRequest?: () => void
 }
 
-export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded }: NodeBrowserPanelProps) {
+export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGroupCreationRequest }: NodeBrowserPanelProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['all']))
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
-  const { nodes, connections, removeNode, addNode, groups, createGroupFromSelection } = useWorkflowStore()
+  const { nodes, connections, removeNode, addNode, groups, createGroup, setSelectedNodes: setStoreSelectedNodes } = useWorkflowStore()
 
   // Group nodes by type
   const nodesByType = nodes.reduce((acc, node) => {
@@ -68,11 +69,10 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded }: Node
       const selectedNodesList = Array.from(selectedNodes)
       
       // Clear existing selection and select the chosen nodes
-      useWorkflowStore.getState().clearSelection()
-      useWorkflowStore.getState().selectMultipleNodes(selectedNodesList)
+      setStoreSelectedNodes(selectedNodesList)
       
-      // Trigger group creation from selection (this will open the modal)
-      createGroupFromSelection('New Group', 'Group created from node browser')
+      // Trigger group creation modal via callback
+      onGroupCreationRequest?.()
       
       setSelectedNodes(new Set())
       setIsMultiSelectMode(false)

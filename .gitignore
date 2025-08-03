@@ -85,5 +85,19 @@ temp/
 # Storybook
 storybook-static/
 
-
+test-*
+debug-*
+Screenshot\ 2025-*
+*.backup
 *.db
+target
+temp_*
+CLAUDE.md
+# Environment files with secrets
+.env
+.env.local
+
+.env.local.backup.*
+
+
+

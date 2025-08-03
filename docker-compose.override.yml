@@ -1,0 +1,26 @@
+# docker-compose.override.yml
+# This file is automatically loaded by docker-compose and overrides settings in docker-compose.yml
+# Use this for local development with .env.local
+
+version: '3.8'
+
+services:
+  app:
+    env_file:
+      - .env.local
+      - .env
+    # For development, mount source code
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/.next
+      - uploads:/app/uploads
+
+  crdt-server:
+    env_file:
+      - .env.local
+      - .env
+
+volumes:
+  uploads:
+    driver: local

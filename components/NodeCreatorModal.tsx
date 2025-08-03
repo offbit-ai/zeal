@@ -351,14 +351,14 @@ export function NodeCreatorModal({
         type: port.type,
         position: port.type === "input" ? "left" : "right",
       })),
-      properties: [
-        {
+      properties: {
+        wasmFile: {
           id: "wasmFile",
           label: "WebAssembly File",
           type: "text" as PropertyType,
           defaultValue: wasmFileName,
         },
-      ],
+      },
       propertyValues: {
         wasmFile: wasmFileName,
         wasmContent: wasmFile ? "base64_encoded_content_here" : "", // In real app, would encode file content
@@ -387,8 +387,8 @@ export function NodeCreatorModal({
         type: port.type,
         position: port.type === "input" ? "left" : "right",
       })),
-      properties: [
-        {
+      properties: {
+        script: {
           id: "script",
           label: "Script Code",
           type: "code-editor" as PropertyType,
@@ -399,14 +399,16 @@ export function NodeCreatorModal({
           language: scriptLanguage,
           height: 300,
         },
-        ...(scriptLanguage === "python" && pipRequirements ? [{
-          id: "pipRequirements",
-          label: "Pip Requirements",
-          type: "textarea" as PropertyType,
-          defaultValue: pipRequirements,
-          placeholder: "numpy\npandas\nrequests",
-        }] : []),
-      ],
+        ...(scriptLanguage === "python" && pipRequirements ? {
+          pipRequirements: {
+            id: "pipRequirements",
+            label: "Pip Requirements",
+            type: "textarea" as PropertyType,
+            defaultValue: pipRequirements,
+            placeholder: "numpy\npandas\nrequests",
+          }
+        } : {}),
+      },
       propertyValues: {
         script:
           scriptCode ||
@@ -426,7 +428,7 @@ export function NodeCreatorModal({
     // Allow creation with either verb selection or schema upload
     if (!selectedVerb && !selectedCategory && !apiSchemaFile) return;
 
-    let inputPorts = [];
+    let inputPorts: any[] = [];
     let nodeTitle = apiName || "API Node";
     let nodeDescription = apiDescription || "Custom API integration";
     let verbInfo: VerbCategory | undefined;
@@ -510,8 +512,8 @@ export function NodeCreatorModal({
       shape: "rectangle",
       size: "medium",
       ports: [...inputPorts, ...outputPorts],
-      properties: [
-        {
+      properties: {
+        baseUrl: {
           id: "baseUrl",
           label: "Base URL",
           type: "text" as PropertyType,
@@ -519,7 +521,7 @@ export function NodeCreatorModal({
           required: true,
           placeholder: "https://api.example.com",
         },
-        {
+        endpoint: {
           id: "endpoint",
           label: "Endpoint",
           type: "text" as PropertyType,
@@ -527,14 +529,14 @@ export function NodeCreatorModal({
           required: true,
           placeholder: "/resource/{id}",
         },
-        {
+        method: {
           id: "method",
           label: "HTTP Method",
           type: "select" as PropertyType,
           options: methodOptions,
           defaultValue: defaultMethod,
         },
-        {
+        headers: {
           id: "headers",
           label: "Headers",
           type: "code-editor" as PropertyType,
@@ -542,20 +544,22 @@ export function NodeCreatorModal({
           defaultValue: '{\n  "Content-Type": "application/json"\n}',
           height: 150,
         },
-        {
+        authentication: {
           id: "authentication",
           label: "Authentication",
           type: "select" as PropertyType,
           options: ["None", "Bearer Token", "API Key", "Basic Auth"],
           defaultValue: "None",
         },
-        ...(apiSchemaFile ? [{
-          id: "schemaFile",
-          label: "API Schema",
-          type: "text" as PropertyType,
-          defaultValue: apiSchemaFileName,
-        }] : []),
-      ],
+        ...(apiSchemaFile ? {
+          schemaFile: {
+            id: "schemaFile",
+            label: "API Schema",
+            type: "text" as PropertyType,
+            defaultValue: apiSchemaFileName,
+          }
+        } : {}),
+      },
       propertyValues: {
         baseUrl: apiBaseUrl,
         endpoint: "",

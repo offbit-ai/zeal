@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 
 // This hook subscribes to port position changes and forces re-renders
 // when positions change, bypassing React's batching

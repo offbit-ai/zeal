@@ -203,18 +203,14 @@ export async function updateDynamicNodeMetadata(
   }
   
   // Log metadata changes for debugging
-  if (
-    updatedMetadata.title !== metadata.title ||
-    updatedMetadata.subtitle !== metadata.subtitle ||
-    updatedMetadata.icon !== metadata.icon ||
-    updatedMetadata.variant !== metadata.variant
-  ) {
-    console.log('✅ Dynamic metadata updated:', {
-      title: `${metadata.title} → ${updatedMetadata.title}`,
-      icon: `${metadata.icon} → ${updatedMetadata.icon}`,
-      variant: `${metadata.variant} → ${updatedMetadata.variant}`
-    });
-  }
+  // if (
+  //   updatedMetadata.title !== metadata.title ||
+  //   updatedMetadata.subtitle !== metadata.subtitle ||
+  //   updatedMetadata.icon !== metadata.icon ||
+  //   updatedMetadata.variant !== metadata.variant
+  // ) {
+  //   // console.log removed
+  // }
   
   // Ensure propertyValues are preserved
   if (!updatedMetadata.propertyValues && metadata.propertyValues) {

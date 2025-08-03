@@ -22,7 +22,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // Check cache first
   const cachedResponse = apiCache.get(cacheKey)
   if (cachedResponse) {
-    console.log(`Cache hit for env-vars: ${cacheKey}`)
+    // console.log removed
     return NextResponse.json(cachedResponse)
   }
   

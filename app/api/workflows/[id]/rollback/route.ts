@@ -10,10 +10,14 @@ import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 
 // POST /api/workflows/[id]/rollback - Rollback to a specific published version
-export const POST = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const POST = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(250) // Rollback might take longer
   
-  const { id } = params
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id } = context.params
   const userId = extractUserId(req)
   const { versionId } = await req.json()
   
@@ -58,11 +62,11 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   const nextVersionNumber = latestVersion ? latestVersion.version + 1 : 1
   
   // Create new version with rollback data
-  const rollbackVersion = await WorkflowDatabase.updateWorkflow(id, {
+  const rollbackVersion = await WorkflowDatabase.updateWorkflowDraft(id, {
     name: targetVersion.name,
     description: targetVersion.description,
-    nodes: targetVersion.nodes,
-    connections: targetVersion.connections,
+    graphs: targetVersion.graphs,
+    trigger: targetVersion.trigger,
     metadata: {
       ...targetVersion.metadata,
       rollbackFrom: workflow.publishedVersionId,
@@ -73,7 +77,7 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   })
   
   // Publish the rollback version
-  const publishedVersion = await WorkflowDatabase.publishWorkflow(id, rollbackVersion.id, userId)
+  const publishedVersion = await WorkflowDatabase.publishWorkflowVersion(id, rollbackVersion.id, userId)
   
   // Get updated workflow
   const updatedWorkflow = await WorkflowDatabase.getWorkflow(id)
@@ -87,11 +91,11 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
     id: updatedWorkflow.id,
     name: updatedWorkflow.name,
     description: updatedWorkflow.description || '',
-    nodes: publishedVersion.nodes,
-    connections: publishedVersion.connections,
+    graphs: publishedVersion.graphs,
+    triggerConfig: publishedVersion.trigger,
     metadata: {
-      nodeCount: publishedVersion.nodes.length,
-      connectionCount: publishedVersion.connections.length,
+      nodeCount: publishedVersion.graphs?.[0]?.nodes?.length || 0,
+      connectionCount: publishedVersion.graphs?.[0]?.connections?.length || 0,
       ...publishedVersion.metadata
     },
     status: 'published',
@@ -109,7 +113,7 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   }
   
   // In real implementation, this would update the execution engine
-  console.log(`Workflow ${id} rolled back from version ${workflow.publishedVersionId} to version ${versionId} (new version ${publishedVersion.version})`)
+  // console.log removed`)
   
   return NextResponse.json(createSuccessResponse(response))
 })

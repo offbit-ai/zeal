@@ -10,6 +10,8 @@ export interface SubgraphNodeMetadata extends NodeMetadata {
   graphId: string // ID of the graph this node references
   graphNamespace: string // Namespace of the referenced graph
   graphName: string // Display name of the referenced graph
+  workflowId?: string // ID of the workflow containing the graph
+  workflowName?: string // Name of the workflow (for dynamic updates)
 }
 
 export interface Port {
@@ -87,7 +89,7 @@ export interface DataOperationSet {
   operations: DataOperation[]
 }
 
-export interface PropertyDefinition {
+export type  PropertyDefinition = {
   id: string
   label: string
   type: PropertyType
@@ -105,11 +107,12 @@ export interface PropertyDefinition {
   wordWrap?: boolean // Enable word wrap in code editor
   height?: number // Height of the code editor in pixels
   minimap?: boolean // Show minimap in code editor
-}
+  
+} & {[key:string]: any} // Allow additional properties for flexibility}
 
 export interface NodeMetadata {
   id: string
-  templateId: string // Reference to the node template schema
+  templateId?: string // Reference to the node template schema
   type: string
   title: string
   subtitle?: string
@@ -118,7 +121,7 @@ export interface NodeMetadata {
   shape: NodeShape
   size?: 'small' | 'medium' | 'large'
   ports?: Port[]
-  properties?: PropertyDefinition[]
+  properties: Record<string, PropertyDefinition>
   propertyValues?: Record<string, any>
   requiredEnvVars?: string[]
   propertyRules?: {
@@ -127,8 +130,9 @@ export interface NodeMetadata {
       when: string
       updates: Record<string, any>
     }>
-  }
-}
+  },
+  [key: string]: any // Allow additional metadata fields
+} 
 
 export interface WorkflowNodeData {
   metadata: NodeMetadata
@@ -150,6 +154,7 @@ export interface Connection {
     nodeId: string
     portId: string
   }
+  metadata?: Record<string, any>
   state?: ConnectionState
 }
 
@@ -161,7 +166,7 @@ export interface NodeGroup {
   position: { x: number; y: number }
   size: { width: number; height: number }
   color?: string
-  collapsed?: boolean
+  isCollapsed?: boolean
   createdAt: string
   updatedAt: string
 }

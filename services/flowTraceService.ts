@@ -1,5 +1,5 @@
 import type { FlowTrace, FlowTraceSession, TraceNode, TraceData } from '@/types/flowTrace'
-import type { WorkflowNode } from '@/store/workflowStore'
+import type { WorkflowNodeData } from '@/types/workflow'
 import type { Connection } from '@/types/workflow'
 import { ApiError } from '@/types/api'
 
@@ -233,7 +233,7 @@ export class FlowTraceService {
   }
 
   // Generate simulated traces for testing
-  static async generateSimulatedTraces(nodes: WorkflowNode[], connections: Connection[]): Promise<FlowTraceSession> {
+  static async generateSimulatedTraces(nodes: WorkflowNodeData[], connections: Connection[]): Promise<FlowTraceSession> {
     const session = await this.startSession('demo-workflow', 'Demo Workflow')
     
     // Sample data payloads
@@ -280,8 +280,8 @@ export class FlowTraceService {
       
       if (!sourceNode || !targetNode) continue
 
-      const sourcePort = sourceNode.metadata.ports.find(p => p.id === connection.source.portId)
-      const targetPort = targetNode.metadata.ports.find(p => p.id === connection.target.portId)
+      const sourcePort = sourceNode.metadata.ports?.find((p: any) => p.id === connection.source.portId)
+      const targetPort = targetNode.metadata.ports?.find((p: any) => p.id === connection.target.portId)
       
       if (!sourcePort || !targetPort) continue
 
@@ -317,6 +317,8 @@ export class FlowTraceService {
       const trace: Omit<FlowTrace, 'id' | 'timestamp'> = {
         duration,
         status,
+        graphId: undefined,
+        graphName: undefined,
         source: {
           nodeId: sourceNode.metadata.id,
           nodeName: sourceNode.metadata.title,

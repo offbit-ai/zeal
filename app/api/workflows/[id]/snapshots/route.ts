@@ -9,8 +9,12 @@ import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 
 // GET /api/workflows/[id]/snapshots - Get workflow snapshots
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
-  const { id: workflowId } = params
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id: workflowId } = context.params
   const userId = extractUserId(req)
   
   // Verify workflow ownership
@@ -30,8 +34,12 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // POST /api/workflows/[id]/snapshots - Create workflow snapshot
-export const POST = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
-  const { id: workflowId } = params
+export const POST = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+  }
+  
+  const { id: workflowId } = context.params
   const userId = extractUserId(req)
   const body = await req.json()
   
@@ -54,15 +62,23 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: { par
   }
   
   // Create snapshot
-  const snapshot = await WorkflowDatabase.saveSnapshot({
-    workflowId,
+  const snapshotId = await WorkflowDatabase.createSnapshot({
+    id: workflowId,
     name: body.name,
     description: body.description,
     graphs: body.graphs,
-    triggerConfig: body.triggerConfig,
+    trigger: body.triggerConfig,
     metadata: body.metadata,
-    userId
+    activeGraphId: body.activeGraphId || 'main',
+    isDraft: body.isDraft !== false,
+    isPublished: body.isPublished || false,
+    saveCount: body.saveCount || 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastSavedAt: new Date().toISOString()
   })
+  
+  const snapshot = await WorkflowDatabase.getSnapshot(snapshotId)
   
   return NextResponse.json(createSuccessResponse(snapshot), { status: 201 })
 })

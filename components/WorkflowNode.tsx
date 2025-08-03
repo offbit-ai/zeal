@@ -1,12 +1,14 @@
-import { NodeMetadata, NodeShape, NodeVariant, Port } from '@/types/workflow'
-import { useState, useRef, useEffect } from 'react'
+import { NodeMetadata, NodeShape, NodeVariant, Port, PropertyDefinition } from '@/types/workflow'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Icon } from '@/lib/icons'
 import { getNodeStyles, getTextColor } from '@/utils/nodeColorVariants'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
-import { Info } from 'lucide-react'
+import { Info, Settings } from 'lucide-react'
+import { ResizableCodeEditor } from './ResizableCodeEditor'
 
 interface WorkflowNodeProps {
   metadata: NodeMetadata
+  propertyValues?: Record<string, any>
   isDragging?: boolean
   isHighlighted?: boolean
   isSelected?: boolean
@@ -14,6 +16,9 @@ interface WorkflowNodeProps {
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   zoom?: number
+  onPropertyChange?: (propertyName: string, value: any) => void
+  onSettingsClick?: () => void
+  onSizeChange?: () => void
 }
 
 interface PortComponentProps {
@@ -191,12 +196,20 @@ function PortComponent({ port, nodeShape, showLabel, nodeId, onPortPositionUpdat
   )
 }
 
-export function WorkflowNode({ metadata, isDragging = false, isHighlighted = false, isSelected = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd, zoom = 1 }: WorkflowNodeProps) {
+export function WorkflowNode({ metadata, propertyValues = {}, isDragging = false, isHighlighted = false, isSelected = false, onPortPositionUpdate, onPortDragStart, onPortDragEnd, zoom = 1, onPropertyChange, onSettingsClick, onSizeChange }: WorkflowNodeProps) {
   const { title, subtitle, icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
+  const [codeEditorHeight, setCodeEditorHeight] = useState(150)
+  
+  // Notify parent when code editor resize is complete
+  const handleCodeEditorHeightChange = useCallback((height: number) => {
+    setCodeEditorHeight(height)
+    // Notify parent that size has changed
+    onSizeChange?.()
+  }, [onSizeChange])
   
   // Debug: Log ports for this node
-  // console.log(`🔌 Node ${metadata.id} has ${ports.length} ports:`, ports.map(p => `${p.id}(${p.position})`).join(', '))
+  // // console.log removed`).join(', '))
   
   
   // Get the icon name (icon is now always a string from the API)
@@ -207,12 +220,7 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
   
   // Debug metadata changes
   // useEffect(() => {
-  //   console.log(`🎨 COMPONENT: WorkflowNode ${metadata.id} received metadata:`, {
-  //     title,
-  //     subtitle,
-  //     icon: iconName,
-  //     variant
-  //   })
+  //   // console.log removed
   // }, [metadata.id, title, subtitle, iconName, variant])
   
   // Group ports by position for proper indexing
@@ -350,28 +358,100 @@ export function WorkflowNode({ metadata, isDragging = false, isHighlighted = fal
     )
   }
 
+  // Check if this is a script node (has type 'script' and a code editor property)
+  const isScriptNode = metadata.type === 'script'
+  
+  // Handle both object and array formats for properties
+  // Find the code-editor property (could be 'script', 'query', etc.)
+  let codeEditorProperty:PropertyDefinition | undefined
+  let codeEditorPropertyName:string | undefined
+  
+  if (metadata.properties) {
+    if (Array.isArray(metadata.properties)) {
+      // Array format: find the code-editor property
+      codeEditorProperty = metadata.properties.find(prop => prop.type === 'code-editor')
+      codeEditorPropertyName = codeEditorProperty?.id
+    } else {
+      // Object format: find the code-editor property
+      const entries = Object.entries(metadata.properties)
+      const codeEditorEntry = entries.find(([_, prop]: [string, any]) => prop.type === 'code-editor')
+      if (codeEditorEntry) {
+        codeEditorPropertyName = codeEditorEntry[0]
+        codeEditorProperty = codeEditorEntry[1]
+      }
+    }
+  }
+  
+  const hasCodeEditor = codeEditorProperty?.type === 'code-editor'
+  // Use metadata.propertyValues like PropertyPane does, with fallback to propertyValues prop
+  const actualPropertyValues = metadata.propertyValues || propertyValues || {}
+  const codeValue = codeEditorPropertyName ? actualPropertyValues?.[codeEditorPropertyName] || '' : ''
+  
+
   // Default rectangle shape
   return (
     <div 
-      className={`${currentSize.container} ${shapeStyles[shape]} flex items-center gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
-      style={nodeStyles}
+      className={`${isScriptNode ? 'flex-col' : 'flex-row'} ${currentSize.container} ${shapeStyles[shape]} flex gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+      style={{
+        ...nodeStyles,
+        ...(isScriptNode ? { width: '400px', maxWidth: '400px' } : {})
+      }}
       onMouseEnter={() => setIsHovered(true)} 
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`${currentSize.icon} rounded-md flex items-center justify-center relative`} style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
-        <Icon key={iconName} name={iconName} className={currentSize.iconSize} style={{ color: textColor }} strokeWidth={1.5} />
-        {needsConfiguration && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
-            <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
-          </div>
+      <div className={`flex items-center gap-3 ${isScriptNode ? 'w-full' : ''}`}>
+        <div className={`${currentSize.icon} rounded-md flex items-center justify-center relative`} style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
+          <Icon key={iconName} name={iconName} className={currentSize.iconSize} style={{ color: textColor }} strokeWidth={1.5} />
+          {needsConfiguration && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
+              <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
+            </div>
+          )}
+        </div>
+        <div className={isScriptNode ? 'flex-1' : ''}>
+          <div className={`font-medium ${currentSize.title}`} style={{ color: textColor }}>{title}</div>
+          {subtitle && (
+            <div className={`${currentSize.subtitle} opacity-70`} style={{ color: textColor }}>{subtitle}</div>
+          )}
+        </div>
+        {/* Settings icon for script nodes */}
+        {isScriptNode && onSettingsClick && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSettingsClick();
+            }}
+            className="p-1.5 hover:bg-white/10 rounded transition-colors"
+            title="Open properties"
+          >
+            <Settings className="w-4 h-4" style={{ color: textColor }} />
+          </button>
         )}
       </div>
-      <div>
-        <div className={`font-medium ${currentSize.title}`} style={{ color: textColor }}>{title}</div>
-        {subtitle && (
-          <div className={`${currentSize.subtitle} opacity-70`} style={{ color: textColor }}>{subtitle}</div>
-        )}
-      </div>
+      
+      {/* Inline code editor for script nodes */}
+      {isScriptNode && (
+        <div 
+          className="w-full mt-2"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <ResizableCodeEditor
+            value={codeValue}
+            onChange={(value) => codeEditorPropertyName && onPropertyChange?.(codeEditorPropertyName, value)}
+            language={codeEditorProperty?.language || 'javascript'}
+            placeholder={codeEditorProperty?.placeholder || '// Enter your code here'}
+            defaultHeight={150}
+            minHeight={100}
+            maxHeight={400}
+            onHeightChange={handleCodeEditorHeightChange}
+            lineNumbers={true}
+            wordWrap={true}
+            theme="dark"
+          />
+        </div>
+      )}
+      
       {/* Render ports */}
       {ports.map(port => {
         const portsOnSameSide = portsByPosition[port.position] || []

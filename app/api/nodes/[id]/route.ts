@@ -154,11 +154,15 @@ const nodeTemplatesStore: NodeTemplateResponse[] = [
 ]
 
 // GET /api/nodes/[id] - Get specific node template
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(75)
   
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('NODE_TEMPLATE_NOT_FOUND', 'Node ID is required', 400)
+  }
+  
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   
   const nodeTemplate = nodeTemplatesStore.find(node => 
     (node.id === id || node.type === id) && node.isActive
@@ -172,11 +176,15 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // PUT /api/nodes/[id] - Update node template (admin only)
-export const PUT = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const PUT = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(150)
   
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('NODE_TEMPLATE_NOT_FOUND', 'Node ID is required', 400)
+  }
+  
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   const body = await req.json()
   
   // In real implementation, check if user has admin permissions
@@ -231,11 +239,15 @@ export const PUT = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // DELETE /api/nodes/[id] - Deactivate node template (admin only)
-export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(100)
   
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('NODE_TEMPLATE_NOT_FOUND', 'Node ID is required', 400)
+  }
+  
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   
   // In real implementation, check if user has admin permissions
   if (!userId.startsWith('admin_')) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  createSuccessResponse, 
-  withErrorHandling, 
+import {
+  createSuccessResponse,
+  withErrorHandling,
   extractUserId,
   mockDelay
 } from '@/lib/api-utils'
@@ -11,24 +11,28 @@ import { ApiError } from '@/types/api'
 let flowTracesStore: any[] = []
 
 // GET /api/flow-traces/[id] - Get specific flow trace
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context: { params: { id: string } } | undefined) => {
   await mockDelay(75)
-  
+
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('FLOW_TRACE_NOT_FOUND', 'Flow trace ID is required', 400)
+  }
+
   const userId = extractUserId(req)
-  const { id } = params
-  
+  const { id } = context.params
+
   const trace = flowTracesStore.find(t => t.id === id)
-  
+
   if (!trace) {
     throw new ApiError('FLOW_TRACE_NOT_FOUND', 'Flow trace not found', 404)
   }
-  
+
   // In real implementation, add detailed trace data including:
   // - Full data payload (if available)
   // - Execution context
   // - Performance metrics
   // - Related traces in the same session
-  
+
   const detailedTrace = {
     ...trace,
     details: {
@@ -36,7 +40,7 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
         input: {
           type: trace.metadata.dataType,
           size: trace.dataSize,
-          sample: trace.metadata.dataType === 'application/json' 
+          sample: trace.metadata.dataType === 'application/json'
             ? '{"id": 123, "name": "Sample Data", "status": "active"}'
             : 'Sample data content...'
         },
@@ -65,26 +69,30 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
       }
     }
   }
-  
+
   return NextResponse.json(createSuccessResponse(detailedTrace))
 })
 
 // PUT /api/flow-traces/[id] - Update flow trace status (internal API)
-export const PUT = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const PUT = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
   await mockDelay(100)
-  
+
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('FLOW_TRACE_NOT_FOUND', 'Flow trace ID is required', 400)
+  }
+
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   const body = await req.json()
-  
+
   const traceIndex = flowTracesStore.findIndex(t => t.id === id)
-  
+
   if (traceIndex === -1) {
     throw new ApiError('FLOW_TRACE_NOT_FOUND', 'Flow trace not found', 404)
   }
-  
+
   const existingTrace = flowTracesStore[traceIndex]
-  
+
   // Update trace with new status and metadata
   const updatedTrace = {
     ...existingTrace,
@@ -99,32 +107,35 @@ export const PUT = withErrorHandling(async (req: NextRequest, { params }: { para
       executionTime: body.duration !== undefined ? body.duration : existingTrace.metadata.executionTime
     }
   }
-  
+
   flowTracesStore[traceIndex] = updatedTrace
-  
+
   return NextResponse.json(createSuccessResponse(updatedTrace))
 })
 
 // DELETE /api/flow-traces/[id] - Delete flow trace (admin only)
-export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withErrorHandling(async (req: NextRequest, context: { params: { id: string } } | undefined) => {
   await mockDelay(75)
-  
+  if (!context || !context.params || !context.params.id) {
+    throw new ApiError('FLOW_TRACE_NOT_FOUND', 'Flow trace ID is required', 400)
+  }
+
   const userId = extractUserId(req)
-  const { id } = params
-  
+  const { id } = context.params
+
   // In real implementation, check if user has admin permissions
   if (!userId.startsWith('admin_')) {
     throw new ApiError('FORBIDDEN', 'Only administrators can delete flow traces', 403)
   }
-  
+
   const traceIndex = flowTracesStore.findIndex(t => t.id === id)
-  
+
   if (traceIndex === -1) {
     throw new ApiError('FLOW_TRACE_NOT_FOUND', 'Flow trace not found', 404)
   }
-  
+
   // Remove trace
   flowTracesStore.splice(traceIndex, 1)
-  
+
   return NextResponse.json(createSuccessResponse({ deleted: true }))
 })

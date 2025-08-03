@@ -132,7 +132,7 @@ export const dataSourcesTemplates: NodeTemplate[] = [
     "subcategory": "apis",
     "description": "Interact with HubSpot CRM and Marketing Hub",
     "icon": "hubspot",
-    "variant": "orange-500",
+    "variant": "orange-600",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
@@ -251,7 +251,7 @@ export const dataSourcesTemplates: NodeTemplate[] = [
     "subcategory": "apis",
     "description": "Interact with Salesforce CRM",
     "icon": "salesforce",
-    "variant": "blue-500",
+    "variant": "blue-600",
     "shape": "rectangle",
     "size": "medium",
     "ports": [
@@ -482,7 +482,7 @@ export const dataSourcesTemplates: NodeTemplate[] = [
     "subcategory": "databases",
     "description": "Connect to MongoDB database and return connection pool ID",
     "icon": "mongodb",
-    "variant": "green-700",
+    "variant": "green-600",
     "shape": "circle",
     "size": "medium",
     "ports": [

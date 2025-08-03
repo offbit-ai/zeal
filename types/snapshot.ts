@@ -33,7 +33,7 @@ export interface WorkflowSnapshot {
   publishedAt?: string
   graphs: WorkflowGraph[] // Changed from single graph to array of graphs
   activeGraphId?: string // Currently active graph tab
-  trigger?: any // Will store TriggerConfig from TriggerModal
+  triggerConfig?: any // Will store TriggerConfig from TriggerModal
   metadata?: {
     version: string
     author?: string
@@ -89,7 +89,8 @@ export interface SerializedConnection {
     nodeId: string
     portId: string
   }
-  state: 'pending' | 'warning' | 'error' | 'success'
+  state?: 'pending' | 'warning' | 'error' | 'success'| 'running',
+  metadata?: any
 }
 
 export interface SerializedGroup {
@@ -100,7 +101,7 @@ export interface SerializedGroup {
   position: { x: number; y: number }
   size: { width: number; height: number }
   color?: string
-  collapsed?: boolean
+  isCollapsed?: boolean
   createdAt: string
   updatedAt: string
 }

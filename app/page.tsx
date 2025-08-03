@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import * as Y from 'yjs'
 import { InteractiveCanvas } from '@/components/InteractiveCanvas'
 import { WorkflowSidebar } from '@/components/WorkflowSidebar'
 import { WorkflowBottomToolbar } from '@/components/WorkflowBottomToolbar'
@@ -28,6 +29,11 @@ import { useNodeBounds } from '@/hooks/useNodeBounds'
 import { usePortPositions } from '@/hooks/usePortPositions'
 import { useConnectionDrag } from '@/hooks/useConnectionDrag'
 import { ConnectionLines } from '@/components/ConnectionLines'
+
+// Utility function to get consistent node ID
+const getNodeId = (node: any): string => {
+  return node?.id || node?.metadata?.id || ''
+}
 import { DragConnectionLine } from '@/components/DragConnectionLine'
 import { DeleteConnectionDialog } from '@/components/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/PropertyPane'
@@ -35,21 +41,35 @@ import { ModalPortal } from '@/components/ModalPortal'
 import { ConfigurationToast } from '@/components/ConfigurationToast'
 import { NodeGroupContainer } from '@/components/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/SelectionRectangle'
+import { SelectionContextMenu } from '@/components/SelectionContextMenu'
 import { GroupCreationModal } from '@/components/GroupCreationModal'
 import { EmptyGroupCreationModal } from '@/components/EmptyGroupCreationModal'
 import { GroupEditModal } from '@/components/GroupEditModal'
 import { GroupDeleteModal } from '@/components/GroupDeleteModal'
-import { useWorkflowStore } from '@/store/workflowStore'
+import { useWorkflowStore } from '@/store/workflow-store'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
 import { TabBar } from '@/components/TabBar'
-import { useGraphStore } from '@/store/graphStore'
 import { SubgraphNode } from '@/components/SubgraphNode'
-import { createWorkflowSnapshot, createWorkflowGraph, restoreWorkflowFromSnapshot, restoreGraphFromSerialized } from '@/utils/workflowSerializer'
+import {
+  createWorkflowSnapshot,
+  createWorkflowGraph,
+  restoreWorkflowFromSnapshot,
+  restoreGraphFromSerialized,
+} from '@/utils/workflowSerializer'
 import { LoadingOverlay } from '@/components/LoadingOverlay'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { SaveGraphButton } from '@/components/SaveGraphButton'
 import { toast } from '@/lib/toast'
+import { PresenceDropdown } from '@/components/PresenceDropdown'
+import { UserSettingsModal } from '@/components/UserSettingsModal'
+import { CollaborativeCursors } from '@/components/CollaborativeCursors'
+import { CRDTFeatureIndicator } from '@/components/CRDTFeatureIndicator'
+import { GraphDebugPanel } from '@/components/GraphDebugPanel'
+import { UserPreferencesService } from '@/services/userPreferences'
+import { NotificationButton } from '@/components/NotificationButton'
+import { NotificationPanel } from '@/components/NotificationPanel'
+import { CollapsedGroupPortHandler } from '@/components/CollapsedGroupPortHandler'
 
 // Sample nodes metadata
 // const nodes: NodeMetadata[] = [
@@ -72,9 +92,9 @@ import { toast } from '@/lib/toast'
 //       { id: 'operation', label: 'Operation', type: 'select', options: ['getAll', 'getById', 'query'], defaultValue: 'getAll' },
 //       { id: 'limit', label: 'Limit', type: 'number', defaultValue: 100 },
 //       { id: 'conditions', label: 'WHERE Conditions', type: 'textarea', placeholder: 'e.g., status = "active"' },
-//       { 
-//         id: 'filterRules', 
-//         label: 'Filter Rules', 
+//       {
+//         id: 'filterRules',
+//         label: 'Filter Rules',
 //         type: 'rules',
 //         availableFields: ['id', 'status', 'created_at', 'updated_at', 'email', 'name'],
 //         availableOperators: ['is', 'is_not', 'contains', 'greater_than', 'less_than', 'empty', 'not_empty'],
@@ -138,9 +158,9 @@ import { toast } from '@/lib/toast'
 //       { id: 'maxTokens', label: 'Max Tokens', type: 'number', defaultValue: 1000 },
 //       { id: 'temperature', label: 'Temperature', type: 'number', defaultValue: 0.7 },
 //       { id: 'systemPrompt', label: 'System Prompt', type: 'textarea', placeholder: 'You are a helpful assistant...', description: 'Define the AI assistant behavior and context' },
-//       { 
-//         id: 'responseRules', 
-//         label: 'Response Processing Rules', 
+//       {
+//         id: 'responseRules',
+//         label: 'Response Processing Rules',
 //         type: 'rules',
 //         availableFields: ['Response Length', 'Confidence Score', 'Content Type', 'Language', 'Sentiment', 'Topic'],
 //         availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than'],
@@ -171,9 +191,9 @@ import { toast } from '@/lib/toast'
 //       { id: 'branch-out-2', label: 'False', type: 'output', position: 'bottom' }
 //     ],
 //     properties: [
-//       { 
-//         id: 'decisionRules', 
-//         label: 'Decision Rules', 
+//       {
+//         id: 'decisionRules',
+//         label: 'Decision Rules',
 //         type: 'rules',
 //         availableFields: ['TRG ID: Sellthrough', 'TRG ID: Category', 'TRG ID: Price', 'TRG ID: Quantity', 'TRG ID: Date', 'Status', 'Count', 'Amount'],
 //         availableOperators: ['is', 'is_not', 'contains', 'not_contains', 'greater_than', 'less_than', 'greater_equal', 'less_equal', 'empty', 'not_empty'],
@@ -201,9 +221,9 @@ import { toast } from '@/lib/toast'
 //       { id: 'transform-out-2', label: 'Errors', type: 'output', position: 'bottom' }
 //     ],
 //     properties: [
-//       { 
-//         id: 'dataOperations', 
-//         label: 'Data Operations', 
+//       {
+//         id: 'dataOperations',
+//         label: 'Data Operations',
 //         type: 'dataOperations',
 //         availableFields: ['id', 'name', 'email', 'status', 'created_at', 'updated_at', 'first_name', 'last_name', 'age', 'department', 'salary', 'role', 'address', 'phone'],
 //         description: 'Configure data transformation pipelines including mapping, filtering, sorting, and aggregation'
@@ -222,6 +242,34 @@ import { toast } from '@/lib/toast'
 // ]
 
 export default function Home() {
+  // Parse URL parameters to get shared workflow ID
+  const [urlWorkflowId, setUrlWorkflowId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Parse URL parameters on client side only
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const sharedId = params.get('id')
+      // [CRDT] URL parameter parsing
+
+      if (sharedId) {
+        // Found shared workflow ID from URL
+        setUrlWorkflowId(sharedId)
+
+        // Update the URL to ensure it stays consistent
+        const currentUrl = new URL(window.location.href)
+        if (currentUrl.searchParams.get('id') !== sharedId) {
+          currentUrl.searchParams.set('id', sharedId)
+          window.history.replaceState({}, '', currentUrl.toString())
+        }
+      } else {
+        // [CRDT] No shared workflow ID found in URL
+      }
+    }
+  }, [])
+
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const creatingWorkflow = useRef(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isNodeBrowserOpen, setIsNodeBrowserOpen] = useState(false)
@@ -231,9 +279,12 @@ export default function Home() {
   const [showEnvVarWarning, setShowEnvVarWarning] = useState(false)
   const missingEnvVars = useEnvVarStore(state => state.missingVars)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [searchModalInitialTab, setSearchModalInitialTab] = useState<'repository' | 'custom' | 'subgraphs' | undefined>(undefined)
-  const [autosaveEnabled, setAutosaveEnabled] = useState(false)
+  const [searchModalInitialTab, setSearchModalInitialTab] = useState<
+    'repository' | 'custom' | 'subgraphs' | undefined
+  >(undefined)
+  const [autosaveEnabled, setAutosaveEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
+  const [userName, setUserName] = useState('Anonymous')
   const [loadingMessage, setLoadingMessage] = useState('Initializing workflow...')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null)
@@ -243,80 +294,295 @@ export default function Home() {
   const [configurationToastNodeId, setConfigurationToastNodeId] = useState<string | null>(null)
   const [isGroupCreationModalOpen, setIsGroupCreationModalOpen] = useState(false)
   const [isEmptyGroupModalOpen, setIsEmptyGroupModalOpen] = useState(false)
+  const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false)
   const [emptyGroupPosition, setEmptyGroupPosition] = useState({ x: 0, y: 0 })
   const [nodeHoveringGroupId, setNodeHoveringGroupId] = useState<string | null>(null)
+  const draggingNodeIdsRef = useRef<Set<string>>(new Set())
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [selectionContextMenu, setSelectionContextMenu] = useState<{
+    isVisible: boolean
+    position: { x: number; y: number }
+  }>({ isVisible: false, position: { x: 0, y: 0 } })
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [canvasZoom, setCanvasZoom] = useState(1)
-  const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 })
+  const [graphCanvasStates, setGraphCanvasStates] = useState<
+    Record<string, { offset: { x: number; y: number }; zoom: number }>
+  >({})
+
+  // Selection state
+  const [selectionBounds, setSelectionBounds] = useState<{
+    start: { x: number; y: number }
+    end: { x: number; y: number }
+  } | null>(null)
+
+  // Comprehensive selection state
+  const [selection, setSelection] = useState({
+    isSelecting: false,
+    selectionStart: null as { x: number; y: number } | null,
+    selectionEnd: null as { x: number; y: number } | null,
+    selectedNodeIds: [] as string[],
+    dragSelecting: false,
+  })
+  const [viewportSize, setViewportSize] = useState({
+    width: 1200,
+    height: 800,
+  })
   const [isEditingWorkflowName, setIsEditingWorkflowName] = useState(false)
   const [editedWorkflowName, setEditedWorkflowName] = useState('')
-  const { updateNodeBounds, removeNodeBounds, getNodeBoundsArray } = useNodeBounds()
-  const { updatePortPosition: oldUpdatePortPosition, getPortPosition: getStoredPortPosition } = usePortPositions()
-  
+  const [workflowTrigger, setWorkflowTrigger] = useState<any>(null)
+  const {
+    nodeBounds,
+    updateNodeBounds: updateNodeBoundsHook,
+    removeNodeBounds,
+    getNodeBoundsArray,
+  } = useNodeBounds()
+  const { updatePortPosition: oldUpdatePortPosition, getPortPosition: getStoredPortPosition } =
+    usePortPositions()
+
+  // Load user name from localStorage on client side
+  useEffect(() => {
+    const savedUserName = sessionStorage.getItem('userName')
+    if (savedUserName) {
+      setUserName(savedUserName)
+    }
+  }, [])
+
   // Zustand stores
-  const { 
+  const {
+    // Core state
     workflowId,
     workflowName,
-    workflowTrigger,
-    nodes: storeNodes, 
+    initialized,
+
+    // CRDT
+    doc,
+    provider,
+
+    // Current view state
+    currentGraphId,
+    nodes: storeNodes,
     connections,
     groups,
-    selection,
-    initialized,
-    addConnection, 
-    removeConnection, 
-    updateConnectionState, 
-    updateNodePosition,
-    setInitialized,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    saveToStorageWithCanvasState,
-    loadFromStorage,
-    createNewWorkflow,
-    setWorkflowName,
-    publishWorkflow,
-    clearSelection,
-    startSelection,
-    updateSelection,
-    endSelection,
-    createGroupFromSelection,
-    createEmptyGroup,
-    addNodeToGroup,
-    removeNodeFromGroup,
-    updateGroup,
-    deleteGroup,
-    removeNode,
-    isNodeSelected,
-    updatePortPosition,
-    getPortPosition,
-    updateAllPortPositions,
-    autoResizeGroup,
-    saveCurrentGraphState,
-    loadGraphState
-  } = useWorkflowStore()
-  
-  // Graph store
-  const {
     graphs,
-    currentGraphId,
+
+    // Canvas state (per graph, local only)
+    canvasStates,
+
+    // Selection state (local only)
+    selectedNodeIds,
+
+    // Presence
+    presence,
+    isConnected,
+    isSyncing,
+    isOptimized,
+
+    // Core actions
+    initialize,
+    cleanup,
+
+    // Graph management
     addGraph,
     removeGraph,
-    switchGraph,
     renameGraph,
-    setMainGraph,
-    setGraphDirty,
+    switchGraph,
+
+    // Node management
+    addNode,
+    updateNodePosition,
+    updateNodeProperty,
+    removeNode,
+
+    // Connection management
+    addConnection,
+    updateConnectionState,
+    removeConnection,
+
+    // Group management
+    createGroup,
+    updateGroup,
+    updateGroupBounds,
+    addNodeToGroup,
+    removeNodeFromGroup,
+    removeGroup,
+
+    // Canvas state (local only)
     updateCanvasState,
-    updateWorkflowState,
-    loadGraphs,
-    getCurrentGraph,
-    getMainGraph,
-    getGraphById
-  } = useGraphStore()
-  
+
+    // Selection (local only)
+    setSelectedNodes,
+
+    // Utility
+    getAllGraphsData,
+
+    // Presence
+    updateCursorPosition,
+
+    // Persistence
+    saveToAPI,
+    enableAutosave,
+
+    // Workflow metadata
+    setWorkflowName,
+
+    // Dirty state management
+    setGraphDirty,
+    isGraphDirty,
+  } = useWorkflowStore()
+
+  // Local state for node positions within groups (not synced)
+  const [groupNodePositions, setGroupNodePositions] = useState<
+    Record<string, Record<string, { x: number; y: number }>>
+  >({})
+  // Structure: { groupId: { nodeId: { x, y } } }
+
+  // Local state for group collapse (not synced)
+  const [localGroupCollapseState, setLocalGroupCollapseState] = useState<Record<string, boolean>>(
+    {}
+  )
+
+  // Handler for toggling group collapse state locally
+  const handleGroupCollapseToggle = useCallback((groupId: string) => {
+    setLocalGroupCollapseState(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }))
+  }, [])
+  // Structure: { groupId: isCollapsed }
+
+  // Load groupNodePositions from localStorage when workflowId becomes available
+  useEffect(() => {
+    if (workflowId && typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`groupNodePositions-${workflowId}`)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          setGroupNodePositions(parsed)
+        } catch (e) {
+          console.error('Failed to parse saved group node positions:', e)
+        }
+      }
+    }
+  }, [workflowId])
+
+  // Save groupNodePositions to localStorage when it changes
+  useEffect(() => {
+    if (workflowId && Object.keys(groupNodePositions).length > 0) {
+      localStorage.setItem(`groupNodePositions-${workflowId}`, JSON.stringify(groupNodePositions))
+    }
+  }, [groupNodePositions, workflowId])
+
+  // Collaborative features are always enabled with the new store
+  const isCollaborative = true
+
+  // Force autosave on when in collaborative mode
+  useEffect(() => {
+    if (isCollaborative && !autosaveEnabled) {
+      setAutosaveEnabled(true)
+    }
+  }, [isCollaborative, autosaveEnabled])
+
+  // Keep selection state synchronized
+  useEffect(() => {
+    // Sync the selectedNodeIds from the store with our local selection state
+    if (!selection.dragSelecting) {
+      setSelection(prev => ({
+        ...prev,
+        selectedNodeIds: selectedNodeIds,
+      }))
+    }
+  }, [selectedNodeIds, selection.dragSelecting])
+
+  // Expose debug functions to window for recovery
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      ;(window as any).getAllGraphsData = getAllGraphsData
+      // Debug function exposed: window.getAllGraphsData()
+    }
+  }, [getAllGraphsData])
+
+  // Debug: Log graphs data
+  useEffect(() => {
+    // [Page] Graphs state changed
+  }, [graphs, currentGraphId, initialized])
+
+  // Cleanup hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+        hoverTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  // Keyboard shortcuts for node operations
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts if no input/textarea is focused
+      const activeElement = document.activeElement
+      if (activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName)) {
+        return
+      }
+
+      // Delete key - delete selected nodes
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNodeIds && selectedNodeIds.length > 0) {
+          e.preventDefault()
+          // Delete all selected nodes
+          selectedNodeIds.forEach(nodeId => {
+            removeNode(nodeId)
+          })
+          setGraphDirty(currentGraphId, true)
+          // Clear selection
+          setSelectedNodes([])
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedNodeIds, removeNode, setGraphDirty, currentGraphId, setSelectedNodes])
+
+  // Helper functions to match graphStore interface
+  const getCurrentGraph = () => {
+    return graphs.find(g => g.id === currentGraphId) || null
+  }
+
+  const getMainGraph = () => {
+    return graphs.find(g => g.isMain) || graphs[0] || null
+  }
+
+  const getGraphById = (graphId: string) => {
+    return graphs.find(g => g.id === graphId) || null
+  }
+
+  // These are local-only functions, not synced
+  const setMainGraph = (graphId: string) => {
+    // TODO: Implement if needed
+  }
+
+  const updateCanvasStateLocal = (graphId: string, canvasState: any) => {
+    // Update the canvas states map locally
+    setGraphCanvasStates(prev => ({
+      ...prev,
+      [graphId]: canvasState,
+    }))
+
+    // Update the store's canvas state
+    updateCanvasState(graphId, canvasState)
+  }
+
+  const updateWorkflowState = (graphId: string, workflowState: any) => {
+    // This is handled by CRDT automatically
+  }
+
+  const loadGraphs = (graphs: any[], currentGraphId?: string) => {
+    // Initial load is handled by CRDT
+  }
+
   const { dragState, startDrag, updateDrag, endDrag } = useConnectionDrag(connections)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null)
@@ -326,13 +592,13 @@ export default function Home() {
     graphName?: string
   }>({ isOpen: false, pendingAction: null })
   const [isSavingGraph, setIsSavingGraph] = useState(false)
-  
+
   // Update configured environment variables in the store
   const updateConfiguredEnvVars = async () => {
     try {
       const sections = await EnvVarService.getConfigSections()
       const configuredVars: string[] = []
-      
+
       sections.forEach(section => {
         section.variables.forEach(variable => {
           if (variable.value) {
@@ -340,7 +606,7 @@ export default function Home() {
           }
         })
       })
-      
+
       useEnvVarStore.getState().updateConfiguredVars(configuredVars)
     } catch (error) {
       console.error('Failed to update configured environment variables:', error)
@@ -366,7 +632,7 @@ export default function Home() {
   useEffect(() => {
     const currentGraph = getCurrentGraph()
     const hasUnsaved = graphs.some(g => g.isDirty)
-    
+
     if (workflowName) {
       const unsavedIndicator = hasUnsaved ? '• ' : ''
       document.title = `${unsavedIndicator}${workflowName} - Zeal`
@@ -381,64 +647,84 @@ export default function Home() {
       const initializeWorkflow = async () => {
         try {
           setLoadingMessage('Loading workflow data...')
-          
-          // Check if there's a saved workflow to load
-          const savedWorkflowId = WorkflowStorageService.getCurrentWorkflowId()
-          console.log('🏁 Initializing workflow with saved ID:', savedWorkflowId)
-          console.log('🏁 Current store nodes:', storeNodes?.length || 0)
-          console.log('🔍 Looking for saved workflow ID:', savedWorkflowId)
-          
-          if (savedWorkflowId) {
-            // Load existing workflow
-            try {
-              const result = await loadFromStorage(savedWorkflowId)
-              if (result?.canvasState) {
-                setCanvasOffset(result.canvasState.offset)
-                setCanvasZoom(result.canvasState.zoom)
-              }
-            } catch (error) {
-              console.error('Failed to load workflow:', error)
-              // Clear invalid workflow ID and create new workflow
-              WorkflowStorageService.clearCurrentWorkflowId()
-              toast.error('Previous workflow not found. Creating new workflow.')
+
+          // Check if there's a shared workflow ID in the URL first
+          const params = new URLSearchParams(window.location.search)
+          const sharedId = params.get('id')
+
+          if (sharedId) {
+            // If there's a shared ID, don't create a new workflow or load from storage
+            // The CRDT initialization below will handle loading the shared workflow
+            // [Init] Using shared workflow ID from URL
+          } else {
+            // No shared ID, check local storage
+            const savedWorkflowId = WorkflowStorageService.getCurrentWorkflowId()
+
+            if (savedWorkflowId) {
+              // Load existing workflow
               try {
-                await createNewWorkflow('New Workflow')
-              } catch (createError) {
-                console.error('Failed to create new workflow:', createError)
-                toast.error(createError)
+                // TODO: Implement storage loading in V2
+                // Loading from storage not implemented in V2 yet
+                const result = null
+              } catch (error) {
+                console.error('Failed to load workflow:', error)
+                // Clear invalid workflow ID and create new workflow
+                WorkflowStorageService.clearCurrentWorkflowId()
+                toast.error('Previous workflow not found. Creating new workflow.')
+                try {
+                  const newWorkflowId = `workflow-${Date.now()}`
+                  await initialize(newWorkflowId, 'New Workflow')
+                  WorkflowStorageService.setCurrentWorkflowId(newWorkflowId)
+                } catch (createError) {
+                  console.error('Failed to create new workflow:', createError)
+                  toast.error(createError)
+                }
+              }
+            } else if (!storeNodes || storeNodes.length === 0) {
+              // Create new empty workflow
+              // Add a flag to prevent infinite loops
+              if (!creatingWorkflow.current) {
+                creatingWorkflow.current = true
+                const newWorkflowId = `workflow-${Date.now()}`
+                initialize(newWorkflowId, 'New Workflow')
+                  .catch(error => {
+                    console.error('Failed to create new workflow:', error)
+                    // Don't toast error to prevent further re-renders
+                  })
+                  .finally(() => {
+                    creatingWorkflow.current = false
+                  })
               }
             }
-          } else if (!storeNodes || storeNodes.length === 0) {
-            // Create new empty workflow
-            createNewWorkflow('New Workflow').catch(error => {
-              console.error('Failed to create new workflow:', error)
-              toast.error(error)
-            })
           }
-          
+
           // Skip loading env vars during initialization - will load on demand
-          
+
           // Initialize graphs from storage
           setLoadingMessage('Loading graphs...')
-          
+
+          // Save workflow snapshot for loading after CRDT init
+          let savedSnapshot: any = null
+          let savedGraphInfos: any[] = []
+          let savedCanvasStates: any = {}
+
           // Get the most recent workflow
           let recentWorkflows: any[] = []
           try {
-            console.log('🔍 Loading workflow history...')
             recentWorkflows = await WorkflowStorageService.getWorkflowHistory(1)
-            console.log('📚 Found workflows:', recentWorkflows.length, recentWorkflows.map(w => ({ id: w.id, name: w.name, activeGraphId: w.activeGraphId })))
           } catch (error) {
             console.error('❌ Failed to load workflow history:', error)
             // Continue without history
           }
           if (recentWorkflows.length > 0) {
             const snapshot = recentWorkflows[0]
-            
+            savedSnapshot = snapshot
+
             // Check if it's a multi-graph snapshot
             const restored = restoreWorkflowFromSnapshot(snapshot)
-            console.log('📊 Restored snapshot with activeGraphId:', snapshot.activeGraphId)
+            // [Init] Local workflow history found
             if (restored.graphs) {
-              // Multi-graph workflow - convert to GraphInfo format and load
+              // Multi-graph workflow - convert to GraphInfo format and save for CRDT loading
               const graphInfos = restored.graphs.map(graph => {
                 const graphState = restoreGraphFromSerialized(graph)
                 return {
@@ -447,29 +733,35 @@ export default function Home() {
                   namespace: graph.namespace,
                   isMain: graph.isMain,
                   isDirty: false,
-                  canvasState: graph.canvasState || { offset: { x: 0, y: 0 }, zoom: 1 },
+                  canvasState: graph.canvasState || {
+                    offset: { x: 0, y: 0 },
+                    zoom: 1,
+                  },
                   workflowState: {
                     nodes: graphState.nodes,
                     connections: graphState.connections,
                     groups: graphState.groups,
                     trigger: graph.isMain ? snapshot.trigger : null,
-                    portPositions: graphState.portPositions
-                  }
+                    portPositions: graphState.portPositions,
+                  },
                 }
               })
-              
-              // Determine the target graph BEFORE loading graphs
-              const targetGraphId = snapshot.activeGraphId && graphInfos.some(g => g.id === snapshot.activeGraphId)
-                ? snapshot.activeGraphId
-                : graphInfos.find(g => g.isMain)?.id || graphInfos[0].id
-              
-              console.log('📊 Available graphs:', graphInfos.map(g => ({ id: g.id, name: g.name, isMain: g.isMain })))
-              console.log('📊 Saved activeGraphId:', snapshot.activeGraphId)
-              console.log('📊 Target graph determined:', targetGraphId)
-              
-              // Load graphs with the correct active graph ID from the start
-              loadGraphs(graphInfos, targetGraphId)
-              console.log('✅ Loaded graphs with activeGraphId:', targetGraphId)
+
+              // Restore canvas states to local state
+              const canvasStates: Record<
+                string,
+                { offset: { x: number; y: number }; zoom: number }
+              > = {}
+              graphInfos.forEach(graphInfo => {
+                if (graphInfo.canvasState) {
+                  canvasStates[graphInfo.id] = graphInfo.canvasState
+                }
+              })
+              setGraphCanvasStates(canvasStates)
+
+              // Save for CRDT loading
+              savedGraphInfos = graphInfos
+              savedCanvasStates = canvasStates
             } else if (restored.nodes) {
               // Legacy single-graph workflow
               const mainGraphInfo = {
@@ -478,158 +770,162 @@ export default function Home() {
                 namespace: 'main',
                 isMain: true,
                 isDirty: false,
-                canvasState: restored.canvasState || { offset: { x: 0, y: 0 }, zoom: 1 },
+                canvasState: restored.canvasState || {
+                  offset: { x: 0, y: 0 },
+                  zoom: 1,
+                },
                 workflowState: {
                   nodes: restored.nodes,
                   connections: restored.connections || [],
                   groups: restored.groups || [],
-                  trigger: snapshot.trigger,
-                  portPositions: undefined // Legacy workflows don't have saved port positions
-                }
+                  triggerConfig: snapshot.triggerConfig,
+                  portPositions: undefined, // Legacy workflows don't have saved port positions
+                },
               }
-              
-              loadGraphs([mainGraphInfo])
-              switchGraph('main')
+
+              // CRDT handles graph loading
+              if (currentGraphId !== 'main') {
+                switchGraph('main')
+              }
             }
-            
+
             // Set workflow metadata
             setWorkflowName(snapshot.name)
-            
+
             // IMPORTANT: Set the current workflow ID so it persists across refreshes
             useWorkflowStore.setState({ workflowId: snapshot.id })
             WorkflowStorageService.setCurrentWorkflowId(snapshot.id)
-            console.log('💾 Set current workflow ID:', snapshot.id)
           }
-          
-          setInitialized(true)
-          
+
+          // Initialization is handled by the store
+
+          // Ensure user has proper identity before initializing CRDT
+          if (!sessionStorage.getItem('userId')) {
+            const userId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+            sessionStorage.setItem('userId', userId)
+          }
+          if (!sessionStorage.getItem('userName')) {
+            sessionStorage.setItem('userName', 'Anonymous User')
+          }
+          if (!sessionStorage.getItem('userColor')) {
+            const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
+            sessionStorage.setItem('userColor', colors[Math.floor(Math.random() * colors.length)])
+          }
+
+          // Initialize CRDT for collaborative features
+          // Re-read params since we might have updated the URL above
+          const currentParams = new URLSearchParams(window.location.search)
+          const currentSharedId = currentParams.get('id')
+
+          // Use saved workflow ID from localStorage if available
+          const savedWorkflowId = WorkflowStorageService.getCurrentWorkflowId()
+          // [Init] Workflow ID determination
+
+          const effectiveWorkflowId =
+            currentSharedId || workflowId || savedWorkflowId || `workflow-${Date.now()}`
+
+          // [Init] Using effective workflow ID
+          await initialize(effectiveWorkflowId, 'Untitled Workflow')
+
+          // Ensure the workflow ID is saved for future page loads
+          if (!currentSharedId && effectiveWorkflowId) {
+            WorkflowStorageService.setCurrentWorkflowId(effectiveWorkflowId)
+          }
+
+          // Enable autosave
+          enableAutosave(true)
+
+          // The store handles all loading logic automatically
+          // [Init] Initialization complete
+
+          // Update URL if needed
+          if (!currentSharedId && effectiveWorkflowId) {
+            const url = new URL(window.location.href)
+            url.searchParams.set('id', effectiveWorkflowId)
+            window.history.replaceState({}, '', url)
+          }
+
           // Small delay to ensure everything is rendered
           await new Promise(resolve => setTimeout(resolve, 200))
-          
+
           setIsLoading(false)
         } catch (error) {
           console.error('Failed to initialize workflow:', error)
           setIsLoading(false)
         }
       }
-      
+
       initializeWorkflow()
     }
-  }, [initialized, isLoading, storeNodes?.length, setInitialized, loadFromStorage, createNewWorkflow, loadGraphs, switchGraph])
-
-  // Keyboard shortcut to test environment variable warning (Cmd+Shift+T)
-  // useEffect(() => {
-  //   const handleKeyPress = (e: KeyboardEvent) => {
-  //     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 't') {
-  //       e.preventDefault()
-  //       console.log('TESTING: Adding PostgreSQL node to trigger env var check')
-  //       const { addNode } = useWorkflowStore.getState()
-  //       addNode({
-  //         id: `test-postgresql-${Date.now()}`,
-  //         templateId: 'tpl_postgresql',
-  //         type: 'database',
-  //         title: 'Test PostgreSQL',
-  //         icon: Database,
-  //         variant: 'black',
-  //         shape: 'rectangle',
-  //         size: 'medium',
-  //         requiredEnvVars: ['DATABASE_URL', 'DB_PASSWORD'],
-  //         properties: [],
-  //         propertyValues: {}
-  //       }, { x: 300 + Math.random() * 100, y: 200 + Math.random() * 100 })
-  //       ToastManager.info('Test node added - checking for environment variables...')
-  //     }
-  //   }
-    
-  //   window.addEventListener('keydown', handleKeyPress)
-  //   return () => window.removeEventListener('keydown', handleKeyPress)
-  // }, [])
+  }, [initialized, isLoading, storeNodes?.length, loadGraphs, switchGraph])
 
   // Show env var warning when there are missing vars
   useEffect(() => {
     setShowEnvVarWarning(missingEnvVars.length > 0)
   }, [missingEnvVars])
-  
-  
+
   // Handle graph switching
   useEffect(() => {
     const currentGraph = getCurrentGraph()
     if (!currentGraph) return
-    
-    // Load canvas state
+
+    // Load canvas state only if it's different from current state
     if (currentGraph.canvasState) {
-      setCanvasOffset(currentGraph.canvasState.offset)
-      setCanvasZoom(currentGraph.canvasState.zoom)
+      const { offset, zoom } = currentGraph.canvasState
+      if (offset.x !== canvasOffset.x || offset.y !== canvasOffset.y) {
+        setCanvasOffset(offset)
+      }
+      if (zoom !== canvasZoom) {
+        setCanvasZoom(zoom)
+      }
     } else {
-      // Reset canvas state for new graph
-      setCanvasOffset({ x: 0, y: 0 })
-      setCanvasZoom(1)
+      // Reset canvas state for new graph only if not already reset
+      if (canvasOffset.x !== 0 || canvasOffset.y !== 0) {
+        setCanvasOffset({ x: 0, y: 0 })
+      }
+      if (canvasZoom !== 1) {
+        setCanvasZoom(1)
+      }
     }
-    
-    // Load workflow state
-    if (currentGraph.workflowState) {
-      loadGraphState(currentGraph.workflowState)
-      
-      // Trigger port position measurement by applying a tiny transform to each node
-      // This mimics what happens when a node is moved, which correctly calculates port positions
-      setTimeout(() => {
-        const state = useWorkflowStore.getState()
-        state.nodes.forEach(node => {
-          // Apply a tiny position change to trigger port position recalculation
-          const currentPos = node.position
-          updateNodePosition(node.metadata.id, { 
-            x: currentPos.x + 0.1, 
-            y: currentPos.y + 0.1 
-          })
-          // Immediately revert to original position
-          setTimeout(() => {
-            updateNodePosition(node.metadata.id, currentPos)
-          }, 10)
-        })
-      }, 300)
-    } else if (currentGraph.id !== 'main' || !initialized) {
-      // Only clear for non-main graphs or if not initialized
-      loadGraphState({
-        nodes: [],
-        connections: [],
-        groups: [],
-        trigger: null
-      })
-    }
-  }, [currentGraphId, getCurrentGraph, loadGraphState, initialized, updateAllPortPositions])
-  
-  
+
+    // CRDT: Removed graph state loading - let CRDT observers handle it
+    // Port position measurements will be triggered by CRDT observers when nodes load
+  }, [currentGraphId, graphs, initialized])
 
   // Check for nodes that need configuration and show toast
   useEffect(() => {
     // If we're showing a toast for a specific node, check if it still needs configuration
     if (configurationToastNodeId) {
-      const currentNode = storeNodes.find(n => n.metadata.id === configurationToastNodeId)
+      const currentNode = storeNodes.find(
+        (n: any) => (n.id || n.metadata.id) === configurationToastNodeId
+      )
       if (!currentNode || !hasUnconfiguredDefaults(currentNode.metadata)) {
         // Node is now properly configured, dismiss the toast
         setConfigurationToastNodeId(null)
         return
       }
     }
-    
+
     // Only check for new unconfigured nodes if we don't already have a toast showing
     if (configurationToastNodeId) return
-    
+
     // Find nodes that need configuration
-    const unconfiguredNodes = storeNodes.filter(node => hasUnconfiguredDefaults(node.metadata))
-    
+    const unconfiguredNodes = storeNodes.filter((node: any) =>
+      hasUnconfiguredDefaults(node.metadata)
+    )
+
     if (unconfiguredNodes.length > 0) {
       // Show toast for the most recently added node that needs configuration
       const latestUnconfigured = unconfiguredNodes[unconfiguredNodes.length - 1]
       setConfigurationToastNodeId(latestUnconfigured.metadata.id)
     }
-  }, [storeNodes, configurationToastNodeId])
+  }, [storeNodes])
 
   // Clean up node bounds when nodes are removed
   useEffect(() => {
-    const currentNodeIds = new Set(storeNodes.map(node => node.metadata.id))
+    const currentNodeIds = new Set(storeNodes.map((node: any) => getNodeId(node)))
     const currentBounds = getNodeBoundsArray()
-    
+
     // Remove bounds for nodes that no longer exist
     currentBounds.forEach(bounds => {
       if (!currentNodeIds.has(bounds.id)) {
@@ -639,16 +935,15 @@ export default function Home() {
   }, [storeNodes, getNodeBoundsArray, removeNodeBounds])
 
   // Removed the debugging interval that was causing endless API calls
-  
-  
+
   useEffect(() => {
     const updateViewportSize = () => {
       setViewportSize({
         width: window.innerWidth,
-        height: window.innerHeight - 60 // Subtract header height
+        height: window.innerHeight - 60, // Subtract header height
       })
     }
-    
+
     updateViewportSize()
     window.addEventListener('resize', updateViewportSize)
     return () => window.removeEventListener('resize', updateViewportSize)
@@ -657,49 +952,154 @@ export default function Home() {
   // Automatic graph state persistence - save current graph state to graph store when changes occur
   useEffect(() => {
     if (!initialized) return // Don't persist before initialization
-    
+
     const currentGraph = getCurrentGraph()
     if (currentGraph) {
-      const workflowState = saveCurrentGraphState()
+      // Create workflow state from current store data
+      const workflowState = {
+        nodes: storeNodes,
+        connections: connections,
+        groups: groups,
+        trigger: currentGraph.isMain ? workflowTrigger : null,
+        portPositions: {}, // TODO: Implement port positions tracking
+      }
+
+      // State is automatically saved in CRDT
       updateWorkflowState(currentGraph.id, workflowState)
-      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
-      console.log('📝 Graph state persisted to store:', currentGraph.id)
+      updateCanvasState(currentGraph.id, {
+        offset: canvasOffset,
+        zoom: canvasZoom,
+      })
     }
   }, [storeNodes, connections, groups, workflowTrigger, canvasOffset, canvasZoom, initialized])
 
   // Opt-in autosave to storage/server - only when enabled
   useEffect(() => {
-    if (!autosaveEnabled || !initialized) return
-    
+    if (!autosaveEnabled || !initialized || graphs.length === 0 || !doc || storeNodes.length === 0)
+      return
+
     const autosaveDelay = 5000 // 5 seconds delay for actual persistence
     const autosaveTimer = setTimeout(() => {
+      // [Page] Triggering autosave...
       try {
         saveWorkflowSilent()
-        console.log('🔄 Autosaved to storage (activeGraphId:', currentGraphId, ')')
       } catch (error) {
         console.error('Autosave failed:', error)
       }
     }, autosaveDelay)
 
     return () => clearTimeout(autosaveTimer)
-  }, [storeNodes, connections, groups, workflowTrigger, graphs, currentGraphId, autosaveEnabled, initialized])
+  }, [
+    storeNodes,
+    connections,
+    groups,
+    workflowTrigger,
+    graphs,
+    currentGraphId,
+    autosaveEnabled,
+    initialized,
+    doc,
+  ])
 
   const handleNodePositionChange = (nodeId: string, position: { x: number; y: number }) => {
-    updateNodePosition(nodeId, position)
-    // Mark graph as dirty when nodes are moved
-    setGraphDirty(currentGraphId, true)
+    // Handle node position change
+
+    if (draggingNodeIdsRef.current.has(nodeId)) {
+      // If node is being dragged, update CRDT state immediately for real-time sync
+      updateNodePosition(nodeId, position)
+      setGraphDirty(currentGraphId, true)
+    } else {
+      // If node is not being dragged, update CRDT (normal case)
+      updateNodePosition(nodeId, position)
+      setGraphDirty(currentGraphId, true)
+    }
+
     // Clear highlighting when a node is moved
     if (highlightedNodeId === nodeId) {
       setHighlightedNodeId(null)
     }
   }
 
+  // Handle node property changes
+  const handleNodePropertyChange = (nodeId: string, propertyName: string, value: any) => {
+    // Handle node property change
+
+    // Get the node to update its property values
+    const node = storeNodes.find((n: any) => (n.id || n.metadata?.id) === nodeId)
+    if (node) {
+      const updatedPropertyValues = {
+        ...(node.metadata.propertyValues || {}),
+        [propertyName]: value,
+      }
+
+      // Update the node properties
+      Object.entries(updatedPropertyValues).forEach(([key, value]) => {
+        updateNodeProperty(nodeId, key, value)
+      })
+
+      setGraphDirty(currentGraphId, true)
+    }
+  }
+
   // Handle node selection
-  const handleNodeSelect = (nodeId: string) => {
-    setSelectedNodeId(nodeId)
-    setIsPropertyPaneOpen(true)
-    setIsPropertyPaneVisible(true)
-    setIsPropertyPaneClosing(false)
+  const handleNodeSelect = (nodeId: string, event?: React.MouseEvent) => {
+    const isMac = navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
+    const hasModifier = isMac ? event?.metaKey : event?.ctrlKey
+
+    if (hasModifier) {
+      // Multi-select mode: add/remove node from selection
+      const currentSelection =
+        selectedNodeIds.length > 0 ? selectedNodeIds : selection.selectedNodeIds
+      const isCurrentlySelected = currentSelection.includes(nodeId)
+
+      let newSelection: string[]
+      if (isCurrentlySelected) {
+        // Remove from selection
+        newSelection = currentSelection.filter(id => id !== nodeId)
+      } else {
+        // Add to selection
+        newSelection = [...currentSelection, nodeId]
+      }
+
+      setSelectedNodes(newSelection)
+      setSelection(prev => ({
+        ...prev,
+        selectedNodeIds: newSelection,
+        isSelecting: false,
+        selectionStart: null,
+        selectionEnd: null,
+        dragSelecting: false,
+      }))
+
+      // Only open property pane if there's exactly one node selected
+      if (newSelection.length === 1) {
+        setSelectedNodeId(newSelection[0])
+        setIsPropertyPaneOpen(true)
+        setIsPropertyPaneVisible(true)
+        setIsPropertyPaneClosing(false)
+      } else {
+        // Close property pane for multi-selection
+        setSelectedNodeId(null)
+        setIsPropertyPaneOpen(false)
+        setIsPropertyPaneVisible(false)
+      }
+    } else {
+      // Single selection mode: clear existing selection and select this node
+      setSelectedNodes([nodeId])
+      setSelection(prev => ({
+        ...prev,
+        selectedNodeIds: [nodeId],
+        isSelecting: false,
+        selectionStart: null,
+        selectionEnd: null,
+        dragSelecting: false,
+      }))
+
+      setSelectedNodeId(nodeId)
+      setIsPropertyPaneOpen(true)
+      setIsPropertyPaneVisible(true)
+      setIsPropertyPaneClosing(false)
+    }
   }
 
   // Handle property pane close
@@ -722,8 +1122,8 @@ export default function Home() {
   const handleRunSimulation = () => {
     // Get all connections sorted by their source node's x position (left to right)
     const sortedConnections = [...connections].sort((a, b) => {
-      const aNode = storeNodes.find(n => n.metadata.id === a.source.nodeId)
-      const bNode = storeNodes.find(n => n.metadata.id === b.source.nodeId)
+      const aNode = storeNodes.find((n: any) => (n.id || n.metadata.id) === a.source.nodeId)
+      const bNode = storeNodes.find((n: any) => (n.id || n.metadata.id) === b.source.nodeId)
       if (!aNode || !bNode) return 0
       return aNode.position.x - bNode.position.x
     })
@@ -741,17 +1141,17 @@ export default function Home() {
     // Simulate execution for each connection
     for (let i = 0; i < sortedConnections.length; i++) {
       const connection = sortedConnections[i]
-      
+
       // Set to running state
       updateConnectionState(connection.id, 'running')
-      
+
       // Wait for animation
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       // Randomly choose success or error (80% success rate)
       const finalState = Math.random() > 0.2 ? 'success' : 'error'
       updateConnectionState(connection.id, finalState)
-      
+
       // Small delay before next connection
       if (i < sortedConnections.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 300))
@@ -779,26 +1179,41 @@ export default function Home() {
     setIsSearchOpen(true)
   }
 
-  // Handle highlighting newly added nodes and pan canvas to show them
+  // Handle highlighting newly added nodes
+  // Note: Canvas panning is now handled by SearchModal for nodes added through it
   const handleNodeAdded = (nodeId: string) => {
-    setHighlightedNodeId(nodeId)
-    
-    // Find the newly added node to get its position
-    const newNode = storeNodes.find(node => node.metadata.id === nodeId)
-    if (newNode) {
-      // Calculate viewport center and pan to the new node
-      const viewportCenterX = window.innerWidth / 2
-      const viewportCenterY = window.innerHeight / 2
-      
-      const newOffset = {
-        x: viewportCenterX - newNode.position.x * canvasZoom,
-        y: viewportCenterY - newNode.position.y * canvasZoom
-      }
-      
-      setCanvasOffset(newOffset)
+    // Only handle highlighting here if not already handled by SearchModal
+    // The SearchModal will call this but will have already done the panning and highlighting
+
+    // For nodes added through other means (like duplication in NodeBrowserPanel),
+    // we still want to do the panning
+    const isFromSearchModal = highlightedNodeId === nodeId
+    if (!isFromSearchModal) {
+      setHighlightedNodeId(nodeId)
+
+      // Wait a bit for CRDT sync before trying to find the node
+      setTimeout(() => {
+        // Find the newly added node to get its position
+        const newNode = storeNodes.find((node: any) => getNodeId(node) === nodeId)
+        if (newNode) {
+          // Calculate viewport center and pan to the new node
+          const viewportCenterX = viewportSize.width / 2
+          const viewportCenterY = viewportSize.height / 2
+
+          const newOffset = {
+            x: viewportCenterX - newNode.position.x * canvasZoom,
+            y: viewportCenterY - newNode.position.y * canvasZoom,
+          }
+
+          setCanvasOffset(newOffset)
+        }
+      }, 100)
+
+      // Remove highlight after 2 seconds
+      setTimeout(() => {
+        setHighlightedNodeId(null)
+      }, 2000)
     }
-    
-    // Highlight will be removed when the node is moved (no timeout)
   }
 
   // Handle node selection from browser
@@ -806,15 +1221,15 @@ export default function Home() {
     // Center the canvas on the selected node
     const viewportCenterX = window.innerWidth / 2
     const viewportCenterY = window.innerHeight / 2
-    
+
     const newOffset = {
       x: viewportCenterX - position.x * canvasZoom,
-      y: viewportCenterY - position.y * canvasZoom
+      y: viewportCenterY - position.y * canvasZoom,
     }
-    
+
     setCanvasOffset(newOffset)
     setHighlightedNodeId(nodeId)
-    
+
     // Remove highlight after 2 seconds
     setTimeout(() => {
       setHighlightedNodeId(null)
@@ -836,20 +1251,30 @@ export default function Home() {
   const handleSaveGraph = async () => {
     const currentGraph = getCurrentGraph()
     if (!currentGraph || !currentGraph.isDirty) return
-    
+
     setIsSavingGraph(true)
     try {
       // Save the current graph state
-      const workflowState = saveCurrentGraphState()
+      const workflowState = {
+        nodes: storeNodes,
+        connections: connections,
+        groups: groups,
+        trigger: currentGraph.isMain ? workflowTrigger : null,
+        portPositions: {}, // TODO: Implement port positions tracking
+      }
+      // State is automatically saved in CRDT
       updateWorkflowState(currentGraph.id, workflowState)
-      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
-      
+      updateCanvasState(currentGraph.id, {
+        offset: canvasOffset,
+        zoom: canvasZoom,
+      })
+
       // Save to storage
       await saveWorkflowSilent()
-      
+
       // Mark only the current graph as clean
       setGraphDirty(currentGraph.id, false)
-      
+
       // Success message
       toast.success(`Graph "${currentGraph.name}" saved successfully`)
     } catch (error) {
@@ -863,69 +1288,107 @@ export default function Home() {
   // Silent save function for autosave (no toast)
   const saveWorkflowSilent = async () => {
     try {
-      // Save current graph state first
-      const currentGraph = getCurrentGraph()
-      if (currentGraph) {
-        const workflowState = saveCurrentGraphState()
-        console.log('💾 Saving workflow state:', {
-          nodeCount: workflowState.nodes.length,
-          subgraphNodes: workflowState.nodes.filter(n => n.metadata.type === 'subgraph'),
-          allNodeTypes: workflowState.nodes.map(n => n.metadata.type)
-        })
-        updateWorkflowState(currentGraph.id, workflowState)
-        updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+      // [Save] Starting autosave...
+
+      // Get all graph data from CRDT document
+      const allGraphsData = getAllGraphsData()
+
+      // [Save] Getting all graphs data
+
+      // Ensure we have at least one graph
+      if (allGraphsData.length === 0) {
+        console.error('[Save] No graphs to save! This should not happen.')
+        throw new Error('No graphs available to save')
       }
-      
-      // Create workflow graphs from graph store
-      const workflowGraphs = graphs.map(g => {
-        const graphState = g.workflowState || { nodes: [], connections: [], groups: [], trigger: null }
-        // Get current port positions from store when saving
-        const currentPortPositions = g.id === currentGraphId ? useWorkflowStore.getState().portPositions : undefined
+
+      // Create workflow graphs from CRDT data
+      const workflowGraphs = allGraphsData.map(graphData => {
+        // Use current canvas state for the active graph, saved state for others
+        const canvasState =
+          graphData.id === currentGraphId
+            ? { offset: canvasOffset, zoom: canvasZoom }
+            : graphCanvasStates[graphData.id] || { offset: { x: 0, y: 0 }, zoom: 1 }
+
         return createWorkflowGraph(
-          g.id,
-          g.name,
-          g.namespace,
-          g.isMain,
-          graphState.nodes || [],
-          graphState.connections || [],
-          graphState.groups || [],
-          g.canvasState,
-          currentPortPositions
+          graphData.id,
+          graphData.name,
+          graphData.namespace || `${workflowName}/${graphData.id}`, // namespace defaults to workflowName/graphId
+          graphData.isMain,
+          graphData.nodes,
+          graphData.connections,
+          graphData.groups,
+          canvasState,
+          undefined // port positions - not needed for CRDT
         )
       })
-      
-      // Get existing snapshot if available
-      const existingSnapshot = workflowId ? await WorkflowStorageService.getWorkflow(workflowId) : null
-      
-      // Create multi-graph snapshot
-      const snapshot = createWorkflowSnapshot(
-        workflowGraphs,
-        currentGraphId,
-        workflowName,
-        workflowId || undefined,
-        existingSnapshot || undefined,
-        workflowTrigger
-      )
-      
-      // Save to storage
-      console.log('🔄 Saving workflow with activeGraphId:', snapshot.activeGraphId)
-      const savedWorkflow = await WorkflowStorageService.saveWorkflow(snapshot)
-      console.log('✅ Workflow saved successfully:', savedWorkflow.id)
-      
-      // Update workflowId if it was a new workflow
-      if (!workflowId && savedWorkflow.id) {
-        // Update the workflowId in the store
-        useWorkflowStore.setState({ workflowId: savedWorkflow.id })
-        WorkflowStorageService.setCurrentWorkflowId(savedWorkflow.id)
+
+      // Create or update workflow
+      if (!workflowId) {
+        // Create new workflow
+        const snapshot = await WorkflowStorageService.createDraftWorkflow(workflowName)
+        // Update store with the new workflow ID
+        await initialize(snapshot.id, workflowName)
+
+        // Save the full snapshot
+        const fullSnapshot = createWorkflowSnapshot(
+          workflowGraphs,
+          currentGraphId,
+          workflowName,
+          snapshot.id,
+          snapshot,
+          workflowTrigger
+        )
+        await WorkflowStorageService.saveWorkflow(fullSnapshot)
+
+        // Save the workflow ID to local storage
+        WorkflowStorageService.setCurrentWorkflowId(snapshot.id)
+      } else {
+        // Update existing workflow - but check if it exists first
+        let existingSnapshot = null
+        try {
+          existingSnapshot = await WorkflowStorageService.getWorkflow(workflowId)
+        } catch (error: any) {
+          // If workflow doesn't exist (404), we need to create it with the specific ID
+          if (error?.statusCode === 404 || error?.code === 'WORKFLOW_NOT_FOUND') {
+            // Workflow not found in database, creating new workflow with ID
+            // Create the snapshot directly without going through createDraftWorkflow
+            // which would generate a new ID
+            const snapshot = createWorkflowSnapshot(
+              workflowGraphs,
+              currentGraphId,
+              workflowName,
+              workflowId,
+              undefined, // no existing snapshot
+              workflowTrigger
+            )
+            // Save as a new workflow
+            await WorkflowStorageService.saveWorkflow(snapshot)
+            return // Exit early since we've already saved
+          } else {
+            throw error
+          }
+        }
+
+        // If we get here, the workflow exists, so update it
+        const snapshot = createWorkflowSnapshot(
+          workflowGraphs,
+          currentGraphId,
+          workflowName,
+          workflowId,
+          existingSnapshot || undefined,
+          workflowTrigger
+        )
+        // [Save] Saving workflow snapshot
+        await WorkflowStorageService.saveWorkflow(snapshot)
       }
-      
+
       // Mark all graphs as clean after successful save
       graphs.forEach(graph => {
         setGraphDirty(graph.id, false)
       })
     } catch (error) {
       console.error('Failed to save workflow:', error)
-      toast.error(error)
+      toast.error(error as string)
       throw error // Re-throw to let autosave handler catch it
     }
   }
@@ -938,14 +1401,14 @@ export default function Home() {
   // Handle navigation with unsaved changes check
   const handleNavigationWithCheck = (action: () => void, actionGraphName?: string) => {
     const dirtyGraphs = graphs.filter(graph => graph.isDirty)
-    
+
     if (dirtyGraphs.length > 0) {
       // Show dialog with the first dirty graph's name
       const graphName = actionGraphName || dirtyGraphs[0].name
       setUnsavedChangesDialog({
         isOpen: true,
         pendingAction: action,
-        graphName
+        graphName,
       })
     } else {
       // No unsaved changes, proceed with action
@@ -972,7 +1435,7 @@ export default function Home() {
     graphs.forEach(graph => {
       setGraphDirty(graph.id, false)
     })
-    
+
     // Execute the pending action
     if (unsavedChangesDialog.pendingAction) {
       unsavedChangesDialog.pendingAction()
@@ -987,7 +1450,45 @@ export default function Home() {
   // Handle publish workflow
   const handlePublishWorkflow = async () => {
     try {
-      await publishWorkflow()
+      // Get all graphs data
+      const allGraphsData = getAllGraphsData()
+
+      // Create a snapshot with published state
+      const snapshot = createWorkflowSnapshot(
+        allGraphsData.map(graphData => {
+          // Use current canvas state for the active graph, saved state for others
+          const canvasState =
+            graphData.id === currentGraphId
+              ? { offset: canvasOffset, zoom: canvasZoom }
+              : graphCanvasStates[graphData.id] || { offset: { x: 0, y: 0 }, zoom: 1 }
+
+          return createWorkflowGraph(
+            graphData.id,
+            graphData.name,
+            graphData.namespace || `${workflowName}/${graphData.id}`, // namespace defaults to workflowName/graphId
+            graphData.isMain,
+            graphData.nodes,
+            graphData.connections,
+            graphData.groups,
+            canvasState,
+            undefined // port positions - not needed for CRDT
+          )
+        }),
+        currentGraphId,
+        workflowId,
+        workflowName,
+        undefined, // No existing snapshot for publish
+        {} // No trigger for now
+      )
+
+      // Mark as published
+      snapshot.isDraft = false
+      snapshot.isPublished = true
+      snapshot.publishedAt = new Date().toISOString()
+
+      // Save the published workflow
+      await WorkflowStorageService.saveWorkflow(snapshot)
+
       ToastManager.success(`Workflow "${workflowName}" published successfully!`)
     } catch (error) {
       ToastManager.error('Failed to publish workflow. Please try again.')
@@ -1000,19 +1501,19 @@ export default function Home() {
     const action = async () => {
       try {
         // Save current workflow first if it has changes
-        if (workflowId !== selectedWorkflowId && storeNodes.length > 0) {
-          await saveToStorageWithCanvasState({ offset: canvasOffset, zoom: canvasZoom })
+        if (workflowId !== selectedWorkflowId && hasUnsavedChanges()) {
+          await saveWorkflowSilent()
         }
-        
+
         // Load the selected workflow with multi-graph support
         const snapshot = await WorkflowStorageService.getWorkflow(selectedWorkflowId)
         if (!snapshot) {
           throw new Error('Workflow not found')
         }
-        
+
         // Restore the workflow
         const restored = restoreWorkflowFromSnapshot(snapshot)
-        
+
         if (restored.graphs && restored.graphs.length > 0) {
           // Multi-graph workflow
           const graphInfos = restored.graphs.map(graph => {
@@ -1023,50 +1524,63 @@ export default function Home() {
               namespace: graph.namespace,
               isMain: graph.isMain,
               isDirty: false,
-              canvasState: graph.canvasState || { offset: { x: 0, y: 0 }, zoom: 1 },
+              canvasState: graph.canvasState || {
+                offset: { x: 0, y: 0 },
+                zoom: 1,
+              },
               workflowState: {
                 nodes: graphState.nodes,
                 connections: graphState.connections,
                 groups: graphState.groups,
-                trigger: graph.isMain ? snapshot.trigger : null,
-                portPositions: graphState.portPositions
-              }
+                trigger: graph.isMain ? snapshot.triggerConfig : null,
+                portPositions: graphState.portPositions,
+              },
             }
           })
-          
+
           // Determine the target graph BEFORE loading graphs
-          const targetGraphId = snapshot.activeGraphId && graphInfos.some(g => g.id === snapshot.activeGraphId)
-            ? snapshot.activeGraphId
-            : graphInfos.find(g => g.isMain)?.id || graphInfos[0].id
-          
-          // Load all graphs with the correct active graph ID from the start
-          loadGraphs(graphInfos, targetGraphId)
-          
-          // Load the target graph state
-          const targetGraph = graphInfos.find(g => g.id === targetGraphId)
-          if (targetGraph && targetGraph.workflowState) {
-            loadGraphState(targetGraph.workflowState)
-            if (targetGraph.canvasState) {
-              setCanvasOffset(targetGraph.canvasState.offset)
-              setCanvasZoom(targetGraph.canvasState.zoom)
+          const targetGraphId =
+            snapshot.activeGraphId && graphInfos.some(g => g.id === snapshot.activeGraphId)
+              ? snapshot.activeGraphId
+              : graphInfos.find(g => g.isMain)?.id ||
+                (graphInfos.length > 0 ? graphInfos[0].id : 'main')
+
+          // Restore canvas states for all graphs
+          const canvasStates: Record<string, { offset: { x: number; y: number }; zoom: number }> =
+            {}
+          graphInfos.forEach(graphInfo => {
+            if (graphInfo.canvasState) {
+              canvasStates[graphInfo.id] = graphInfo.canvasState
             }
-          }
-          
-          // Update workflow metadata
-          useWorkflowStore.setState({
-            workflowId: snapshot.id,
-            workflowName: snapshot.name,
-            workflowTrigger: snapshot.trigger || null
           })
+          setGraphCanvasStates(canvasStates)
+
+          // CRDT handles graph loading, just switch to target graph
+          if (targetGraphId && targetGraphId !== currentGraphId) {
+            switchGraph(targetGraphId)
+          }
+
+          // Load canvas state for the target graph
+          const targetGraph = graphInfos.find(g => g.id === targetGraphId)
+          if (targetGraph && targetGraph.canvasState) {
+            setCanvasOffset(targetGraph.canvasState.offset)
+            setCanvasZoom(targetGraph.canvasState.zoom)
+          }
+
+          // Update workflow metadata
+          setWorkflowName(snapshot.name)
+          setWorkflowTrigger(snapshot.triggerConfig || null)
         } else {
           // Legacy single-graph workflow
-          const result = await loadFromStorage(selectedWorkflowId)
+          // TODO: Implement storage loading in V2
+          // Loading workflow not implemented in V2 yet
+          const result: any = null
           if (result?.canvasState) {
             setCanvasOffset(result.canvasState.offset)
             setCanvasZoom(result.canvasState.zoom)
           }
         }
-        
+
         // The workflowName will be updated by the store after loading
         setTimeout(() => {
           const { workflowName: newName } = useWorkflowStore.getState()
@@ -1077,7 +1591,7 @@ export default function Home() {
         console.error('Load error:', error)
       }
     }
-    
+
     // Check for unsaved changes before loading a different workflow
     if (hasUnsavedChanges()) {
       handleNavigationWithCheck(action, workflowName)
@@ -1106,7 +1620,13 @@ export default function Home() {
 
   // Handle group creation
   const handleGroupCreationConfirm = (title: string, description: string) => {
-    createGroupFromSelection(title, description)
+    if (selectedNodeIds.length > 0) {
+      const groupId = createGroup(title, selectedNodeIds, '#3b82f6')
+      if (groupId && description) {
+        updateGroup(groupId, { description })
+      }
+      clearSelection()
+    }
     setIsGroupCreationModalOpen(false)
   }
 
@@ -1114,9 +1634,63 @@ export default function Home() {
     setIsGroupCreationModalOpen(false)
   }
 
+  // Handle selection context menu
+  const handleSelectionContextMenu = (e: React.MouseEvent) => {
+    if (selection.selectedNodeIds.length > 0) {
+      e.preventDefault()
+      setSelectionContextMenu({
+        isVisible: true,
+        position: { x: e.clientX, y: e.clientY },
+      })
+    }
+  }
+
+  const handleSelectionContextMenuClose = () => {
+    setSelectionContextMenu({ isVisible: false, position: { x: 0, y: 0 } })
+  }
+
+  const handleContextMenuCreateGroup = () => {
+    setIsGroupCreationModalOpen(true)
+  }
+
   // Handle empty group creation
-  const handleEmptyGroupCreationConfirm = (title: string, description: string, position: { x: number; y: number }) => {
-    createEmptyGroup(title, description, position)
+  const handleEmptyGroupCreationConfirm = (
+    title: string,
+    description: string,
+    position: { x: number; y: number }
+  ) => {
+    // Create a temporary node to establish the group position
+    const tempNodeId = `temp-${Date.now()}`
+    const tempNode = addNode(
+      {
+        id: tempNodeId,
+        templateId: 'placeholder',
+        type: 'placeholder',
+        title: 'Placeholder',
+        icon: 'Circle',
+        variant: 'gray-600',
+        shape: 'rectangle',
+        size: 'medium',
+        ports: [],
+        properties: {},
+      },
+      position
+    )
+
+    // Create group with the temp node
+    const groupId = createGroup(title, [tempNodeId], '#3b82f6')
+
+    // Update group with description and proper size
+    if (groupId) {
+      updateGroup(groupId, {
+        description,
+        size: { width: 300, height: 200 },
+      })
+    }
+
+    // Remove the temp node
+    removeNode(tempNodeId)
+
     setIsEmptyGroupModalOpen(false)
   }
 
@@ -1129,13 +1703,180 @@ export default function Home() {
     setIsEmptyGroupModalOpen(true)
   }
 
-
   const handleNodeDropIntoGroup = (nodeId: string, groupId: string) => {
+    // [PageHandler] Node dropped into group
+
+    // Get the target group and node
+    const targetGroup = groups.find(g => g.id === groupId)
+    const node = storeNodes.find(n => (n.metadata.id) === nodeId)
+
+    if (!targetGroup || !node) return
+
+    // Check if node is already in a different group and remove it first
+    const currentGroup = groups.find(g => g.nodeIds.includes(nodeId))
+    if (currentGroup && currentGroup.id !== groupId) {
+      // [PageHandler] Moving node from group to another group
+      removeNodeFromGroup(currentGroup.id, nodeId)
+
+      // Clean up stored position from previous group
+      setGroupNodePositions(prev => {
+        const newPositions = { ...prev }
+        if (newPositions[currentGroup.id]) {
+          delete newPositions[currentGroup.id][nodeId]
+        }
+        return newPositions
+      })
+    }
+
+    // Before adding to group, update the node's absolute position
+    // This ensures other clients can calculate the correct relative position
+    // The node should be positioned at a default location within the group
+    const headerOffset = targetGroup.description ? 100 : 32
+    const padding = 20
+
+    // Find a good position for the node within the group
+    const existingNodesInGroup = storeNodes.filter(n =>
+      targetGroup.nodeIds.includes(n.metadata.id || n.metadata.id)
+    )
+
+    // Simple grid layout for dropped nodes
+    const GRID_SPACING = 220
+    const COLS = 3
+    const index = existingNodesInGroup.length
+    const col = index % COLS
+    const row = Math.floor(index / COLS)
+
+    const newAbsolutePosition = {
+      x: targetGroup.position.x + padding + col * GRID_SPACING,
+      y: targetGroup.position.y + headerOffset + padding + row * GRID_SPACING,
+    }
+
+    // Update node position in CRDT so other clients see it correctly
+    updateNodePosition(nodeId, newAbsolutePosition)
+
+    // Add node to the target group
     addNodeToGroup(groupId, nodeId)
+    setGraphDirty(currentGraphId, true)
+
+    // Clear the hover state after successful drop
+    setNodeHoveringGroupId(null)
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+  }
+
+  // Store initial node position in group (local only, no CRDT update)
+  const storeInitialNodePositionInGroup = (
+    nodeId: string,
+    groupId: string,
+    position: { x: number; y: number }
+  ) => {
+    // [Page] Storing initial node position in group
+
+    // Only update local group position state
+    setGroupNodePositions(prev => ({
+      ...prev,
+      [groupId]: {
+        ...prev[groupId],
+        [nodeId]: position,
+      },
+    }))
+  }
+
+  // Handle node position change within a group (during drag)
+  const handleNodePositionInGroup = (
+    nodeId: string,
+    groupId: string,
+    position: { x: number; y: number }
+  ) => {
+    // 🔥 [Page] Node position changed within group (v2 approach)
+
+    // Update local group position state for immediate UI feedback
+    setGroupNodePositions(prev => {
+      const newPositions = {
+        ...prev,
+        [groupId]: {
+          ...prev[groupId],
+          [nodeId]: position,
+        },
+      }
+
+      // Also save to localStorage immediately for persistence
+      if (workflowId) {
+        localStorage.setItem(`groupNodePositions-${workflowId}`, JSON.stringify(newPositions))
+      }
+
+      return newPositions
+    })
+
+    // Calculate and update absolute position in CRDT for proper sync
+    const group = groups.find(g => g.id === groupId)
+    if (group && group.position) {
+      const headerOffset = group.description ? 100 : 32
+      const absolutePosition = {
+        x: group.position.x + position.x,
+        y: group.position.y + headerOffset + position.y,
+      }
+
+      // Update node position in CRDT so other clients see it correctly
+      updateNodePosition(nodeId, absolutePosition)
+      setGraphDirty(currentGraphId, true)
+    }
   }
 
   const handleNodeHoverGroup = (groupId: string | null) => {
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+
     setNodeHoveringGroupId(groupId)
+
+    // If hovering over a group, set a timeout to clear the hover state
+    if (groupId) {
+      hoverTimeoutRef.current = setTimeout(() => {
+        setNodeHoveringGroupId(null)
+        hoverTimeoutRef.current = null
+      }, 5000) // Clear after 5 seconds
+    }
+  }
+
+  // Clear node hovering state when drag starts on a new node
+  const handleNodeDragStart = (nodeId: string) => {
+    // [DEBUG] Drag start
+    // Clear any existing hover state when starting a new drag
+    setNodeHoveringGroupId(null)
+    // Track that this node is being dragged in both local and CRDT state
+    draggingNodeIdsRef.current.add(nodeId)
+    // Drag state is handled locally
+    // [DEBUG] Dragging node IDs updated
+  }
+
+  // Clear node hovering state when drag ends
+  const handleNodeDragEnd = (nodeId: string, finalPosition?: { x: number; y: number }) => {
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    // Ensure hover state is cleared when drag ends
+    setNodeHoveringGroupId(null)
+
+    // Update CRDT with the final dragged position
+    if (finalPosition) {
+      updateNodePosition(nodeId, finalPosition)
+      setGraphDirty(currentGraphId, true)
+    }
+
+    // Remove node from dragging set AFTER updating CRDT
+    // Use a small delay to ensure CRDT update completes
+    setTimeout(() => {
+      draggingNodeIdsRef.current.delete(nodeId)
+      // Drag state is handled locally
+      // [DEBUG] Removed from dragging
+    }, 0)
   }
 
   const handleGroupEditClick = (groupId: string) => {
@@ -1158,59 +1899,103 @@ export default function Home() {
   const handleGroupDeleteConfirm = (groupId: string, preserveNodes: boolean) => {
     if (preserveNodes) {
       // Remove nodes from group but keep them
-      const group = groups.find(g => g.id === groupId)
+      const group = groups.find((g: any) => g.id === groupId)
       if (group) {
-        group.nodeIds.forEach(nodeId => {
+        group.nodeIds.forEach((nodeId: any) => {
           removeNodeFromGroup(groupId, nodeId)
         })
       }
     } else {
       // Delete all nodes in the group first
-      const group = groups.find(g => g.id === groupId)
+      const group = groups.find((g: any) => g.id === groupId)
       if (group) {
-        group.nodeIds.forEach(nodeId => {
+        group.nodeIds.forEach((nodeId: any) => {
           removeNode(nodeId)
         })
       }
     }
-    
+
     // Delete the group
-    deleteGroup(groupId)
+    removeGroup(groupId)
+
+    // Clean up stored positions for this group
+    setGroupNodePositions(prev => {
+      const newPositions = { ...prev }
+      delete newPositions[groupId]
+      return newPositions
+    })
+
     setDeletingGroupId(null)
   }
 
   const handleGroupDeleteCancel = () => {
     setDeletingGroupId(null)
   }
-  
+
   // Tab bar handlers
   const handleTabSelect = (graphId: string) => {
     // Don't do anything if we're selecting the current graph
     if (graphId === currentGraphId) return
-    
+
     const currentGraph = getCurrentGraph()
-    
+    const workflowId = useWorkflowStore.getState().workflowId
+
     // Always save current graph state before switching (in memory, not to storage)
     if (currentGraph) {
       // Save canvas state
-      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
-      
+      updateCanvasState(currentGraph.id, {
+        offset: canvasOffset,
+        zoom: canvasZoom,
+      })
+
       // Save workflow state
-      const workflowState = saveCurrentGraphState()
+      const workflowState = {
+        nodes: storeNodes,
+        connections: connections,
+        groups: groups,
+        trigger: currentGraph.isMain ? workflowTrigger : null,
+        portPositions: {}, // TODO: Implement port positions tracking
+      }
+      // State is automatically saved in CRDT
       updateWorkflowState(currentGraph.id, workflowState)
     }
-    
+
     // Switch to new graph
     switchGraph(graphId)
+
+    // Save active tab preference
+    if (workflowId) {
+      UserPreferencesService.updateActiveGraphId(workflowId, graphId)
+    }
+
+    // Restore canvas state for the new graph from user preferences
+    let targetGraphCanvasState = null
+    if (workflowId) {
+      targetGraphCanvasState = UserPreferencesService.getCanvasState(workflowId, graphId)
+    }
+
+    // Fall back to local state if no preferences saved
+    if (!targetGraphCanvasState) {
+      targetGraphCanvasState = graphCanvasStates[graphId]
+    }
+
+    if (targetGraphCanvasState) {
+      setCanvasOffset(targetGraphCanvasState.offset)
+      setCanvasZoom(targetGraphCanvasState.zoom)
+    } else {
+      // Default canvas state if none saved
+      setCanvasOffset({ x: 0, y: 0 })
+      setCanvasZoom(1)
+    }
   }
-  
+
   const handleTabClose = (graphId: string) => {
     const graph = graphs.find(g => g.id === graphId)
     if (graph?.isMain) {
       // Can't close main graph
       return
     }
-    
+
     // Check if this graph has unsaved changes
     if (graph?.isDirty) {
       handleNavigationWithCheck(() => {
@@ -1224,68 +2009,150 @@ export default function Home() {
       }
     }
   }
-  
+
   const handleTabAdd = () => {
     const currentGraph = getCurrentGraph()
-    
+
     // Save current graph state before adding new graph (in memory, not to storage)
     if (currentGraph) {
-      const workflowState = saveCurrentGraphState()
+      const workflowState = {
+        nodes: storeNodes,
+        connections: connections,
+        groups: groups,
+        trigger: currentGraph.isMain ? workflowTrigger : null,
+        portPositions: {}, // TODO: Implement port positions tracking
+      }
+      // State is automatically saved in CRDT
       updateWorkflowState(currentGraph.id, workflowState)
-      updateCanvasState(currentGraph.id, { offset: canvasOffset, zoom: canvasZoom })
+      updateCanvasState(currentGraph.id, {
+        offset: canvasOffset,
+        zoom: canvasZoom,
+      })
     }
-    
+
     const newGraphId = addGraph(`Graph ${graphs.length + 1}`)
     switchGraph(newGraphId)
   }
-  
+
   const handleTabRename = (graphId: string, newName: string) => {
     renameGraph(graphId, newName)
   }
-  
+
   const handleSetMainTab = (graphId: string) => {
     setMainGraph(graphId)
   }
-  
+
   const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
-    const portPosition = getPortPosition(nodeId, portId)
-    
+    // TODO: Re-implement port positions in V2
+    const portPosition = getStoredPortPosition(nodeId, portId) // Using old store method temporarily
+
     if (portPosition) {
-      startDrag(nodeId, portId, portType, { x: portPosition.x, y: portPosition.y })
+      startDrag(nodeId, portId, portType, {
+        x: portPosition.x,
+        y: portPosition.y,
+      })
     } else {
       // If port position isn't available yet, try again after a short delay
       setTimeout(() => {
-        const delayedPosition = getPortPosition(nodeId, portId)
+        const delayedPosition = getStoredPortPosition(nodeId, portId) // Using old store method temporarily
         if (delayedPosition) {
-          startDrag(nodeId, portId, portType, { x: delayedPosition.x, y: delayedPosition.y })
+          startDrag(nodeId, portId, portType, {
+            x: delayedPosition.x,
+            y: delayedPosition.y,
+          })
         }
       }, 100)
     }
   }
-  
+
   const handlePortDragEnd = (nodeId: string, portId: string, portType: 'input' | 'output') => {
     // Only process if we're currently dragging
     if (dragState.isDragging) {
       const newConnection = endDrag(nodeId, portId, portType)
       if (newConnection) {
         // New connections start in pending state by default
-        addConnection({ 
-          ...newConnection, 
-          state: 'pending' as const 
-        })
+        addConnection(newConnection)
         // Mark graph as dirty when connections are created
         setGraphDirty(currentGraphId, true)
       }
     }
   }
-  
-  
+
+  // Selection handlers
+  const startSelection = (point: { x: number; y: number }) => {
+    setSelectionBounds({ start: point, end: point })
+    setSelection({
+      isSelecting: true,
+      selectionStart: point,
+      selectionEnd: point,
+      selectedNodeIds: [],
+      dragSelecting: true,
+    })
+    setSelectedNodes([])
+  }
+
+  const updateSelection = (point: { x: number; y: number }) => {
+    if (selectionBounds) {
+      setSelectionBounds({ ...selectionBounds, end: point })
+
+      // Calculate which nodes are in the selection bounds
+      const minX = Math.min(selectionBounds.start.x, point.x)
+      const maxX = Math.max(selectionBounds.start.x, point.x)
+      const minY = Math.min(selectionBounds.start.y, point.y)
+      const maxY = Math.max(selectionBounds.start.y, point.y)
+
+      const selectedIds = storeNodes
+        .filter(node => {
+          const nodeX = node.position.x
+          const nodeY = node.position.y
+          return nodeX >= minX && nodeX <= maxX && nodeY >= minY && nodeY <= maxY
+        })
+        .map(node =>  node.metadata.id)
+
+      setSelectedNodes(selectedIds)
+      setSelection(prev => ({
+        ...prev,
+        selectionEnd: point,
+        selectedNodeIds: selectedIds,
+      }))
+    }
+  }
+
+  const endSelection = () => {
+    const hasSelectedNodes = selection.selectedNodeIds.length > 0
+    setSelectionBounds(null)
+    setSelection(prev => ({
+      ...prev,
+      isSelecting: false,
+      selectionStart: null,
+      selectionEnd: null,
+      dragSelecting: false,
+    }))
+    return hasSelectedNodes
+  }
+
+  const clearSelection = () => {
+    setSelectedNodes([])
+    setSelectionBounds(null)
+    setSelection({
+      isSelecting: false,
+      selectionStart: null,
+      selectionEnd: null,
+      selectedNodeIds: [],
+      dragSelecting: false,
+    })
+  }
+
+  const isNodeSelected = (nodeId: string) => {
+    return selectedNodeIds.includes(nodeId) || selection.selectedNodeIds.includes(nodeId)
+  }
+
   // Handle connection click for deletion
   const handleConnectionClick = (connectionId: string) => {
     setConnectionToDelete(connectionId)
     setDeleteDialogOpen(true)
   }
-  
+
   // Confirm connection deletion
   const handleDeleteConnection = () => {
     if (connectionToDelete) {
@@ -1296,17 +2163,17 @@ export default function Home() {
       setDeleteDialogOpen(false)
     }
   }
-  
+
   // Cancel connection deletion
   const handleCancelDelete = () => {
     setConnectionToDelete(null)
     setDeleteDialogOpen(false)
   }
-  
+
   // Handle mouse move for drag line
   useEffect(() => {
     if (!dragState.isDragging) return
-    
+
     const handleMouseMove = (e: MouseEvent) => {
       const canvas = document.querySelector('.relative.w-full.h-full.overflow-hidden')
       if (canvas) {
@@ -1314,65 +2181,86 @@ export default function Home() {
         // Account for canvas offset and zoom
         updateDrag({
           x: (e.clientX - rect.left - canvasOffset.x) / canvasZoom,
-          y: (e.clientY - rect.top - canvasOffset.y) / canvasZoom
+          y: (e.clientY - rect.top - canvasOffset.y) / canvasZoom,
         })
       }
     }
-    
+
     const handleMouseUp = () => {
       endDrag(null, null, null)
     }
-    
+
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
-    
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
   }, [dragState.isDragging, canvasOffset, canvasZoom, updateDrag, endDrag])
-  
+
   // Keyboard shortcuts for testing connection states and undo/redo
   useEffect(() => {
     // Detect if user is on macOS
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-    
+    const isMac = navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
+
     const handleKeyPress = (e: KeyboardEvent) => {
       // Don't handle keyboard shortcuts if user is typing in an input field
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return
       }
-      
+
       // Press '1', '2', '3', '4' to set the first connection to different states
       if (['1', '2', '3', '4'].includes(e.key) && connections.length > 0) {
-        const states: ('pending' | 'warning' | 'error' | 'success')[] = ['pending', 'warning', 'error', 'success']
+        const states: ('pending' | 'warning' | 'error' | 'success')[] = [
+          'pending',
+          'warning',
+          'error',
+          'success',
+        ]
         const stateIndex = parseInt(e.key) - 1
         const firstConnectionId = connections[0].id
         updateConnectionState(firstConnectionId, states[stateIndex])
       }
-      
+
       // Check for the appropriate modifier key based on platform
       const hasModifier = isMac ? e.metaKey : e.ctrlKey
-      
+
       // Undo/Redo shortcuts (Cmd+Z / Cmd+Shift+Z on Mac, Ctrl+Z / Ctrl+Shift+Z on Windows/Linux)
       if (hasModifier) {
-        if (e.key === 'z' && !e.shiftKey) {
+        // Undo/redo not yet implemented in new store
+        // if (e.key === "z" && !e.shiftKey) {
+        //   e.preventDefault();
+        //   undo();
+        // } else if (e.key === "z" && e.shiftKey) {
+        //   e.preventDefault();
+        //   redo();
+        // }
+
+        // Select All (Cmd+A / Ctrl+A)
+        if (e.key === 'a' && !e.shiftKey) {
           e.preventDefault()
-          undo()
-        } else if (e.key === 'z' && e.shiftKey) {
-          e.preventDefault()
-          redo()
+          const allNodeIds = storeNodes.map(node => node.metadata.id)
+          setSelectedNodes(allNodeIds)
+          setSelection(prev => ({
+            ...prev,
+            selectedNodeIds: allNodeIds,
+            isSelecting: false,
+            selectionStart: null,
+            selectionEnd: null,
+            dragSelecting: false,
+          }))
         }
-        
+
         // Group selected nodes (Cmd+G on Mac, Ctrl+G on Windows/Linux)
         if (e.key === 'g' && !e.shiftKey) {
           e.preventDefault()
-          if (selection.selectedNodeIds.length > 0) {
+          if (selectedNodeIds.length > 0 || selection.selectedNodeIds.length > 0) {
             setIsGroupCreationModalOpen(true)
           }
         }
-        
+
         // Ctrl/Cmd + E: Create empty group at center of viewport
         if (e.key === 'e' && !e.shiftKey) {
           e.preventDefault()
@@ -1382,13 +2270,30 @@ export default function Home() {
           handleCreateEmptyGroup({ x: centerX, y: centerY })
         }
       }
-      
+
       // Clear selection with Escape
       if (e.key === 'Escape') {
         e.preventDefault()
         clearSelection()
       }
-        
+
+      // Delete selected nodes with Delete/Backspace
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        const nodesToDelete =
+          selectedNodeIds.length > 0 ? selectedNodeIds : selection.selectedNodeIds
+        if (nodesToDelete.length > 0) {
+          // Remove all selected nodes
+          nodesToDelete.forEach(nodeId => {
+            removeNode(nodeId)
+          })
+          // Clear selection after deletion
+          clearSelection()
+          // Mark graph as dirty
+          setGraphDirty(currentGraphId, true)
+        }
+      }
+
       // Other keyboard shortcuts (Cmd+Shift+...)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
         // Cmd+Shift+P to simulate published workflows (for testing)
@@ -1397,7 +2302,7 @@ export default function Home() {
           simulatePublishedWorkflows()
           ToastManager.info('Simulated published workflows created')
         }
-        
+
         // Cmd+Shift+E to clear environment variable storage (for testing)
         if (e.key === 'e') {
           e.preventDefault()
@@ -1406,7 +2311,7 @@ export default function Home() {
           useEnvVarStore.getState().updateConfiguredVars([])
           ToastManager.info('Environment variable storage cleared')
         }
-        
+
         // Cmd+Shift+D to clear dirty state on all graphs (for debugging)
         if (e.key === 'd') {
           e.preventDefault()
@@ -1415,60 +2320,104 @@ export default function Home() {
           })
           ToastManager.info('Cleared dirty state on all graphs')
         }
-        
+
         // Cmd+Shift+C to create test connection (for debugging)
         if (e.key === 'c') {
           e.preventDefault()
           if (storeNodes.length >= 2) {
             const firstNode = storeNodes[0]
             const secondNode = storeNodes[1]
-            
+
             // Create a test connection between first two nodes
             const testConnection = {
               id: `test-conn-${Date.now()}`,
               source: {
                 nodeId: firstNode.metadata.id,
-                portId: firstNode.metadata.ports?.[0]?.id || 'test-out'
+                portId: firstNode.metadata.ports?.[0]?.id || 'test-out',
               },
               target: {
                 nodeId: secondNode.metadata.id,
-                portId: secondNode.metadata.ports?.[0]?.id || 'test-in'
+                portId: secondNode.metadata.ports?.[0]?.id || 'test-in',
               },
-              state: 'pending' as const
+              state: 'pending' as const,
             }
-            
+
             addConnection(testConnection)
             ToastManager.info('Test connection created')
           } else {
             ToastManager.error('Need at least 2 nodes to create a test connection')
           }
         }
-        
+
         // Cmd+Shift+R to manually resize all groups (for debugging)
         if (e.key === 'r') {
           e.preventDefault()
-          groups.forEach(group => {
-            console.log(`🔧 Manually triggering resize for group ${group.id}`)
-            autoResizeGroup(group.id)
+          groups.forEach((group: any) => {
+            // TODO: Re-implement autoResizeGroup in V2
+            // autoResizeGroup(group.id)
           })
           ToastManager.info(`Resized ${groups.length} groups`)
         }
       }
     }
-    
+
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [connections, undo, redo])
+  }, [connections /**undo, redo**/])
 
+  // Track mouse movement for collaborative cursors
+  // NOTE: Disabled because cursor tracking is handled by InteractiveCanvas onMouseMove
+  useEffect(() => {
+    return // Disabled - using InteractiveCanvas instead
+    if (!isCollaborative) return
 
+    const handleMouseMove = (e: MouseEvent) => {
+      // Find the canvas container
+      const canvas = document.querySelector('[data-canvas="true"]') as HTMLElement
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect()
+        // Convert mouse position to world coordinates
+        // The formula is: (mousePos - canvasPos - offset) / zoom
+        const worldX = (e.clientX - rect.left - canvasOffset.x) / canvasZoom
+        const worldY = (e.clientY - rect.top - canvasOffset.y) / canvasZoom
+
+        const cursorUpdate = {
+          cursor: {
+            x: worldX,
+            y: worldY,
+            graphId: currentGraphId,
+          },
+        }
+        // [CursorTracking] Sending cursor update
+        updateCursorPosition({ x: e.clientX, y: e.clientY })
+      }
+    }
+
+    // Use requestAnimationFrame for smooth cursor updates
+    let rafId: number | null = null
+    const throttledMouseMove = (e: MouseEvent) => {
+      if (!rafId) {
+        rafId = requestAnimationFrame(() => {
+          handleMouseMove(e)
+          rafId = null
+        })
+      }
+    }
+
+    window.addEventListener('mousemove', throttledMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', throttledMouseMove)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [isCollaborative, updateCursorPosition, canvasOffset, canvasZoom, currentGraphId])
 
   return (
     <main className="flex h-screen flex-col bg-gray-50 overflow-hidden">
       {/* Loading Overlay */}
       {isLoading && <LoadingOverlay message={loadingMessage} />}
-      
+
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shadow-sm relative z-10">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shadow-sm relative z-50">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-medium text-gray-900">Zeal</h1>
           <div className="flex items-center gap-2">
@@ -1477,8 +2426,8 @@ export default function Home() {
                 <input
                   type="text"
                   value={editedWorkflowName}
-                  onChange={(e) => setEditedWorkflowName(e.target.value)}
-                  onKeyDown={(e) => {
+                  onChange={e => setEditedWorkflowName(e.target.value)}
+                  onKeyDown={e => {
                     if (e.key === 'Enter') {
                       setWorkflowName(editedWorkflowName)
                       setIsEditingWorkflowName(false)
@@ -1523,16 +2472,22 @@ export default function Home() {
                 </button>
               </div>
             )}
-            {workflowId && <span className="text-xs text-gray-400">ID: {workflowId.slice(0, 8)}...</span>}
+            {workflowId && (
+              <span className="text-xs text-gray-400">ID: {workflowId.slice(0, 8)}...</span>
+            )}
             {workflowTrigger && getCurrentGraph()?.isMain && (
               <button
                 onClick={() => {
                   // Find and click the trigger manager button to open the modal
-                  const triggerButton = document.querySelector('[title="Edit Trigger"]') as HTMLButtonElement;
-                  if (triggerButton) triggerButton.click();
+                  const triggerButton = document.querySelector(
+                    '[title="Edit Trigger"]'
+                  ) as HTMLButtonElement
+                  if (triggerButton) triggerButton.click()
                 }}
                 className="flex items-center gap-2 px-3 py-1 bg-purple-100 hover:bg-purple-200 rounded-full transition-colors group"
-                title={`${workflowTrigger.name}: ${workflowTrigger.description || 'Click to edit trigger'}`}
+                title={`${workflowTrigger.name}: ${
+                  workflowTrigger.description || 'Click to edit trigger'
+                }`}
               >
                 <span className="text-xs font-medium text-gray-600">Trigger</span>
                 <div className="w-px h-4 bg-purple-300"></div>
@@ -1545,13 +2500,19 @@ export default function Home() {
                     <Clock className="w-3 h-3 text-purple-600" />
                   )}
                   <span className="text-xs font-medium text-gray-700">
-                    {workflowTrigger.type === 'rest' ? 'HTTP' :
-                     workflowTrigger.type === 'websocket' ? 'WebSocket' :
-                     workflowTrigger.type === 'scheduler' ? (
-                       (workflowTrigger.config as any).isOneTime ? 'Once' :
-                       (workflowTrigger.config as any).interval ? `Every ${(workflowTrigger.config as any).interval.value} ${(workflowTrigger.config as any).interval.unit}` :
-                       'Cron'
-                     ) : 'Active'}
+                    {workflowTrigger.type === 'rest'
+                      ? 'HTTP'
+                      : workflowTrigger.type === 'websocket'
+                        ? 'WebSocket'
+                        : workflowTrigger.type === 'scheduler'
+                          ? (workflowTrigger.config as any).isOneTime
+                            ? 'Once'
+                            : (workflowTrigger.config as any).interval
+                              ? `Every ${
+                                  (workflowTrigger.config as any).interval.value
+                                } ${(workflowTrigger.config as any).interval.unit}`
+                              : 'Cron'
+                          : 'Active'}
                   </span>
                   <Edit2 className="w-3 h-3 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
@@ -1560,54 +2521,112 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Save button group with shared border */}
-          <div className="flex items-center border border-gray-200 rounded-md overflow-hidden">
-            <button 
-              onClick={handleSaveWorkflow}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
-            >
-              <Save className="w-3.5 h-3.5" />
-              Save
-            </button>
-            
+          {/* Autosave Indicator and Save Button */}
+          <div className="flex items-center gap-2">
+            {/* Show save button only when autosave is disabled */}
+            {!autosaveEnabled && (
+              <button
+                onClick={handleSaveWorkflow}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                <Save className="w-3.5 h-3.5" />
+                Save
+              </button>
+            )}
+
             {/* Autosave Toggle */}
             <button
-              onClick={() => setAutosaveEnabled(!autosaveEnabled)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-l cursor-pointer ${
-                autosaveEnabled 
-                  ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200' 
+              onClick={() => !isCollaborative && setAutosaveEnabled(!autosaveEnabled)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border rounded-md ${
+                isCollaborative ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+              } ${
+                autosaveEnabled
+                  ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
               }`}
-              title={autosaveEnabled ? 'Autosave: ON - Click to disable' : 'Autosave: OFF - Click to enable'}
+              title={
+                isCollaborative
+                  ? 'Autosave is required in collaborative mode'
+                  : autosaveEnabled
+                    ? 'Autosave: ON - Click to disable'
+                    : 'Autosave: OFF - Click to enable'
+              }
+              disabled={isCollaborative}
             >
               <RotateCcw className={`w-3 h-3 ${autosaveEnabled ? 'animate-spin' : ''}`} />
-              {autosaveEnabled ? 'Auto' : 'Manual'}
+              {autosaveEnabled ? 'Autosave' : 'Manual'}
+              {/* {isCollaborative && <span className="ml-1 text-[10px]">(Required)</span>} */}
             </button>
           </div>
-          <button 
+          <button
             onClick={handlePublishWorkflow}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
           >
             <Upload className="w-3.5 h-3.5" />
             Publish
           </button>
-          <button 
+          <button
             onClick={handleRunSimulation}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
           >
             <Play className="w-3.5 h-3.5" />
             Run
           </button>
+
+          {/* Notification Button - only show in collaborative mode */}
+          {isCollaborative && <NotificationButton />}
+
+          {/* Share and User Settings moved to Presence Dropdown */}
+
+          {/* Presence Dropdown */}
+          {isCollaborative && (
+            <PresenceDropdown
+              presence={presence}
+              isCollaborative={isCollaborative}
+              isSyncing={isSyncing}
+              isOptimized={isOptimized}
+              localClientId={doc?.clientID}
+              workflowId={workflowId}
+              onShare={async () => {
+                const shareUrl = workflowId ? `${window.location.origin}/?id=${workflowId}` : ''
+
+                if (!shareUrl) return
+
+                try {
+                  await navigator.clipboard.writeText(shareUrl)
+                  toast.success('Share link copied to clipboard!')
+                } catch (error) {
+                  // Fallback for older browsers
+                  const textArea = document.createElement('textarea')
+                  textArea.value = shareUrl
+                  textArea.style.position = 'fixed'
+                  textArea.style.opacity = '0'
+                  document.body.appendChild(textArea)
+                  textArea.select()
+
+                  try {
+                    document.execCommand('copy')
+                    toast.success('Share link copied to clipboard!')
+                  } catch (err) {
+                    toast.error('Failed to copy link')
+                  }
+
+                  document.body.removeChild(textArea)
+                }
+              }}
+              onUserSettings={() => setIsUserSettingsOpen(true)}
+            />
+          )}
         </div>
       </header>
-      
+
       {/* Tab Bar */}
       <TabBar
         tabs={graphs.map(g => ({
           id: g.id,
           name: g.name,
           isMain: g.isMain,
-          isDirty: g.isDirty
+          isDirty: g.isDirty || false, // Default to false if not set
         }))}
         activeTabId={currentGraphId}
         onTabSelect={handleTabSelect}
@@ -1620,113 +2639,330 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex-1 flex relative overflow-hidden">
         <div className="flex-1 relative overflow-hidden">
-        <InteractiveCanvas 
-          offset={canvasOffset} 
-          onOffsetChange={setCanvasOffset}
-          zoom={canvasZoom}
-          onZoomChange={setCanvasZoom}
-          onSelectionStart={startSelection}
-          onSelectionUpdate={updateSelection}
-          onSelectionEnd={() => {
-            const hasSelectedNodes = endSelection()
-            // Automatically open group creation modal if nodes were selected
-            if (hasSelectedNodes) {
-              setIsGroupCreationModalOpen(true)
-            }
-          }}
-          onSelectionClear={clearSelection}
-        >
-          {/* Connection Lines - render before nodes so they appear behind */}
-          <ConnectionLines connections={connections} getPortPosition={getPortPosition} onConnectionClick={handleConnectionClick} />
-          
-          {/* Drag connection line */}
-          {dragState.isDragging && dragState.sourceNodeId && dragState.sourcePortId && dragState.currentPosition && (() => {
-            const sourcePos = getPortPosition(dragState.sourceNodeId, dragState.sourcePortId)
-            return sourcePos ? (
-              <DragConnectionLine
-                sourcePosition={sourcePos}
-                currentPosition={dragState.currentPosition}
+          <InteractiveCanvas
+            offset={canvasOffset}
+            onOffsetChange={setCanvasOffset}
+            zoom={canvasZoom}
+            onZoomChange={setCanvasZoom}
+            onSelectionStart={startSelection}
+            onSelectionUpdate={updateSelection}
+            onSelectionEnd={() => {
+              const hasSelectedNodes = endSelection()
+              // Automatically open group creation modal if nodes were selected
+              if (hasSelectedNodes) {
+                setIsGroupCreationModalOpen(true)
+              }
+            }}
+            onSelectionClear={clearSelection}
+            onMouseMove={point => {
+              updateCursorPosition(point)
+            }}
+            onContextMenu={handleSelectionContextMenu}
+          >
+            {/* Collaborative Cursors - render first so they appear behind everything */}
+            {isCollaborative && (
+              <CollaborativeCursors
+                presence={presence}
+                currentGraphId={currentGraphId}
+                canvasOffset={canvasOffset}
+                canvasZoom={canvasZoom}
+                currentUserId={doc?.clientID}
               />
-            ) : null
-          })()}
-          
-          {/* Node Groups - render before nodes so they appear behind */}
-          {groups.map(group => {
-            // Get nodes that belong to this group
-            const groupNodes = storeNodes.filter(node => group.nodeIds.includes(node.metadata.id))
-            return (
-              <NodeGroupContainer 
-                key={group.id} 
-                group={group}
-                isDropTarget={nodeHoveringGroupId === group.id}
-                onEditClick={handleGroupEditClick}
-                onDeleteClick={handleGroupDeleteClick}
-                zoom={canvasZoom}
-              >
-                {/* Render nodes that belong to this group */}
-                {groupNodes.map(node => {
-                  // Check if this is a subgraph node
-                  if (node.metadata.type === 'subgraph') {
-                    return (
-                      <SubgraphNode
-                        key={`group-${group.id}-node-${node.metadata.id}`}
-                        metadata={node.metadata as any}
-                        position={{
-                          x: node.position.x - group.position.x,
-                          y: node.position.y - group.position.y - (group.description ? 60 : 32)
-                        }}
-                        onPositionChange={(nodeId, position) => {
-                          // Convert relative position back to absolute
-                          handleNodePositionChange(nodeId, {
-                            x: position.x + group.position.x,
-                            y: position.y + group.position.y + (group.description ? 60 : 32)
-                          })
-                        }}
-                        onBoundsChange={(nodeId, bounds) => {
-                          // Use absolute node position for bounds
-                          updateNodeBounds(nodeId, {
-                            x: node.position.x,
-                            y: node.position.y,
-                            width: bounds.width,
-                            height: bounds.height
-                          })
-                        }}
-                        onPortPositionUpdate={updatePortPosition}
-                        onPortDragStart={handlePortDragStart}
-                        onPortDragEnd={handlePortDragEnd}
-                        onClick={() => handleNodeSelect(node.metadata.id)}
-                        isHighlighted={node.metadata.id === highlightedNodeId}
-                        isNodeSelected={isNodeSelected(node.metadata.id)}
-                        zoom={canvasZoom}
-                      />
-                    )
-                  }
-                  
+            )}
+
+            {/* Connection Lines - render before nodes so they appear behind */}
+            <ConnectionLines
+              connections={connections}
+              getPortPosition={getStoredPortPosition}
+              onConnectionClick={handleConnectionClick}
+              localGroupCollapseState={localGroupCollapseState}
+            />
+
+            {/* Drag connection line */}
+            {dragState.isDragging &&
+              dragState.sourceNodeId &&
+              dragState.sourcePortId &&
+              dragState.currentPosition &&
+              (() => {
+                const sourcePos = getStoredPortPosition(
+                  dragState.sourceNodeId,
+                  dragState.sourcePortId
+                ) // Using old store method temporarily
+                return sourcePos ? (
+                  <DragConnectionLine
+                    sourcePosition={sourcePos}
+                    currentPosition={dragState.currentPosition}
+                  />
+                ) : null
+              })()}
+
+            {/* Node Groups - render before nodes so they appear behind */}
+            {groups.map((group: any) => {
+              // Debug log group rendering
+              // 🔷GROUPOPS PAGE-RENDER: Rendering group
+
+              // Ensure group has required properties before rendering
+              if (!group.id) {
+                return null
+              }
+
+              // Get nodes that belong to this group - be more permissive for debugging
+              const groupNodes = storeNodes.filter((node: any) => {
+                const nodeId = getNodeId(node)
+                return nodeId && group.nodeIds.includes(nodeId) && node.metadata
+              })
+
+              return (
+                <React.Fragment key={group.id}>
+                  <NodeGroupContainer
+                    group={group}
+                    isCollapsed={localGroupCollapseState[group.id] || false}
+                    onCollapseToggle={handleGroupCollapseToggle}
+                    isDropTarget={nodeHoveringGroupId === group.id}
+                    onEditClick={handleGroupEditClick}
+                    onDeleteClick={handleGroupDeleteClick}
+                    zoom={canvasZoom}
+                    nodePositions={groupNodePositions[group.id] || {}}
+                    nodeBounds={nodeBounds}
+                  >
+                    {/* Render nodes that belong to this group - only if group is fully loaded */}
+                    {groupNodes.length > 0 &&
+                      groupNodes.map((node: any, index: number) => {
+                        // Ensure node has required properties and group is stable
+                        if (!node || !node.metadata) {
+                          return null
+                        }
+
+                        const nodeId = node.id || node.metadata.id
+                        if (!nodeId) {
+                          return null
+                        }
+
+                        // Check if we have a stored local position for this node in this group
+                        const localStoredPosition = groupNodePositions[group.id]?.[nodeId]
+
+                        // Calculate relative position from absolute positions (v2 approach)
+                        const relativePosition =
+                          localStoredPosition ||
+                          (() => {
+                            const nodePos = node.position || {
+                              x: group.position?.x + 50,
+                              y: group.position?.y + 50,
+                            } // Default position inside group
+                            const groupPos = group.position || { x: 100, y: 100 }
+                            const headerOffset = group.description ? 100 : 32
+
+                            // Convert absolute position to relative - don't clamp to minimum
+                            const relativePos = {
+                              x: nodePos.x - groupPos.x,
+                              y: nodePos.y - groupPos.y - headerOffset,
+                            }
+
+                            // Only clamp if the node would be completely outside the group
+                            // Use more sensible bounds to prevent nodes jumping to top-left
+                            if (relativePos.x < 0) relativePos.x = 20
+                            if (relativePos.y < 0) relativePos.y = 20
+
+                            // Also clamp to prevent nodes being too far outside
+                            const maxX = (group.size?.width || 200) - 50
+                            const maxY = (group.size?.height || 150) - 50
+                            if (relativePos.x > maxX) relativePos.x = maxX - 20
+                            if (relativePos.y > maxY) relativePos.y = maxY - 20
+
+                            return relativePos
+                          })()
+
+                        // Store the initial position locally if not already stored
+                        if (!localStoredPosition) {
+                          storeInitialNodePositionInGroup(nodeId, group.id, relativePosition)
+                        }
+
+                        // Check if this is a subgraph node
+                        if (node.metadata.type === 'subgraph') {
+                          return (
+                            <SubgraphNode
+                              key={`group-${group.id}-node-${node.metadata.id}`}
+                              metadata={node.metadata as any}
+                              position={relativePosition}
+                              onPositionChange={(nodeId, position) => {
+                                // Update local position
+                                handleNodePositionInGroup(nodeId, group.id, position)
+                              }}
+                              onBoundsChange={(nodeId, bounds) => {
+                                // Update node bounds in the bounds hook
+                                updateNodeBoundsHook(nodeId, bounds)
+                              }}
+                              onPortPositionUpdate={oldUpdatePortPosition}
+                              onPortDragStart={handlePortDragStart}
+                              onPortDragEnd={handlePortDragEnd}
+                              onClick={() => handleNodeSelect(getNodeId(node))}
+                              isHighlighted={node.metadata.id === highlightedNodeId}
+                              isNodeSelected={isNodeSelected(node.metadata.id)}
+                              zoom={canvasZoom}
+                              isInGroup={true}
+                              // onDragStart={handleNodeDragStart}
+                              // onDragEnd={handleNodeDragEnd}
+                            />
+                          )
+                        }
+
+                        return (
+                          <DraggableNode
+                            key={`group-${group.id}-node-${node.metadata.id}`}
+                            nodeId={node.id}
+                            metadata={node.metadata}
+                            propertyValues={node.propertyValues}
+                            position={relativePosition}
+                            zoom={canvasZoom}
+                            onPositionChange={(nodeId, position) => {
+                              // Update local position
+                              handleNodePositionInGroup(nodeId, group.id, position)
+                            }}
+                            onBoundsChange={(nodeId, bounds) => {
+                              // Update node bounds in the bounds hook
+                              updateNodeBoundsHook(nodeId, bounds)
+                            }}
+                            onPortPositionUpdate={oldUpdatePortPosition}
+                            onPortDragStart={handlePortDragStart}
+                            onPortDragEnd={handlePortDragEnd}
+                            onClick={handleNodeSelect}
+                            isHighlighted={node.metadata.id === highlightedNodeId}
+                            isSelected={isNodeSelected(node.metadata.id)}
+                            onNodeDropIntoGroup={handleNodeDropIntoGroup}
+                            onNodeHoverGroup={handleNodeHoverGroup}
+                            groups={groups}
+                            isInGroup={true}
+                            currentGroup={group}
+                            onPropertyChange={handleNodePropertyChange}
+                            onDragStart={handleNodeDragStart}
+                            onDragEnd={handleNodeDragEnd}
+                            onNodeNearGroupBoundary={(nodeId, groupId, action, value) => {
+                              const targetGroup = groups.find(g => g.id === groupId)
+                              if (!targetGroup) return
+
+                              switch (action) {
+                                case 'resize-right':
+                                  // Resize group wider
+                                  updateGroup(groupId, {
+                                    size: {
+                                      ...targetGroup.size,
+                                      width: value || targetGroup.size.width,
+                                    },
+                                  })
+                                  setGraphDirty(currentGraphId, true)
+                                  break
+
+                                case 'resize-down':
+                                  // Resize group taller
+                                  updateGroup(groupId, {
+                                    size: {
+                                      ...targetGroup.size,
+                                      height: value || targetGroup.size.height,
+                                    },
+                                  })
+                                  setGraphDirty(currentGraphId, true)
+                                  break
+                              }
+                            }}
+                          />
+                        )
+                      })}
+                  </NodeGroupContainer>
+
+                  {/* Register port positions for collapsed groups */}
+                  {localGroupCollapseState[group.id] && (
+                    <CollapsedGroupPortHandler
+                      groupId={group.id}
+                      groupPosition={group.position}
+                      groupSize={group.size}
+                      groupNodeIds={group.nodeIds}
+                      onPortPositionUpdate={oldUpdatePortPosition}
+                    />
+                  )}
+                </React.Fragment>
+              )
+            })}
+
+            {/* Selection Rectangle */}
+            {selection.isSelecting && selection.selectionStart && selection.selectionEnd && (
+              <SelectionRectangle
+                startPoint={selection.selectionStart}
+                endPoint={selection.selectionEnd}
+                visible={selection.isSelecting}
+              />
+            )}
+
+            {/* Ungrouped Workflow Nodes */}
+            {(() => {
+              // Debug logging for node rendering
+              const ungroupedNodes =
+                storeNodes?.filter((node: any) => {
+                  const nodeId = getNodeId(node)
+                  const inAnyGroup = groups.some((group: any) => group.nodeIds.includes(nodeId))
+
+                  // Only render nodes that are not in ANY group (collapsed or expanded)
+                  return !inAnyGroup
+                }) || []
+              // 🎨 Rendering nodes: {
+              //   totalNodes: storeNodes?.length || 0,
+              //   nodes: storeNodes,
+              //   groupCount: groups?.length || 0,
+              //   ungroupedNodes
+              // })
+
+              return ungroupedNodes.map((node: any) => {
+                // Log first node structure for debugging
+                // if (ungroupedNodes.indexOf(node) === 0) {
+                //   // 🔍 First node structure: {
+                //     hasRootId: !!node.id,
+                //     rootId: node.id,
+                //     metadataId: node.metadata?.id,
+                //     position: node.position,
+                //     fullNode: node
+                //   })
+                // }
+                // Debug log for subgraph nodes
+                // if (node.metadata.type === 'subgraph') {
+                //   // 🔍 Rendering subgraph node: {
+                //     id: node.metadata.id,
+                //     type: node.metadata.type,
+                //     title: node.metadata.title,
+                //     graphId: (node.metadata as any).graphId,
+                //     graphNamespace: (node.metadata as any).graphNamespace
+                //   })
+                // }
+
+                // Check if this is a subgraph node
+                if (node.metadata.type === 'subgraph') {
                   return (
-                    <DraggableNode
-                      key={`group-${group.id}-node-${node.metadata.id}`}
-                      metadata={node.metadata}
-                      position={{
-                        x: node.position.x - group.position.x,
-                        y: node.position.y - group.position.y - (group.description ? 60 : 32)
-                      }}
-                      onPositionChange={(nodeId, position) => {
-                      // Convert relative position back to absolute
-                      handleNodePositionChange(nodeId, {
-                        x: position.x + group.position.x,
-                        y: position.y + group.position.y + (group.description ? 60 : 32)
-                      })
-                    }}
-                    onBoundsChange={(nodeId, bounds) => {
-                      // Use absolute node position for bounds
-                      updateNodeBounds(nodeId, {
-                        x: node.position.x,
-                        y: node.position.y,
-                        width: bounds.width,
-                        height: bounds.height
-                      })
-                    }}
-                    onPortPositionUpdate={updatePortPosition}
+                    <SubgraphNode
+                      key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
+                      metadata={node.metadata as any}
+                      position={node.position}
+                      onPositionChange={handleNodePositionChange}
+                      onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
+                      onPortPositionUpdate={oldUpdatePortPosition}
+                      onPortDragStart={handlePortDragStart}
+                      onPortDragEnd={handlePortDragEnd}
+                      onClick={() => handleNodeSelect(node.id || node.metadata.id)}
+                      isHighlighted={node.metadata.id === highlightedNodeId}
+                      isNodeSelected={isNodeSelected(node.metadata.id)}
+                      zoom={canvasZoom}
+                    />
+                  )
+                }
+
+                return (
+                  <DraggableNode
+                    key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
+                    nodeId={node.id || node.metadata.id}
+                    metadata={node.metadata}
+                    propertyValues={node.propertyValues}
+                    position={node.position}
+                    zoom={canvasZoom}
+                    onPositionChange={handleNodePositionChange}
+                    onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
+                    onPortPositionUpdate={oldUpdatePortPosition}
                     onPortDragStart={handlePortDragStart}
                     onPortDragEnd={handlePortDragEnd}
                     onClick={handleNodeSelect}
@@ -1735,166 +2971,115 @@ export default function Home() {
                     onNodeDropIntoGroup={handleNodeDropIntoGroup}
                     onNodeHoverGroup={handleNodeHoverGroup}
                     groups={groups}
-                    zoom={canvasZoom}
-                  />
-                  )
-                })}
-              </NodeGroupContainer>
-            )
-          })}
-          
-          {/* Selection Rectangle */}
-          {selection.isSelecting && selection.selectionStart && selection.selectionEnd && (
-            <SelectionRectangle
-              startPoint={selection.selectionStart}
-              endPoint={selection.selectionEnd}
-              visible={selection.isSelecting}
-            />
-          )}
-
-          {/* Ungrouped Workflow Nodes */}
-          {storeNodes
-            .filter(node => !groups.some(group => group.nodeIds.includes(node.metadata.id)))
-            .map(node => {
-              // Debug log for subgraph nodes
-              // if (node.metadata.type === 'subgraph') {
-              //   console.log('🔍 Rendering subgraph node:', {
-              //     id: node.metadata.id,
-              //     type: node.metadata.type,
-              //     title: node.metadata.title,
-              //     graphId: (node.metadata as any).graphId,
-              //     graphNamespace: (node.metadata as any).graphNamespace
-              //   })
-              // }
-              
-              // Check if this is a subgraph node
-              if (node.metadata.type === 'subgraph') {
-                return (
-                  <SubgraphNode
-                    key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                    metadata={node.metadata as any}
-                    position={node.position}
-                    onPositionChange={handleNodePositionChange}
-                    onBoundsChange={updateNodeBounds}
-                    onPortPositionUpdate={updatePortPosition}
-                    onPortDragStart={handlePortDragStart}
-                    onPortDragEnd={handlePortDragEnd}
-                    onClick={() => handleNodeSelect(node.metadata.id)}
-                    isHighlighted={node.metadata.id === highlightedNodeId}
-                    isNodeSelected={isNodeSelected(node.metadata.id)}
-                    zoom={canvasZoom}
+                    onPropertyChange={handleNodePropertyChange}
+                    onDragStart={handleNodeDragStart}
+                    onDragEnd={handleNodeDragEnd}
                   />
                 )
-              }
-              
-              return (
-                <DraggableNode
-                  key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                  metadata={node.metadata}
-                  position={node.position}
-                  onPositionChange={handleNodePositionChange}
-                  onBoundsChange={updateNodeBounds}
-                  onPortPositionUpdate={updatePortPosition}
-                  onPortDragStart={handlePortDragStart}
-                  onPortDragEnd={handlePortDragEnd}
-                  onClick={handleNodeSelect}
-                  isHighlighted={node.metadata.id === highlightedNodeId}
-                  isSelected={isNodeSelected(node.metadata.id)}
-                  onNodeDropIntoGroup={handleNodeDropIntoGroup}
-                  onNodeHoverGroup={handleNodeHoverGroup}
-                  groups={groups}
-                  zoom={canvasZoom}
-                />
-              )
-            })}
-        </InteractiveCanvas>
+              })
+            })()}
 
-        {/* Floating UI Components */}
-        <WorkflowSidebar 
-          isCollapsed={isSidebarCollapsed}
-          onCategoryClick={handleCategoryClick}
-          // onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-        
-        <SearchButton onClick={() => setIsSearchOpen(true)} />
-        <NodeBrowserButton onClick={handleNodeBrowserToggle} isActive={isNodeBrowserOpen} />
-        <TriggerManager />
-        <UndoRedoButtons onUndo={undo} onRedo={redo} canUndo={canUndo()} canRedo={canRedo()} />
-        <WorkflowBottomToolbar 
-          onHistoryClick={() => setIsHistoryBrowserOpen(true)}
-          onDebuggerClick={() => setIsFlowTracerOpen(true)}
-          onCreateEmptyGroupClick={() => {
-            // Calculate center of viewport in canvas coordinates
-            const centerX = (-canvasOffset.x + viewportSize.width / 2) / canvasZoom
-            const centerY = (-canvasOffset.y + viewportSize.height / 2) / canvasZoom
-            handleCreateEmptyGroup({ x: centerX, y: centerY })
-          }}
-          onConfigClick={async () => {
-            // Fetch env vars when opening configuration
-            await updateConfiguredEnvVars()
-            setIsConfigOpen(true)
-          }}
-          onAddSubgraphClick={() => {
-            setSelectedCategory(null) // Reset category
-            setSearchModalInitialTab('subgraphs') // Open to subgraphs tab
-            setIsSearchOpen(true)
-          }}
-        />
-        
-        <Minimap
-          canvasOffset={canvasOffset}
-          nodes={getNodeBoundsArray().map(bounds => ({
-            id: bounds.id,
-            position: { x: bounds.x, y: bounds.y },
-            size: { width: bounds.width, height: bounds.height }
-          }))}
-          groups={groups.map(group => ({
-            id: group.id,
-            position: group.position,
-            size: group.size,
-            color: group.color,
-            collapsed: group.collapsed,
-            title: group.title,
-            nodeIds: group.nodeIds
-          }))}
-          viewportSize={viewportSize}
-          onViewportChange={setCanvasOffset}
-        />
+            {/* Selection Rectangle */}
+            {selection.isSelecting && selection.selectionStart && selection.selectionEnd && (
+              <SelectionRectangle
+                startPoint={selection.selectionStart}
+                endPoint={selection.selectionEnd}
+                visible={selection.isSelecting}
+              />
+            )}
+          </InteractiveCanvas>
 
-        <ZoomControls
-          zoom={canvasZoom}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onZoomReset={handleZoomReset}
-        />
-        
-        {/* Save Graph Button */}
-        <SaveGraphButton
-          isVisible={getCurrentGraph()?.isDirty || false}
-          graphName={getCurrentGraph()?.name || ''}
-          onSave={handleSaveGraph}
-          isSaving={isSavingGraph}
-        />
+          {/* Floating UI Components */}
+          <WorkflowSidebar
+            isCollapsed={isSidebarCollapsed}
+            onCategoryClick={handleCategoryClick}
+            // onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+
+          <SearchButton onClick={() => setIsSearchOpen(true)} />
+          <NodeBrowserButton onClick={handleNodeBrowserToggle} isActive={isNodeBrowserOpen} />
+          <TriggerManager />
+          <UndoRedoButtons onUndo={() => {}} onRedo={() => {}} canUndo={false} canRedo={false} />
+          <WorkflowBottomToolbar
+            onHistoryClick={() => setIsHistoryBrowserOpen(true)}
+            onDebuggerClick={() => setIsFlowTracerOpen(true)}
+            onCreateEmptyGroupClick={() => {
+              // Calculate center of viewport in canvas coordinates
+              const centerX = (-canvasOffset.x + viewportSize.width / 2) / canvasZoom
+              const centerY = (-canvasOffset.y + viewportSize.height / 2) / canvasZoom
+              handleCreateEmptyGroup({ x: centerX, y: centerY })
+            }}
+            onConfigClick={async () => {
+              // Fetch env vars when opening configuration
+              await updateConfiguredEnvVars()
+              setIsConfigOpen(true)
+            }}
+            onAddSubgraphClick={() => {
+              setSelectedCategory(null) // Reset category
+              setSearchModalInitialTab('subgraphs') // Open to subgraphs tab
+              setIsSearchOpen(true)
+            }}
+          />
+
+          <Minimap
+            canvasOffset={canvasOffset}
+            nodes={(() => {
+              const minimapNodes = storeNodes.map((node: any) => ({
+                id: getNodeId(node),
+                position: node.position || { x: 0, y: 0 },
+                size: { width: 200, height: 80 }, // Default node size
+              }))
+
+              return minimapNodes
+            })()}
+            groups={groups.map((group: any) => ({
+              id: group.id,
+              position: group.position,
+              size: group.size,
+              color: group.color,
+              collapsed: group.isCollapsed,
+              title: group.title,
+              nodeIds: group.nodeIds,
+            }))}
+            viewportSize={viewportSize}
+            onViewportChange={setCanvasOffset}
+          />
+
+          <ZoomControls
+            zoom={canvasZoom}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onZoomReset={handleZoomReset}
+          />
+
+          {/* Save Graph Button */}
+          <SaveGraphButton
+            isVisible={getCurrentGraph()?.isDirty || false}
+            graphName={getCurrentGraph()?.name || ''}
+            onSave={handleSaveGraph}
+            isSaving={isSavingGraph}
+          />
+
+          {/* CRDT Feature Indicator */}
+          <CRDTFeatureIndicator isCollaborative={isCollaborative} />
         </div>
 
         {/* Node Browser Panel */}
         {isNodeBrowserOpen && (
-          <div 
-            className="fixed inset-0 z-10"
-            onClick={handleNodeBrowserToggle}
-          />
+          <div className="fixed inset-0 z-10" onClick={handleNodeBrowserToggle} />
         )}
-        <NodeBrowserPanel 
+        <NodeBrowserPanel
           isExpanded={isNodeBrowserOpen}
           onNodeSelect={handleNodeSelectFromBrowser}
           onNodeAdded={handleNodeAdded}
+          onGroupCreationRequest={() => setIsGroupCreationModalOpen(true)}
         />
 
         {/* Property Pane */}
         {isPropertyPaneVisible && (
           <>
             {/* Backdrop */}
-            <div 
+            <div
               className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-300 ${
                 isPropertyPaneClosing ? 'opacity-0' : 'opacity-100'
               }`}
@@ -1914,8 +3099,8 @@ export default function Home() {
 
       {/* Search Modal */}
       <ModalPortal isOpen={isSearchOpen}>
-        <SearchModal 
-          isOpen={isSearchOpen} 
+        <SearchModal
+          isOpen={isSearchOpen}
           onClose={() => {
             setIsSearchOpen(false)
             setSelectedCategory(null) // Reset category selection
@@ -1926,9 +3111,12 @@ export default function Home() {
           onNodeAdded={handleNodeAdded}
           canvasOffset={canvasOffset}
           canvasZoom={canvasZoom}
+          viewportSize={viewportSize}
+          onCanvasOffsetChange={setCanvasOffset}
+          onHighlightNode={setHighlightedNodeId}
         />
       </ModalPortal>
-      
+
       {/* Delete Connection Dialog */}
       <ModalPortal isOpen={deleteDialogOpen}>
         <DeleteConnectionDialog
@@ -1952,7 +3140,7 @@ export default function Home() {
         isOpen={isHistoryBrowserOpen}
         onClose={() => setIsHistoryBrowserOpen(false)}
         onSelectWorkflow={handleLoadWorkflow}
-        onViewFlowTrace={(workflowId) => {
+        onViewFlowTrace={workflowId => {
           setIsHistoryBrowserOpen(false)
           setIsFlowTracerOpen(true)
           // In production, you would load flow traces for the specific workflow
@@ -1962,10 +3150,7 @@ export default function Home() {
       />
 
       {/* Flow Tracer */}
-      <FlowTracer
-        isOpen={isFlowTracerOpen}
-        onClose={() => setIsFlowTracerOpen(false)}
-      />
+      <FlowTracer isOpen={isFlowTracerOpen} onClose={() => setIsFlowTracerOpen(false)} />
 
       {/* Configuration */}
       <Configuration
@@ -1984,26 +3169,29 @@ export default function Home() {
       )}
 
       {/* Configuration Toast */}
-      {configurationToastNodeId && (() => {
-        const node = storeNodes.find(n => n.metadata.id === configurationToastNodeId)
-        return node ? (
-          <ConfigurationToast
-            nodeMetadata={node.metadata}
-            onConfigure={() => {
-              setConfigurationToastNodeId(null)
-              handleNodeSelect(configurationToastNodeId)
-            }}
-            onDismiss={() => setConfigurationToastNodeId(null)}
-          />
-        ) : null
-      })()}
+      {configurationToastNodeId &&
+        (() => {
+          const node = storeNodes.find(
+            (n: any) => (n.id || n.metadata.id) === configurationToastNodeId
+          )
+          return node ? (
+            <ConfigurationToast
+              nodeMetadata={node.metadata}
+              onConfigure={() => {
+                setConfigurationToastNodeId(null)
+                handleNodeSelect(configurationToastNodeId)
+              }}
+              onDismiss={() => setConfigurationToastNodeId(null)}
+            />
+          ) : null
+        })()}
 
       {/* Group Creation Modal */}
       <GroupCreationModal
         isOpen={isGroupCreationModalOpen}
         selectedNodeCount={selection.selectedNodeIds.length}
-        selectedNodeNames={selection.selectedNodeIds.map(id => {
-          const node = storeNodes.find(n => n.metadata.id === id)
+        selectedNodeNames={selection.selectedNodeIds.map((id: any) => {
+          const node = storeNodes.find((n: any) => (n.id || n.metadata.id) === id)
           return node ? node.metadata.title : 'Unknown'
         })}
         onConfirm={handleGroupCreationConfirm}
@@ -2018,39 +3206,81 @@ export default function Home() {
         onCancel={handleEmptyGroupCreationCancel}
       />
 
+      {/* Selection Context Menu */}
+      <SelectionContextMenu
+        isVisible={selectionContextMenu.isVisible}
+        position={selectionContextMenu.position}
+        selectedNodeCount={selection.selectedNodeIds.length}
+        onCreateGroup={handleContextMenuCreateGroup}
+        onClose={handleSelectionContextMenuClose}
+      />
+
       {/* Group Edit Modal */}
-      {editingGroupId && (() => {
-        const editingGroup = groups.find(g => g.id === editingGroupId)
-        if (!editingGroup) return null
-        
-        return (
-          <GroupEditModal
-            isOpen={true}
-            groupId={editingGroupId}
-            currentTitle={editingGroup.title}
-            currentDescription={editingGroup.description || ''}
-            onConfirm={handleGroupEditConfirm}
-            onCancel={handleGroupEditCancel}
-          />
-        )
-      })()}
+      {editingGroupId &&
+        (() => {
+          const editingGroup = groups.find((g: any) => g.id === editingGroupId)
+          if (!editingGroup) return null
+
+          return (
+            <GroupEditModal
+              isOpen={true}
+              groupId={editingGroupId}
+              currentTitle={editingGroup.title}
+              currentDescription={editingGroup.description || ''}
+              onConfirm={handleGroupEditConfirm}
+              onCancel={handleGroupEditCancel}
+            />
+          )
+        })()}
 
       {/* Group Delete Modal */}
-      {deletingGroupId && (() => {
-        const deletingGroup = groups.find(g => g.id === deletingGroupId)
-        if (!deletingGroup) return null
-        
-        return (
-          <GroupDeleteModal
-            isOpen={true}
-            groupId={deletingGroupId}
-            groupTitle={deletingGroup.title}
-            nodeCount={deletingGroup.nodeIds.length}
-            onConfirm={handleGroupDeleteConfirm}
-            onCancel={handleGroupDeleteCancel}
-          />
-        )
-      })()}
+      {deletingGroupId &&
+        (() => {
+          const deletingGroup = groups.find((g: any) => g.id === deletingGroupId)
+          if (!deletingGroup) return null
+
+          return (
+            <GroupDeleteModal
+              isOpen={true}
+              groupId={deletingGroupId}
+              groupTitle={deletingGroup.title}
+              nodeCount={deletingGroup.nodeIds.length}
+              onConfirm={handleGroupDeleteConfirm}
+              onCancel={handleGroupDeleteCancel}
+            />
+          )
+        })()}
+
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={isUserSettingsOpen}
+        onClose={() => setIsUserSettingsOpen(false)}
+        onSave={(newUserName, userColor) => {
+          // Update the user button display
+          setUserName(newUserName)
+          setIsUserSettingsOpen(false)
+
+          const store = (window as any).__zealStore
+          if (store && typeof store === 'function') {
+            const state = store()
+
+            // Update presence if in collaborative mode
+            if (isCollaborative && store.updatePresence) {
+              store.updatePresence({
+                userId: sessionStorage.getItem('userId') || 'anonymous',
+                userName: userName,
+                userColor: userColor,
+              })
+            }
+          }
+        }}
+      />
+
+      {/* Notification Panel - only show in collaborative mode */}
+      {isCollaborative && <NotificationPanel />}
+
+      {/* Debug Panel - Temporary for debugging graph issues */}
+      {/* <GraphDebugPanel /> */}
     </main>
   )
 }

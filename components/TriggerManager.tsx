@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Zap, Edit2, Trash2, AlertCircle, Globe, Cable, Clock, Lock } from "lucide-react";
 import { TriggerModal, TriggerConfig } from "./TriggerModal";
-import { useWorkflowStore } from "@/store/workflowStore";
+import { useWorkflowStore } from "@/store/workflow-store";
 import { ModalPortal } from "./ModalPortal";
 import { useGraphStore } from "@/store/graphStore";
 

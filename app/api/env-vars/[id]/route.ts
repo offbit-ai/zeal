@@ -11,9 +11,12 @@ import { invalidateCache } from '@/lib/api-cache'
 import { EnvVarDatabase } from '@/services/envVarDatabase'
 
 // GET /api/env-vars/[id] - Get specific environment variable
-export const GET = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
+  if (!context) {
+    throw new ApiError('INVALID_REQUEST', 'Invalid request context', 400)
+  }
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   
   const envVar = await EnvVarDatabase.getById(id)
   
@@ -25,9 +28,12 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // PUT /api/env-vars/[id] - Update environment variable
-export const PUT = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const PUT = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
+  if (!context) {
+    throw new ApiError('INVALID_REQUEST', 'Invalid request context', 400)
+  }
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   const body: EnvVarUpdateRequest = await req.json()
   
   // Check if env var exists
@@ -51,9 +57,12 @@ export const PUT = withErrorHandling(async (req: NextRequest, { params }: { para
 })
 
 // DELETE /api/env-vars/[id] - Delete environment variable
-export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withErrorHandling(async (req: NextRequest, context?: { params: { id: string } }) => {
+  if (!context) {
+    throw new ApiError('INVALID_REQUEST', 'Invalid request context', 400)
+  }
   const userId = extractUserId(req)
-  const { id } = params
+  const { id } = context.params
   
   // Check if env var exists
   const existingEnvVar = await EnvVarDatabase.getById(id)
