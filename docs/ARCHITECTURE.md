@@ -166,11 +166,11 @@ Execution Start → Create Session → Capture Node I/O
                                          ↓
                                  Generate Timeline
 
-Replay Request → Load Session → Reconstruct Timeline
+Replay Request → Load Session → Reconstruct Workflow State
                                         ↓
-                               Stream to Client
+                               Load Execution Logs
                                         ↓
-                              Animate Execution
+                              Display in Flow Tracer
 ```
 
 ## History & Versioning System
@@ -203,13 +203,13 @@ Replay Request → Load Session → Reconstruct Timeline
    - Metadata about trigger source
    - Complete execution context
 
-3. **Replay Engine**:
+3. **Execution Review**:
    ```
-   Session Data → Timeline Builder → Frame Generator
-                                           ↓
-                                    Animation Engine
-                                           ↓
-                                    Client Renderer
+   Session Data → Load Workflow Version → Display Workflow State
+                                                   ↓
+                                          Load Execution Logs
+                                                   ↓
+                                          Show in Flow Tracer Panel
    ```
 
 4. **Analytics Pipeline**:

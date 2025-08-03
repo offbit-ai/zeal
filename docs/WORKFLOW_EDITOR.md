@@ -115,14 +115,14 @@ When collaborative mode is enabled:
 Debug your workflows with the built-in flow tracer:
 
 1. Click the "Trace" button in the toolbar
-2. Execute your workflow
-3. Watch as data flows through each node
-4. Inspect input/output at each step
-5. Identify bottlenecks and errors
+2. Select a past execution to review
+3. View the workflow state at that point in time
+4. Examine execution logs and data flow
+5. Inspect input/output values at each node
 
 ### 5. Version Control & History
 
-Track changes, replay executions, and manage versions:
+Track changes, review past executions, and manage versions:
 
 #### Version History
 - **Auto-save**: Changes are saved automatically every 30 seconds

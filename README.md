@@ -57,8 +57,8 @@ npm run dev
 - **Real-time Collaboration**: Multiple users can edit simultaneously with CRDT sync
 - **Node Groups**: Organize nodes into collapsible groups
 - **Version History**: Track all changes with rollback to published versions
-- **Execution Replay**: Record and replay workflow executions for debugging*
-- **Flow Tracing**: Monitor data flow through nodes in real-time*
+- **Execution Replay**: Review past workflow executions with recorded data flow*
+- **Flow Tracing**: Examine execution logs and data flow through nodes*
 - **Analytics**: Performance metrics, error tracking, and usage trends
 - **Node Repository**: Extensible library of 50+ node types
 - **Subgraphs**: Create reusable workflow components
