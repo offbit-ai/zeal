@@ -2,6 +2,8 @@
 
 A modern, real-time collaborative workflow editor with node-based visual programming, built with Next.js, TypeScript, and CRDT synchronization.
 
+![Zeal Screenshot](zeal-screenshot.png)
+
 ## 🚀 Quick Start
 
 ### Using Docker (Recommended)
@@ -55,14 +57,16 @@ npm run dev
 - **Real-time Collaboration**: Multiple users can edit simultaneously with CRDT sync
 - **Node Groups**: Organize nodes into collapsible groups
 - **Version History**: Track all changes with rollback to published versions
-- **Execution Replay**: Record and replay workflow executions for debugging
-- **Flow Tracing**: Monitor data flow through nodes in real-time
+- **Execution Replay**: Record and replay workflow executions for debugging*
+- **Flow Tracing**: Monitor data flow through nodes in real-time*
 - **Analytics**: Performance metrics, error tracking, and usage trends
 - **Node Repository**: Extensible library of 50+ node types
 - **Subgraphs**: Create reusable workflow components
 - **Auto-save**: Changes are automatically persisted every 30 seconds
 - **Export/Import**: Share workflows as JSON files
 - **Snapshot Management**: Create named checkpoints at milestones
+
+*Note: History browsing and flow tracing features depend on workflow execution data being recorded by your runtime engine implementation.
 
 ## 🏗️ Architecture
 
@@ -75,6 +79,33 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 - **Database**: PostgreSQL, Redis
 - **Real-time**: Socket.IO, Yjs CRDT
 - **Deployment**: Docker, Docker Compose
+
+## ⚠️ Implementation Notes
+
+This project provides a visual workflow editor interface and collaboration infrastructure. The following components are **not included** and must be implemented by users:
+
+### 1. **Workflow Runtime Engine**
+The actual execution of workflows is not implemented. You will need to:
+- Build or integrate a workflow execution engine
+- Implement node execution logic for each node type
+- Handle data flow between nodes
+- Manage execution state and error handling
+- Record execution history for the replay features
+
+### 2. **User Management & Authentication**
+While the editor supports multi-user collaboration, user management is not included:
+- User registration and login systems
+- Role-based access control (RBAC)
+- Team/organization management
+- API authentication beyond basic NextAuth setup
+- User profile management
+
+### 3. **Production Deployment Considerations**
+- Scaling strategy for the CRDT server
+- Database backup and recovery procedures
+- Security hardening and SSL/TLS configuration
+- Monitoring and alerting infrastructure
+- Rate limiting and abuse prevention
 
 ## 🔧 Configuration
 
