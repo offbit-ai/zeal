@@ -1,6 +1,6 @@
 /**
  * Socket.IO provider for Rust CRDT server
- * 
+ *
  * This provider connects to the Rust CRDT server using Socket.IO protocol
  * while offering better performance and memory management than the JavaScript server.
  */
@@ -22,7 +22,7 @@ enum MessageType {
   AWARENESS = 1,
   AUTH = 2,
   QUERY_AWARENESS = 3,
-  CUSTOM = 4
+  CUSTOM = 4,
 }
 
 export interface RustSocketIOProviderConfig {
@@ -33,6 +33,7 @@ export interface RustSocketIOProviderConfig {
     userId?: string
     userName?: string
   }
+  autoConnect?: boolean // Default: true
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected') => void
   onSyncComplete?: () => void
   onError?: (error: Error) => void
@@ -52,11 +53,16 @@ export class RustSocketIOProvider {
   private lastSyncMessageTime: number = 0
   private lastAwarenessUpdateTime: number = 0
   private healthCheckTimer: NodeJS.Timeout | null = null
+  private heartbeatTimer: NodeJS.Timeout | null = null
   private reconnectionAttempts: number = 0
   private maxReconnectionAttempts: number = 3
   private healthCheckInterval: number = 30000 // 30 seconds
+  private heartbeatInterval: number = 20000 // 20 seconds - send heartbeat before server timeout
   private syncTimeoutThreshold: number = 60000 // 1 minute
   private isReconnecting: boolean = false
+  private isConnecting: boolean = false
+  private connectionTimeout: NodeJS.Timeout | null = null
+  private reconnectDelay: number = 1000 // Start with 1 second
 
   constructor(doc: Y.Doc, config: RustSocketIOProviderConfig) {
     // [Rust CRDT] log removed
@@ -84,18 +90,20 @@ export class RustSocketIOProvider {
     this.setUserState({
       userId: userId,
       userName: userName,
-      userColor: userColor
+      userColor: userColor,
     })
 
-    // Connect to Socket.IO
-    this.connect()
+    // Connect to Socket.IO if autoConnect is true (default)
+    if (config.autoConnect !== false) {
+      this.connect()
+    }
 
     // Set up document observers
     this.setupDocumentObservers()
 
-    // Start health monitoring
-    // Temporarily disabled due to hot reload issues
-    // this.startHealthMonitoring()
+    // Start health monitoring and heartbeat
+    this.startHealthMonitoring()
+    this.startHeartbeat()
   }
 
   /**
@@ -110,11 +118,39 @@ export class RustSocketIOProvider {
       // [Rust CRDT] log removed
 
       // Check if sync has degraded
-      if (this.connected && (timeSinceLastSync > this.syncTimeoutThreshold || timeSinceLastAwareness > this.syncTimeoutThreshold)) {
+      if (
+        this.connected &&
+        (timeSinceLastSync > this.syncTimeoutThreshold ||
+          timeSinceLastAwareness > this.syncTimeoutThreshold)
+      ) {
         console.warn('[Rust CRDT] Sync degradation detected, attempting reconnection')
         this.reconnect()
       }
     }, this.healthCheckInterval)
+  }
+
+  /**
+   * Start heartbeat to prevent server timeout
+   */
+  private startHeartbeat(): void {
+    this.heartbeatTimer = setInterval(() => {
+      if (this.connected && this.socket?.connected) {
+        // Send a lightweight message to keep the connection alive
+        // We'll send a custom message that the server can recognize as a heartbeat
+        this.sendCustomMessage({ type: 'heartbeat', timestamp: Date.now() })
+
+        // Also send an awareness update to ensure presence is maintained
+        const localState = this.awareness.getLocalState()
+        if (localState) {
+          const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
+            this.awareness.clientID,
+          ])
+          if (awarenessUpdate.length < 10000) {
+            this.send(MessageType.AWARENESS, awarenessUpdate)
+          }
+        }
+      }
+    }, this.heartbeatInterval)
   }
 
   /**
@@ -145,52 +181,231 @@ export class RustSocketIOProvider {
    * Connect to the Rust Socket.IO server
    */
   connect(): void {
-    if (this.connected) return
+    console.log(
+      '[Rust CRDT] Connect called - connected:',
+      this.connected,
+      'isConnecting:',
+      this.isConnecting,
+      'socket exists:',
+      !!this.socket
+    )
 
+    if (this.connected) {
+      console.log('[Rust CRDT] Already connected, skipping connection')
+      return
+    }
+
+    if (this.isConnecting) {
+      console.log('[Rust CRDT] Connection already in progress, skipping')
+      return
+    }
+
+    // Quick server health check (non-blocking)
+    if (typeof window !== 'undefined') {
+      fetch(
+        `${this.config.serverUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/stats`
+      )
+        .then(res => {
+          if (!res.ok) {
+            console.warn('[Rust CRDT] Server health check failed:', res.status)
+          }
+        })
+        .catch(() => {
+          console.warn('[Rust CRDT] Server may be down or unreachable')
+        })
+    }
+
+    // Clear any existing connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout)
+      this.connectionTimeout = null
+    }
+
+    this.isConnecting = true
+    console.log('[Rust CRDT] Starting connection to:', this.config.serverUrl)
+    console.log('[Rust CRDT] Room name:', this.roomName)
     this.config.onStatusChange?.('connecting')
 
     const userId = this.config.auth?.userId || this.getOrCreateUserId()
     const userName = this.config.auth?.userName || this.getOrCreateUserName()
 
-    // [Rust CRDT] log removed
+    console.log('[Rust CRDT] Connecting with userId:', userId, 'userName:', userName)
 
-    this.socket = io(this.config.serverUrl, {
-      transports: ['polling', 'websocket'],
-      auth: {
-        token: this.config.auth?.token,
-        userId: userId,
-        userName: userName
-      },
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000
-    })
+    // Initialize socket first to avoid null reference
+    try {
+      console.log('[Rust CRDT] Creating socket with options:', {
+        serverUrl: this.config.serverUrl,
+        transports: ['polling', 'websocket'],
+        userId,
+        userName,
+      })
+
+      this.socket = io(this.config.serverUrl, {
+        path: '/socket.io/', // Explicit path
+        transports: ['websocket'], // Try websocket only to avoid CORS issues with polling
+        auth: {
+          token: this.config.auth?.token,
+          userId: userId,
+          userName: userName,
+        },
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        // Engine.IO options to prevent disconnection
+        upgrade: false, // Don't upgrade since we're starting with websocket
+        rememberUpgrade: false,
+        // These options help maintain the connection
+        closeOnBeforeunload: false,
+        // Force new connection
+        forceNew: true,
+      })
+
+      console.log('[Rust CRDT] Socket created, manually triggering connect...')
+
+      // Manually trigger connection (sometimes needed with certain configurations)
+      this.socket.connect()
+    } catch (error) {
+      console.error('[Rust CRDT] Failed to create socket:', error)
+      this.config.onError?.(error as Error)
+      this.config.onStatusChange?.('disconnected')
+      this.isConnecting = false
+      return
+    }
+
+    // Clean up on page unload
+    if (typeof window !== 'undefined') {
+      let hasCleanedUp = false;
+      
+      const cleanup = () => {
+        if (hasCleanedUp) return;
+        hasCleanedUp = true;
+        
+        console.log('[Rust CRDT] Page unload - cleaning up connection')
+        if (this.socket) {
+          if (this.connected) {
+            this.socket.emit('crdt:leave', this.roomName)
+          }
+          this.socket.disconnect()
+        }
+      }
+
+      // Only use beforeunload for cleanup
+      window.addEventListener('beforeunload', cleanup)
+      
+      // Don't send leave on visibility change - this causes issues with tab switching
+      // The server has grace period handling for temporary disconnections
+    }
+
+    // Add connection timeout handler
+    this.connectionTimeout = setTimeout(() => {
+      if (this.socket && !this.socket.connected) {
+        console.error('[Rust CRDT] Connection timeout - failed to connect within 10 seconds')
+        this.isConnecting = false
+
+        // Clean up the failed socket
+        if (this.socket) {
+          this.socket.removeAllListeners()
+          this.socket.disconnect()
+          this.socket = null
+        }
+
+        this.config.onStatusChange?.('disconnected')
+
+        // Retry with exponential backoff
+        if (this.reconnectionAttempts < this.maxReconnectionAttempts) {
+          this.reconnectionAttempts++
+          const delay = Math.min(
+            this.reconnectDelay * Math.pow(2, this.reconnectionAttempts - 1),
+            30000
+          ) // Max 30 seconds
+          console.log(
+            `[Rust CRDT] Retrying connection in ${delay}ms (attempt ${this.reconnectionAttempts}/${this.maxReconnectionAttempts})`
+          )
+
+          setTimeout(() => {
+            this.connect()
+          }, delay)
+        } else {
+          console.error(
+            '[Rust CRDT] Max reconnection attempts reached. Please check server connection.'
+          )
+        }
+      }
+    }, 10000)
 
     // Handle connection events
     this.socket.on('connect', () => {
-      console.log('[Rust CRDT] Connected to server, socket ID:', this.socket!.id)
-      this.connected = true
+      if (this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout)
+        this.connectionTimeout = null
+      }
+
+      this.isConnecting = false
+      this.reconnectionAttempts = 0 // Reset on successful connection
+
+      console.log(
+        '[Rust CRDT] Connected to server, socket ID:',
+        this.socket!.id,
+        'Transport:',
+        this.socket!.io.engine.transport.name
+      )
+      // Don't mark as connected yet - wait for room join confirmation
       this.isReconnecting = false
-      this.reconnectionAttempts = 0
       this.lastSyncMessageTime = Date.now()
       this.lastAwarenessUpdateTime = Date.now()
-      this.config.onStatusChange?.('connected')
 
-      // Join room
-      console.log('[Rust CRDT] Joining room:', this.roomName)
-      this.socket!.emit('crdt:join', this.roomName)
+      // Small delay to ensure socket is fully ready
+      setTimeout(() => {
+        if (this.socket && this.socket.connected) {
+          // Join room
+          console.log(
+            '[Rust CRDT] Joining room:',
+            this.roomName,
+            'Socket connected:',
+            this.socket.connected,
+            'Socket ID:',
+            this.socket.id
+          )
+          this.socket.emit('crdt:join', this.roomName, (response?: any) => {
+            console.log('[Rust CRDT] Join emit callback:', response)
+          })
+        } else {
+          console.error('[Rust CRDT] Socket not connected when trying to join room')
+        }
+      }, 100)
+    })
+
+    // Handle join errors
+    this.socket.on('crdt:error', ({ message, type }) => {
+      console.error('[Rust CRDT] Server error:', type, message)
+      if (type === 'join_error') {
+        // Retry join after a delay
+        setTimeout(() => {
+          if (this.socket?.connected && !this.connected) {
+            console.log('[Rust CRDT] Retrying room join after error')
+            this.socket.emit('crdt:join', this.roomName)
+          }
+        }, 1000)
+      }
     })
 
     this.socket.on('crdt:joined', ({ roomName, clientId }) => {
-      console.log('[Rust CRDT] Joined room:', roomName, 'as client:', clientId)
+      console.log('[Rust CRDT] Successfully joined room:', roomName, 'as client:', clientId)
+
+      // Mark as connected now that we've successfully joined the room
+      this.connected = true
+      this.config.onStatusChange?.('connected')
 
       // Send auth message
       if (this.config.auth) {
-        this.send(MessageType.AUTH, encoding.encode(encoder => {
-          encoding.writeVarString(encoder, JSON.stringify(this.config.auth))
-        }))
+        this.send(
+          MessageType.AUTH,
+          encoding.encode(encoder => {
+            encoding.writeVarString(encoder, JSON.stringify(this.config.auth))
+          })
+        )
       }
 
       // Send initial sync - request full state
@@ -206,24 +421,24 @@ export class RustSocketIOProvider {
         this.send(MessageType.SYNC, encoding.toUint8Array(stateEncoder))
       }
 
-      // Send initial awareness state after a short delay to ensure socket is ready
+      // Send initial awareness state after a delay to ensure socket is ready
       setTimeout(() => {
         const localState = this.awareness.getLocalState()
-        // [Rust CRDT] log removed
+        console.log('[Rust CRDT] Sending initial awareness state on join:', localState)
 
         if (localState) {
-          const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(
-            this.awareness,
-            [this.awareness.clientID]
-          )
-          // [Rust CRDT] log removed
-          if (awarenessUpdate.length < 10000) { // Only send if reasonably sized
+          const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
+            this.awareness.clientID,
+          ])
+          console.log('[Rust CRDT] Initial awareness update size:', awarenessUpdate.length)
+          if (awarenessUpdate.length < 10000) {
+            // Only send if reasonably sized
             this.send(MessageType.AWARENESS, awarenessUpdate)
           }
         } else {
           console.warn('[Rust CRDT] No local awareness state to send on join')
         }
-      }, 50)
+      }, 500) // Increased from 50ms to 500ms for better reliability
 
       // Query for other users' awareness states
       setTimeout(() => {
@@ -238,18 +453,28 @@ export class RustSocketIOProvider {
         states.forEach((state, clientId) => {
           console.log('[Rust CRDT] Awareness state:', clientId, state)
         })
-      }, 100)
+      }, 1000) // Increased from 100ms to 1000ms
     })
 
     // Handle CRDT messages - Socket.IO decomposes array arguments
     this.socket.on('crdt:message', (...args: any[]) => {
-      console.log('[Rust CRDT] Received message args:', args.length, args[0] ? typeof args[0] : 'no args')
-      
+      console.log(
+        '[Rust CRDT] Received message args:',
+        args.length,
+        args[0] ? typeof args[0] : 'no args'
+      )
+
       // Handle both formats: direct array or [roomName, dataArray]
       let roomName: string
       let dataArray: number[]
-      
-      if (args.length === 1 && Array.isArray(args[0]) && args[0].length === 2 && typeof args[0][0] === 'string' && Array.isArray(args[0][1])) {
+
+      if (
+        args.length === 1 &&
+        Array.isArray(args[0]) &&
+        args[0].length === 2 &&
+        typeof args[0][0] === 'string' &&
+        Array.isArray(args[0][1])
+      ) {
         // Format: [roomName, dataArray]
         roomName = args[0][0]
         dataArray = args[0][1]
@@ -281,32 +506,68 @@ export class RustSocketIOProvider {
     })
 
     // Handle errors
-    this.socket.on('connect_error', (error) => {
-      console.error('[Rust CRDT] Connection error:', error)
+    this.socket.on('connect_error', (error: any) => {
+      console.error('[Rust CRDT] Connection error:', error.message || error)
+
+      // Check if this is a server unavailable error
+      if (
+        error.message &&
+        (error.message.includes('websocket error') || error.message.includes('xhr poll error'))
+      ) {
+        console.error(
+          '[Rust CRDT] Server appears to be down or unreachable. Please check if the CRDT server is running.'
+        )
+      }
+
       this.config.onError?.(error)
+
+      // Don't retry here - let the timeout handler manage retries
+      this.isConnecting = false
     })
 
     // Handle socket errors
-    this.socket.on('error', (error) => {
+    this.socket.on('error', error => {
       console.error('[Rust CRDT] Socket error:', error)
       this.config.onError?.(error)
     })
 
     // Handle reconnection events
-    this.socket.on('reconnect', (attemptNumber) => {
+    this.socket.on('reconnect', attemptNumber => {
       console.warn('[Rust CRDT] Reconnected after', attemptNumber, 'attempts')
-      this.connected = true
+      // Don't mark as connected yet - wait for room join confirmation
       this.isReconnecting = false
       this.reconnectionAttempts = 0
-      this.config.onStatusChange?.('connected')
+      this.lastSyncMessageTime = Date.now()
+      this.lastAwarenessUpdateTime = Date.now()
+
+      // Restart heartbeat if it was stopped
+      if (!this.heartbeatTimer) {
+        this.startHeartbeat()
+      }
+
+      // Small delay to ensure socket is fully ready after reconnection
+      setTimeout(() => {
+        if (this.socket && this.socket.connected) {
+          // IMPORTANT: Rejoin the room after reconnection
+          console.log(
+            '[Rust CRDT] Rejoining room after reconnection:',
+            this.roomName,
+            'Socket connected:',
+            this.socket.connected
+          )
+          this.socket.emit('crdt:join', this.roomName)
+        } else {
+          console.error('[Rust CRDT] Socket not connected when trying to rejoin room')
+        }
+      }, 100)
     })
 
-    this.socket.on('reconnect_attempt', (attemptNumber) => {
+    this.socket.on('reconnect_attempt', attemptNumber => {
       console.warn('[Rust CRDT] Reconnection attempt', attemptNumber)
       this.config.onStatusChange?.('connecting')
     })
 
-    this.socket.on('reconnect_error', (error) => {
+    this.socket.on('reconnect_error', error => {
       console.error('[Rust CRDT] Reconnection error:', error)
     })
 
@@ -314,7 +575,6 @@ export class RustSocketIOProvider {
       console.error('[Rust CRDT] Reconnection failed after maximum attempts')
       this.config.onStatusChange?.('disconnected')
     })
-
   }
 
   /**
@@ -322,8 +582,6 @@ export class RustSocketIOProvider {
    */
   private handleMessage(data: Uint8Array): void {
     try {
-
-
       // Validate data
       if (!data || data.length === 0) {
         console.warn('[Rust CRDT] Received empty message data')
@@ -335,7 +593,14 @@ export class RustSocketIOProvider {
 
       // Debug: log the message type only if it's unexpected
       if (messageType > 4) {
-        console.warn('[Rust CRDT] Unexpected message type:', messageType, 'data length:', data.length, 'first 10 bytes:', Array.from(data.slice(0, 10)))
+        console.warn(
+          '[Rust CRDT] Unexpected message type:',
+          messageType,
+          'data length:',
+          data.length,
+          'first 10 bytes:',
+          Array.from(data.slice(0, 10))
+        )
       }
 
       switch (messageType) {
@@ -348,21 +613,33 @@ export class RustSocketIOProvider {
           try {
             // The rest of the message IS the awareness update
             const remainingBytes = decoder.arr.length - decoder.pos
-            
+
             if (remainingBytes <= 0) {
               console.warn('[Rust CRDT] Empty awareness update')
               break
             }
-            
+
             // Read the remaining bytes directly as the awareness update
-            const update = new Uint8Array(decoder.arr.buffer, decoder.arr.byteOffset + decoder.pos, remainingBytes)
-            console.log('[Rust CRDT] Applying awareness update, length:', update.length, 'first 10 bytes:', Array.from(update.slice(0, 10)))
-            
+            const update = new Uint8Array(
+              decoder.arr.buffer,
+              decoder.arr.byteOffset + decoder.pos,
+              remainingBytes
+            )
+            console.log(
+              '[Rust CRDT] Applying awareness update, length:',
+              update.length,
+              'first 10 bytes:',
+              Array.from(update.slice(0, 10))
+            )
+
             // Apply the awareness update
             awarenessProtocol.applyAwarenessUpdate(this.awareness, update, 'remote')
-            
+
             // Log the result
-            console.log('[Rust CRDT] Awareness states after update:', this.awareness.getStates().size)
+            console.log(
+              '[Rust CRDT] Awareness states after update:',
+              this.awareness.getStates().size
+            )
             this.awareness.getStates().forEach((state, clientId) => {
               console.log('[Rust CRDT] Client', clientId, 'state:', state)
             })
@@ -377,9 +654,10 @@ export class RustSocketIOProvider {
               this.awareness,
               Array.from(this.awareness.getStates().keys())
             )
-            if (awarenessUpdate.length < 10000) { // Only send if reasonably sized
-            this.send(MessageType.AWARENESS, awarenessUpdate)
-          }
+            if (awarenessUpdate.length < 10000) {
+              // Only send if reasonably sized
+              this.send(MessageType.AWARENESS, awarenessUpdate)
+            }
           } catch (error) {
             console.error('[Rust CRDT] Error responding to awareness query:', error)
           }
@@ -396,12 +674,13 @@ export class RustSocketIOProvider {
         default:
           console.warn('[Rust CRDT] Unknown message type:', messageType)
       }
-    }
-    catch (error: any) {
+    } catch (error: any) {
       // Silently ignore errors from incompatible Rust server
       // Only call error handler for non-sync errors
-      if (!error.message?.includes('Unknown message type') && 
-          !error.message?.includes('contentRefs')) {
+      if (
+        !error.message?.includes('Unknown message type') &&
+        !error.message?.includes('contentRefs')
+      ) {
         this.config.onError?.(error as Error)
       }
     }
@@ -417,23 +696,18 @@ export class RustSocketIOProvider {
       // The Rust server appears to send raw Yjs updates directly
       // without the sync protocol wrapper
       // console.log('[Rust CRDT] Treating as raw Yjs update')
-      
+
       // Try to parse this as a standard sync protocol message first
       const savedPos = decoder.pos
       const firstByte = decoding.readVarUint(decoder)
       decoder.pos = savedPos // Reset position
-      
+
       // console.log('[Rust CRDT] First varuint in message:', firstByte)
-      
+
       // If it's a valid sync message type, handle it properly
       if (firstByte === 0 || firstByte === 1 || firstByte === 2) {
         const encoder = encoding.createEncoder()
-        const syncMessageType = syncProtocol.readSyncMessage(
-          decoder,
-          encoder,
-          this.doc,
-          this
-        )
+        const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, this)
 
         if (encoding.length(encoder) > 0) {
           this.send(MessageType.SYNC, encoding.toUint8Array(encoder))
@@ -447,7 +721,7 @@ export class RustSocketIOProvider {
         }
         return
       }
-      
+
       // Silently fail for other message types
     } catch (e) {
       // Ignore all sync errors to prevent console spam
@@ -511,7 +785,14 @@ export class RustSocketIOProvider {
     console.warn('[Rust CRDT] Socket disconnected, will attempt to reconnect automatically')
     this.connected = false
     this.synced = false
+    this.isConnecting = false // Reset connecting state
     this.config.onStatusChange?.('disconnected')
+
+    // Clear any pending timeouts
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout)
+      this.connectionTimeout = null
+    }
   }
 
   /**
@@ -530,8 +811,6 @@ export class RustSocketIOProvider {
     // Set up awareness update observer with throttling
     this.awareness.on('update', ({ added, updated, removed }: any) => {
       try {
-
-
         const changedClients = added.concat(updated, removed)
         if (changedClients.length > 0 && this.connected) {
           // Clear existing timer
@@ -542,29 +821,25 @@ export class RustSocketIOProvider {
           // Throttle awareness updates
           this.awarenessUpdateTimer = setTimeout(() => {
             try {
-
-
               // Only send updates for our local client, not for remote clients
               const myClientId = this.awareness.clientID
               const shouldSendUpdate = changedClients.includes(myClientId)
 
-
               if (shouldSendUpdate) {
                 const localState = this.awareness.getLocalState()
-
 
                 if (localState && typeof localState === 'object') {
                   try {
                     // Only encode awareness update for our local client
-                    const update = awarenessProtocol.encodeAwarenessUpdate(this.awareness, [myClientId])
-
+                    const update = awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
+                      myClientId,
+                    ])
 
                     if (update && update.length > 0) {
-                      if (update.length < 10000) { // Only send if reasonably sized
+                      if (update.length < 10000) {
+                        // Only send if reasonably sized
                         this.send(MessageType.AWARENESS, update)
                       }
-
-
                     }
                   } catch (encodeError) {
                     console.error('[Rust CRDT] Error encoding awareness update:', encodeError)
@@ -589,11 +864,11 @@ export class RustSocketIOProvider {
    */
   setUserState(state: Partial<CRDTPresence>): void {
     try {
-      const currentState = this.awareness.getLocalState() || {};
+      const currentState = this.awareness.getLocalState() || {}
       const newState = {
         ...currentState,
         ...state,
-        lastSeen: Date.now()
+        lastSeen: Date.now(),
       }
 
       if (newState.userId && typeof newState.userId === 'string') {
@@ -609,8 +884,6 @@ export class RustSocketIOProvider {
    */
   getUsers(): Map<number, CRDTPresence> {
     const users = new Map<number, CRDTPresence>()
-
-
 
     this.awareness.getStates().forEach((state, clientId) => {
       // [Rust CRDT] log removed
@@ -665,7 +938,7 @@ export class RustSocketIOProvider {
       const animalIndex = parseInt(seed.substring(2, 4), 36) % animals.length
 
       // Add a number suffix to distinguish between tabs
-      const tabNumber = parseInt(userId.split('-')[3] || '0', 36) % 99 + 1
+      const tabNumber = (parseInt(userId.split('-')[3] || '0', 36) % 99) + 1
       userName = `${adjectives[adjIndex]} ${animals[animalIndex]} ${tabNumber}`
       sessionStorage.setItem('userName', userName)
     }
@@ -690,8 +963,14 @@ export class RustSocketIOProvider {
    */
   private generateUserColor(userId: string): string {
     const colors = [
-      '#ef4444', '#f59e0b', '#10b981', '#3b82f6',
-      '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+      '#ef4444',
+      '#f59e0b',
+      '#10b981',
+      '#3b82f6',
+      '#8b5cf6',
+      '#ec4899',
+      '#06b6d4',
+      '#84cc16',
     ]
 
     let hash = 0
@@ -706,6 +985,7 @@ export class RustSocketIOProvider {
    * Disconnect and clean up
    */
   disconnect(): void {
+    // Clear all timers
     if (this.awarenessUpdateTimer) {
       clearTimeout(this.awarenessUpdateTimer)
       this.awarenessUpdateTimer = null
@@ -716,11 +996,27 @@ export class RustSocketIOProvider {
       this.healthCheckTimer = null
     }
 
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout)
+      this.connectionTimeout = null
+    }
+
+    // Clean up socket
     if (this.socket) {
-      this.socket.emit('crdt:leave', this.roomName)
+      // Don't send leave here - it's handled in beforeunload
+      this.socket.removeAllListeners()
       this.socket.disconnect()
       this.socket = null
     }
+
+    // Reset connection state
+    this.isConnecting = false
+    this.isReconnecting = false
 
     this.awareness.destroy()
     this.connected = false

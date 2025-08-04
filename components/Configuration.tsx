@@ -1,8 +1,23 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Settings, ArrowLeft, Plus, Eye, EyeOff, Trash2, Edit3, Key, Globe, AlertTriangle } from 'lucide-react'
-import { EnvVarService, type EnvironmentVariable, type ConfigSection } from '@/services/envVarService'
+import {
+  Settings,
+  ArrowLeft,
+  Plus,
+  Eye,
+  EyeOff,
+  Trash2,
+  Edit3,
+  Key,
+  Globe,
+  AlertTriangle,
+} from 'lucide-react'
+import {
+  EnvVarService,
+  type EnvironmentVariable,
+  type ConfigSection,
+} from '@/services/envVarService'
 
 interface ConfigurationProps {
   isOpen: boolean
@@ -29,27 +44,28 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
     }
   }, [isOpen])
 
-
   const addVariable = async (sectionId: string) => {
     if (!newVar.key.trim()) return
-    
+
     // Validate environment variable key format
     if (!/^[A-Z][A-Z0-9_]*$/.test(newVar.key)) {
-      alert('Environment variable key must start with uppercase letter and contain only uppercase letters, numbers, and underscores')
+      alert(
+        'Environment variable key must start with uppercase letter and contain only uppercase letters, numbers, and underscores'
+      )
       return
     }
-    
+
     // If we're in the secrets section, force isSecret to true
     const isSecret = sectionId === 'secrets' || newVar.isSecret
-    
+
     // Create the new variable
     const newVariable: EnvironmentVariable = {
       id: Date.now().toString(),
       key: newVar.key,
       value: isSecret ? '••••••••' : newVar.value, // Mask secrets immediately
-      isSecret: isSecret
+      isSecret: isSecret,
     }
-    
+
     // Add to the appropriate section
     const updatedSections = configSections.map(section => {
       // For secrets, always add to the secrets section
@@ -62,14 +78,14 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
       }
       return section
     })
-    
+
     setConfigSections(updatedSections)
-    
+
     // If we added a secret, switch to the secrets section
     if (isSecret && activeSection !== 'secrets') {
       setActiveSection('secrets')
     }
-    
+
     try {
       // Send to API (even though backend doesn't persist yet, we follow the pattern)
       if (isSecret) {
@@ -77,15 +93,15 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
         await EnvVarService.saveSecret({
           key: newVar.key,
           value: newVar.value, // Send actual value to API
-          isSecret: true
+          isSecret: true,
         })
       } else {
         // For non-secrets, save normally
         await EnvVarService.saveConfigSections(updatedSections)
       }
-      
+
       setNewVar({ key: '', value: '', isSecret: false })
-      
+
       // Notify parent that a variable was configured
       if (onVariableConfigured) {
         onVariableConfigured()
@@ -98,18 +114,18 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
   }
 
   const deleteVariable = async (sectionId: string, varId: string) => {
-    const updatedSections = configSections.map(section => 
-      section.id === sectionId 
+    const updatedSections = configSections.map(section =>
+      section.id === sectionId
         ? { ...section, variables: section.variables.filter(v => v.id !== varId) }
         : section
     )
-    
+
     const originalSections = configSections
     setConfigSections(updatedSections)
-    
+
     try {
       await EnvVarService.saveConfigSections(updatedSections)
-      
+
       // Notify parent that a variable was configured (removed)
       if (onVariableConfigured) {
         onVariableConfigured()
@@ -121,24 +137,28 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
     }
   }
 
-  const updateVariable = async (sectionId: string, varId: string, updates: Partial<EnvironmentVariable>) => {
-    const updatedSections = configSections.map(section => 
-      section.id === sectionId 
-        ? { 
-            ...section, 
-            variables: section.variables.map(v => 
+  const updateVariable = async (
+    sectionId: string,
+    varId: string,
+    updates: Partial<EnvironmentVariable>
+  ) => {
+    const updatedSections = configSections.map(section =>
+      section.id === sectionId
+        ? {
+            ...section,
+            variables: section.variables.map(v =>
               v.id === varId ? { ...v, ...updates, needsAttention: false } : v
-            ) 
+            ),
           }
         : section
     )
-    
+
     const originalSections = configSections
     setConfigSections(updatedSections)
-    
+
     try {
       await EnvVarService.saveConfigSections(updatedSections)
-      
+
       // Notify parent that a variable was configured
       if (onVariableConfigured) {
         onVariableConfigured()
@@ -152,15 +172,17 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
 
   const renderVariable = (variable: EnvironmentVariable, sectionId: string) => {
     // Secrets are always masked
-    const displayValue = variable.isSecret 
-      ? '••••••••' 
-      : variable.value
-    const needsAttention = variable.needsAttention || (!variable.value && variable.addedAutomatically)
+    const displayValue = variable.isSecret ? '••••••••' : variable.value
+    const needsAttention =
+      variable.needsAttention || (!variable.value && variable.addedAutomatically)
 
     return (
-      <div key={variable.id} className={`flex items-center gap-3 p-3 rounded-md ${
-        needsAttention ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
-      }`}>
+      <div
+        key={variable.id}
+        className={`flex items-center gap-3 p-3 rounded-md ${
+          needsAttention ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
+        }`}
+      >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {needsAttention && <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />}
           {variable.isSecret && <Key className="w-4 h-4 text-gray-500 flex-shrink-0" />}
@@ -168,20 +190,26 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
             <div className="flex items-center gap-2">
               <div className="font-medium text-sm text-gray-900">{variable.key}</div>
               {variable.addedAutomatically && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Auto-added</span>
+                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                  Auto-added
+                </span>
               )}
               {needsAttention && (
-                <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Needs value</span>
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                  Needs value
+                </span>
               )}
             </div>
-            <div className={`text-sm font-mono truncate ${
-              !variable.value ? 'text-gray-400 italic' : 'text-gray-600'
-            }`}>
+            <div
+              className={`text-sm font-mono truncate ${
+                !variable.value ? 'text-gray-400 italic' : 'text-gray-600'
+              }`}
+            >
               {variable.value ? displayValue : 'No value set'}
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1">
           {/* Only show edit button for non-secrets */}
           {!variable.isSecret && editingVar === variable.id ? (
@@ -189,10 +217,10 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
               <input
                 type="text"
                 value={editingValue}
-                onChange={(e) => setEditingValue(e.target.value)}
+                onChange={e => setEditingValue(e.target.value)}
                 className="w-24 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                 autoFocus
-                onKeyDown={(e) => {
+                onKeyDown={e => {
                   if (e.key === 'Enter') {
                     updateVariable(sectionId, variable.id, { value: editingValue })
                     setEditingVar(null)
@@ -254,7 +282,7 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
 
   return (
     <div className="fixed inset-0 top-[60px] z-50 flex bg-black/50" onClick={onClose}>
-      <div 
+      <div
         className="absolute top-0 left-0 right-0 bottom-0 bg-white shadow-xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
@@ -273,7 +301,7 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
               Back to Workflow
             </button>
           </div>
-          
+
           <p className="mt-2 text-sm text-gray-600">
             Manage environment variables, secrets, and configuration settings for your workflows
           </p>
@@ -286,7 +314,7 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
             <div className="p-4">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Settings</h3>
               <nav className="space-y-1">
-                {configSections.map((section) => (
+                {configSections.map(section => (
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
@@ -330,14 +358,19 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
                       type="text"
                       placeholder="Variable name (e.g., API_KEY)"
                       value={newVar.key}
-                      onChange={(e) => setNewVar(prev => ({ ...prev, key: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') }))}
+                      onChange={e =>
+                        setNewVar(prev => ({
+                          ...prev,
+                          key: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''),
+                        }))
+                      }
                       className="px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                     <input
-                      type={(activeSection === 'secrets' || newVar.isSecret) ? "password" : "text"}
+                      type={activeSection === 'secrets' || newVar.isSecret ? 'password' : 'text'}
                       placeholder="Variable value"
                       value={newVar.value}
-                      onChange={(e) => setNewVar(prev => ({ ...prev, value: e.target.value }))}
+                      onChange={e => setNewVar(prev => ({ ...prev, value: e.target.value }))}
                       className="px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                   </div>
@@ -346,12 +379,16 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
                       <input
                         type="checkbox"
                         checked={activeSection === 'secrets' || newVar.isSecret}
-                        onChange={(e) => setNewVar(prev => ({ ...prev, isSecret: e.target.checked }))}
+                        onChange={e => setNewVar(prev => ({ ...prev, isSecret: e.target.checked }))}
                         className="rounded border-gray-300"
                         disabled={activeSection === 'secrets'}
                       />
                       Mark as secret
-                      {activeSection === 'secrets' && <span className="text-xs text-gray-500">(auto-enabled in Secrets section)</span>}
+                      {activeSection === 'secrets' && (
+                        <span className="text-xs text-gray-500">
+                          (auto-enabled in Secrets section)
+                        </span>
+                      )}
                     </label>
                     <button
                       onClick={() => addVariable(currentSection.id)}
@@ -372,7 +409,7 @@ export function Configuration({ isOpen, onClose, onVariableConfigured }: Configu
                       <p className="text-xs mt-1">Add your first variable above</p>
                     </div>
                   ) : (
-                    currentSection.variables.map((variable) => 
+                    currentSection.variables.map(variable =>
                       renderVariable(variable, currentSection.id)
                     )
                   )}

@@ -1,38 +1,40 @@
 import { apiClient } from './apiClient'
-import type { 
-  WorkflowResponse, 
-  WorkflowCreateRequest, 
+import type {
+  WorkflowResponse,
+  WorkflowCreateRequest,
   WorkflowUpdateRequest,
   WorkflowExecutionRequest,
   WorkflowExecutionResponse,
   WorkflowNodeData,
-  WorkflowConnectionData
+  WorkflowConnectionData,
 } from '@/types/api'
 import type { WorkflowSnapshot, WorkflowGraph } from '@/types/snapshot'
 
 export class WorkflowService {
   private static cache: Map<string, WorkflowResponse> = new Map()
-  private static listCache: { data: WorkflowResponse[], timestamp: number } | null = null
+  private static listCache: { data: WorkflowResponse[]; timestamp: number } | null = null
   private static CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
   // Convert API response to frontend workflow format
   private static convertToWorkflow(apiWorkflow: any): WorkflowSnapshot {
     // Handle both old format (nodes/connections) and new format (graphs)
     let graphs: WorkflowGraph[]
-    
+
     if (apiWorkflow.graphs) {
       graphs = apiWorkflow.graphs
     } else if (apiWorkflow.nodes && apiWorkflow.connections) {
       // Convert old format to new format
-      graphs = [{
-        id: 'main',
-        name: 'Main',
-        namespace: 'main',
-        isMain: true,
-        nodes: apiWorkflow.nodes,
-        connections: apiWorkflow.connections,
-        groups: apiWorkflow.groups || []
-      }]
+      graphs = [
+        {
+          id: 'main',
+          name: 'Main',
+          namespace: 'main',
+          isMain: true,
+          nodes: apiWorkflow.nodes,
+          connections: apiWorkflow.connections,
+          groups: apiWorkflow.groups || [],
+        },
+      ]
     } else {
       graphs = []
     }
@@ -43,7 +45,7 @@ export class WorkflowService {
       description: apiWorkflow.description,
       graphs,
       activeGraphId: apiWorkflow.activeGraphId || 'main',
-      triggerConfig: apiWorkflow.triggerConfig ,
+      triggerConfig: apiWorkflow.triggerConfig,
       metadata: apiWorkflow.metadata || {},
       createdAt: apiWorkflow.createdAt,
       updatedAt: apiWorkflow.updatedAt,
@@ -51,19 +53,25 @@ export class WorkflowService {
       saveCount: apiWorkflow.saveCount || 0,
       isDraft: apiWorkflow.isDraft !== undefined ? apiWorkflow.isDraft : true,
       isPublished: apiWorkflow.isPublished || false,
-      publishedAt: apiWorkflow.publishedAt
+      publishedAt: apiWorkflow.publishedAt,
     }
   }
 
   // Convert frontend workflow to API request format
   private static convertToApiRequest(workflow: Partial<WorkflowSnapshot>): any {
+    // Ensure we have valid data before sending
+    if (!workflow.name || !workflow.graphs) {
+      console.error('[WorkflowService] Invalid workflow data for API request:', workflow)
+      throw new Error('Workflow must have name and graphs')
+    }
+
     return {
-      name: workflow.name!,
-      description: workflow.description,
-      graphs: workflow.graphs!,
-      activeGraphId: workflow.activeGraphId,
-      triggerConfig: workflow.triggerConfig,
-      metadata: workflow.metadata
+      name: workflow.name,
+      description: workflow.description || '',
+      graphs: workflow.graphs,
+      activeGraphId: workflow.activeGraphId || 'main',
+      triggerConfig: workflow.triggerConfig || null,
+      metadata: workflow.metadata || {},
     }
   }
 
@@ -90,7 +98,7 @@ export class WorkflowService {
         status: params?.status,
         search: params?.search,
         sortBy: params?.sortBy || 'updatedAt',
-        sortOrder: params?.sortOrder || 'desc'
+        sortOrder: params?.sortOrder || 'desc',
       })
 
       // Update cache
@@ -100,11 +108,11 @@ export class WorkflowService {
 
       return {
         workflows: response.data.map(this.convertToWorkflow),
-        pagination: response.pagination
+        pagination: response.pagination,
       }
     } catch (error) {
       console.error('Failed to fetch workflows:', error)
-      
+
       // Fall back to localStorage for offline support
       return this.getWorkflowsFromLocal()
     }
@@ -119,14 +127,14 @@ export class WorkflowService {
       }
 
       const workflow = await apiClient.get<WorkflowResponse>(`/workflows/${id}`)
-      
+
       // Update cache
       this.cache.set(id, workflow)
-      
+
       return this.convertToWorkflow(workflow)
     } catch (error) {
       console.error(`Failed to fetch workflow ${id}:`, error)
-      
+
       // Fall back to localStorage
       return this.getWorkflowFromLocal(id)
     }
@@ -136,33 +144,36 @@ export class WorkflowService {
     try {
       const request = this.convertToApiRequest(workflow)
       const created = await apiClient.post<WorkflowResponse>('/workflows', request)
-      
+
       // Update cache
       this.cache.set(created.id, created)
       this.listCache = null // Invalidate list cache
-      
+
       return this.convertToWorkflow(created)
     } catch (error) {
       console.error('Failed to create workflow:', error)
-      
+
       // Fall back to localStorage
       return this.createWorkflowLocal(workflow)
     }
   }
 
-  static async updateWorkflow(id: string, updates: Partial<WorkflowSnapshot>): Promise<WorkflowSnapshot> {
+  static async updateWorkflow(
+    id: string,
+    updates: Partial<WorkflowSnapshot>
+  ): Promise<WorkflowSnapshot> {
     try {
       const request = this.convertToApiRequest(updates)
       const updated = await apiClient.put<WorkflowResponse>(`/workflows/${id}`, request)
-      
+
       // Update cache
       this.cache.set(id, updated)
       this.listCache = null // Invalidate list cache
-      
+
       return this.convertToWorkflow(updated)
     } catch (error) {
       console.error(`Failed to update workflow ${id}:`, error)
-      
+
       // Fall back to localStorage
       return this.updateWorkflowLocal(id, updates)
     }
@@ -171,15 +182,15 @@ export class WorkflowService {
   static async deleteWorkflow(id: string): Promise<boolean> {
     try {
       await apiClient.delete(`/workflows/${id}`)
-      
+
       // Remove from cache
       this.cache.delete(id)
       this.listCache = null // Invalidate list cache
-      
+
       return true
     } catch (error) {
       console.error(`Failed to delete workflow ${id}:`, error)
-      
+
       // Fall back to localStorage
       return this.deleteWorkflowLocal(id)
     }
@@ -188,11 +199,11 @@ export class WorkflowService {
   static async publishWorkflow(id: string): Promise<WorkflowSnapshot> {
     try {
       const published = await apiClient.post<WorkflowResponse>(`/workflows/${id}/publish`)
-      
+
       // Update cache
       this.cache.set(id, published)
       this.listCache = null // Invalidate list cache
-      
+
       return this.convertToWorkflow(published)
     } catch (error) {
       console.error(`Failed to publish workflow ${id}:`, error)
@@ -203,11 +214,11 @@ export class WorkflowService {
   static async unpublishWorkflow(id: string): Promise<WorkflowSnapshot> {
     try {
       const unpublished = await apiClient.delete<WorkflowResponse>(`/workflows/${id}/publish`)
-      
+
       // Update cache
       this.cache.set(id, unpublished)
       this.listCache = null // Invalidate list cache
-      
+
       return this.convertToWorkflow(unpublished)
     } catch (error) {
       console.error(`Failed to unpublish workflow ${id}:`, error)
@@ -216,22 +227,22 @@ export class WorkflowService {
   }
 
   static async executeWorkflow(
-    id: string, 
-    input?: any, 
+    id: string,
+    input?: any,
     configuration?: Record<string, any>
   ): Promise<WorkflowExecutionResponse> {
     try {
       const request: WorkflowExecutionRequest = {
         workflowId: id,
         input,
-        configuration
+        configuration,
       }
-      
+
       const execution = await apiClient.post<WorkflowExecutionResponse>(
-        `/workflows/${id}/execute`, 
+        `/workflows/${id}/execute`,
         request
       )
-      
+
       return execution
     } catch (error) {
       console.error(`Failed to execute workflow ${id}:`, error)
@@ -245,7 +256,7 @@ export class WorkflowService {
         `/workflows/${id}/execute`,
         { limit }
       )
-      
+
       return executions
     } catch (error) {
       console.error(`Failed to get execution history for workflow ${id}:`, error)
@@ -266,7 +277,7 @@ export class WorkflowService {
       }
     } catch (error) {
       console.error('Failed to save workflow snapshot:', error)
-      
+
       // Fall back to localStorage
       return this.saveWorkflowSnapshotLocal(workflow)
     }
@@ -275,8 +286,8 @@ export class WorkflowService {
   static async getWorkflowHistory(): Promise<WorkflowSnapshot[]> {
     try {
       const response = await this.getWorkflows({ limit: 100 })
-      return response.workflows.sort((a, b) => 
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      return response.workflows.sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )
     } catch (error) {
       console.error('Failed to get workflow history:', error)
@@ -292,21 +303,21 @@ export class WorkflowService {
     try {
       const stored = localStorage.getItem('zeal_workflows')
       const workflows: WorkflowSnapshot[] = stored ? JSON.parse(stored) : []
-      
+
       return {
         workflows,
         pagination: {
           page: 1,
           limit: workflows.length,
           total: workflows.length,
-          totalPages: 1
-        }
+          totalPages: 1,
+        },
       }
     } catch (error) {
       console.error('Failed to get workflows from localStorage:', error)
       return {
         workflows: [],
-        pagination: { page: 1, limit: 0, total: 0, totalPages: 0 }
+        pagination: { page: 1, limit: 0, total: 0, totalPages: 0 },
       }
     }
   }
@@ -327,15 +338,17 @@ export class WorkflowService {
       id: `wf_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       name: workflow.name || 'Untitled Workflow',
       description: workflow.description,
-      graphs: workflow.graphs || [{
-        id: 'main',
-        name: 'Main',
-        namespace: 'main',
-        isMain: true,
-        nodes: [],
-        connections: [],
-        groups: []
-      }],
+      graphs: workflow.graphs || [
+        {
+          id: 'main',
+          name: 'Main',
+          namespace: 'main',
+          isMain: true,
+          nodes: [],
+          connections: [],
+          groups: [],
+        },
+      ],
       triggerConfig: workflow.triggerConfig,
       metadata: workflow.metadata || undefined,
       createdAt: new Date().toISOString(),
@@ -343,7 +356,7 @@ export class WorkflowService {
       lastSavedAt: new Date().toISOString(),
       saveCount: 0,
       isDraft: true,
-      isPublished: false
+      isPublished: false,
     }
 
     try {
@@ -358,17 +371,20 @@ export class WorkflowService {
     return newWorkflow
   }
 
-  private static updateWorkflowLocal(id: string, updates: Partial<WorkflowSnapshot>): WorkflowSnapshot {
+  private static updateWorkflowLocal(
+    id: string,
+    updates: Partial<WorkflowSnapshot>
+  ): WorkflowSnapshot {
     try {
       const stored = localStorage.getItem('zeal_workflows')
       const workflows: WorkflowSnapshot[] = stored ? JSON.parse(stored) : []
       const index = workflows.findIndex(w => w.id === id)
-      
+
       if (index !== -1) {
         workflows[index] = {
           ...workflows[index],
           ...updates,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         }
         localStorage.setItem('zeal_workflows', JSON.stringify(workflows))
         return workflows[index]
@@ -376,7 +392,7 @@ export class WorkflowService {
     } catch (error) {
       console.error('Failed to update workflow in localStorage:', error)
     }
-    
+
     throw new Error(`Workflow ${id} not found in localStorage`)
   }
 
@@ -385,7 +401,7 @@ export class WorkflowService {
       const stored = localStorage.getItem('zeal_workflows')
       const workflows: WorkflowSnapshot[] = stored ? JSON.parse(stored) : []
       const filtered = workflows.filter(w => w.id !== id)
-      
+
       if (filtered.length !== workflows.length) {
         localStorage.setItem('zeal_workflows', JSON.stringify(filtered))
         return true
@@ -393,7 +409,7 @@ export class WorkflowService {
     } catch (error) {
       console.error('Failed to delete workflow from localStorage:', error)
     }
-    
+
     return false
   }
 
@@ -402,25 +418,25 @@ export class WorkflowService {
     const snapshot = {
       ...workflow,
       id,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     }
-    
+
     try {
       const stored = localStorage.getItem('zeal_workflows')
       const workflows: WorkflowSnapshot[] = stored ? JSON.parse(stored) : []
       const index = workflows.findIndex(w => w.id === id)
-      
+
       if (index !== -1) {
         workflows[index] = snapshot
       } else {
         workflows.push(snapshot)
       }
-      
+
       localStorage.setItem('zeal_workflows', JSON.stringify(workflows))
     } catch (error) {
       console.error('Failed to save workflow snapshot to localStorage:', error)
     }
-    
+
     return id
   }
 
@@ -428,8 +444,8 @@ export class WorkflowService {
     try {
       const stored = localStorage.getItem('zeal_workflows')
       const workflows: WorkflowSnapshot[] = stored ? JSON.parse(stored) : []
-      return workflows.sort((a, b) => 
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      return workflows.sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )
     } catch (error) {
       console.error('Failed to get workflow history from localStorage:', error)

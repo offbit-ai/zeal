@@ -1,24 +1,26 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @layer base {
   html {
     overflow: hidden;
     height: 100%;
   }
-  
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     overflow: hidden;
     height: 100%;
     margin: 0;
   }
-  
+
   /* Global cursor pointer for all buttons */
   button {
     cursor: pointer;
   }
-  
+
   /* Ensure disabled buttons show not-allowed cursor */
   button:disabled {
     cursor: not-allowed;
@@ -27,19 +29,33 @@
 
 @layer utilities {
   @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-1px); }
-    20%, 40%, 60%, 80% { transform: translateX(1px); }
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+      transform: translateX(-1px);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+      transform: translateX(1px);
+    }
   }
-  
+
   .animate-shake {
     animation: shake 2s ease-in-out infinite;
   }
-  
+
   .animate-shake:hover {
     animation: none;
   }
-  
+
   @keyframes dash-flow {
     to {
       stroke-dashoffset: -15;

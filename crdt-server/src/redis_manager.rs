@@ -131,6 +131,10 @@ impl RedisManager {
     }
 
     pub async fn save_client_session(&self, client_id: &str, session_data: &str) -> Result<()> {
+        self.save_client_session_with_ttl(client_id, session_data, 3600).await
+    }
+    
+    pub async fn save_client_session_with_ttl(&self, client_id: &str, session_data: &str, ttl_seconds: u64) -> Result<()> {
         if !self.enabled {
             return Ok(());
         }
@@ -142,7 +146,7 @@ impl RedisManager {
             .arg(&key)
             .arg(session_data)
             .arg("EX")
-            .arg(3600) // 1 hour TTL
+            .arg(ttl_seconds)
             .query_async::<_, ()>(&mut conn)
             .await?;
         

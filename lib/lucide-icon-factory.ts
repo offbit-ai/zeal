@@ -12,8 +12,10 @@ import { LucideIcon } from 'lucide-react'
  * @returns The Lucide icon component
  */
 export function getIconByName(iconName: string, fallback?: LucideIcon): LucideIcon {
-  console.warn('[DEPRECATED] getIconByName from lucide-icon-factory is deprecated. Use the new Icon Library from @/lib/icons instead.')
-  
+  console.warn(
+    '[DEPRECATED] getIconByName from lucide-icon-factory is deprecated. Use the new Icon Library from @/lib/icons instead.'
+  )
+
   // Delegate to the new icon library
   return newGetIconByName(iconName, fallback, 'lucide')
 }

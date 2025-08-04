@@ -11,8 +11,17 @@ interface SubgraphNodeProps {
   position: { x: number; y: number }
   onClick?: () => void
   onPositionChange?: (nodeId: string, position: { x: number; y: number }) => void
-  onBoundsChange?: (nodeId: string, bounds: { x: number; y: number; width: number; height: number }) => void
-  onPortPositionUpdate?: (nodeId: string, portId: string, x: number, y: number, position: 'top' | 'right' | 'bottom' | 'left') => void
+  onBoundsChange?: (
+    nodeId: string,
+    bounds: { x: number; y: number; width: number; height: number }
+  ) => void
+  onPortPositionUpdate?: (
+    nodeId: string,
+    portId: string,
+    x: number,
+    y: number,
+    position: 'top' | 'right' | 'bottom' | 'left'
+  ) => void
   onPortDragStart?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   onPortDragEnd?: (nodeId: string, portId: string, portType: 'input' | 'output') => void
   zoom?: number
@@ -33,32 +42,32 @@ export function SubgraphNode({
   zoom = 1,
   isHighlighted,
   isNodeSelected,
-  isInGroup = false
+  isInGroup = false,
 }: SubgraphNodeProps) {
   const { switchGraph, graphs } = useWorkflowStore()
   const [isHovered, setIsHovered] = useState(false)
-  
+
   const targetGraph = graphs.find(g => g.id === metadata.graphId)
-  
+
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     switchGraph(metadata.graphId)
   }
-  
+
   // Override metadata for visual appearance
   // Use dynamic namespace if workflowName is available
-  const dynamicNamespace = metadata.workflowName 
+  const dynamicNamespace = metadata.workflowName
     ? `${metadata.workflowName}/${metadata.graphId}`
     : metadata.graphNamespace
-    
+
   const subgraphMetadata = {
     ...metadata,
     variant: 'orange-600' as const,
     icon: 'link',
     subtitle: `${dynamicNamespace}`,
-    shape: 'diamond' as NodeShape
+    shape: 'diamond' as NodeShape,
   }
-  
+
   return (
     <div
       onDoubleClick={handleDoubleClick}
@@ -80,7 +89,6 @@ export function SubgraphNode({
         isSelected={isNodeSelected}
         isInGroup={isInGroup}
       />
-      
     </div>
   )
 }

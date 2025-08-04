@@ -9,61 +9,61 @@ interface WorkflowBottomToolbarProps {
   onAddSubgraphClick?: () => void
 }
 
-export function WorkflowBottomToolbar({ 
+export function WorkflowBottomToolbar({
   onHistoryClick,
   onDebuggerClick,
   onConfigClick,
   onCreateEmptyGroupClick,
-  onAddSubgraphClick
+  onAddSubgraphClick,
 }: WorkflowBottomToolbarProps) {
   return (
     <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 flex items-center gap-3 z-20 w-fit">
       <Tooltip content="History" position="top">
-        <button 
+        <button
           className="flex items-center justify-center w-8 h-8 text-gray-900 hover:text-black transition-colors cursor-pointer"
           onClick={onHistoryClick}
         >
           <History className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
-      
+
       <div className="w-px h-4 bg-gray-300"></div>
-      
+
       <Tooltip content="Flow Trace Debugger" position="top">
-        <button 
+        <button
           className="flex items-center justify-center w-8 h-8 text-gray-900 hover:text-black transition-colors cursor-pointer"
           onClick={onDebuggerClick}
         >
           <ListRestart className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
-      
+
       <div className="w-px h-4 bg-gray-300"></div>
-      
+
       <Tooltip content="Configuration" position="top">
-        <button 
+        <button
           className="flex items-center justify-center w-8 h-8 text-gray-900 hover:text-black transition-colors cursor-pointer"
           onClick={onConfigClick}
         >
           <KeyRound className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
-      
+
       <div className="w-px h-4 bg-gray-300"></div>
-      
+
       <Tooltip content="Create Empty Group (⌘E)" position="top">
-        <button 
+        <button
           className="flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-700 hover:bg-green-50 transition-colors cursor-pointer rounded"
           onClick={onCreateEmptyGroupClick}
         >
           <Grid2x2Plus className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </Tooltip>
-      
+
       <div className="w-px h-4 bg-gray-300"></div>
-      
+
       <Tooltip content="Add Subgraph" position="top">
-        <button 
+        <button
           className="flex items-center justify-center w-8 h-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 transition-colors cursor-pointer rounded"
           onClick={onAddSubgraphClick}
         >

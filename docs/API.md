@@ -55,12 +55,14 @@ GET /workflows
 ```
 
 Query Parameters:
+
 - `page` (number): Page number (default: 1)
 - `limit` (number): Items per page (default: 20)
 - `search` (string): Search term
 - `namespace` (string): Filter by namespace
 
 Response:
+
 ```json
 {
   "success": true,
@@ -93,6 +95,7 @@ GET /workflows/:id
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -122,6 +125,7 @@ POST /workflows
 ```
 
 Request Body:
+
 ```json
 {
   "name": "New Workflow",
@@ -142,6 +146,7 @@ PUT /workflows/:id
 ```
 
 Request Body:
+
 ```json
 {
   "name": "Updated Name",
@@ -167,6 +172,7 @@ POST /workflows/:id/publish
 ```
 
 Request Body:
+
 ```json
 {
   "version": "1.0.0",
@@ -181,6 +187,7 @@ POST /workflows/:id/execute
 ```
 
 Request Body:
+
 ```json
 {
   "inputs": {
@@ -203,10 +210,12 @@ GET /nodes
 ```
 
 Query Parameters:
+
 - `category` (string): Filter by category
 - `search` (string): Search term
 
 Response:
+
 ```json
 {
   "success": true,
@@ -232,6 +241,7 @@ GET /nodes/categories
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -256,6 +266,7 @@ POST /nodes/validate
 ```
 
 Request Body:
+
 ```json
 {
   "nodeType": "api-request",
@@ -275,6 +286,7 @@ GET /env-vars
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -299,6 +311,7 @@ POST /env-vars
 ```
 
 Request Body:
+
 ```json
 {
   "key": "NEW_VAR",
@@ -329,6 +342,7 @@ GET /flow-traces
 ```
 
 Query Parameters:
+
 - `workflowId` (string): Filter by workflow
 - `sessionId` (string): Filter by session
 - `status` (string): Filter by status (running, completed, failed)
@@ -342,6 +356,7 @@ GET /flow-traces/:id
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -373,6 +388,7 @@ POST /flow-traces/sessions
 ```
 
 Request Body:
+
 ```json
 {
   "workflowId": "workflow-123",
@@ -390,6 +406,7 @@ GET /flow-traces/sessions/:sessionId
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -422,6 +439,7 @@ GET /flow-traces/sessions/:sessionId/replay
 ```
 
 Query Parameters:
+
 - `search` (string): Filter traces by node/port names
 - `status` (string): Filter by trace status
 
@@ -434,6 +452,7 @@ GET /flow-traces/sessions/:sessionId/report
 ```
 
 Query Parameters:
+
 - `search` (string): Filter traces by node/port names
 - `status` (string): Filter by trace status
 - `format` (string): Output format - "json" or "text" (default: json)
@@ -447,11 +466,13 @@ GET /flow-traces/analytics
 ```
 
 Query Parameters:
+
 - `workflowId` (string): Filter by workflow
 - `startDate` (string): Start date
 - `endDate` (string): End date
 
 Response:
+
 ```json
 {
   "success": true,
@@ -501,6 +522,7 @@ POST /flow-traces/cleanup
 ```
 
 Request Body:
+
 ```json
 {
   "olderThan": "30d",
@@ -518,10 +540,12 @@ GET /workflows/:id/history
 ```
 
 Query Parameters:
+
 - `page` (number): Page number (default: 1)
 - `limit` (number): Items per page (default: 20)
 
 Response:
+
 ```json
 {
   "success": true,
@@ -551,6 +575,7 @@ POST /workflows/:id/snapshots
 ```
 
 Request Body:
+
 ```json
 {
   "name": "Pre-refactor backup",
@@ -573,6 +598,7 @@ POST /workflows/:id/rollback
 ```
 
 Request Body:
+
 ```json
 {
   "versionId": "version-123"
@@ -591,20 +617,20 @@ Connect to the CRDT server for real-time synchronization:
 const socket = io('wss://your-domain.com', {
   auth: {
     userId: 'user-123',
-    userName: 'John Doe'
-  }
-});
+    userName: 'John Doe',
+  },
+})
 
 // Join a workflow room
-socket.emit('join-room', 'workflow-123');
+socket.emit('join-room', 'workflow-123')
 
 // Listen for updates
-socket.on('crdt:update', (data) => {
+socket.on('crdt:update', data => {
   // Handle CRDT updates
-});
+})
 
 // Send updates
-socket.emit('crdt:message', roomId, crdtMessage);
+socket.emit('crdt:message', roomId, crdtMessage)
 ```
 
 ### Events
@@ -633,6 +659,7 @@ API endpoints are rate-limited to prevent abuse:
 - **Execute endpoint**: 5 requests per minute
 
 Rate limit headers:
+
 ```http
 X-RateLimit-Limit: 30
 X-RateLimit-Remaining: 25
@@ -641,39 +668,39 @@ X-RateLimit-Reset: 1640995200
 
 ## Error Codes
 
-| Code | Description |
-|------|-------------|
-| `UNAUTHORIZED` | Missing or invalid authentication |
-| `FORBIDDEN` | Insufficient permissions |
-| `NOT_FOUND` | Resource not found |
-| `VALIDATION_ERROR` | Invalid request data |
-| `RATE_LIMITED` | Too many requests |
-| `INTERNAL_ERROR` | Server error |
-| `WORKFLOW_EXECUTION_ERROR` | Error during workflow execution |
-| `RESOURCE_LOCKED` | Resource is being edited by another user |
+| Code                       | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `UNAUTHORIZED`             | Missing or invalid authentication        |
+| `FORBIDDEN`                | Insufficient permissions                 |
+| `NOT_FOUND`                | Resource not found                       |
+| `VALIDATION_ERROR`         | Invalid request data                     |
+| `RATE_LIMITED`             | Too many requests                        |
+| `INTERNAL_ERROR`           | Server error                             |
+| `WORKFLOW_EXECUTION_ERROR` | Error during workflow execution          |
+| `RESOURCE_LOCKED`          | Resource is being edited by another user |
 
 ## SDK Examples
 
 ### JavaScript/TypeScript
 
 ```typescript
-import { ZealClient } from '@zeal/sdk';
+import { ZealClient } from '@zeal/sdk'
 
 const client = new ZealClient({
   apiKey: 'your-api-key',
-  baseUrl: 'https://your-domain.com/api'
-});
+  baseUrl: 'https://your-domain.com/api',
+})
 
 // List workflows
 const workflows = await client.workflows.list({
   page: 1,
-  limit: 20
-});
+  limit: 20,
+})
 
 // Execute workflow
 const result = await client.workflows.execute('workflow-123', {
-  inputs: { data: 'test' }
-});
+  inputs: { data: 'test' },
+})
 ```
 
 ### Python

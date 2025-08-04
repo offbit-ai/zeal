@@ -1,6 +1,6 @@
 /**
  * CRDT Persistence Layer
- * 
+ *
  * Handles local persistence of CRDT documents using IndexedDB
  * and provides sync capabilities for offline-first functionality.
  */
@@ -25,7 +25,7 @@ const DEFAULT_CONFIG: Required<PersistenceConfig> = {
   storeName: 'workflows',
   autoSaveInterval: 1000, // 1 second
   maxSnapshots: 50,
-  enableCompression: true
+  enableCompression: true,
 }
 
 /**
@@ -35,7 +35,7 @@ export class CRDTPersistence {
   private config: Required<PersistenceConfig>
   private providers: Map<string, IndexeddbPersistence> = new Map()
   private syncStates: Map<string, CRDTSyncState> = new Map()
-  
+
   constructor(config: PersistenceConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
@@ -56,7 +56,7 @@ export class CRDTPersistence {
     // Create IndexedDB provider
     const provider = new IndexeddbPersistence(
       docName,
-      doc,
+      doc
       // {
       //   dbName: this.config.dbName,
       //   storeName: this.config.storeName
@@ -68,14 +68,14 @@ export class CRDTPersistence {
       isSyncing: true,
       lastSyncedAt: undefined,
       pendingChanges: 0,
-      peers: []
+      peers: [],
     })
 
     // Handle sync events
     provider.on('synced', () => {
       this.updateSyncState(docName, {
         isSyncing: false,
-        lastSyncedAt: Date.now()
+        lastSyncedAt: Date.now(),
       })
       onSynced?.()
     })
@@ -91,15 +91,15 @@ export class CRDTPersistence {
     const db = await this.openDB()
     const tx = db.transaction([this.config.storeName], 'readonly')
     const store = tx.objectStore(this.config.storeName)
-    
-    return new Promise((resolve) => {
+
+    return new Promise(resolve => {
       const request = store.get(docName)
-      
+
       request.onsuccess = () => {
         if (request.result) {
           const doc = new Y.Doc({ guid: docName })
           const update = request.result.update
-          
+
           if (update instanceof Uint8Array) {
             Y.applyUpdate(doc, update)
             resolve(doc)
@@ -110,7 +110,7 @@ export class CRDTPersistence {
           resolve(null)
         }
       }
-      
+
       request.onerror = () => {
         console.error('Failed to load document:', request.error)
         resolve(null)
@@ -121,24 +121,20 @@ export class CRDTPersistence {
   /**
    * Save a document snapshot
    */
-  async saveSnapshot(
-    docName: string,
-    doc: Y.Doc,
-    metadata?: any
-  ): Promise<void> {
+  async saveSnapshot(docName: string, doc: Y.Doc, metadata?: any): Promise<void> {
     const snapshot = {
       id: `${docName}-${Date.now()}`,
       docName,
       timestamp: Date.now(),
       update: Y.encodeStateAsUpdate(doc),
       metadata: metadata || {},
-      size: doc.store.clients.size
+      size: doc.store.clients.size,
     }
 
     const db = await this.openDB()
     const tx = db.transaction(['snapshots'], 'readwrite')
     const store = tx.objectStore('snapshots')
-    
+
     await new Promise<void>((resolve, reject) => {
       const request = store.add(snapshot)
       request.onsuccess = () => resolve()
@@ -156,10 +152,10 @@ export class CRDTPersistence {
     const db = await this.openDB()
     const tx = db.transaction(['snapshots'], 'readonly')
     const store = tx.objectStore('snapshots')
-    
-    return new Promise((resolve) => {
+
+    return new Promise(resolve => {
       const request = store.get(snapshotId)
-      
+
       request.onsuccess = () => {
         if (request.result) {
           const doc = new Y.Doc({ guid: request.result.docName })
@@ -169,7 +165,7 @@ export class CRDTPersistence {
           resolve(null)
         }
       }
-      
+
       request.onerror = () => {
         console.error('Failed to load snapshot:', request.error)
         resolve(null)
@@ -180,34 +176,36 @@ export class CRDTPersistence {
   /**
    * List all snapshots for a document
    */
-  async listSnapshots(docName: string): Promise<Array<{
-    id: string
-    timestamp: number
-    metadata: any
-  }>> {
+  async listSnapshots(docName: string): Promise<
+    Array<{
+      id: string
+      timestamp: number
+      metadata: any
+    }>
+  > {
     const db = await this.openDB()
     const tx = db.transaction(['snapshots'], 'readonly')
     const store = tx.objectStore('snapshots')
     const index = store.index('docName')
-    
-    return new Promise((resolve) => {
+
+    return new Promise(resolve => {
       const snapshots: any[] = []
       const request = index.openCursor(IDBKeyRange.only(docName))
-      
+
       request.onsuccess = () => {
         const cursor = request.result
         if (cursor) {
           snapshots.push({
             id: cursor.value.id,
             timestamp: cursor.value.timestamp,
-            metadata: cursor.value.metadata
+            metadata: cursor.value.metadata,
           })
           cursor.continue()
         } else {
           resolve(snapshots.sort((a, b) => b.timestamp - a.timestamp))
         }
       }
-      
+
       request.onerror = () => {
         console.error('Failed to list snapshots:', request.error)
         resolve([])
@@ -228,11 +226,8 @@ export class CRDTPersistence {
 
     // Delete from IndexedDB
     const db = await this.openDB()
-    const tx = db.transaction(
-      [this.config.storeName, 'snapshots'],
-      'readwrite'
-    )
-    
+    const tx = db.transaction([this.config.storeName, 'snapshots'], 'readwrite')
+
     // Delete document
     await new Promise<void>((resolve, reject) => {
       const request = tx.objectStore(this.config.storeName).delete(docName)
@@ -244,10 +239,10 @@ export class CRDTPersistence {
     const snapshotStore = tx.objectStore('snapshots')
     const index = snapshotStore.index('docName')
     const range = IDBKeyRange.only(docName)
-    
-    await new Promise<void>((resolve) => {
+
+    await new Promise<void>(resolve => {
       const request = index.openCursor(range)
-      
+
       request.onsuccess = () => {
         const cursor = request.result
         if (cursor) {
@@ -270,17 +265,14 @@ export class CRDTPersistence {
   /**
    * Update sync state
    */
-  private updateSyncState(
-    docName: string,
-    update: Partial<CRDTSyncState>
-  ): void {
+  private updateSyncState(docName: string, update: Partial<CRDTSyncState>): void {
     const current = this.syncStates.get(docName) || {
       isSyncing: false,
       lastSyncedAt: undefined,
       pendingChanges: 0,
-      peers: []
+      peers: [],
     }
-    
+
     this.syncStates.set(docName, { ...current, ...update })
   }
 
@@ -289,17 +281,17 @@ export class CRDTPersistence {
    */
   private async cleanupSnapshots(docName: string): Promise<void> {
     const snapshots = await this.listSnapshots(docName)
-    
+
     if (snapshots.length > this.config.maxSnapshots) {
       const db = await this.openDB()
       const tx = db.transaction(['snapshots'], 'readwrite')
       const store = tx.objectStore('snapshots')
-      
+
       // Delete oldest snapshots
       const toDelete = snapshots.slice(this.config.maxSnapshots)
-      
+
       for (const snapshot of toDelete) {
-        await new Promise<void>((resolve) => {
+        await new Promise<void>(resolve => {
           const request = store.delete(snapshot.id)
           request.onsuccess = () => resolve()
         })
@@ -313,25 +305,25 @@ export class CRDTPersistence {
   private async openDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.config.dbName, 2)
-      
-      request.onupgradeneeded = (event) => {
+
+      request.onupgradeneeded = event => {
         const db = request.result
-        
+
         // Main document store
         if (!db.objectStoreNames.contains(this.config.storeName)) {
           db.createObjectStore(this.config.storeName, { keyPath: 'name' })
         }
-        
+
         // Snapshots store
         if (!db.objectStoreNames.contains('snapshots')) {
           const snapshotStore = db.createObjectStore('snapshots', {
-            keyPath: 'id'
+            keyPath: 'id',
           })
           snapshotStore.createIndex('docName', 'docName', { unique: false })
           snapshotStore.createIndex('timestamp', 'timestamp', { unique: false })
         }
       }
-      
+
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -343,7 +335,7 @@ export class CRDTPersistence {
   async exportDoc(docName: string, doc: Y.Doc): Promise<any> {
     const state = doc.toJSON()
     const update = Y.encodeStateAsUpdate(doc)
-    
+
     return {
       version: '1.0',
       docName,
@@ -352,8 +344,8 @@ export class CRDTPersistence {
       update: Array.from(update), // Convert to array for JSON
       metadata: {
         clientsCount: doc.store.clients.size,
-        updatesCount: 0
-      }
+        updatesCount: 0,
+      },
     }
   }
 
@@ -362,12 +354,12 @@ export class CRDTPersistence {
    */
   async importDoc(data: any): Promise<Y.Doc> {
     const doc = new Y.Doc({ guid: data.docName })
-    
+
     if (data.update && Array.isArray(data.update)) {
       const update = new Uint8Array(data.update)
       Y.applyUpdate(doc, update)
     }
-    
+
     return doc
   }
 

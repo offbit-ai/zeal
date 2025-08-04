@@ -10,17 +10,17 @@ interface CollaborativeToggleProps {
   onToggle: (enabled: boolean) => Promise<void>
 }
 
-export function CollaborativeToggle({ 
-  isCollaborative, 
+export function CollaborativeToggle({
+  isCollaborative,
   isLoading = false,
   workflowId,
-  onToggle 
+  onToggle,
 }: CollaborativeToggleProps) {
   const [isToggling, setIsToggling] = useState(false)
-  
+
   const handleToggle = async () => {
     if (!workflowId || isToggling || isLoading) return
-    
+
     setIsToggling(true)
     try {
       await onToggle(!isCollaborative)
@@ -30,7 +30,7 @@ export function CollaborativeToggle({
       setIsToggling(false)
     }
   }
-  
+
   return (
     <button
       onClick={handleToggle}
@@ -38,21 +38,23 @@ export function CollaborativeToggle({
       className={`
         flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium
         transition-all duration-200
-        ${isCollaborative 
-          ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        ${
+          isCollaborative
+            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
         }
-        ${(!workflowId || isToggling || isLoading) 
-          ? 'opacity-50 cursor-not-allowed' 
-          : 'cursor-pointer'
+        ${
+          !workflowId || isToggling || isLoading
+            ? 'opacity-50 cursor-not-allowed'
+            : 'cursor-pointer'
         }
       `}
       title={
-        !workflowId 
-          ? 'Save workflow first to enable collaboration' 
-          : isCollaborative 
-          ? 'Disable collaborative mode' 
-          : 'Enable collaborative mode'
+        !workflowId
+          ? 'Save workflow first to enable collaboration'
+          : isCollaborative
+            ? 'Disable collaborative mode'
+            : 'Enable collaborative mode'
       }
     >
       {isToggling || isLoading ? (
@@ -63,12 +65,7 @@ export function CollaborativeToggle({
         <UserX className="w-3.5 h-3.5" />
       )}
       <span>
-        {isToggling || isLoading 
-          ? 'Loading...' 
-          : isCollaborative 
-          ? 'Collaborative' 
-          : 'Local Only'
-        }
+        {isToggling || isLoading ? 'Loading...' : isCollaborative ? 'Collaborative' : 'Local Only'}
       </span>
     </button>
   )

@@ -40,5 +40,5 @@ export const allNodeTemplates = [
   ...logicControlTemplates,
   ...dataProcessingTemplates,
   ...serverNodeTemplates,
-  ...graphIOTemplates
+  ...graphIOTemplates,
 ]

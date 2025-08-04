@@ -6,7 +6,7 @@ import { useNotificationStore } from '@/store/notificationStore'
 
 export function NotificationButton() {
   const { unreadCount, togglePanel } = useNotificationStore()
-  
+
   return (
     <button
       onClick={togglePanel}

@@ -355,7 +355,7 @@
     "format": "{verb}_{resource}",
     "examples": [
       "create_user",
-      "update_project", 
+      "update_project",
       "delete_file",
       "list_messages",
       "send_email",
@@ -384,7 +384,7 @@
         "default": 50
       },
       "offset": {
-        "type": "integer", 
+        "type": "integer",
         "description": "Number of items to skip",
         "location": "query",
         "default": 0
@@ -418,12 +418,12 @@
     },
     "error_handling": {
       "common_errors": [
-        {"code": 400, "description": "Bad Request - Invalid parameters"},
-        {"code": 401, "description": "Unauthorized - Invalid credentials"},
-        {"code": 403, "description": "Forbidden - Insufficient permissions"},
-        {"code": 404, "description": "Not Found - Resource does not exist"},
-        {"code": 429, "description": "Rate Limited - Too many requests"},
-        {"code": 500, "description": "Internal Server Error"}
+        { "code": 400, "description": "Bad Request - Invalid parameters" },
+        { "code": 401, "description": "Unauthorized - Invalid credentials" },
+        { "code": 403, "description": "Forbidden - Insufficient permissions" },
+        { "code": 404, "description": "Not Found - Resource does not exist" },
+        { "code": 429, "description": "Rate Limited - Too many requests" },
+        { "code": 500, "description": "Internal Server Error" }
       ]
     },
     "response_patterns": {
@@ -434,16 +434,16 @@
       "resource_list": {
         "type": "object",
         "properties": {
-          "data": {"type": "array"},
-          "pagination": {"type": "object"},
-          "total_count": {"type": "integer"}
+          "data": { "type": "array" },
+          "pagination": { "type": "object" },
+          "total_count": { "type": "integer" }
         }
       },
       "success_confirmation": {
         "type": "object",
         "properties": {
-          "success": {"type": "boolean"},
-          "message": {"type": "string"}
+          "success": { "type": "boolean" },
+          "message": { "type": "string" }
         }
       }
     }

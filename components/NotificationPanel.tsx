@@ -6,8 +6,8 @@ import { useNotificationStore } from '@/store/notificationStore'
 import { formatDistanceToNow } from 'date-fns'
 
 const NotificationIcon = ({ type }: { type: string }) => {
-  const iconClass = "w-4 h-4"
-  
+  const iconClass = 'w-4 h-4'
+
   switch (type) {
     case 'node-added':
       return <Plus className={iconClass} />
@@ -57,9 +57,9 @@ const NotificationTypeColor = (type: string): string => {
 
 export function NotificationPanel() {
   const { notifications, isOpen, setOpen, clearNotifications } = useNotificationStore()
-  
+
   if (!isOpen) return null
-  
+
   return (
     <div className="absolute top-16 right-4 w-96 max-h-[600px] bg-white rounded-lg shadow-xl border border-gray-200 z-50 flex flex-col">
       {/* Header */}
@@ -82,24 +82,19 @@ export function NotificationPanel() {
           </button>
         </div>
       </div>
-      
+
       {/* Notifications List */}
       <div className="flex-1 overflow-y-auto">
         {notifications.length === 0 ? (
           <div className="p-8 text-center">
             <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">No activity yet</p>
-            <p className="text-xs text-gray-400 mt-1">
-              Collaborative actions will appear here
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Collaborative actions will appear here</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className="p-4 hover:bg-gray-50 transition-colors"
-              >
+            {notifications.map(notification => (
+              <div key={notification.id} className="p-4 hover:bg-gray-50 transition-colors">
                 <div className="flex gap-3">
                   <div className={`p-2 rounded-lg ${NotificationTypeColor(notification.type)}`}>
                     <NotificationIcon type={notification.type} />
@@ -108,8 +103,7 @@ export function NotificationPanel() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <p className="text-sm text-gray-900">
-                          <span className="font-medium">{notification.userName}</span>
-                          {' '}
+                          <span className="font-medium">{notification.userName}</span>{' '}
                           <span className="text-gray-600">{notification.message}</span>
                         </p>
                         <p className="text-xs text-gray-400 mt-1">

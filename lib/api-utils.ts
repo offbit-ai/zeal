@@ -7,39 +7,33 @@ export function generateRequestId(): string {
 }
 
 // Create successful API response
-export function createSuccessResponse<T>(
-  data: T,
-  meta?: ApiResponse<T>['meta']
-): ApiResponse<T> {
+export function createSuccessResponse<T>(data: T, meta?: ApiResponse<T>['meta']): ApiResponse<T> {
   return {
     success: true,
     data,
     meta: {
       timestamp: new Date().toISOString(),
       requestId: generateRequestId(),
-      ...meta
-    }
+      ...meta,
+    },
   }
 }
 
 // Create error API response
-export function createErrorResponse(
-  error: ApiError | Error,
-  requestId?: string
-): ApiResponse {
+export function createErrorResponse(error: ApiError | Error, requestId?: string): ApiResponse {
   const isApiError = error instanceof ApiError
-  
+
   return {
     success: false,
     error: {
       code: isApiError ? error.code : 'INTERNAL_SERVER_ERROR',
       message: error.message,
-      details: isApiError ? error.details : undefined
+      details: isApiError ? error.details : undefined,
     },
     meta: {
       timestamp: new Date().toISOString(),
-      requestId: requestId || generateRequestId()
-    }
+      requestId: requestId || generateRequestId(),
+    },
   }
 }
 
@@ -50,27 +44,23 @@ export function withErrorHandling<T = any>(
   return async (req: NextRequest, context?: T): Promise<NextResponse> => {
     try {
       return await handler(req, context)
-    } catch (error) {
-      console.error('API Error:', error)
-      
-      if (error instanceof ApiError) {
-        return NextResponse.json(
-          createErrorResponse(error),
-          { status: error.statusCode }
-        )
+    } catch (error: any) {
+      // Handle connection reset errors gracefully
+      if (error.code === 'ECONNRESET' || error.message === 'aborted') {
+        console.log('Request aborted by client')
+        return new NextResponse(null, { status: 499 }) // Client Closed Request
       }
-      
+
+      console.error('API Error:', error)
+
+      if (error instanceof ApiError) {
+        return NextResponse.json(createErrorResponse(error), { status: error.statusCode })
+      }
+
       // Unknown error
-      const apiError = new ApiError(
-        'INTERNAL_SERVER_ERROR',
-        'An unexpected error occurred',
-        500
-      )
-      
-      return NextResponse.json(
-        createErrorResponse(apiError),
-        { status: 500 }
-      )
+      const apiError = new ApiError('INTERNAL_SERVER_ERROR', 'An unexpected error occurred', 500)
+
+      return NextResponse.json(createErrorResponse(apiError), { status: 500 })
     }
   }
 }
@@ -81,14 +71,11 @@ export function validateRequired(obj: any, fields: string[]): void {
     const value = obj[field]
     return value === undefined || value === null || value === ''
   })
-  
+
   if (missing.length > 0) {
-    throw new ApiError(
-      'VALIDATION_ERROR',
-      `Required fields missing: ${missing.join(', ')}`,
-      400,
-      { missingFields: missing }
-    )
+    throw new ApiError('VALIDATION_ERROR', `Required fields missing: ${missing.join(', ')}`, 400, {
+      missingFields: missing,
+    })
   }
 }
 
@@ -98,7 +85,7 @@ export function parsePaginationParams(searchParams: URLSearchParams) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
   const sortBy = searchParams.get('sortBy') || 'createdAt'
   const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
-  
+
   return { page, limit, sortBy, sortOrder }
 }
 
@@ -111,7 +98,7 @@ export function parseFilterParams(searchParams: URLSearchParams) {
     tags: searchParams.get('tags') || undefined,
     status: searchParams.get('status') || undefined,
     dateFrom: searchParams.get('dateFrom') || undefined,
-    dateTo: searchParams.get('dateTo') || undefined
+    dateTo: searchParams.get('dateTo') || undefined,
   }
 }
 
@@ -129,10 +116,10 @@ export async function callMicroservice<T>(
 ): Promise<T> {
   // In real implementation, this would make HTTP calls to microservices through a gateway
   // [MOCK] log removed
-  
+
   // Simulate network delay
   await mockDelay(50)
-  
+
   // For now, throw an error to indicate this is not implemented
   throw new ApiError(
     'MICROSERVICE_NOT_IMPLEMENTED',
@@ -159,16 +146,16 @@ export function checkRateLimit(
 ): boolean {
   const now = Date.now()
   const record = rateLimitMap.get(identifier)
-  
+
   if (!record || now > record.resetTime) {
     rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs })
     return true
   }
-  
+
   if (record.count >= maxRequests) {
     return false
   }
-  
+
   record.count++
   return true
 }
@@ -196,18 +183,18 @@ export function validateWorkflowNodes(nodes: any[]): void {
   if (!Array.isArray(nodes)) {
     throw new ApiError('VALIDATION_ERROR', 'Nodes must be an array', 400)
   }
-  
+
   const nodeIds = new Set<string>()
-  
+
   for (const node of nodes) {
     if (!node.id || typeof node.id !== 'string') {
       throw new ApiError('VALIDATION_ERROR', 'Each node must have a valid string ID', 400)
     }
-    
+
     if (nodeIds.has(node.id)) {
       throw new ApiError('VALIDATION_ERROR', `Duplicate node ID: ${node.id}`, 400)
     }
-    
+
     nodeIds.add(node.id)
   }
 }
@@ -216,16 +203,16 @@ export function validateWorkflowConnections(connections: any[], nodeIds: Set<str
   if (!Array.isArray(connections)) {
     throw new ApiError('VALIDATION_ERROR', 'Connections must be an array', 400)
   }
-  
+
   for (const connection of connections) {
     // Handle both old format (sourceNodeId/targetNodeId) and new format (source.nodeId/target.nodeId)
     const sourceNodeId = connection.sourceNodeId || connection.source?.nodeId
     const targetNodeId = connection.targetNodeId || connection.target?.nodeId
-    
+
     if (!sourceNodeId || !nodeIds.has(sourceNodeId)) {
       throw new ApiError('VALIDATION_ERROR', `Invalid source node ID: ${sourceNodeId}`, 400)
     }
-    
+
     if (!targetNodeId || !nodeIds.has(targetNodeId)) {
       throw new ApiError('VALIDATION_ERROR', `Invalid target node ID: ${targetNodeId}`, 400)
     }

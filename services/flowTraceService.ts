@@ -11,7 +11,7 @@ export class FlowTraceService {
     timeFilter?: '1h' | '6h' | '24h' | '7d'
     page?: number
     limit?: number
-  }): Promise<{ sessions: FlowTraceSession[], total: number }> {
+  }): Promise<{ sessions: FlowTraceSession[]; total: number }> {
     try {
       const params = new URLSearchParams()
       if (filters?.search) params.append('search', filters.search)
@@ -28,7 +28,7 @@ export class FlowTraceService {
       const result = await response.json()
       return {
         sessions: result.data || [],
-        total: result.meta?.pagination?.total || 0
+        total: result.meta?.pagination?.total || 0,
       }
     } catch (error) {
       console.error('Error loading trace sessions:', error)
@@ -37,12 +37,16 @@ export class FlowTraceService {
   }
 
   // Start a new trace session
-  static async startSession(workflowId: string, workflowName: string, workflowVersionId?: string): Promise<FlowTraceSession> {
+  static async startSession(
+    workflowId: string,
+    workflowName: string,
+    workflowVersionId?: string
+  ): Promise<FlowTraceSession> {
     try {
       const response = await fetch('/api/flow-traces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflowId, workflowName, workflowVersionId })
+        body: JSON.stringify({ workflowId, workflowName, workflowVersionId }),
       })
 
       if (!response.ok) {
@@ -58,12 +62,15 @@ export class FlowTraceService {
   }
 
   // End a trace session
-  static async endSession(sessionId: string, status: 'completed' | 'failed' = 'completed'): Promise<void> {
+  static async endSession(
+    sessionId: string,
+    status: 'completed' | 'failed' = 'completed'
+  ): Promise<void> {
     try {
       const response = await fetch(`/api/flow-traces/sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status }),
       })
 
       if (!response.ok) {
@@ -76,12 +83,15 @@ export class FlowTraceService {
   }
 
   // Add a trace to the active session
-  static async addTrace(sessionId: string, trace: Omit<FlowTrace, 'id' | 'timestamp'>): Promise<FlowTrace> {
+  static async addTrace(
+    sessionId: string,
+    trace: Omit<FlowTrace, 'id' | 'timestamp'>
+  ): Promise<FlowTrace> {
     try {
       const response = await fetch(`/api/flow-traces/sessions/${sessionId}/traces`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(trace)
+        body: JSON.stringify(trace),
       })
 
       if (!response.ok) {
@@ -114,10 +124,13 @@ export class FlowTraceService {
   }
 
   // Get replay data for a session
-  static async getReplayData(sessionId: string, filters?: {
-    search?: string
-    status?: string
-  }): Promise<any> {
+  static async getReplayData(
+    sessionId: string,
+    filters?: {
+      search?: string
+      status?: string
+    }
+  ): Promise<any> {
     try {
       const params = new URLSearchParams()
       if (filters?.search) params.append('search', filters.search)
@@ -137,11 +150,14 @@ export class FlowTraceService {
   }
 
   // Generate report for a session
-  static async generateReport(sessionId: string, filters?: {
-    search?: string
-    status?: string
-    format?: 'json' | 'text'
-  }): Promise<any> {
+  static async generateReport(
+    sessionId: string,
+    filters?: {
+      search?: string
+      status?: string
+      format?: 'json' | 'text'
+    }
+  ): Promise<any> {
     try {
       const params = new URLSearchParams()
       if (filters?.search) params.append('search', filters.search)
@@ -182,13 +198,16 @@ export class FlowTraceService {
   }
 
   // Get workflow sessions
-  static async getWorkflowSessions(workflowId: string, filters?: {
-    page?: number
-    limit?: number
-    status?: string
-    startTimeFrom?: string
-    startTimeTo?: string
-  }): Promise<{ sessions: FlowTraceSession[], total: number }> {
+  static async getWorkflowSessions(
+    workflowId: string,
+    filters?: {
+      page?: number
+      limit?: number
+      status?: string
+      startTimeFrom?: string
+      startTimeTo?: string
+    }
+  ): Promise<{ sessions: FlowTraceSession[]; total: number }> {
     try {
       const params = new URLSearchParams()
       if (filters?.page) params.append('page', filters.page.toString())
@@ -205,7 +224,7 @@ export class FlowTraceService {
       const result = await response.json()
       return {
         sessions: result.data || [],
-        total: result.meta?.pagination?.total || 0
+        total: result.meta?.pagination?.total || 0,
       }
     } catch (error) {
       console.error('Error loading workflow sessions:', error)
@@ -217,7 +236,7 @@ export class FlowTraceService {
   static async clearOldSessions(daysToKeep: number = 30): Promise<{ deleted: number }> {
     try {
       const response = await fetch(`/api/flow-traces/cleanup?daysToKeep=${daysToKeep}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       })
 
       if (!response.ok) {
@@ -233,43 +252,46 @@ export class FlowTraceService {
   }
 
   // Generate simulated traces for testing
-  static async generateSimulatedTraces(nodes: WorkflowNodeData[], connections: Connection[]): Promise<FlowTraceSession> {
+  static async generateSimulatedTraces(
+    nodes: WorkflowNodeData[],
+    connections: Connection[]
+  ): Promise<FlowTraceSession> {
     const session = await this.startSession('demo-workflow', 'Demo Workflow')
-    
+
     // Sample data payloads
     const sampleData = {
       database: {
         records: [
           { id: 1, name: 'John Doe', email: 'john@example.com', status: 'active' },
           { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'active' },
-          { id: 3, name: 'Bob Johnson', email: 'bob@example.com', status: 'inactive' }
+          { id: 3, name: 'Bob Johnson', email: 'bob@example.com', status: 'inactive' },
         ],
-        count: 3
+        count: 3,
       },
       aiResponse: {
         text: 'Based on the analysis, I recommend focusing on active users for the campaign.',
         confidence: 0.92,
-        tokens: 18
+        tokens: 18,
       },
       crmUpdate: {
         success: true,
         updated: 3,
         failed: 0,
-        response: { status: 200, message: 'Records updated successfully' }
+        response: { status: 200, message: 'Records updated successfully' },
       },
       branchDecision: {
         condition: 'count > 2',
         result: true,
-        evaluated: { count: 3 }
+        evaluated: { count: 3 },
       },
       transformedData: {
         users: [
           { fullName: 'John Doe', isActive: true, domain: 'example.com' },
           { fullName: 'Jane Smith', isActive: true, domain: 'example.com' },
-          { fullName: 'Bob Johnson', isActive: false, domain: 'example.com' }
+          { fullName: 'Bob Johnson', isActive: false, domain: 'example.com' },
         ],
-        summary: { activeCount: 2, inactiveCount: 1, totalCount: 3 }
-      }
+        summary: { activeCount: 2, inactiveCount: 1, totalCount: 3 },
+      },
     }
 
     // Generate traces for each connection
@@ -277,20 +299,25 @@ export class FlowTraceService {
       const connection = connections[index]
       const sourceNode = nodes.find(n => n.metadata.id === connection.source.nodeId)
       const targetNode = nodes.find(n => n.metadata.id === connection.target.nodeId)
-      
+
       if (!sourceNode || !targetNode) continue
 
-      const sourcePort = sourceNode.metadata.ports?.find((p: any) => p.id === connection.source.portId)
-      const targetPort = targetNode.metadata.ports?.find((p: any) => p.id === connection.target.portId)
-      
+      const sourcePort = sourceNode.metadata.ports?.find(
+        (p: any) => p.id === connection.source.portId
+      )
+      const targetPort = targetNode.metadata.ports?.find(
+        (p: any) => p.id === connection.target.portId
+      )
+
       if (!sourcePort || !targetPort) continue
 
       // Determine data based on node type
       let data: any = {}
       let dataType = 'object'
-      
+
       if (sourceNode.metadata.type === 'database') {
-        data = sourcePort.label === 'Count' ? sampleData.database.count : sampleData.database.records
+        data =
+          sourcePort.label === 'Count' ? sampleData.database.count : sampleData.database.records
         dataType = sourcePort.label === 'Count' ? 'number' : 'array'
       } else if (sourceNode.metadata.type === 'service') {
         data = sampleData.aiResponse
@@ -325,7 +352,7 @@ export class FlowTraceService {
           nodeType: sourceNode.metadata.type,
           portId: sourcePort.id,
           portName: sourcePort.label,
-          portType: sourcePort.type
+          portType: sourcePort.type,
         },
         target: {
           nodeId: targetNode.metadata.id,
@@ -333,21 +360,21 @@ export class FlowTraceService {
           nodeType: targetNode.metadata.type,
           portId: targetPort.id,
           portName: targetPort.label,
-          portType: targetPort.type
+          portType: targetPort.type,
         },
         data: {
           payload: data,
           size: dataSize,
           type: dataType,
-          preview: JSON.stringify(data).substring(0, 100) + '...'
-        }
+          preview: JSON.stringify(data).substring(0, 100) + '...',
+        },
       }
 
       // Add error for some traces
       if (status === 'error') {
         trace.error = {
           message: 'Connection timeout',
-          code: 'TIMEOUT_ERROR'
+          code: 'TIMEOUT_ERROR',
         }
       }
 

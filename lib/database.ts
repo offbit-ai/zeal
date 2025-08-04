@@ -11,7 +11,7 @@ export async function getDatabase(): Promise<Pool> {
 
   // Create a new pool using the DATABASE_URL environment variable
   const connectionString = process.env.DATABASE_URL
-  
+
   if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is not set')
   }
@@ -36,7 +36,7 @@ export async function getDatabase(): Promise<Pool> {
 
   // Initialize schema on first connection
   await initializeSchema()
-  
+
   return pool
 }
 
@@ -46,11 +46,11 @@ async function initializeSchema() {
   }
 
   const client = await pool.connect()
-  
+
   try {
     // Start a transaction
     await client.query('BEGIN')
-    
+
     // Workflows table - stores workflow metadata
     await client.query(`
       CREATE TABLE IF NOT EXISTS workflows (
@@ -262,12 +262,10 @@ export async function closeDatabase() {
 }
 
 // Transaction helper
-export async function withTransaction<T>(
-  callback: (client: PoolClient) => Promise<T>
-): Promise<T> {
+export async function withTransaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
   const db = await getDatabase()
   const client = await db.connect()
-  
+
   try {
     await client.query('BEGIN')
     const result = await callback(client)

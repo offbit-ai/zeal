@@ -11,11 +11,7 @@ export const metadata: Metadata = {
   description: 'Visual workflow automation platform',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -23,9 +19,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ConsoleOverride />
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   )

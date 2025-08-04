@@ -12,16 +12,16 @@ interface GroupDeleteModalProps {
   onCancel: () => void
 }
 
-export function GroupDeleteModal({ 
-  isOpen, 
+export function GroupDeleteModal({
+  isOpen,
   groupId,
   groupTitle,
   nodeCount,
-  onConfirm, 
-  onCancel 
+  onConfirm,
+  onCancel,
 }: GroupDeleteModalProps) {
   const [preserveNodes, setPreserveNodes] = useState(true)
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onConfirm(groupId, preserveNodes)
@@ -37,11 +37,8 @@ export function GroupDeleteModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-      />
-      
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
+
       {/* Modal */}
       <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-in fade-in duration-200">
         {/* Header */}
@@ -52,9 +49,7 @@ export function GroupDeleteModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Delete Group</h2>
-              <p className="text-sm text-gray-500">
-                This action cannot be undone
-              </p>
+              <p className="text-sm text-gray-500">This action cannot be undone</p>
             </div>
           </div>
           <button
@@ -69,9 +64,10 @@ export function GroupDeleteModal({
         <div className="p-6">
           <div className="mb-4">
             <p className="text-sm text-gray-700 mb-2">
-              You are about to delete the group <strong>"{groupTitle}"</strong> which contains <strong>{nodeCount}</strong> node{nodeCount !== 1 ? 's' : ''}.
+              You are about to delete the group <strong>"{groupTitle}"</strong> which contains{' '}
+              <strong>{nodeCount}</strong> node{nodeCount !== 1 ? 's' : ''}.
             </p>
-            
+
             {nodeCount > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />

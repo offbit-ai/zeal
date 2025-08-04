@@ -19,6 +19,7 @@ use socketioxide::{
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
+use tower_http::timeout::TimeoutLayer;
 use tracing::{debug, error, info, warn};
 
 pub struct CRDTServer {
@@ -45,8 +46,12 @@ impl CRDTServer {
             warn!("Failed to connect to Redis: {}, continuing without persistence", e);
         }
 
-        // Create Socket.IO layer
-        let (layer, io) = SocketIo::new_layer();
+        // Create Socket.IO layer with configuration
+        let (layer, io) = SocketIo::builder()
+            .ping_interval(std::time::Duration::from_secs(25))
+            .ping_timeout(std::time::Duration::from_secs(60))
+            // .ack_timeout(std::time::Duration::from_secs(300))
+            .build_layer();
 
         // Set up Socket.IO event handlers
         io.ns("/", {
@@ -203,16 +208,19 @@ impl CRDTServer {
             }))
             .layer(
                 ServiceBuilder::new()
+                    .layer(TimeoutLayer::new(std::time::Duration::from_secs(5)))  // Add 5s timeout for HTTP requests
                     .layer(cors)
                     .layer(layer),
             );
 
-        // Start the server
+        // Start the server with connection limit
         let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.config.port)).await?;
         info!("🚀 Socket.IO compatible CRDT server running on port {}", self.config.port);
         info!("🔗 Connect clients to: ws://localhost:{}/socket.io/", self.config.port);
         
-        axum::serve(listener, app).await?;
+        // Use axum's serve with a configured server
+        axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+            .await?;
 
         Ok(())
     }
@@ -240,13 +248,21 @@ impl CRDTServer {
                 self.redis.clone()
             );
             
-            // Try to load existing state from Redis
-            if let Err(e) = new_room.load_from_redis().await {
-                warn!("Failed to load room {} from Redis: {}", room_name, e);
+            // Always try to load existing state from Redis
+            match new_room.load_from_redis().await {
+                Ok(loaded) => {
+                    if loaded {
+                        info!("Restored room {} from Redis persistence", room_name);
+                    } else {
+                        info!("Created new room: {} (no existing state in Redis)", room_name);
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to load room {} from Redis: {}", room_name, e);
+                }
             }
             
             self.rooms.insert(room_name.to_string(), new_room.clone());
-            info!("Created new room: {}", room_name);
             new_room
         };
 
@@ -265,12 +281,32 @@ impl CRDTServer {
         // Update client session in Redis with joined room
         if let Ok(Some(session_str)) = self.redis.get_client_session(&socket.id.to_string()).await {
             if let Ok(mut session) = serde_json::from_str::<serde_json::Value>(&session_str) {
+                // Check if this is a reconnection
+                let was_disconnected = session.get("disconnected_at").is_some() || 
+                                     session.get("is_connected").and_then(|v| v.as_bool()) == Some(false);
+                
+                // Clear disconnection flags
+                session["is_connected"] = json!(true);
+                session.as_object_mut().map(|obj| {
+                    obj.remove("disconnected_at");
+                    obj.remove("pending_removal");
+                });
+                
                 if let Some(rooms) = session.get_mut("rooms").and_then(|r| r.as_array_mut()) {
-                    rooms.push(json!(room_name));
+                    if !rooms.iter().any(|r| r.as_str() == Some(room_name)) {
+                        rooms.push(json!(room_name));
+                    }
                 } else {
                     session["rooms"] = json!([room_name]);
                 }
-                let _ = self.redis.save_client_session(&socket.id.to_string(), &session.to_string()).await;
+                
+                if let Ok(updated_session) = serde_json::to_string(&session) {
+                    let _ = self.redis.save_client_session(&socket.id.to_string(), &updated_session).await;
+                }
+                
+                if was_disconnected {
+                    info!("Client {} reconnected within grace period", socket.id);
+                }
             }
         }
 
@@ -375,44 +411,118 @@ impl CRDTServer {
     async fn handle_leave(&self, socket: &SocketRef, room_name: &str) {
         info!("Client {} leaving room: {}", socket.id, room_name);
 
+        // First leave the socket.io room to prevent further events
+        socket.leave(room_name.to_string()).ok();
+        
         if let Some(room) = self.rooms.get(room_name) {
-            room.remove_client(&socket.id.to_string()).await;
+            // Only remove if client is actually in the room
+            if room.has_client(&socket.id.to_string()).await {
+                room.remove_client(&socket.id.to_string()).await;
 
-            // Clean up empty rooms
-            if room.client_count() == 0 {
-                self.rooms.remove(room_name);
-                info!("Removed empty room: {}", room_name);
+                // Don't remove rooms immediately - keep them alive for reconnections
+                if room.client_count() == 0 {
+                    // Try to save state
+                    if let Err(e) = room.save_to_redis().await {
+                        warn!("Failed to save room {} to Redis: {}. Keeping room in memory.", room_name, e);
+                        // Don't remove the room if we can't save state - keep it in memory
+                    } else {
+                        // Only remove if we successfully saved state
+                        self.rooms.remove(room_name);
+                        info!("Removed empty room: {} (state saved to Redis)", room_name);
+                    }
+                }
             }
         }
-
-        // Leave the socket.io room
-        socket.leave(room_name.to_string()).ok();
     }
 
     async fn handle_disconnect(&self, socket: &SocketRef) {
         info!("Client disconnected: {}", socket.id);
-
-        // Remove client from all rooms
-        let mut rooms_to_remove = Vec::new();
+        let socket_id = socket.id.to_string();
         
-        for entry in self.rooms.iter() {
-            let (room_name, room) = entry.pair();
-            room.remove_client(&socket.id.to_string()).await;
-
-            if room.client_count() == 0 {
-                rooms_to_remove.push(room_name.clone());
+        // Get client's rooms from Redis session
+        let mut client_rooms = Vec::new();
+        if let Ok(Some(session_str)) = self.redis.get_client_session(&socket_id).await {
+            if let Ok(mut session) = serde_json::from_str::<serde_json::Value>(&session_str) {
+                // Mark as disconnected but keep session alive for reconnection
+                session["disconnected_at"] = json!(chrono::Utc::now().timestamp());
+                session["is_connected"] = json!(false);
+                
+                // Get rooms list
+                if let Some(rooms) = session.get("rooms").and_then(|r| r.as_array()) {
+                    for room in rooms {
+                        if let Some(room_name) = room.as_str() {
+                            client_rooms.push(room_name.to_string());
+                        }
+                    }
+                }
+                
+                // Keep session alive for 30 seconds to allow reconnection
+                if let Ok(updated_session) = serde_json::to_string(&session) {
+                    let _ = self.redis.save_client_session_with_ttl(&socket_id, &updated_session, 30).await;
+                }
             }
         }
-
-        // Clean up empty rooms
-        for room_name in rooms_to_remove {
-            self.rooms.remove(&room_name);
-            info!("Removed empty room: {}", room_name);
+        
+        // Mark client as disconnected in rooms but don't remove them yet
+        for room_name in &client_rooms {
+            if let Some(room) = self.rooms.get(room_name) {
+                // Just update the last seen time, don't remove
+                room.update_client_activity(&socket_id).await;
+            }
         }
+        
+        info!("Client {} disconnected but keeping in rooms for 30s grace period", socket_id);
+    }
+    
+    async fn cleanup_disconnected_client(&self, client_id: &str) {
+        // Check if client reconnected during grace period
+        if let Ok(Some(session_str)) = self.redis.get_client_session(client_id).await {
+            if let Ok(session) = serde_json::from_str::<serde_json::Value>(&session_str) {
+                if session.get("pending_removal").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    info!("Cleaning up disconnected client after grace period: {}", client_id);
+                    
+                    // Get client's rooms
+                    let mut client_rooms = Vec::new();
+                    if let Some(rooms) = session.get("rooms").and_then(|r| r.as_array()) {
+                        for room in rooms {
+                            if let Some(room_name) = room.as_str() {
+                                client_rooms.push(room_name.to_string());
+                            }
+                        }
+                    }
 
-        // Delete client session from Redis
-        if let Err(e) = self.redis.delete_client_session(&socket.id.to_string()).await {
-            warn!("Failed to delete client session from Redis: {}", e);
+                    
+                    // Remove client from their rooms
+                    let mut rooms_to_remove = Vec::new();
+                    for room_name in client_rooms {
+                        if let Some(room) = self.rooms.get(&room_name) {
+                            room.remove_client(client_id).await;
+                            if room.client_count() == 0 {
+                                rooms_to_remove.push(room_name);
+                            }
+                        }
+                    }
+
+                    // Clean up empty rooms after saving state
+                    for room_name in rooms_to_remove {
+                        if let Some(room) = self.rooms.get(&room_name) {
+                            // Save state to Redis before removal
+                            if let Err(e) = room.save_to_redis().await {
+                                warn!("Failed to save room {} to Redis before removal: {}", room_name, e);
+                            }
+                        }
+                        self.rooms.remove(&room_name);
+                        info!("Removed empty room: {} (state saved to Redis)", room_name);
+                    }
+
+                    // Delete client session from Redis
+                    if let Err(e) = self.redis.delete_client_session(client_id).await {
+                        warn!("Failed to delete client session from Redis: {}", e);
+                    }
+                } else {
+                    info!("Client {} reconnected during grace period, skipping cleanup", client_id);
+                }
+            }
         }
     }
 

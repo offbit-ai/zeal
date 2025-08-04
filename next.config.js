@@ -2,12 +2,12 @@
 const nextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
-  
+
   // Force dynamic rendering for pages that use client-side features
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
-  
+
   // Image optimization
   images: {
     domains: ['localhost'],
@@ -27,14 +27,14 @@ const nextConfig = {
         fs: false,
         net: false,
         tls: false,
-      };
+      }
     }
 
     // Remove console logs in production builds
     if (!dev && !isServer) {
-      config.optimization.minimizer = config.optimization.minimizer || [];
-      const TerserPlugin = require('terser-webpack-plugin');
-      
+      config.optimization.minimizer = config.optimization.minimizer || []
+      const TerserPlugin = require('terser-webpack-plugin')
+
       config.optimization.minimizer.push(
         new TerserPlugin({
           terserOptions: {
@@ -49,10 +49,10 @@ const nextConfig = {
           },
           extractComments: false,
         })
-      );
+      )
     }
 
-    return config;
+    return config
   },
 
   // Experimental features
@@ -83,8 +83,8 @@ const nextConfig = {
           },
         ],
       },
-    ];
+    ]
   },
-};
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

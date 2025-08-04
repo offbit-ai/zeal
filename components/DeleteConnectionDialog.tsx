@@ -8,17 +8,21 @@ interface DeleteConnectionDialogProps {
   onCancel: () => void
 }
 
-export function DeleteConnectionDialog({ isOpen, onConfirm, onCancel }: DeleteConnectionDialogProps) {
+export function DeleteConnectionDialog({
+  isOpen,
+  onConfirm,
+  onCancel,
+}: DeleteConnectionDialogProps) {
   // Handle escape key
   useEffect(() => {
     if (!isOpen) return
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onCancel()
       }
     }
-    
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onCancel])
@@ -28,20 +32,15 @@ export function DeleteConnectionDialog({ isOpen, onConfirm, onCancel }: DeleteCo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+
       {/* Dialog */}
       <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          Delete Connection
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Delete Connection</h3>
         <p className="text-gray-600 mb-6">
           Are you sure you want to delete this connection? This action cannot be undone.
         </p>
-        
+
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}

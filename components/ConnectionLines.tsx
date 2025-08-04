@@ -16,9 +16,9 @@ interface ConnectionLinesProps {
 function getConnectionStyles(state: ConnectionState = 'pending') {
   const baseStyles = {
     strokeWidth: 2,
-    strokeLinecap: 'round' as const
+    strokeLinecap: 'round' as const,
   }
-  
+
   switch (state) {
     case 'pending':
       return {
@@ -26,7 +26,7 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         stroke: '#6B7280', // Gray
         strokeDasharray: '5 5',
         shadowColor: 'rgba(107, 114, 128, 0.2)',
-        glowEffect: false
+        glowEffect: false,
       }
     case 'warning':
       return {
@@ -35,7 +35,7 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         strokeDasharray: 'none',
         shadowColor: 'rgba(245, 158, 11, 0.3)',
         glowEffect: true,
-        glowColor: '#F59E0B'
+        glowColor: '#F59E0B',
       }
     case 'error':
       return {
@@ -44,7 +44,7 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         strokeDasharray: 'none',
         shadowColor: 'rgba(239, 68, 68, 0.3)',
         glowEffect: true,
-        glowColor: '#EF4444'
+        glowColor: '#EF4444',
       }
     case 'success':
       return {
@@ -53,7 +53,7 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         strokeDasharray: 'none',
         shadowColor: 'rgba(132, 204, 22, 0.3)',
         glowEffect: true,
-        glowColor: '#84CC16'
+        glowColor: '#84CC16',
       }
     case 'running':
       return {
@@ -63,7 +63,7 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         shadowColor: 'rgba(59, 130, 246, 0.4)',
         glowEffect: true,
         glowColor: '#3B82F6',
-        animated: true
+        animated: true,
       }
     default:
       // Default to pending style for any unknown state
@@ -72,13 +72,16 @@ function getConnectionStyles(state: ConnectionState = 'pending') {
         stroke: '#6B7280', // Gray
         strokeDasharray: '5 5',
         shadowColor: 'rgba(107, 114, 128, 0.2)',
-        glowEffect: false
+        glowEffect: false,
       }
   }
 }
 
 // Calculate control point offset based on port position
-function getControlPointOffset(position: 'top' | 'right' | 'bottom' | 'left'): { dx: number; dy: number } {
+function getControlPointOffset(position: 'top' | 'right' | 'bottom' | 'left'): {
+  dx: number
+  dy: number
+} {
   const distance = 40 // Reduced from 100 to make curves tighter
   switch (position) {
     case 'top':
@@ -100,39 +103,46 @@ function findBorderIntersection(
 ): { x: number; y: number } | null {
   const dx = lineEnd.x - lineStart.x
   const dy = lineEnd.y - lineStart.y
-  
+
   if (Math.abs(dx) < 1e-10 && Math.abs(dy) < 1e-10) return null
-  
+
   const intersections: { x: number; y: number; t: number }[] = []
-  
+
   // Check intersection with each edge
   const edges = [
     { start: { x: rect.x, y: rect.y }, end: { x: rect.x + rect.width, y: rect.y } }, // Top
-    { start: { x: rect.x + rect.width, y: rect.y }, end: { x: rect.x + rect.width, y: rect.y + rect.height } }, // Right
-    { start: { x: rect.x + rect.width, y: rect.y + rect.height }, end: { x: rect.x, y: rect.y + rect.height } }, // Bottom
-    { start: { x: rect.x, y: rect.y + rect.height }, end: { x: rect.x, y: rect.y } } // Left
+    {
+      start: { x: rect.x + rect.width, y: rect.y },
+      end: { x: rect.x + rect.width, y: rect.y + rect.height },
+    }, // Right
+    {
+      start: { x: rect.x + rect.width, y: rect.y + rect.height },
+      end: { x: rect.x, y: rect.y + rect.height },
+    }, // Bottom
+    { start: { x: rect.x, y: rect.y + rect.height }, end: { x: rect.x, y: rect.y } }, // Left
   ]
-  
+
   for (const edge of edges) {
     const edgeDx = edge.end.x - edge.start.x
     const edgeDy = edge.end.y - edge.start.y
-    
+
     const denominator = dx * edgeDy - dy * edgeDx
     if (Math.abs(denominator) < 1e-10) continue // Lines are parallel
-    
-    const t = ((edge.start.x - lineStart.x) * edgeDy - (edge.start.y - lineStart.y) * edgeDx) / denominator
+
+    const t =
+      ((edge.start.x - lineStart.x) * edgeDy - (edge.start.y - lineStart.y) * edgeDx) / denominator
     const u = ((edge.start.x - lineStart.x) * dy - (edge.start.y - lineStart.y) * dx) / denominator
-    
+
     if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
       const intersectionX = lineStart.x + t * dx
       const intersectionY = lineStart.y + t * dy
       intersections.push({ x: intersectionX, y: intersectionY, t })
     }
   }
-  
+
   // Return the closest intersection to the line start
   if (intersections.length === 0) return null
-  
+
   intersections.sort((a, b) => a.t - b.t)
   return { x: intersections[0].x, y: intersections[0].y }
 }
@@ -164,11 +174,15 @@ function generateClickablePath(source: PortPosition, target: PortPosition): stri
 
   // Start the path a bit away from the source port to avoid blocking it
   const portClearance = 30 // pixels to stay away from ports
-  
-  const x1 = source.x + (sourceControl.dx > 0 ? portClearance : sourceControl.dx < 0 ? -portClearance : 0)
-  const y1 = source.y + (sourceControl.dy > 0 ? portClearance : sourceControl.dy < 0 ? -portClearance : 0)
-  const x2 = target.x + (targetControl.dx > 0 ? portClearance : targetControl.dx < 0 ? -portClearance : 0)
-  const y2 = target.y + (targetControl.dy > 0 ? portClearance : targetControl.dy < 0 ? -portClearance : 0)
+
+  const x1 =
+    source.x + (sourceControl.dx > 0 ? portClearance : sourceControl.dx < 0 ? -portClearance : 0)
+  const y1 =
+    source.y + (sourceControl.dy > 0 ? portClearance : sourceControl.dy < 0 ? -portClearance : 0)
+  const x2 =
+    target.x + (targetControl.dx > 0 ? portClearance : targetControl.dx < 0 ? -portClearance : 0)
+  const y2 =
+    target.y + (targetControl.dy > 0 ? portClearance : targetControl.dy < 0 ? -portClearance : 0)
 
   const c1x = source.x + sourceControl.dx
   const c1y = source.y + sourceControl.dy
@@ -185,27 +199,31 @@ function lineIntersectsRect(
   rect: { x: number; y: number; width: number; height: number }
 ): boolean {
   // Check if line endpoints are inside the rectangle
-  const startInside = 
-    lineStart.x >= rect.x && lineStart.x <= rect.x + rect.width &&
-    lineStart.y >= rect.y && lineStart.y <= rect.y + rect.height
-  
-  const endInside = 
-    lineEnd.x >= rect.x && lineEnd.x <= rect.x + rect.width &&
-    lineEnd.y >= rect.y && lineEnd.y <= rect.y + rect.height
-  
+  const startInside =
+    lineStart.x >= rect.x &&
+    lineStart.x <= rect.x + rect.width &&
+    lineStart.y >= rect.y &&
+    lineStart.y <= rect.y + rect.height
+
+  const endInside =
+    lineEnd.x >= rect.x &&
+    lineEnd.x <= rect.x + rect.width &&
+    lineEnd.y >= rect.y &&
+    lineEnd.y <= rect.y + rect.height
+
   // If either endpoint is inside, line intersects
   if (startInside || endInside) return true
-  
+
   // Check if line crosses any of the rectangle edges
   const rectLeft = rect.x
   const rectRight = rect.x + rect.width
   const rectTop = rect.y
   const rectBottom = rect.y + rect.height
-  
+
   // Line-line intersection formula for each edge
   const dx = lineEnd.x - lineStart.x
   const dy = lineEnd.y - lineStart.y
-  
+
   // Helper function to check line-edge intersection
   const intersectsEdge = (
     edgeStart: { x: number; y: number },
@@ -213,92 +231,97 @@ function lineIntersectsRect(
   ): boolean => {
     const edgeDx = edgeEnd.x - edgeStart.x
     const edgeDy = edgeEnd.y - edgeStart.y
-    
+
     const denominator = dx * edgeDy - dy * edgeDx
     if (Math.abs(denominator) < 1e-10) return false // Lines are parallel
-    
-    const t = ((edgeStart.x - lineStart.x) * edgeDy - (edgeStart.y - lineStart.y) * edgeDx) / denominator
+
+    const t =
+      ((edgeStart.x - lineStart.x) * edgeDy - (edgeStart.y - lineStart.y) * edgeDx) / denominator
     const u = ((edgeStart.x - lineStart.x) * dy - (edgeStart.y - lineStart.y) * dx) / denominator
-    
+
     return t >= 0 && t <= 1 && u >= 0 && u <= 1
   }
-  
+
   // Check intersection with all four edges
   return (
-    intersectsEdge({ x: rectLeft, y: rectTop }, { x: rectRight, y: rectTop }) ||     // Top edge
+    intersectsEdge({ x: rectLeft, y: rectTop }, { x: rectRight, y: rectTop }) || // Top edge
     intersectsEdge({ x: rectRight, y: rectTop }, { x: rectRight, y: rectBottom }) || // Right edge
     intersectsEdge({ x: rectRight, y: rectBottom }, { x: rectLeft, y: rectBottom }) || // Bottom edge
-    intersectsEdge({ x: rectLeft, y: rectBottom }, { x: rectLeft, y: rectTop })      // Left edge
+    intersectsEdge({ x: rectLeft, y: rectBottom }, { x: rectLeft, y: rectTop }) // Left edge
   )
 }
 
-export function ConnectionLines({ connections, getPortPosition, onConnectionClick, localGroupCollapseState = {} }: ConnectionLinesProps) {
+export function ConnectionLines({
+  connections,
+  getPortPosition,
+  onConnectionClick,
+  localGroupCollapseState = {},
+}: ConnectionLinesProps) {
   // Subscribe to port position changes for immediate updates
   usePortPositionSubscription()
-  
+
   // Get all groups to check for collapsed ones
   const groups = useWorkflowStore(state => state.groups)
-  
+
   // TODO: Re-implement group dragging state in V2 store
   // For now, connections will remain visible during group drag
-  
+
   // Check if we have port positions for connections that should render
   const connectionsWithPositions = connections.filter(conn => {
     const sourcePos = getPortPosition(conn.source.nodeId, conn.source.portId)
     const targetPos = getPortPosition(conn.target.nodeId, conn.target.portId)
     return sourcePos && targetPos
   })
-  
+
   // Only render connections that have both port positions available
   const connectionsToRender = connectionsWithPositions
-  
-  
+
   return (
-    <svg 
-      className="absolute inset-0" 
-      style={{ 
-        overflow: 'visible', 
-        width: '100%', 
+    <svg
+      className="absolute inset-0"
+      style={{
+        overflow: 'visible',
+        width: '100%',
         height: '100%',
         zIndex: 1,
-        pointerEvents: 'none'
+        pointerEvents: 'none',
       }}
     >
       <defs>
         {/* Define glow filters for each state */}
         <filter id="glow-warning" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-          <feMerge> 
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        
+
         <filter id="glow-error" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-          <feMerge> 
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        
+
         <filter id="glow-success" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-          <feMerge> 
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        
+
         <filter id="glow-running" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-          <feMerge> 
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
+          <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
-      
+
       {connectionsToRender.map(connection => {
         let source = getPortPosition(connection.source.nodeId, connection.source.portId)
         let target = getPortPosition(connection.target.nodeId, connection.target.portId)
@@ -312,29 +335,41 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
           let missingTarget = !target
           let fallbackSource = source
           let fallbackTarget = target
-          
+
           // Find if the missing port positions are for nodes in collapsed groups
           for (const group of groups) {
             if (!localGroupCollapseState[group.id]) continue
-            
+
             if (missingSource && group.nodeIds.includes(connection.source.nodeId)) {
               // Source node is in a collapsed group - we'll handle this in the group logic below
-              fallbackSource = { nodeId: connection.source.nodeId, portId: connection.source.portId, x: 0, y: 0, position: 'right' as const }
+              fallbackSource = {
+                nodeId: connection.source.nodeId,
+                portId: connection.source.portId,
+                x: 0,
+                y: 0,
+                position: 'right' as const,
+              }
               missingSource = false
             }
-            
+
             if (missingTarget && group.nodeIds.includes(connection.target.nodeId)) {
-              // Target node is in a collapsed group - we'll handle this in the group logic below  
-              fallbackTarget = { nodeId: connection.target.nodeId, portId: connection.target.portId, x: 0, y: 0, position: 'left' as const }
+              // Target node is in a collapsed group - we'll handle this in the group logic below
+              fallbackTarget = {
+                nodeId: connection.target.nodeId,
+                portId: connection.target.portId,
+                x: 0,
+                y: 0,
+                position: 'left' as const,
+              }
               missingTarget = false
             }
           }
-          
+
           // If still missing positions and not in collapsed groups, skip this connection
           if (missingSource || missingTarget) {
             return null
           }
-          
+
           // Use fallback positions
           source = fallbackSource!
           target = fallbackTarget!
@@ -347,30 +382,29 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
 
         for (const group of groups) {
           if (!localGroupCollapseState[group.id]) continue
-          
+
           const sourceInGroup = group.nodeIds.includes(connection.source.nodeId)
           const targetInGroup = group.nodeIds.includes(connection.target.nodeId)
-          
-          
+
           // Hide connections between nodes within the same collapsed group
           if (sourceInGroup && targetInGroup) {
             shouldHide = true
             break
           }
-          
+
           const groupRect = {
             x: group.position.x,
             y: group.position.y,
             width: group.size.width,
-            height: 40 // Use header height when collapsed
+            height: 40, // Use header height when collapsed
           }
-          
+
           // Modify connection endpoints for external-to-internal connections
           if (sourceInGroup && !targetInGroup) {
             // Source is inside collapsed group, target is outside
             // Check if this is a fallback position (x: 0, y: 0) from initial load
             const isFallbackPosition = source.x === 0 && source.y === 0
-            
+
             if (!isFallbackPosition) {
               const intersection = findBorderIntersection(
                 { x: target.x, y: target.y },
@@ -384,7 +418,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
                 const groupCenterY = groupRect.y + groupRect.height / 2
                 const edgeX = groupRect.x + groupRect.width // Always use right edge for outgoing connections
                 const edgeY = groupCenterY
-                
+
                 modifiedSource = { ...source, x: edgeX, y: edgeY }
               }
             } else {
@@ -392,7 +426,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               const groupCenterY = groupRect.y + groupRect.height / 2
               const edgeX = groupRect.x + groupRect.width // Always use right edge for outgoing connections
               const edgeY = groupCenterY
-              
+
               modifiedSource = { ...source, x: edgeX, y: edgeY }
             }
           } else if (!sourceInGroup && targetInGroup) {
@@ -408,13 +442,13 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               // Fallback: determine best edge based on source position relative to group
               const groupCenterX = groupRect.x + groupRect.width / 2
               const groupCenterY = groupRect.y + groupRect.height / 2
-              
+
               // Calculate which edge is closest to the source
               const sourceRelativeToGroup = {
                 x: source.x - groupCenterX,
-                y: source.y - groupCenterY
+                y: source.y - groupCenterY,
               }
-              
+
               let edgeX, edgeY
               if (Math.abs(sourceRelativeToGroup.x) > Math.abs(sourceRelativeToGroup.y)) {
                 // Source is more horizontal from group - use left or right edge
@@ -439,16 +473,18 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
                   edgeY = groupRect.y
                 }
               }
-              
+
               modifiedTarget = { ...target, x: edgeX, y: edgeY }
             }
           } else if (!sourceInGroup && !targetInGroup) {
             // Check if line crosses the collapsed group
-            if (lineIntersectsRect(
-              { x: source.x, y: source.y },
-              { x: target.x, y: target.y },
-              groupRect
-            )) {
+            if (
+              lineIntersectsRect(
+                { x: source.x, y: source.y },
+                { x: target.x, y: target.y },
+                groupRect
+              )
+            ) {
               shouldHide = true
               break
             }
@@ -476,12 +512,16 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               strokeDasharray={styles.strokeDasharray}
               pointerEvents="none"
               className="group-hover:opacity-0 transition-opacity duration-200"
-              style={connection.state === 'running' ? {
-                strokeDashoffset: 0,
-                animation: 'dash-flow 1s linear infinite'
-              } : undefined}
+              style={
+                connection.state === 'running'
+                  ? {
+                      strokeDashoffset: 0,
+                      animation: 'dash-flow 1s linear infinite',
+                    }
+                  : undefined
+              }
             />
-            
+
             {/* Main connection line */}
             <path
               d={path}
@@ -493,12 +533,16 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               filter={filterId ? `url(#${filterId})` : undefined}
               pointerEvents="none"
               className="group-hover:opacity-0 transition-opacity duration-200"
-              style={connection.state === 'running' ? {
-                strokeDashoffset: 0,
-                animation: 'dash-flow 1s linear infinite'
-              } : undefined}
+              style={
+                connection.state === 'running'
+                  ? {
+                      strokeDashoffset: 0,
+                      animation: 'dash-flow 1s linear infinite',
+                    }
+                  : undefined
+              }
             />
-            
+
             {/* Additional glow effect for success/warning/error states */}
             {styles.glowEffect && 'glowColor' in styles && (
               <path
@@ -513,7 +557,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
                 className="group-hover:opacity-0 transition-opacity duration-200"
               />
             )}
-            
+
             {/* Hover overlay - black solid line */}
             <path
               d={path}
@@ -525,7 +569,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               pointerEvents="none"
               className="group-hover:opacity-100 transition-opacity duration-200"
             />
-            
+
             {/* Invisible clickable path that avoids port areas */}
             <path
               d={clickablePath}
@@ -534,7 +578,7 @@ export function ConnectionLines({ connections, getPortPosition, onConnectionClic
               strokeWidth="8"
               strokeLinecap="round"
               style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
-              onClick={(e) => {
+              onClick={e => {
                 e.stopPropagation()
                 onConnectionClick?.(connection.id)
               }}

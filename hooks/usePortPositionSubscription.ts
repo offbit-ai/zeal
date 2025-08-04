@@ -10,18 +10,17 @@ export function usePortPositionSubscription() {
   useEffect(() => {
     // Subscribe to port position changes
     const unsubscribe = useGraphStore.subscribe(
-      (state) => {
+      state => {
         const currentGraph = state.getCurrentGraph()
         return currentGraph?.workflowState?.portPositions || new Map()
       },
-      (portPositions) => {
+      portPositions => {
         // Check if positions actually changed
-        const hasChanged = portPositions.size !== portPositionsRef.current.size ||
+        const hasChanged =
+          portPositions.size !== portPositionsRef.current.size ||
           Array.from(portPositions.entries()).some(([key, value]) => {
             const oldValue = portPositionsRef.current.get(key)
-            return !oldValue || 
-              oldValue.x !== value.x || 
-              oldValue.y !== value.y
+            return !oldValue || oldValue.x !== value.x || oldValue.y !== value.y
           })
 
         if (hasChanged) {

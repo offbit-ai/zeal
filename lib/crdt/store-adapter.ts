@@ -1,6 +1,6 @@
 /**
  * CRDT-Zustand Store Adapter
- * 
+ *
  * This adapter bridges Y.js CRDTs with Zustand stores, enabling
  * real-time collaboration while maintaining the existing store API.
  */
@@ -19,16 +19,9 @@ export interface CRDTStoreOptions {
 /**
  * Middleware that adds CRDT capabilities to a Zustand store
  */
-export function withCRDT<T extends object>(
-  options: CRDTStoreOptions
-) {
+export function withCRDT<T extends object>(options: CRDTStoreOptions) {
   return <TState extends T>(
-    config: StateCreator<
-      TState,
-      [],
-      [],
-      TState
-    >
+    config: StateCreator<TState, [], [], TState>
   ): StateCreator<
     TState & {
       doc: Y.Doc
@@ -70,33 +63,31 @@ export function withCRDT<T extends object>(
       const doc = new Y.Doc({
         gc: options.gcEnabled ?? true,
         gcFilter: () => true,
-        guid: options.docName
+        guid: options.docName,
       })
 
       // Create undo manager
       const undoManager = new Y.UndoManager([], {
         captureTimeout: 300,
-        trackedOrigins: new Set(['user'])
+        trackedOrigins: new Set(['user']),
       })
 
       // Initial sync state
       const syncState = {
         isSyncing: false,
         lastSyncedAt: null as number | null,
-        peers: [] as string[]
+        peers: [] as string[],
       }
 
       // Create the base store
       const baseStore = config(
-        (partial) => {
+        partial => {
           // Wrap set to also update Y.Doc
           const ydocTransaction = () => {
             doc.transact(() => {
               // Update Y.Doc based on state changes
-              const state = typeof partial === 'function' 
-                ? partial(get() as TState)
-                : partial
-              
+              const state = typeof partial === 'function' ? partial(get() as TState) : partial
+
               updateYDocFromState(doc, state)
             }, 'user')
           }
@@ -120,13 +111,13 @@ export function withCRDT<T extends object>(
 
       // Track sync state
       doc.on('sync', (isSyncing: boolean) => {
-        set((state) => ({
+        set(state => ({
           ...state,
           syncState: {
             ...state.syncState,
             isSyncing,
-            lastSyncedAt: isSyncing ? null : Date.now()
-          }
+            lastSyncedAt: isSyncing ? null : Date.now(),
+          },
         }))
       })
 
@@ -140,7 +131,7 @@ export function withCRDT<T extends object>(
         undo: () => {
           undoManager.undo()
         },
-        
+
         redo: () => {
           undoManager.redo()
         },
@@ -150,7 +141,7 @@ export function withCRDT<T extends object>(
 
         // Get CRDT-specific data
         getCRDTState: () => doc.toJSON(),
-        
+
         // Apply remote updates
         applyUpdate: (update: Uint8Array) => {
           Y.applyUpdate(doc, update)
@@ -162,7 +153,7 @@ export function withCRDT<T extends object>(
             return Y.encodeStateAsUpdate(doc, stateVector)
           }
           return Y.encodeStateAsUpdate(doc)
-        }
+        },
       }
     })
   }
@@ -173,7 +164,7 @@ export function withCRDT<T extends object>(
  */
 function updateYDocFromState(doc: Y.Doc, state: any) {
   const stateMap = doc.getMap('state')
-  
+
   Object.entries(state).forEach(([key, value]) => {
     if (key === 'doc' || key === 'undoManager' || key === 'syncState') {
       return // Skip CRDT internals
@@ -224,12 +215,9 @@ function getStateFromYDoc<T>(doc: Y.Doc): Partial<T> {
 /**
  * Create a Y.js document from existing state
  */
-export function createYDocFromState<T extends object>(
-  state: T,
-  docName: string
-): Y.Doc {
+export function createYDocFromState<T extends object>(state: T, docName: string): Y.Doc {
   const doc = new Y.Doc({ guid: docName })
-  
+
   doc.transact(() => {
     updateYDocFromState(doc, state)
   })
@@ -255,9 +243,6 @@ export function createYDocSnapshot(doc: Y.Doc): Uint8Array {
 /**
  * Restore Y.Doc from snapshot
  */
-export function restoreYDocFromSnapshot(
-  doc: Y.Doc,
-  snapshot: Uint8Array
-): void {
+export function restoreYDocFromSnapshot(doc: Y.Doc, snapshot: Uint8Array): void {
   Y.applyUpdate(doc, snapshot)
 }

@@ -16,12 +16,12 @@ export class IconUtils {
   /**
    * Validate an array of icons
    */
-  static validateIcons(icons: Array<{name: string, source?: IconSource}>): {
-    valid: Array<{name: string, source: IconSource}>
-    invalid: Array<{name: string, source: IconSource, reason: string}>
+  static validateIcons(icons: Array<{ name: string; source?: IconSource }>): {
+    valid: Array<{ name: string; source: IconSource }>
+    invalid: Array<{ name: string; source: IconSource; reason: string }>
   } {
-    const valid: Array<{name: string, source: IconSource}> = []
-    const invalid: Array<{name: string, source: IconSource, reason: string}> = []
+    const valid: Array<{ name: string; source: IconSource }> = []
+    const invalid: Array<{ name: string; source: IconSource; reason: string }> = []
 
     icons.forEach(({ name, source = 'lucide' }) => {
       if (!name) {
@@ -42,13 +42,13 @@ export class IconUtils {
   static getSuggestions(iconName: string, source: IconSource = 'lucide', limit = 5): string[] {
     const available = this.iconLibrary.getAvailableIcons(source)
     const normalizedInput = iconName.toLowerCase()
-    
+
     // Score icons based on similarity
     const scored = available.map(name => ({
       name,
-      score: this.calculateSimilarity(normalizedInput, name.toLowerCase())
+      score: this.calculateSimilarity(normalizedInput, name.toLowerCase()),
     }))
-    
+
     // Sort by score and return top suggestions
     return scored
       .filter(item => item.score > 0.3) // Minimum similarity threshold
@@ -61,25 +61,27 @@ export class IconUtils {
    * Calculate string similarity using Levenshtein distance
    */
   private static calculateSimilarity(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null))
-    
+    const matrix = Array(str2.length + 1)
+      .fill(null)
+      .map(() => Array(str1.length + 1).fill(null))
+
     for (let i = 0; i <= str1.length; i++) matrix[0][i] = i
     for (let j = 0; j <= str2.length; j++) matrix[j][0] = j
-    
+
     for (let j = 1; j <= str2.length; j++) {
       for (let i = 1; i <= str1.length; i++) {
         if (str1[i - 1] === str2[j - 1]) {
           matrix[j][i] = matrix[j - 1][i - 1]
         } else {
           matrix[j][i] = Math.min(
-            matrix[j - 1][i] + 1,    // deletion
-            matrix[j][i - 1] + 1,    // insertion
+            matrix[j - 1][i] + 1, // deletion
+            matrix[j][i - 1] + 1, // insertion
             matrix[j - 1][i - 1] + 1 // substitution
           )
         }
       }
     }
-    
+
     const distance = matrix[str2.length][str1.length]
     const maxLength = Math.max(str1.length, str2.length)
     return 1 - distance / maxLength
@@ -102,12 +104,12 @@ export class IconUtils {
       .replace(/[_\s]+/g, '-')
 
     const snakeCase = kebabCase.replace(/-/g, '_')
-    
+
     const pascalCase = iconName
       .split(/[-_\s]+/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join('')
-    
+
     const camelCase = pascalCase.charAt(0).toLowerCase() + pascalCase.slice(1)
 
     return {
@@ -115,14 +117,17 @@ export class IconUtils {
       kebabCase,
       snakeCase,
       pascalCase,
-      camelCase
+      camelCase,
     }
   }
 
   /**
    * Get icon metadata and information
    */
-  static getIconMetadata(iconName: string, source: IconSource = 'lucide'): {
+  static getIconMetadata(
+    iconName: string,
+    source: IconSource = 'lucide'
+  ): {
     name: string
     source: IconSource
     exists: boolean
@@ -139,14 +144,14 @@ export class IconUtils {
       source,
       exists,
       variations,
-      suggestions
+      suggestions,
     }
   }
 
   /**
    * Generate icon import statements for development
    */
-  static generateImports(icons: Array<{name: string, source?: IconSource}>): {
+  static generateImports(icons: Array<{ name: string; source?: IconSource }>): {
     lucideImports: string[]
     customImports: string[]
     iconComponents: string
@@ -170,14 +175,14 @@ export class IconUtils {
     const customImports = Array.from(customIcons)
 
     const iconComponents = `// Icon components usage:
-${icons.map(({ name, source = 'lucide' }) => 
-  `<Icon name="${name}" source="${source}" />`
-).join('\n')}`
+${icons
+  .map(({ name, source = 'lucide' }) => `<Icon name="${name}" source="${source}" />`)
+  .join('\n')}`
 
     return {
       lucideImports,
       customImports,
-      iconComponents
+      iconComponents,
     }
   }
 
@@ -190,7 +195,8 @@ ${icons.map(({ name, source = 'lucide' }) =>
     line?: number
     context?: string
   }> {
-    const iconUsages: Array<{name: string, source: IconSource, line?: number, context?: string}> = []
+    const iconUsages: Array<{ name: string; source: IconSource; line?: number; context?: string }> =
+      []
     const lines = codeContent.split('\n')
 
     // Regex patterns for different icon usage patterns
@@ -202,7 +208,7 @@ ${icons.map(({ name, source = 'lucide' }) =>
       // getIconByName("...")
       /getIconByName\(["']([^"']+)["']/g,
       // icon: "..."
-      /icon:\s*["']([^"']+)["']/g
+      /icon:\s*["']([^"']+)["']/g,
     ]
 
     lines.forEach((line, lineIndex) => {
@@ -211,12 +217,12 @@ ${icons.map(({ name, source = 'lucide' }) =>
         while ((match = pattern.exec(line)) !== null) {
           const name = match[1]
           const source = (match[2] as IconSource) || 'lucide'
-          
+
           iconUsages.push({
             name,
             source,
             line: lineIndex + 1,
-            context: line.trim()
+            context: line.trim(),
           })
         }
       })
@@ -265,7 +271,7 @@ import { Plus, Search } from '@/lib/icons'
       totalCount: lucideIcons.length + customIcons.length,
       lucideIcons: lucideIcons.slice(0, 20), // Sample
       customIcons,
-      examples
+      examples,
     }
   }
 }

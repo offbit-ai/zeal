@@ -85,17 +85,17 @@ Ports define connection points for data flow:
 ```typescript
 ports: [
   {
-    id: "input-1",
-    label: "Data In",
-    type: "input",
-    position: "left"  // "top" | "right" | "bottom" | "left"
+    id: 'input-1',
+    label: 'Data In',
+    type: 'input',
+    position: 'left', // "top" | "right" | "bottom" | "left"
   },
   {
-    id: "output-1",
-    label: "Result",
-    type: "output",
-    position: "right"
-  }
+    id: 'output-1',
+    label: 'Result',
+    type: 'output',
+    position: 'right',
+  },
 ]
 ```
 
@@ -106,6 +106,7 @@ Properties define configurable parameters for each node:
 ### Property Types
 
 1. **Text Input**
+
    ```typescript
    "apiKey": {
      type: "text",
@@ -117,6 +118,7 @@ Properties define configurable parameters for each node:
    ```
 
 2. **Number Input**
+
    ```typescript
    "timeout": {
      type: "number",
@@ -130,6 +132,7 @@ Properties define configurable parameters for each node:
    ```
 
 3. **Select Dropdown**
+
    ```typescript
    "method": {
      type: "select",
@@ -141,6 +144,7 @@ Properties define configurable parameters for each node:
    ```
 
 4. **Boolean Toggle**
+
    ```typescript
    "enableCache": {
      type: "boolean",
@@ -151,6 +155,7 @@ Properties define configurable parameters for each node:
    ```
 
 5. **Textarea**
+
    ```typescript
    "query": {
      type: "textarea",
@@ -162,6 +167,7 @@ Properties define configurable parameters for each node:
    ```
 
 6. **Code Editor**
+
    ```typescript
    "script": {
      type: "code-editor",
@@ -175,6 +181,7 @@ Properties define configurable parameters for each node:
    ```
 
 7. **Rules Editor**
+
    ```typescript
    "filterRules": {
      type: "rules",
@@ -284,7 +291,7 @@ propertyRules: {
 Define required environment variables that are always needed:
 
 ```typescript
-requiredEnvVars: ["DATABASE_URL", "DATABASE_PASSWORD"]
+requiredEnvVars: ['DATABASE_URL', 'DATABASE_PASSWORD']
 ```
 
 ### Dynamic Environment Variables
@@ -314,6 +321,7 @@ propertyRules: {
 ### Environment Variable Validation
 
 The system automatically:
+
 1. Checks for missing environment variables when nodes are added
 2. Displays warnings for missing variables
 3. Allows users to configure variables through the settings panel
@@ -324,6 +332,7 @@ The system automatically:
 ### 1. Unique and Descriptive IDs
 
 Use clear, prefixed IDs that describe the node's purpose:
+
 - ✅ `tpl_openai_gpt`
 - ✅ `tpl_postgres_query`
 - ❌ `tpl_node1`
@@ -388,6 +397,7 @@ properties: {
 ### 5. Logical Port Positioning
 
 Position ports intuitively:
+
 - **Inputs**: Left and top
 - **Outputs**: Right and bottom
 - **Errors/Status**: Bottom
@@ -405,46 +415,46 @@ Position ports intuitively:
 
 ```typescript
 export const apiClientTemplate: NodeTemplate = {
-  id: "tpl_api_client",
-  type: "api",
-  title: "API Client",
-  subtitle: "HTTP Request",
-  category: "tools-utilities",
-  description: "Make HTTP requests to any API endpoint",
-  icon: "globe",
-  variant: "blue-600",
-  shape: "rectangle",
-  size: "medium",
+  id: 'tpl_api_client',
+  type: 'api',
+  title: 'API Client',
+  subtitle: 'HTTP Request',
+  category: 'tools-utilities',
+  description: 'Make HTTP requests to any API endpoint',
+  icon: 'globe',
+  variant: 'blue-600',
+  shape: 'rectangle',
+  size: 'medium',
   ports: [
-    { id: "params_in", label: "Parameters", type: "input", position: "left" },
-    { id: "headers_in", label: "Headers", type: "input", position: "top" },
-    { id: "response_out", label: "Response", type: "output", position: "right" },
-    { id: "error_out", label: "Error", type: "output", position: "bottom" }
+    { id: 'params_in', label: 'Parameters', type: 'input', position: 'left' },
+    { id: 'headers_in', label: 'Headers', type: 'input', position: 'top' },
+    { id: 'response_out', label: 'Response', type: 'output', position: 'right' },
+    { id: 'error_out', label: 'Error', type: 'output', position: 'bottom' },
   ],
   properties: {
     url: {
-      type: "text",
-      label: "URL",
+      type: 'text',
+      label: 'URL',
       required: true,
-      placeholder: "https://api.example.com/endpoint"
+      placeholder: 'https://api.example.com/endpoint',
     },
     method: {
-      type: "select",
-      label: "Method",
-      options: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-      defaultValue: "GET"
+      type: 'select',
+      label: 'Method',
+      options: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+      defaultValue: 'GET',
     },
     timeout: {
-      type: "number",
-      label: "Timeout (ms)",
+      type: 'number',
+      label: 'Timeout (ms)',
       defaultValue: 5000,
       min: 100,
-      max: 30000
-    }
+      max: 30000,
+    },
   },
-  tags: ["api", "http", "request", "rest"],
-  version: "1.0.0",
-  isActive: true
+  tags: ['api', 'http', 'request', 'rest'],
+  version: '1.0.0',
+  isActive: true,
 }
 ```
 
@@ -452,91 +462,91 @@ export const apiClientTemplate: NodeTemplate = {
 
 ```typescript
 export const databaseTemplate: NodeTemplate = {
-  id: "tpl_database",
-  type: "database",
-  title: "Database",
-  subtitle: "Query Database",
-  category: "data-sources",
-  subcategory: "databases",
-  description: "Connect to various database providers",
-  icon: "database",
-  variant: "blue-700",
-  shape: "cylinder",
-  size: "medium",
+  id: 'tpl_database',
+  type: 'database',
+  title: 'Database',
+  subtitle: 'Query Database',
+  category: 'data-sources',
+  subcategory: 'databases',
+  description: 'Connect to various database providers',
+  icon: 'database',
+  variant: 'blue-700',
+  shape: 'cylinder',
+  size: 'medium',
   ports: [
-    { id: "query_in", label: "Query", type: "input", position: "left" },
-    { id: "params_in", label: "Parameters", type: "input", position: "top" },
-    { id: "results_out", label: "Results", type: "output", position: "right" },
-    { id: "error_out", label: "Error", type: "output", position: "bottom" }
+    { id: 'query_in', label: 'Query', type: 'input', position: 'left' },
+    { id: 'params_in', label: 'Parameters', type: 'input', position: 'top' },
+    { id: 'results_out', label: 'Results', type: 'output', position: 'right' },
+    { id: 'error_out', label: 'Error', type: 'output', position: 'bottom' },
   ],
   properties: {
     provider: {
-      type: "select",
-      label: "Database Type",
-      options: ["postgresql", "mysql", "mongodb", "redis"],
-      defaultValue: "postgresql"
+      type: 'select',
+      label: 'Database Type',
+      options: ['postgresql', 'mysql', 'mongodb', 'redis'],
+      defaultValue: 'postgresql',
     },
     connectionString: {
-      type: "text",
-      label: "Connection String",
+      type: 'text',
+      label: 'Connection String',
       required: true,
-      placeholder: "postgres://user:pass@host:5432/db"
+      placeholder: 'postgres://user:pass@host:5432/db',
     },
     query: {
-      type: "textarea",
-      label: "Query",
-      placeholder: "SELECT * FROM users WHERE active = true"
-    }
+      type: 'textarea',
+      label: 'Query',
+      placeholder: 'SELECT * FROM users WHERE active = true',
+    },
   },
-  requiredEnvVars: ["DATABASE_URL"],
-  tags: ["database", "query", "sql", "nosql"],
-  version: "1.0.0",
+  requiredEnvVars: ['DATABASE_URL'],
+  tags: ['database', 'query', 'sql', 'nosql'],
+  version: '1.0.0',
   isActive: true,
   propertyRules: {
-    triggers: ["provider"],
+    triggers: ['provider'],
     rules: [
       {
         when: "$.provider == 'postgresql'",
         updates: {
-          title: "PostgreSQL",
-          subtitle: "Relational Database",
-          icon: "postgresql",
-          variant: "blue-700",
-          requiredEnvVars: ["POSTGRES_URL", "POSTGRES_PASSWORD"]
-        }
+          title: 'PostgreSQL',
+          subtitle: 'Relational Database',
+          icon: 'postgresql',
+          variant: 'blue-700',
+          requiredEnvVars: ['POSTGRES_URL', 'POSTGRES_PASSWORD'],
+        },
       },
       {
         when: "$.provider == 'mysql'",
         updates: {
-          title: "MySQL",
-          subtitle: "Relational Database",
-          icon: "mysql",
-          variant: "orange-600",
-          requiredEnvVars: ["MYSQL_HOST", "MYSQL_USER", "MYSQL_PASSWORD"]
-        }
+          title: 'MySQL',
+          subtitle: 'Relational Database',
+          icon: 'mysql',
+          variant: 'orange-600',
+          requiredEnvVars: ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD'],
+        },
       },
       {
         when: "$.provider == 'mongodb'",
         updates: {
-          title: "MongoDB",
-          subtitle: "Document Database",
-          icon: "mongodb",
-          variant: "green-600",
-          requiredEnvVars: ["MONGODB_URI"]
-        }
+          title: 'MongoDB',
+          subtitle: 'Document Database',
+          icon: 'mongodb',
+          variant: 'green-600',
+          requiredEnvVars: ['MONGODB_URI'],
+        },
       },
       {
         when: "$.provider == 'redis'",
         updates: {
-          title: "Redis",
-          subtitle: "Key-Value Store",
-          icon: "redis",
-          variant: "red-600",
-          requiredEnvVars: ["REDIS_URL"]
-        }
-      }
-    ]
-  }
+          title: 'Redis',
+          subtitle: 'Key-Value Store',
+          icon: 'redis',
+          variant: 'red-600',
+          requiredEnvVars: ['REDIS_URL'],
+        },
+      },
+    ],
+  },
 }
 ```
 
@@ -544,95 +554,95 @@ export const databaseTemplate: NodeTemplate = {
 
 ```typescript
 export const aiModelTemplate: NodeTemplate = {
-  id: "tpl_ai_assistant",
-  type: "ai-model",
-  title: "AI Assistant",
-  subtitle: "Language Model",
-  category: "ai-models",
-  description: "Multi-provider AI language model",
-  icon: "brain",
-  variant: "purple-600",
-  shape: "hexagon",
-  size: "large",
+  id: 'tpl_ai_assistant',
+  type: 'ai-model',
+  title: 'AI Assistant',
+  subtitle: 'Language Model',
+  category: 'ai-models',
+  description: 'Multi-provider AI language model',
+  icon: 'brain',
+  variant: 'purple-600',
+  shape: 'hexagon',
+  size: 'large',
   ports: [
-    { id: "prompt_in", label: "Prompt", type: "input", position: "left" },
-    { id: "context_in", label: "Context", type: "input", position: "top" },
-    { id: "response_out", label: "Response", type: "output", position: "right" },
-    { id: "usage_out", label: "Usage", type: "output", position: "bottom" }
+    { id: 'prompt_in', label: 'Prompt', type: 'input', position: 'left' },
+    { id: 'context_in', label: 'Context', type: 'input', position: 'top' },
+    { id: 'response_out', label: 'Response', type: 'output', position: 'right' },
+    { id: 'usage_out', label: 'Usage', type: 'output', position: 'bottom' },
   ],
   properties: {
     provider: {
-      type: "select",
-      label: "AI Provider",
-      options: ["openai", "anthropic", "google"],
-      defaultValue: "openai"
+      type: 'select',
+      label: 'AI Provider',
+      options: ['openai', 'anthropic', 'google'],
+      defaultValue: 'openai',
     },
     model: {
-      type: "select",
-      label: "Model",
-      options: ["gpt-4", "gpt-3.5", "claude-3", "gemini-pro"],
-      defaultValue: "gpt-4"
+      type: 'select',
+      label: 'Model',
+      options: ['gpt-4', 'gpt-3.5', 'claude-3', 'gemini-pro'],
+      defaultValue: 'gpt-4',
     },
     temperature: {
-      type: "number",
-      label: "Temperature",
+      type: 'number',
+      label: 'Temperature',
       defaultValue: 0.7,
       min: 0,
       max: 1,
       step: 0.1,
-      description: "Controls randomness: 0 = focused, 1 = creative"
+      description: 'Controls randomness: 0 = focused, 1 = creative',
     },
     maxTokens: {
-      type: "number",
-      label: "Max Tokens",
+      type: 'number',
+      label: 'Max Tokens',
       defaultValue: 1000,
       min: 1,
-      max: 8000
-    }
+      max: 8000,
+    },
   },
-  requiredEnvVars: ["OPENAI_API_KEY"],
-  tags: ["ai", "llm", "chatbot", "assistant"],
-  version: "2.0.0",
+  requiredEnvVars: ['OPENAI_API_KEY'],
+  tags: ['ai', 'llm', 'chatbot', 'assistant'],
+  version: '2.0.0',
   isActive: true,
   propertyRules: {
-    triggers: ["provider", "model"],
+    triggers: ['provider', 'model'],
     rules: [
       // Provider-based icon and env vars
       {
         when: "$.provider == 'openai'",
         updates: {
-          icon: "openai",
-          variant: "green-600",
-          requiredEnvVars: ["OPENAI_API_KEY"]
-        }
+          icon: 'openai',
+          variant: 'green-600',
+          requiredEnvVars: ['OPENAI_API_KEY'],
+        },
       },
       {
         when: "$.provider == 'anthropic'",
         updates: {
-          icon: "anthropic",
-          variant: "black",
-          requiredEnvVars: ["ANTHROPIC_API_KEY"]
-        }
+          icon: 'anthropic',
+          variant: 'black',
+          requiredEnvVars: ['ANTHROPIC_API_KEY'],
+        },
       },
       // Combined provider + model rules
       {
         when: "$.provider == 'openai' && $.model == 'gpt-4'",
         updates: {
-          title: "GPT-4",
-          subtitle: "Advanced Reasoning",
-          description: "OpenAI's most capable model"
-        }
+          title: 'GPT-4',
+          subtitle: 'Advanced Reasoning',
+          description: "OpenAI's most capable model",
+        },
       },
       {
         when: "$.provider == 'anthropic' && $.model == 'claude-3'",
         updates: {
-          title: "Claude 3",
-          subtitle: "Constitutional AI",
-          description: "Anthropic's helpful, harmless, and honest AI"
-        }
-      }
-    ]
-  }
+          title: 'Claude 3',
+          subtitle: 'Constitutional AI',
+          description: "Anthropic's helpful, harmless, and honest AI",
+        },
+      },
+    ],
+  },
 }
 ```
 

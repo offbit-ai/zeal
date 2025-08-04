@@ -49,6 +49,7 @@ docker-compose --profile production up -d
 ```
 
 This adds:
+
 - Nginx reverse proxy with SSL
 - Rate limiting
 - Caching
@@ -81,6 +82,7 @@ kubectl apply -f k8s/
 ```
 
 See `k8s/` directory for complete manifests including:
+
 - Deployments for each service
 - Services and Ingress
 - ConfigMaps and Secrets
@@ -161,6 +163,7 @@ Note: You'll need to deploy the CRDT server separately (see below).
 #### AWS
 
 Use AWS services:
+
 - **ECS/Fargate**: For containerized deployment
 - **RDS**: PostgreSQL database
 - **ElastiCache**: Redis
@@ -170,6 +173,7 @@ Use AWS services:
 #### Google Cloud Platform
 
 Use GCP services:
+
 - **Cloud Run**: For containers
 - **Cloud SQL**: PostgreSQL
 - **Memorystore**: Redis
@@ -178,6 +182,7 @@ Use GCP services:
 #### Azure
 
 Use Azure services:
+
 - **Container Instances**: For containers
 - **Database for PostgreSQL**: Managed PostgreSQL
 - **Cache for Redis**: Managed Redis
@@ -224,16 +229,19 @@ ANTHROPIC_API_KEY=sk-ant-...
 ### Horizontal Scaling
 
 #### Next.js Application
+
 - Stateless design allows multiple instances
 - Use Redis for session sharing
 - Configure sticky sessions for WebSocket
 
 #### CRDT Server
+
 - Can handle multiple rooms per instance
 - Scale based on active room count
 - Use load balancer with WebSocket support
 
 #### Database
+
 - Use read replicas for read-heavy operations
 - Consider partitioning for large datasets
 - Regular VACUUM and index optimization
@@ -241,6 +249,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ### Vertical Scaling
 
 Recommended minimum resources:
+
 - **Next.js**: 2 CPU, 4GB RAM
 - **CRDT Server**: 2 CPU, 2GB RAM
 - **PostgreSQL**: 4 CPU, 8GB RAM
@@ -251,6 +260,7 @@ Recommended minimum resources:
 ### Health Checks
 
 All services expose health endpoints:
+
 - Next.js: `GET /api/health`
 - CRDT Server: `GET /health`
 - PostgreSQL: `pg_isready`
@@ -295,23 +305,26 @@ aws s3 cp backup_$DATE.sql s3://backups/zeal/
 ### Updates & Maintenance
 
 1. **Zero-downtime deployment**:
+
    ```bash
    # Update one service at a time
    docker-compose up -d --no-deps app
    ```
 
 2. **Database migrations**:
+
    ```bash
    # Run migrations before updating app
    psql $DATABASE_URL < migrations/latest.sql
    ```
 
 3. **Dependency updates**:
+
    ```bash
    # Update Node dependencies
    npm update
    npm audit fix
-   
+
    # Update Rust dependencies
    cd crdt-server && cargo update
    ```
@@ -343,6 +356,7 @@ aws s3 cp backup_$DATE.sql s3://backups/zeal/
 ### Common Issues
 
 **Container won't start**
+
 ```bash
 # Check logs
 docker-compose logs service-name
@@ -355,6 +369,7 @@ docker system df
 ```
 
 **Database connection issues**
+
 ```bash
 # Test connection
 psql $DATABASE_URL -c "SELECT 1"
@@ -364,6 +379,7 @@ telnet hostname 5432
 ```
 
 **CRDT sync problems**
+
 ```bash
 # Check WebSocket connectivity
 wscat -c ws://localhost:8080
@@ -373,6 +389,7 @@ curl -I http://localhost:8080
 ```
 
 **Performance issues**
+
 ```bash
 # Check resource usage
 docker stats
@@ -387,6 +404,7 @@ redis-cli info memory
 ## Support
 
 For deployment assistance:
+
 - Community: GitHub Discussions
 - Enterprise: support@example.com
 - Documentation: https://docs.example.com

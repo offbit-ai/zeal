@@ -11,16 +11,16 @@ interface ZoomControlsProps {
   maxZoom?: number
 }
 
-export function ZoomControls({ 
-  zoom, 
-  onZoomIn, 
-  onZoomOut, 
+export function ZoomControls({
+  zoom,
+  onZoomIn,
+  onZoomOut,
   onZoomReset,
   minZoom = 0.1,
-  maxZoom = 3
+  maxZoom = 3,
 }: ZoomControlsProps) {
   const zoomPercentage = Math.round(zoom * 100)
-  
+
   return (
     <div className="absolute bottom-6 right-56 flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-200 p-1 z-20">
       <button
@@ -31,7 +31,7 @@ export function ZoomControls({
       >
         <ZoomOut className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
       </button>
-      
+
       <button
         onClick={onZoomReset}
         className="px-3 py-2 hover:bg-gray-100 rounded-md transition-colors text-xs font-medium text-gray-700 min-w-[3rem]"
@@ -39,7 +39,7 @@ export function ZoomControls({
       >
         {zoomPercentage}%
       </button>
-      
+
       <button
         onClick={onZoomIn}
         disabled={zoom >= maxZoom}
@@ -48,9 +48,9 @@ export function ZoomControls({
       >
         <ZoomIn className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
       </button>
-      
+
       <div className="w-px h-4 bg-gray-200 mx-1" />
-      
+
       <button
         onClick={onZoomReset}
         className="p-2 hover:bg-gray-100 rounded-md transition-colors"

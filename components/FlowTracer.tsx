@@ -1,11 +1,30 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { 
-  ListRestart, ArrowLeft, Play, Pause, SkipForward, RotateCcw, 
-  ChevronRight, AlertCircle, CheckCircle, AlertTriangle,
-  Database, Code, Bot, GitBranch, Shuffle, ArrowRight,
-  Clock, Activity, Zap, Search, Filter, Calendar, FileText
+import {
+  ListRestart,
+  ArrowLeft,
+  Play,
+  Pause,
+  SkipForward,
+  RotateCcw,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle,
+  AlertTriangle,
+  Database,
+  Code,
+  Bot,
+  GitBranch,
+  Shuffle,
+  ArrowRight,
+  Clock,
+  Activity,
+  Zap,
+  Search,
+  Filter,
+  Calendar,
+  FileText,
 } from 'lucide-react'
 import { FlowTraceService } from '@/services/flowTraceService'
 import type { FlowTrace, FlowTraceSession, TraceReplay } from '@/types/flowTrace'
@@ -22,7 +41,7 @@ const iconMap: Record<string, any> = {
   code: Code,
   service: Bot,
   condition: GitBranch,
-  transformer: Shuffle
+  transformer: Shuffle,
 }
 
 export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
@@ -39,7 +58,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
   const [showFilters, setShowFilters] = useState(false)
   const animationFrameRef = useRef<number>(0)
   const replayStartTimeRef = useRef<number>(0)
-  
+
   const { nodes, connections } = useWorkflowStore()
 
   useEffect(() => {
@@ -60,7 +79,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
       const { sessions: allSessions } = await FlowTraceService.getAllSessions({
         timeFilter: timeFilter !== 'all' ? timeFilter : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
-        search: searchQuery || undefined
+        search: searchQuery || undefined,
       })
       setSessions(allSessions)
     } catch (error) {
@@ -71,40 +90,39 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
   // Filter sessions by time
   const filterSessionsByTime = (sessions: FlowTraceSession[]) => {
     if (timeFilter === 'all') return sessions
-    
+
     const now = Date.now()
     const filterMs = {
       '1h': 60 * 60 * 1000,
       '6h': 6 * 60 * 60 * 1000,
       '24h': 24 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000
+      '7d': 7 * 24 * 60 * 60 * 1000,
     }[timeFilter]
-    
-    return sessions.filter(session => 
-      new Date(session.startTime).getTime() > now - filterMs
-    )
+
+    return sessions.filter(session => new Date(session.startTime).getTime() > now - filterMs)
   }
 
   // Filter traces by search query and status
   const filterTraces = (traces: FlowTrace[]) => {
     let filtered = traces
-    
+
     // Filter by status
     if (statusFilter !== 'all') {
       filtered = filtered.filter(trace => trace.status === statusFilter)
     }
-    
+
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(trace => 
-        trace.source.nodeName.toLowerCase().includes(query) ||
-        trace.target.nodeName.toLowerCase().includes(query) ||
-        trace.source.portName.toLowerCase().includes(query) ||
-        trace.target.portName.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        trace =>
+          trace.source.nodeName.toLowerCase().includes(query) ||
+          trace.target.nodeName.toLowerCase().includes(query) ||
+          trace.source.portName.toLowerCase().includes(query) ||
+          trace.target.portName.toLowerCase().includes(query)
       )
     }
-    
+
     return filtered
   }
 
@@ -128,7 +146,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
       const textReport = await FlowTraceService.generateReport(selectedSession.id, {
         search: searchQuery || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
-        format: 'text'
+        format: 'text',
       })
 
       // Download text report
@@ -146,7 +164,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
       const jsonReport = await FlowTraceService.generateReport(selectedSession.id, {
         search: searchQuery || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
-        format: 'json'
+        format: 'json',
       })
 
       // Download JSON report
@@ -166,29 +184,29 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
 
   const startReplay = async () => {
     if (!selectedSession) return
-    
+
     try {
       // Get replay data from API with current filters
       const replayData = await FlowTraceService.getReplayData(selectedSession.id, {
         search: searchQuery || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined
+        status: statusFilter !== 'all' ? statusFilter : undefined,
       })
-      
+
       // Update selected session with filtered traces
       setSelectedSession({
         ...selectedSession,
-        traces: replayData.traces
+        traces: replayData.traces,
       })
-      
+
       setReplay({
         sessionId: selectedSession.id,
         currentTraceIndex: 0,
         isPlaying: true,
         playbackSpeed: 1,
         startTime: Date.now(),
-        elapsedTime: 0
+        elapsedTime: 0,
       })
-      
+
       replayStartTimeRef.current = Date.now()
       setCurrentReplayTrace(0)
       animateReplay()
@@ -199,29 +217,30 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
 
   const animateReplay = () => {
     if (!replay || !selectedSession) return
-    
+
     const elapsed = Date.now() - replayStartTimeRef.current
     const traces = selectedSession.traces
-    
+
     // Find which trace should be shown based on elapsed time
     let currentIndex = 0
     let accumulatedTime = 0
-    
+
     for (let i = 0; i < traces.length; i++) {
-      const traceTime = new Date(traces[i].timestamp).getTime() - new Date(traces[0].timestamp).getTime()
+      const traceTime =
+        new Date(traces[i].timestamp).getTime() - new Date(traces[0].timestamp).getTime()
       if (elapsed >= traceTime * replay.playbackSpeed) {
         currentIndex = i
       }
     }
-    
+
     setCurrentReplayTrace(currentIndex)
-    
+
     // Continue animation if not at the end
     if (currentIndex < traces.length - 1 && replay.isPlaying) {
       animationFrameRef.current = requestAnimationFrame(animateReplay)
     } else {
       // Replay finished
-      setReplay(prev => prev ? { ...prev, isPlaying: false } : null)
+      setReplay(prev => (prev ? { ...prev, isPlaying: false } : null))
     }
   }
 
@@ -229,7 +248,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
     }
-    setReplay(prev => prev ? { ...prev, isPlaying: false } : null)
+    setReplay(prev => (prev ? { ...prev, isPlaying: false } : null))
   }
 
   const resetReplay = () => {
@@ -274,7 +293,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
 
   return (
     <div className="fixed inset-0 top-[60px] z-50 flex bg-black/50" onClick={onClose}>
-      <div 
+      <div
         className="absolute top-0 left-0 right-0 bottom-0 bg-white shadow-xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
@@ -293,7 +312,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
               Back to Workflow
             </button>
           </div>
-          
+
           {/* Query and Filters */}
           <div className="mt-4 space-y-3">
             <div className="flex items-center gap-3">
@@ -304,11 +323,11 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                   type="text"
                   placeholder="Search traces by node or port name..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                 />
               </div>
-              
+
               {/* Filter Toggle */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -324,7 +343,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                   </span>
                 )}
               </button>
-              
+
               {/* Generate Simulation */}
               <button
                 onClick={handleGenerateSimulation}
@@ -332,7 +351,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
               >
                 Generate Simulation
               </button>
-              
+
               {/* Generate Report */}
               {selectedSession && (
                 <button
@@ -344,7 +363,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                 </button>
               )}
             </div>
-            
+
             {/* Filter Options */}
             {showFilters && (
               <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md">
@@ -353,7 +372,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                   <Calendar className="w-4 h-4 text-gray-500" />
                   <select
                     value={timeFilter}
-                    onChange={(e) => setTimeFilter(e.target.value as any)}
+                    onChange={e => setTimeFilter(e.target.value as any)}
                     className="text-sm border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-gray-900"
                   >
                     <option value="all">All time</option>
@@ -363,13 +382,13 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                     <option value="7d">Last 7 days</option>
                   </select>
                 </div>
-                
+
                 {/* Status Filter */}
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-gray-500" />
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    onChange={e => setStatusFilter(e.target.value as any)}
                     className="text-sm border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-gray-900"
                   >
                     <option value="all">All statuses</option>
@@ -378,7 +397,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                     <option value="warning">Warnings only</option>
                   </select>
                 </div>
-                
+
                 {/* Clear Filters */}
                 {(timeFilter !== 'all' || statusFilter !== 'all') && (
                   <button
@@ -394,7 +413,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
               </div>
             )}
           </div>
-          
+
           {/* Replay Controls */}
           {selectedSession && (
             <div className="flex items-center gap-2 mt-3">
@@ -427,7 +446,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
           <div className="w-1/3 border-r border-gray-200 overflow-y-auto">
             <div className="p-4">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Trace Sessions</h3>
-              
+
               {filteredSessions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -436,12 +455,12 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredSessions.map((session) => (
+                  {filteredSessions.map(session => (
                     <div
                       key={session.id}
                       className={`p-3 rounded-md border cursor-pointer transition-colors ${
-                        selectedSession?.id === session.id 
-                          ? 'border-black bg-gray-50' 
+                        selectedSession?.id === session.id
+                          ? 'border-black bg-gray-50'
                           : 'border-gray-200 hover:bg-gray-50'
                       }`}
                       onClick={() => setSelectedSession(session)}
@@ -455,17 +474,19 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                             {formatDistanceToNow(new Date(session.startTime))}
                           </p>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          session.status === 'completed' 
-                            ? 'bg-green-100 text-green-700'
-                            : session.status === 'failed'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded ${
+                            session.status === 'completed'
+                              ? 'bg-green-100 text-green-700'
+                              : session.status === 'failed'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
                           {session.status}
                         </span>
                       </div>
-                      
+
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                         <span>{session.summary.totalTraces} traces</span>
                         <span className="text-green-600">{session.summary.successCount} ✓</span>
@@ -492,7 +513,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                     </span>
                   )}
                 </h3>
-                
+
                 {filterTraces(selectedSession.traces).length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
@@ -502,69 +523,72 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                 ) : (
                   <div className="space-y-2">
                     {filterTraces(selectedSession.traces).map((trace, index) => {
-                    const isReplaying = replay && index <= currentReplayTrace
-                    const SourceIcon = iconMap[trace.source.nodeType] || Zap
-                    const TargetIcon = iconMap[trace.target.nodeType] || Zap
-                    
-                    return (
-                      <div
-                        key={trace.id}
-                        className={`p-3 rounded-md border cursor-pointer transition-all ${
-                          selectedTrace?.id === trace.id 
-                            ? 'border-black bg-gray-50' 
-                            : 'border-gray-200 hover:bg-gray-50'
-                        } ${isReplaying ? 'animate-pulse bg-blue-50' : ''}`}
-                        onClick={async () => {
-                          setSelectedTrace(trace)
-                          // Check if this trace involves a subgraph node
-                          if (trace.source.nodeType === 'subgraph' || trace.target.nodeType === 'subgraph') {
-                            try {
-                              const subTraces = await FlowTraceService.getSubgraphTraces(trace.id)
-                              setSubgraphTraces(subTraces)
-                              setShowSubgraphTraces(true)
-                            } catch (error) {
-                              console.error('Error loading subgraph traces:', error)
+                      const isReplaying = replay && index <= currentReplayTrace
+                      const SourceIcon = iconMap[trace.source.nodeType] || Zap
+                      const TargetIcon = iconMap[trace.target.nodeType] || Zap
+
+                      return (
+                        <div
+                          key={trace.id}
+                          className={`p-3 rounded-md border cursor-pointer transition-all ${
+                            selectedTrace?.id === trace.id
+                              ? 'border-black bg-gray-50'
+                              : 'border-gray-200 hover:bg-gray-50'
+                          } ${isReplaying ? 'animate-pulse bg-blue-50' : ''}`}
+                          onClick={async () => {
+                            setSelectedTrace(trace)
+                            // Check if this trace involves a subgraph node
+                            if (
+                              trace.source.nodeType === 'subgraph' ||
+                              trace.target.nodeType === 'subgraph'
+                            ) {
+                              try {
+                                const subTraces = await FlowTraceService.getSubgraphTraces(trace.id)
+                                setSubgraphTraces(subTraces)
+                                setShowSubgraphTraces(true)
+                              } catch (error) {
+                                console.error('Error loading subgraph traces:', error)
+                              }
+                            } else {
+                              setSubgraphTraces([])
+                              setShowSubgraphTraces(false)
                             }
-                          } else {
-                            setSubgraphTraces([])
-                            setShowSubgraphTraces(false)
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(trace.status)}
-                          
-                          <div className="flex items-center gap-1 flex-1 min-w-0">
-                            <div className="flex items-center gap-1">
-                              <SourceIcon className="w-3 h-3 text-gray-600" />
-                              <span className="text-xs font-medium text-gray-900 truncate">
-                                {trace.source.nodeName}
-                              </span>
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(trace.status)}
+
+                            <div className="flex items-center gap-1 flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <SourceIcon className="w-3 h-3 text-gray-600" />
+                                <span className="text-xs font-medium text-gray-900 truncate">
+                                  {trace.source.nodeName}
+                                </span>
+                              </div>
+
+                              <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />
+
+                              <div className="flex items-center gap-1">
+                                <TargetIcon className="w-3 h-3 text-gray-600" />
+                                <span className="text-xs font-medium text-gray-900 truncate">
+                                  {trace.target.nodeName}
+                                </span>
+                              </div>
                             </div>
-                            
-                            <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />
-                            
-                            <div className="flex items-center gap-1">
-                              <TargetIcon className="w-3 h-3 text-gray-600" />
-                              <span className="text-xs font-medium text-gray-900 truncate">
-                                {trace.target.nodeName}
-                              </span>
-                            </div>
+
+                            <span className="text-xs text-gray-500">{trace.duration}ms</span>
                           </div>
-                          
-                          <span className="text-xs text-gray-500">
-                            {trace.duration}ms
-                          </span>
+
+                          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                            <span>
+                              {trace.source.portName} → {trace.target.portName}
+                            </span>
+                            <span>•</span>
+                            <span>{(trace.data.size / 1024).toFixed(1)}KB</span>
+                          </div>
                         </div>
-                        
-                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                          <span>{trace.source.portName} → {trace.target.portName}</span>
-                          <span>•</span>
-                          <span>{(trace.data.size / 1024).toFixed(1)}KB</span>
-                        </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -586,7 +610,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                   {getStatusIcon(selectedTrace.status)}
                   <h3 className="text-lg font-medium text-gray-900">Trace Details</h3>
                 </div>
-                
+
                 <div className="space-y-6">
                   {/* Status and Timing */}
                   <div>
@@ -594,7 +618,9 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Status</span>
-                        <span className={`font-medium px-2 py-0.5 rounded ${getStatusColor(selectedTrace.status)}`}>
+                        <span
+                          className={`font-medium px-2 py-0.5 rounded ${getStatusColor(selectedTrace.status)}`}
+                        >
                           {selectedTrace.status.toUpperCase()}
                         </span>
                       </div>
@@ -614,7 +640,9 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                   {/* Error Details */}
                   {selectedTrace.error && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 text-red-600">Error Details</h4>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 text-red-600">
+                        Error Details
+                      </h4>
                       <div className="bg-red-50 rounded-lg p-4 space-y-2">
                         <div className="text-sm">
                           <span className="text-red-600 font-medium">Message:</span>
@@ -623,7 +651,9 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                         {selectedTrace.error.code && (
                           <div className="text-sm">
                             <span className="text-red-600 font-medium">Code:</span>
-                            <p className="text-red-800 mt-1 font-mono">{selectedTrace.error.code}</p>
+                            <p className="text-red-800 mt-1 font-mono">
+                              {selectedTrace.error.code}
+                            </p>
                           </div>
                         )}
                         {selectedTrace.error.stack && (
@@ -646,7 +676,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                         <div className="flex items-center gap-2 mb-2">
                           <div className="p-1 bg-gray-700 rounded">
                             {React.createElement(iconMap[selectedTrace.source.nodeType] || Zap, {
-                              className: "w-3 h-3 text-white"
+                              className: 'w-3 h-3 text-white',
                             })}
                           </div>
                           <span className="text-sm font-medium text-gray-900">Source</span>
@@ -666,12 +696,12 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                           </div>
                         </dl>
                       </div>
-                      
+
                       <div className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="p-1 bg-gray-700 rounded">
                             {React.createElement(iconMap[selectedTrace.target.nodeType] || Zap, {
-                              className: "w-3 h-3 text-white"
+                              className: 'w-3 h-3 text-white',
                             })}
                           </div>
                           <span className="text-sm font-medium text-gray-900">Target</span>
@@ -700,10 +730,14 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm text-gray-500">
-                          Type: <span className="font-medium text-gray-700">{selectedTrace.data.type}</span>
+                          Type:{' '}
+                          <span className="font-medium text-gray-700">
+                            {selectedTrace.data.type}
+                          </span>
                         </span>
                         <span className="text-sm text-gray-500">
-                          Size: <span className="font-medium text-gray-700">
+                          Size:{' '}
+                          <span className="font-medium text-gray-700">
                             {(selectedTrace.data.size / 1024).toFixed(2)}KB
                           </span>
                         </span>
@@ -717,16 +751,19 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                   {/* Subgraph Traces */}
                   {showSubgraphTraces && subgraphTraces.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Subgraph Execution Traces</h4>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Subgraph Execution Traces
+                      </h4>
                       <div className="bg-blue-50 rounded-lg p-4">
                         <p className="text-sm text-blue-700 mb-3">
-                          This trace executed a subgraph. Below are the traces from inside the subgraph:
+                          This trace executed a subgraph. Below are the traces from inside the
+                          subgraph:
                         </p>
                         <div className="space-y-2">
-                          {subgraphTraces.map((subTrace) => {
+                          {subgraphTraces.map(subTrace => {
                             const SubSourceIcon = iconMap[subTrace.source.nodeType] || Zap
                             const SubTargetIcon = iconMap[subTrace.target.nodeType] || Zap
-                            
+
                             return (
                               <div
                                 key={subTrace.id}
@@ -734,7 +771,7 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                               >
                                 <div className="flex items-center gap-2">
                                   {getStatusIcon(subTrace.status)}
-                                  
+
                                   <div className="flex items-center gap-1 flex-1 min-w-0">
                                     <div className="flex items-center gap-1">
                                       <SubSourceIcon className="w-3 h-3 text-gray-600" />
@@ -742,9 +779,9 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                                         {subTrace.source.nodeName}
                                       </span>
                                     </div>
-                                    
+
                                     <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />
-                                    
+
                                     <div className="flex items-center gap-1">
                                       <SubTargetIcon className="w-3 h-3 text-gray-600" />
                                       <span className="text-xs font-medium text-gray-900 truncate">
@@ -752,14 +789,16 @@ export function FlowTracer({ isOpen, onClose }: FlowTracerProps) {
                                       </span>
                                     </div>
                                   </div>
-                                  
+
                                   <span className="text-xs text-gray-500">
                                     {subTrace.duration}ms
                                   </span>
                                 </div>
-                                
+
                                 <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                                  <span>{subTrace.source.portName} → {subTrace.target.portName}</span>
+                                  <span>
+                                    {subTrace.source.portName} → {subTrace.target.portName}
+                                  </span>
                                   <span>•</span>
                                   <span>{(subTrace.data.size / 1024).toFixed(1)}KB</span>
                                 </div>

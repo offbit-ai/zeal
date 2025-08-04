@@ -49,6 +49,7 @@ openssl rand -base64 32
 ```
 
 The application will be available at:
+
 - Web UI: http://localhost:3000
 - CRDT Server: ws://localhost:8080
 - PostgreSQL: localhost:5432
@@ -79,8 +80,8 @@ npm run dev
 - **Real-time Collaboration**: Multiple users can edit simultaneously with CRDT sync
 - **Node Groups**: Organize nodes into collapsible groups
 - **Version History**: Track all changes with rollback to published versions
-- **Execution Replay**: Review past workflow executions with recorded data flow*
-- **Flow Tracing**: Examine execution logs and data flow through nodes*
+- **Execution Replay**: Review past workflow executions with recorded data flow\*
+- **Flow Tracing**: Examine execution logs and data flow through nodes\*
 - **Analytics**: Performance metrics, error tracking, and usage trends
 - **Node Repository**: Extensible library of 50+ node types
 - **Subgraphs**: Create reusable workflow components
@@ -88,7 +89,7 @@ npm run dev
 - **Export/Import**: Share workflows as JSON files
 - **Snapshot Management**: Create named checkpoints at milestones
 
-*Note: History browsing and flow tracing features depend on workflow execution data being recorded by your runtime engine implementation.
+\*Note: History browsing and flow tracing features depend on workflow execution data being recorded by your runtime engine implementation.
 
 ## 🏗️ Architecture
 
@@ -107,7 +108,9 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
 This project provides a visual workflow editor interface and collaboration infrastructure. The following components are **not included** and must be implemented by users:
 
 ### 1. **Workflow Runtime Engine**
+
 The actual execution of workflows is not implemented. You will need to:
+
 - Build or integrate a workflow execution engine
 - Implement node execution logic for each node type
 - Handle data flow between nodes
@@ -115,7 +118,9 @@ The actual execution of workflows is not implemented. You will need to:
 - Record execution history for the replay features
 
 ### 2. **User Management & Authentication**
+
 While the editor supports multi-user collaboration, user management is not included:
+
 - User registration and login systems
 - Role-based access control (RBAC)
 - Team/organization management
@@ -123,6 +128,7 @@ While the editor supports multi-user collaboration, user management is not inclu
 - User profile management
 
 ### 3. **Production Deployment Considerations**
+
 - Scaling strategy for the CRDT server
 - Database backup and recovery procedures
 - Security hardening and SSL/TLS configuration
@@ -133,20 +139,21 @@ While the editor supports multi-user collaboration, user management is not inclu
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | Required |
-| `REDIS_URL` | Redis connection string | Required |
-| `NEXT_PUBLIC_CRDT_SERVER_URL` | CRDT server WebSocket URL | ws://localhost:8080 |
-| `NEXTAUTH_SECRET` | NextAuth.js secret key | Required |
-| `NEXTAUTH_URL` | Application URL | http://localhost:3000 |
-| `NEXT_PUBLIC_DISABLE_CONSOLE_LOGS` | Disable console logs in production | false |
+| Variable                           | Description                        | Default               |
+| ---------------------------------- | ---------------------------------- | --------------------- |
+| `DATABASE_URL`                     | PostgreSQL connection string       | Required              |
+| `REDIS_URL`                        | Redis connection string            | Required              |
+| `NEXT_PUBLIC_CRDT_SERVER_URL`      | CRDT server WebSocket URL          | ws://localhost:8080   |
+| `NEXTAUTH_SECRET`                  | NextAuth.js secret key             | Required              |
+| `NEXTAUTH_URL`                     | Application URL                    | http://localhost:3000 |
+| `NEXT_PUBLIC_DISABLE_CONSOLE_LOGS` | Disable console logs in production | false                 |
 
 See `.env.example` for all configuration options.
 
 ### Production Deployment
 
 The production deployment script (`docker-compose-prod.sh`) automatically:
+
 - Builds optimized production images
 - Enables console log suppression
 - Configures proper health checks

@@ -47,28 +47,28 @@ export const useNodeRepositoryStore = create<NodeRepositoryStore>((set, get) => 
   // Fetch categories from API
   fetchCategories: async () => {
     const { lastFetched } = get()
-    
+
     // Cache for 5 minutes
     if (lastFetched && Date.now() - lastFetched.getTime() < 5 * 60 * 1000) {
       return
     }
 
     set({ isLoading: true, error: null })
-    
+
     try {
       const response = await fetch('/api/nodes/categories')
       if (!response.ok) {
         throw new Error('Failed to fetch categories')
       }
-      
+
       const data = await response.json()
-      set({ 
+      set({
         categories: data.data || [],
-        lastFetched: new Date()
+        lastFetched: new Date(),
       })
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to fetch categories' 
+      set({
+        error: error instanceof Error ? error.message : 'Failed to fetch categories',
       })
     } finally {
       set({ isLoading: false })
@@ -78,25 +78,25 @@ export const useNodeRepositoryStore = create<NodeRepositoryStore>((set, get) => 
   // Fetch node templates from API
   fetchNodeTemplates: async (options = {}) => {
     set({ isLoading: true, error: null })
-    
+
     try {
       const params = new URLSearchParams()
       if (options.category) params.append('category', options.category)
       params.append('limit', String(options.limit || 500))
-      
+
       const response = await fetch(`/api/nodes?${params}`)
       if (!response.ok) {
         throw new Error('Failed to fetch node templates')
       }
-      
+
       const data = await response.json()
-      set({ 
+      set({
         nodeTemplates: data.data || [],
-        lastFetched: new Date()
+        lastFetched: new Date(),
       })
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to fetch node templates' 
+      set({
+        error: error instanceof Error ? error.message : 'Failed to fetch node templates',
       })
     } finally {
       set({ isLoading: false })
@@ -106,10 +106,7 @@ export const useNodeRepositoryStore = create<NodeRepositoryStore>((set, get) => 
   // Fetch both categories and node templates
   fetchAll: async () => {
     const { fetchCategories, fetchNodeTemplates } = get()
-    await Promise.all([
-      fetchCategories(),
-      fetchNodeTemplates()
-    ])
+    await Promise.all([fetchCategories(), fetchNodeTemplates()])
   },
 
   // Get category by name
@@ -140,10 +137,11 @@ export const useNodeRepositoryStore = create<NodeRepositoryStore>((set, get) => 
   setError: (error: string | null) => set({ error }),
 
   // Clear cache
-  clearCache: () => set({ 
-    categories: [],
-    nodeTemplates: [],
-    lastFetched: null,
-    error: null
-  })
+  clearCache: () =>
+    set({
+      categories: [],
+      nodeTemplates: [],
+      lastFetched: null,
+      error: null,
+    }),
 }))

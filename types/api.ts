@@ -1,4 +1,4 @@
-import { NodeMetadata } from "./workflow"
+import { NodeMetadata } from './workflow'
 
 // Base API response types
 export interface ApiResponse<T = any> {
@@ -179,7 +179,6 @@ export interface NodeTemplateResponse {
     }>
   }
 }
-
 
 export interface NodePortData {
   id: string

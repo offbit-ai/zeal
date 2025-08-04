@@ -7,10 +7,17 @@ import type { NodeMetadata } from '@/types/workflow'
 interface TrackedWorkflowNodeProps {
   metadata: NodeMetadata
   position: { x: number; y: number }
-  onBoundsChange?: (id: string, bounds: { x: number; y: number; width: number; height: number }) => void
+  onBoundsChange?: (
+    id: string,
+    bounds: { x: number; y: number; width: number; height: number }
+  ) => void
 }
 
-export function TrackedWorkflowNode({ metadata, position, onBoundsChange }: TrackedWorkflowNodeProps) {
+export function TrackedWorkflowNode({
+  metadata,
+  position,
+  onBoundsChange,
+}: TrackedWorkflowNodeProps) {
   const nodeRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,7 +32,7 @@ export function TrackedWorkflowNode({ metadata, position, onBoundsChange }: Trac
         x: position.x,
         y: position.y,
         width: rect.width,
-        height: rect.height
+        height: rect.height,
       })
     }
 
@@ -47,7 +54,7 @@ export function TrackedWorkflowNode({ metadata, position, onBoundsChange }: Trac
       className="absolute"
       style={{
         left: position.x,
-        top: position.y
+        top: position.y,
       }}
     >
       <WorkflowNode metadata={metadata} />

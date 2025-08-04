@@ -12,17 +12,17 @@ interface GroupEditModalProps {
   onCancel: () => void
 }
 
-export function GroupEditModal({ 
-  isOpen, 
+export function GroupEditModal({
+  isOpen,
   groupId,
   currentTitle,
   currentDescription,
-  onConfirm, 
-  onCancel 
+  onConfirm,
+  onCancel,
 }: GroupEditModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  
+
   useEffect(() => {
     if (isOpen) {
       // Set current values when modal opens
@@ -51,11 +51,8 @@ export function GroupEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-      />
-      
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
+
       {/* Modal */}
       <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-in fade-in duration-200">
         {/* Header */}
@@ -66,9 +63,7 @@ export function GroupEditModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Edit Group</h2>
-              <p className="text-sm text-gray-500">
-                Update group details
-              </p>
+              <p className="text-sm text-gray-500">Update group details</p>
             </div>
           </div>
           <button
@@ -91,7 +86,7 @@ export function GroupEditModal({
                 id="group-title"
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={e => setTitle(e.target.value)}
                 placeholder="Enter group title..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 autoFocus
@@ -101,7 +96,10 @@ export function GroupEditModal({
 
             {/* Description Input */}
             <div>
-              <label htmlFor="group-description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="group-description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Description
               </label>
               <div className="relative">
@@ -109,7 +107,7 @@ export function GroupEditModal({
                 <textarea
                   id="group-description"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={e => setDescription(e.target.value)}
                   placeholder="Describe the purpose of this group..."
                   rows={3}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"

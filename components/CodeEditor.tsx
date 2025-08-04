@@ -27,7 +27,7 @@ export function CodeEditor({
   lineNumbers = true,
   wordWrap = true,
   minimap = false,
-  theme = 'dark'
+  theme = 'dark',
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const codeRef = useRef<HTMLElement>(null)
@@ -45,7 +45,7 @@ export function CodeEditor({
     if (codeRef.current && displayValue) {
       // Clear previous highlighting
       codeRef.current.removeAttribute('data-highlighted')
-      
+
       // Apply new highlighting
       if (language && hljs.getLanguage(language)) {
         try {
@@ -71,13 +71,13 @@ export function CodeEditor({
   const lineNumbersArray = Array.from({ length: lineCount }, (_, i) => i + 1)
 
   return (
-    <div 
+    <div
       className="relative rounded-md border border-gray-700 overflow-hidden bg-gray-900"
       style={{ height: typeof height === 'number' ? `${height}px` : height }}
     >
       <div className="relative h-full overflow-auto bg-gray-900">
         {lineNumbers && (
-          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gray-800 text-gray-500 text-xs text-right select-none">
+          <div className="absolute left-0 top-0 bottom-0 w-6 bg-gray-800 text-gray-500 text-xs text-right select-none">
             {lineNumbersArray.map(num => (
               <div key={num} className="pr-2 leading-6">
                 {num}
@@ -85,11 +85,11 @@ export function CodeEditor({
             ))}
           </div>
         )}
-        
+
         <div className={`relative ${lineNumbers ? 'ml-12' : ''} bg-gray-900`}>
           {/* Syntax highlighted code display */}
-          <pre className="absolute inset-0 p-2 m-0 overflow-visible pointer-events-none text-gray-100">
-            <code 
+          <pre className="absolute inset-0 px-2 m-0 overflow-visible pointer-events-none text-gray-100">
+            <code
               ref={codeRef}
               className={`language-${language} hljs`}
               style={{
@@ -99,13 +99,14 @@ export function CodeEditor({
                 wordBreak: wordWrap ? 'break-word' : 'normal',
                 fontSize: '12px',
                 lineHeight: '1.5rem',
-                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+                fontFamily:
+                  'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
               }}
             >
               {displayValue}
             </code>
           </pre>
-          
+
           {/* Invisible textarea for editing */}
           <textarea
             ref={textareaRef}
@@ -117,9 +118,10 @@ export function CodeEditor({
               minHeight: typeof height === 'number' ? `${height}px` : height,
               fontSize: '12px',
               lineHeight: '1.5rem',
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+              fontFamily:
+                'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
               whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
-              wordBreak: wordWrap ? 'break-word' : 'normal'
+              wordBreak: wordWrap ? 'break-word' : 'normal',
             }}
             spellCheck={false}
             autoCapitalize="off"

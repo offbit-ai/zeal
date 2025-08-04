@@ -43,12 +43,14 @@ Zeal is built as a modern, scalable web application with real-time collaboration
 The frontend is a React-based single-page application built with Next.js 14 and TypeScript.
 
 #### Key Features:
+
 - **Workflow Canvas**: Interactive drag-and-drop interface for creating workflows
 - **Node System**: Extensible node architecture with various node types
 - **Real-time Sync**: CRDT-based synchronization for collaborative editing
 - **State Management**: Zustand for local state, Yjs for distributed state
 
 #### Directory Structure:
+
 ```
 app/                    # Next.js 14 app directory
 ├── api/               # API routes
@@ -76,12 +78,14 @@ types/                # TypeScript type definitions
 A high-performance WebSocket server built in Rust that handles real-time synchronization using Yjs CRDT.
 
 #### Key Features:
+
 - **Room-based Architecture**: Isolated collaboration spaces
 - **Yjs Protocol Support**: Full compatibility with Yjs WebSocket protocol
 - **Presence Tracking**: Real-time user presence and cursor positions
 - **Efficient Binary Protocol**: Optimized for minimal bandwidth usage
 
 #### Architecture:
+
 ```rust
 // Simplified structure
 Server
@@ -98,6 +102,7 @@ Server
 PostgreSQL serves as the primary data store for persistent data.
 
 #### Key Tables:
+
 - **workflows**: Stores workflow definitions and metadata
 - **workflow_versions**: Version history for workflows
 - **env_vars**: Environment variables for workflows
@@ -110,6 +115,7 @@ PostgreSQL serves as the primary data store for persistent data.
 Redis provides high-performance caching and temporary data storage.
 
 #### Usage:
+
 - API response caching
 - Session management
 - Temporary workflow states
@@ -204,6 +210,7 @@ Replay Request → Load Session → Reconstruct Workflow State
    - Complete execution context
 
 3. **Execution Review**:
+
    ```
    Session Data → Load Workflow Version → Display Workflow State
                                                    ↓
@@ -221,17 +228,20 @@ Replay Request → Load Session → Reconstruct Workflow State
 ## Security Considerations
 
 ### Authentication & Authorization
+
 - NextAuth.js for authentication
 - JWT tokens for API authorization
 - Role-based access control (RBAC) for workflows
 
 ### Data Protection
+
 - HTTPS/WSS for all communications
 - Environment variable encryption
 - SQL injection prevention via parameterized queries
 - XSS protection through React's built-in escaping
 
 ### Rate Limiting
+
 - API rate limiting with Redis
 - WebSocket connection limits
 - Resource usage quotas
@@ -239,6 +249,7 @@ Replay Request → Load Session → Reconstruct Workflow State
 ## Performance Optimizations
 
 ### Frontend
+
 - React component memoization
 - Virtual scrolling for large workflows
 - Debounced auto-save
@@ -246,12 +257,14 @@ Replay Request → Load Session → Reconstruct Workflow State
 - Optimistic UI updates
 
 ### Backend
+
 - Connection pooling for PostgreSQL
 - Redis caching for frequently accessed data
 - Efficient CRDT operations
 - Binary protocol for WebSocket messages
 
 ### Infrastructure
+
 - CDN for static assets
 - Horizontal scaling support
 - Database indexing strategies
@@ -260,6 +273,7 @@ Replay Request → Load Session → Reconstruct Workflow State
 ## Deployment Architecture
 
 ### Docker Containers
+
 1. **Next.js App**: Node.js runtime with built application
 2. **CRDT Server**: Rust binary with minimal dependencies
 3. **PostgreSQL**: Official PostgreSQL image with custom init scripts
@@ -267,6 +281,7 @@ Replay Request → Load Session → Reconstruct Workflow State
 5. **Nginx**: Reverse proxy and load balancer (production)
 
 ### Scaling Strategy
+
 - Horizontal scaling for Next.js instances
 - CRDT server can handle multiple rooms per instance
 - PostgreSQL read replicas for read-heavy operations
@@ -275,17 +290,20 @@ Replay Request → Load Session → Reconstruct Workflow State
 ## Monitoring & Observability
 
 ### Metrics
+
 - Application performance monitoring (APM)
 - Real-time user analytics
 - Resource utilization tracking
 - Error rate monitoring
 
 ### Logging
+
 - Structured logging with correlation IDs
 - Centralized log aggregation
 - Log levels: ERROR, WARN, INFO, DEBUG
 
 ### Health Checks
+
 - Application health endpoints
 - Database connectivity checks
 - Redis availability monitoring

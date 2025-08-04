@@ -183,13 +183,12 @@ function PropertyField({
 }
 
 export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: PropertyPaneProps) {
-  const { nodes, updateNodeProperty, updateNodeMetadata, removeNode, currentGraphId } = useWorkflowStore()
+  const { nodes, updateNodeProperty, updateNodeMetadata, removeNode, currentGraphId } =
+    useWorkflowStore()
   const setGraphDirty = (graphId: string, isDirty: boolean) => {
     // TODO: Track dirty state locally if needed
   }
-  const selectedNode = nodes.find(
-    node => node.metadata.id === selectedNodeId
-  )
+  const selectedNode = nodes.find(node => node.metadata.id === selectedNodeId)
 
   const [localPropertyValues, setLocalPropertyValues] = useState<Record<string, any>>({})
   const [ruleEditorOpen, setRuleEditorOpen] = useState(false)
@@ -247,7 +246,11 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
             delete updatedMetadata.propertyValues[key]
           }
           // Update the node metadata immediately for visual feedback
-          updateNodeProperty(selectedNodeId!,key , updatedMetadata.propertyValues ? updatedMetadata.propertyValues[key] : null) // saveSnapshot = false for real-time updates
+          updateNodeProperty(
+            selectedNodeId!,
+            key,
+            updatedMetadata.propertyValues ? updatedMetadata.propertyValues[key] : null
+          ) // saveSnapshot = false for real-time updates
         })
 
         // Don't mark as dirty for real-time preview updates
@@ -344,8 +347,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
   }
 
   const { metadata } = selectedNode
-  
- 
+
   // Convert properties from object format to array format for rendering
   const properties = metadata.properties
     ? Object.entries(metadata.properties).map(([id, prop]: [string, any]) => ({

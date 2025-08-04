@@ -12,10 +12,7 @@ interface IconBrowserProps {
 /**
  * Icon Browser component for discovering and selecting icons
  */
-export const IconBrowser: React.FC<IconBrowserProps> = ({ 
-  className = '',
-  onIconSelect 
-}) => {
+export const IconBrowser: React.FC<IconBrowserProps> = ({ className = '', onIconSelect }) => {
   const iconLibrary = useIconLibrary()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSource, setActiveSource] = useState<IconSource>('lucide')
@@ -37,7 +34,7 @@ export const IconBrowser: React.FC<IconBrowserProps> = ({
   // Handle copy to clipboard
   const handleCopyIcon = async (iconName: string) => {
     const codeSnippet = `<Icon name="${iconName}" source="${activeSource}" />`
-    
+
     try {
       await navigator.clipboard.writeText(codeSnippet)
       setCopiedIcon(iconName)
@@ -56,7 +53,7 @@ export const IconBrowser: React.FC<IconBrowserProps> = ({
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Icon Library</h3>
-        
+
         {/* Search */}
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -64,7 +61,7 @@ export const IconBrowser: React.FC<IconBrowserProps> = ({
             type="text"
             placeholder="Search icons..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -103,7 +100,7 @@ export const IconBrowser: React.FC<IconBrowserProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-            {filteredIcons.map((iconName) => (
+            {filteredIcons.map(iconName => (
               <IconCard
                 key={iconName}
                 iconName={iconName}
@@ -120,7 +117,8 @@ export const IconBrowser: React.FC<IconBrowserProps> = ({
       {/* Footer */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 text-xs text-gray-600">
         <p>
-          Showing {filteredIcons.length} of {iconLibrary.getAvailableIcons(activeSource).length} icons
+          Showing {filteredIcons.length} of {iconLibrary.getAvailableIcons(activeSource).length}{' '}
+          icons
           {searchQuery && ` for "${searchQuery}"`}
         </p>
       </div>
@@ -139,13 +137,7 @@ interface IconCardProps {
   isCopied: boolean
 }
 
-const IconCard: React.FC<IconCardProps> = ({ 
-  iconName, 
-  source, 
-  onClick, 
-  onCopy, 
-  isCopied 
-}) => {
+const IconCard: React.FC<IconCardProps> = ({ iconName, source, onClick, onCopy, isCopied }) => {
   const [isHovered, setIsHovered] = useState(false)
 
   return (
@@ -158,8 +150,8 @@ const IconCard: React.FC<IconCardProps> = ({
     >
       {/* Icon */}
       <div className="flex items-center justify-center h-full">
-        <Icon 
-          name={iconName} 
+        <Icon
+          name={iconName}
           source={source}
           className="w-5 h-5 text-gray-600 group-hover:text-blue-600"
         />
@@ -168,7 +160,7 @@ const IconCard: React.FC<IconCardProps> = ({
       {/* Copy button */}
       {isHovered && (
         <button
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation()
             onCopy()
           }}
@@ -195,7 +187,9 @@ const IconCard: React.FC<IconCardProps> = ({
  * Standalone Icon Browser Page Component
  */
 export const IconBrowserPage: React.FC = () => {
-  const [selectedIcon, setSelectedIcon] = useState<{name: string, source: IconSource} | null>(null)
+  const [selectedIcon, setSelectedIcon] = useState<{ name: string; source: IconSource } | null>(
+    null
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -203,8 +197,8 @@ export const IconBrowserPage: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Icon Library</h1>
           <p className="text-gray-600">
-            Browse and discover icons from Lucide and our custom collection. 
-            Click to select, hover and click the copy button to get the code.
+            Browse and discover icons from Lucide and our custom collection. Click to select, hover
+            and click the copy button to get the code.
           </p>
         </div>
 
@@ -213,14 +207,12 @@ export const IconBrowserPage: React.FC = () => {
           <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg">
             <h3 className="text-sm font-medium text-gray-700 mb-2">Selected Icon:</h3>
             <div className="flex items-center gap-3">
-              <Icon 
-                name={selectedIcon.name} 
+              <Icon
+                name={selectedIcon.name}
                 source={selectedIcon.source}
                 className="w-6 h-6 text-gray-800"
               />
-              <span className="font-mono text-sm text-gray-600">
-                {selectedIcon.name}
-              </span>
+              <span className="font-mono text-sm text-gray-600">{selectedIcon.name}</span>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                 {selectedIcon.source}
               </span>
@@ -232,9 +224,7 @@ export const IconBrowserPage: React.FC = () => {
         )}
 
         {/* Icon Browser */}
-        <IconBrowser 
-          onIconSelect={(name, source) => setSelectedIcon({ name, source })}
-        />
+        <IconBrowser onIconSelect={(name, source) => setSelectedIcon({ name, source })} />
       </div>
     </div>
   )

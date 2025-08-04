@@ -57,29 +57,34 @@ We use GitHub issues to track public bugs. Report a bug by [opening a new issue]
 ### Getting Started
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/offbit-ai/zeal.git
    cd zeal
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Set up environment variables:
+
    ```bash
    cp .env.example .env
    cp .env.local.example .env.local
    ```
 
 4. Set up the database:
+
    ```bash
    createdb zeal_db
    psql zeal_db < init.sql
    ```
 
 5. Build the CRDT server:
+
    ```bash
    cd crdt-server
    cargo build

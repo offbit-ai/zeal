@@ -1,6 +1,6 @@
 /**
  * CRDT Sync Optimizer V2
- * 
+ *
  * Optimizes sync behavior based on presence:
  * - Reduces awareness update frequency when user is alone
  * - Maintains full CRDT functionality for local changes
@@ -25,13 +25,15 @@ export class SyncOptimizerV2 {
   private presenceCheckInterval: NodeJS.Timeout | null = null
   private lastUserCount = 0
   private awarenessInterval: NodeJS.Timeout | null = null
+  private attachTime: number = 0
+  private minimumTimeBeforeOptimization = 5000 // 5 seconds minimum before optimization can be enabled
 
   constructor(config: SyncOptimizerConfig = {}) {
     this.config = {
       minUsersForFullSync: 2,
       optimizedInterval: 30000, // 30 seconds when alone
       normalInterval: 200, // 200ms when with others
-      ...config
+      ...config,
     }
   }
 
@@ -40,14 +42,25 @@ export class SyncOptimizerV2 {
    */
   attach(provider: RustSocketIOProvider): void {
     this.provider = provider
+
+    // Reset optimization state on attach
+    this.isOptimized = false
+    this.lastUserCount = 0
+    this.attachTime = Date.now()
+
     if (provider.isConnected) {
-      // Start monitoring presence
-      this.startPresenceMonitoring()
+      // Start monitoring presence after a delay to allow initial sync
+      setTimeout(() => {
+        this.startPresenceMonitoring()
+      }, 2000) // Wait 2 seconds for initial sync to complete
     } else {
-      // Wait for connection     
+      // Wait for connection
       const checkConnection = () => {
         if (this.provider && this.provider.isConnected) {
-          this.startPresenceMonitoring()
+          // Start monitoring after a delay
+          setTimeout(() => {
+            this.startPresenceMonitoring()
+          }, 2000)
         } else {
           setTimeout(checkConnection, 1000) // Check every second
         }
@@ -63,6 +76,26 @@ export class SyncOptimizerV2 {
     this.stopPresenceMonitoring()
     this.stopAwarenessInterval()
     this.provider = null
+  }
+
+  /**
+   * Reset optimizer state (useful for reconnections)
+   */
+  reset(): void {
+    this.isOptimized = false
+    this.lastUserCount = 0
+    this.attachTime = Date.now()
+
+    // Stop any existing intervals
+    this.stopPresenceMonitoring()
+    this.stopAwarenessInterval()
+
+    // Restart monitoring if we have a provider
+    if (this.provider && this.provider.isConnected) {
+      setTimeout(() => {
+        this.startPresenceMonitoring()
+      }, 2000)
+    }
   }
 
   /**
@@ -102,8 +135,6 @@ export class SyncOptimizerV2 {
     const states = awareness.getStates()
     const localClientId = awareness.clientID
 
-
-
     // Get local user ID - add safety check
     const localUserId = states.get(localClientId)?.userId
 
@@ -112,10 +143,16 @@ export class SyncOptimizerV2 {
       return
     }
 
+    // Don't optimize if we're not fully connected
+    if (!this.provider.isConnected || !this.provider.isSynced) {
+      console.log('[SyncOptimizer] Not fully connected/synced yet, skipping optimization')
+      return
+    }
+
     // Count only other actual users (exclude local client and other tabs from same user)
     let actualRemoteUserCount = 0
-    const remoteUsers: Array<{ clientId: number, userId: string, userName?: string }> = []
-    const sameUserTabs: Array<{ clientId: number, userName?: string }> = []
+    const remoteUsers: Array<{ clientId: number; userId: string; userName?: string }> = []
+    const sameUserTabs: Array<{ clientId: number; userName?: string }> = []
 
     states.forEach((state, clientId) => {
       if (clientId !== localClientId && state && state.userId) {
@@ -125,7 +162,7 @@ export class SyncOptimizerV2 {
           // Same user, different tab/window
           sameUserTabs.push({
             clientId,
-            userName: state.userName || 'Unknown'
+            userName: state.userName || 'Unknown',
           })
         } else {
           // Different user
@@ -133,7 +170,7 @@ export class SyncOptimizerV2 {
           remoteUsers.push({
             clientId,
             userId: state.userId,
-            userName: state.userName || 'Unknown'
+            userName: state.userName || 'Unknown',
           })
         }
       }
@@ -152,6 +189,13 @@ export class SyncOptimizerV2 {
 
     // Always check optimization state, not just on count change
     this.lastUserCount = actualRemoteUserCount + 1 // Count unique users, not connections
+
+    // Check if enough time has passed since attachment
+    const timeSinceAttach = Date.now() - this.attachTime
+    if (timeSinceAttach < this.minimumTimeBeforeOptimization) {
+      console.log('[SyncOptimizer] Too early to optimize, only', timeSinceAttach, 'ms since attach')
+      return
+    }
 
     // Enable optimization when alone (no other actual users, only same-user tabs)
     if (actualRemoteUserCount === 0) {
@@ -238,7 +282,7 @@ export class SyncOptimizerV2 {
       if (state.updatePresence) {
         state.updatePresence({
           lastSeen: Date.now(),
-          cursor: state.presence.get(state.doc?.clientID)?.cursor
+          cursor: state.presence.get(state.doc?.clientID)?.cursor,
         })
       }
     }

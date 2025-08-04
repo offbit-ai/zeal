@@ -5,10 +5,10 @@ export const toast = {
   success: (message: string) => {
     ToastManager.success(message)
   },
-  
+
   error: (error: unknown) => {
     let message = 'An unexpected error occurred'
-    
+
     if (error instanceof Error) {
       // Check if it's an API error with a specific message
       if ('code' in error) {
@@ -21,15 +21,15 @@ export const toast = {
     } else if (typeof error === 'string') {
       message = error
     }
-    
+
     ToastManager.error(message)
   },
-  
+
   info: (message: string) => {
     ToastManager.info(message)
   },
-  
+
   warning: (message: string) => {
     ToastManager.warning(message)
-  }
+  },
 }

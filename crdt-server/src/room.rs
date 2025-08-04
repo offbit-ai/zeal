@@ -18,6 +18,7 @@ pub struct CRDTRoom {
     pub clients: Arc<DashMap<String, Instant>>, // Just track client IDs and last seen
     pub awareness_states: Arc<DashMap<String, Vec<u8>>>, // Store latest awareness state for each client
     pub last_activity: Arc<RwLock<Instant>>,
+    pub marked_for_removal: Arc<RwLock<Option<Instant>>>, // Track when room was marked for removal
     pub config: ServerConfig,
     pub redis: Option<Arc<RedisManager>>,
 }
@@ -32,6 +33,7 @@ impl CRDTRoom {
             clients: Arc::new(DashMap::new()),
             awareness_states: Arc::new(DashMap::new()),
             last_activity: Arc::new(RwLock::new(Instant::now())),
+            marked_for_removal: Arc::new(RwLock::new(None)),
             config,
             redis: None,
         }
@@ -46,6 +48,7 @@ impl CRDTRoom {
             clients: Arc::new(DashMap::new()),
             awareness_states: Arc::new(DashMap::new()),
             last_activity: Arc::new(RwLock::new(Instant::now())),
+            marked_for_removal: Arc::new(RwLock::new(None)),
             config,
             redis: Some(redis),
         }
@@ -69,12 +72,20 @@ impl CRDTRoom {
 
     pub async fn save_to_redis(&self) -> Result<()> {
         if let Some(redis) = &self.redis {
-            let doc = self.doc.read().await;
-            let state = doc.transact().state_vector();
-            let update = doc.transact().encode_state_as_update_v1(&state);
-            
-            redis.save_room_state(&self.name, &update).await?;
-            debug!("Saved room {} state to Redis, {} bytes", self.name, update.len());
+            if redis.is_enabled() {
+                let doc = self.doc.read().await;
+                let state = doc.transact().state_vector();
+                let update = doc.transact().encode_state_as_update_v1(&state);
+                
+                redis.save_room_state(&self.name, &update).await?;
+                debug!("Saved room {} state to Redis, {} bytes", self.name, update.len());
+            } else {
+                // Redis is disabled, return Ok to prevent room removal
+                debug!("Redis disabled, keeping room {} in memory", self.name);
+            }
+        } else {
+            // No Redis configured, keep room in memory
+            debug!("No Redis configured, keeping room {} in memory", self.name);
         }
         Ok(())
     }
@@ -100,6 +111,18 @@ impl CRDTRoom {
             // Also remove their awareness state
             self.awareness_states.remove(client_id);
             self.update_activity().await;
+        }
+    }
+    
+    pub async fn mark_client_pending_removal(&self, client_id: &str) {
+        // Just mark the client as inactive but don't remove yet
+        info!("Marking client {} as pending removal in room {}", client_id, self.name);
+        // We could add a pending_removal field if needed
+    }
+    
+    pub async fn update_client_activity(&self, client_id: &str) {
+        if let Some(mut entry) = self.clients.get_mut(client_id) {
+            *entry = Instant::now();
         }
     }
 
@@ -265,6 +288,28 @@ impl CRDTRoom {
 
     pub fn is_empty(&self) -> bool {
         self.clients.is_empty()
+    }
+    
+    pub async fn has_client(&self, client_id: &str) -> bool {
+        self.clients.contains_key(client_id)
+    }
+
+    pub async fn mark_for_removal(&self) {
+        let mut marked = self.marked_for_removal.write().await;
+        *marked = Some(Instant::now());
+    }
+
+    pub async fn unmark_for_removal(&self) {
+        let mut marked = self.marked_for_removal.write().await;
+        *marked = None;
+    }
+
+    pub async fn should_be_removed(&self, grace_period_secs: u64) -> bool {
+        let marked = self.marked_for_removal.read().await;
+        if let Some(marked_time) = *marked {
+            return marked_time.elapsed().as_secs() >= grace_period_secs;
+        }
+        false
     }
 
     pub async fn last_activity(&self) -> Instant {

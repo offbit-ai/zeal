@@ -1,60 +1,52 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import {
-  X,
-  Globe,
-  Cable,
-  Clock,
-  ChevronRight,
-  ChevronDown,
-  AlertCircle,
-} from "lucide-react";
-import { ModalPortal } from "./ModalPortal";
-import { CodeEditor } from "./CodeEditor";
+import { useState } from 'react'
+import { X, Globe, Cable, Clock, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react'
+import { ModalPortal } from './ModalPortal'
+import { CodeEditor } from './CodeEditor'
 
 interface TriggerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onTriggerConfigured: (trigger: TriggerConfig) => void;
-  existingTrigger?: TriggerConfig | null;
+  isOpen: boolean
+  onClose: () => void
+  onTriggerConfigured: (trigger: TriggerConfig) => void
+  existingTrigger?: TriggerConfig | null
 }
 
-export type TriggerType = "rest" | "websocket" | "scheduler";
+export type TriggerType = 'rest' | 'websocket' | 'scheduler'
 
 export interface TriggerConfig {
-  id: string;
-  type: TriggerType;
-  name: string;
-  description?: string;
-  config: RestConfig | WebSocketConfig | SchedulerConfig;
-  inputSchema?: string;
-  outputSchema?: string;
+  id: string
+  type: TriggerType
+  name: string
+  description?: string
+  config: RestConfig | WebSocketConfig | SchedulerConfig
+  inputSchema?: string
+  outputSchema?: string
 }
 
 interface RestConfig {
-  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-  path: string;
-  authentication?: "none" | "bearer" | "apikey" | "basic";
-  headers?: Record<string, string>;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+  path: string
+  authentication?: 'none' | 'bearer' | 'apikey' | 'basic'
+  headers?: Record<string, string>
 }
 
 interface WebSocketConfig {
-  event: string;
-  namespace?: string;
-  authentication?: "none" | "token";
+  event: string
+  namespace?: string
+  authentication?: 'none' | 'token'
 }
 
-type IntervalUnit = "minutes" | "hours" | "days" | "weeks";
+type IntervalUnit = 'minutes' | 'hours' | 'days' | 'weeks'
 
 interface SchedulerConfig {
-  cronExpression?: string;
+  cronExpression?: string
   interval?: {
-    value: number;
-    unit: IntervalUnit;
-  };
-  timezone?: string;
-  isOneTime?: boolean;
+    value: number
+    unit: IntervalUnit
+  }
+  timezone?: string
+  isOneTime?: boolean
 }
 
 export function TriggerModal({
@@ -65,141 +57,129 @@ export function TriggerModal({
 }: TriggerModalProps) {
   const [selectedType, setSelectedType] = useState<TriggerType | null>(
     existingTrigger?.type || null
-  );
-  const [triggerName, setTriggerName] = useState(
-    existingTrigger?.name || ""
-  );
-  const [triggerDescription, setTriggerDescription] = useState(
-    existingTrigger?.description || ""
-  );
-  const [showDescription, setShowDescription] = useState(
-    !!existingTrigger?.description
-  );
+  )
+  const [triggerName, setTriggerName] = useState(existingTrigger?.name || '')
+  const [triggerDescription, setTriggerDescription] = useState(existingTrigger?.description || '')
+  const [showDescription, setShowDescription] = useState(!!existingTrigger?.description)
 
   // REST HTTP config
-  const [restMethod, setRestMethod] = useState<RestConfig["method"]>(
-    (existingTrigger?.config as RestConfig)?.method || "POST"
-  );
+  const [restMethod, setRestMethod] = useState<RestConfig['method']>(
+    (existingTrigger?.config as RestConfig)?.method || 'POST'
+  )
   const [restPath, setRestPath] = useState(
-    (existingTrigger?.config as RestConfig)?.path || "/webhook"
-  );
-  const [restAuth, setRestAuth] = useState<RestConfig["authentication"]>(
-    (existingTrigger?.config as RestConfig)?.authentication || "none"
-  );
+    (existingTrigger?.config as RestConfig)?.path || '/webhook'
+  )
+  const [restAuth, setRestAuth] = useState<RestConfig['authentication']>(
+    (existingTrigger?.config as RestConfig)?.authentication || 'none'
+  )
 
   // WebSocket config
-  const [wsEvent, setWsEvent] = useState(
-    (existingTrigger?.config as WebSocketConfig)?.event || ""
-  );
+  const [wsEvent, setWsEvent] = useState((existingTrigger?.config as WebSocketConfig)?.event || '')
   const [wsNamespace, setWsNamespace] = useState(
-    (existingTrigger?.config as WebSocketConfig)?.namespace || ""
-  );
-  const [wsAuth, setWsAuth] = useState<WebSocketConfig["authentication"]>(
-    (existingTrigger?.config as WebSocketConfig)?.authentication || "none"
-  );
+    (existingTrigger?.config as WebSocketConfig)?.namespace || ''
+  )
+  const [wsAuth, setWsAuth] = useState<WebSocketConfig['authentication']>(
+    (existingTrigger?.config as WebSocketConfig)?.authentication || 'none'
+  )
 
   // Scheduler config
-  const [scheduleMode, setScheduleMode] = useState<"once" | "recurring" | "advanced">(
-    (existingTrigger?.config as SchedulerConfig)?.cronExpression
-      ? "advanced"
-      : "recurring"
-  );
-  const [runOnceDate, setRunOnceDate] = useState("");
-  const [runOnceTime, setRunOnceTime] = useState("");
+  const [scheduleMode, setScheduleMode] = useState<'once' | 'recurring' | 'advanced'>(
+    (existingTrigger?.config as SchedulerConfig)?.cronExpression ? 'advanced' : 'recurring'
+  )
+  const [runOnceDate, setRunOnceDate] = useState('')
+  const [runOnceTime, setRunOnceTime] = useState('')
   const [cronExpression, setCronExpression] = useState(
-    (existingTrigger?.config as SchedulerConfig)?.cronExpression || ""
-  );
+    (existingTrigger?.config as SchedulerConfig)?.cronExpression || ''
+  )
   const [intervalValue, setIntervalValue] = useState(
     (existingTrigger?.config as SchedulerConfig)?.interval?.value || 1
-  );
-  const [intervalUnit, setIntervalUnit] = useState<
-    IntervalUnit
-  >(
-    (existingTrigger?.config as SchedulerConfig)?.interval?.unit || "hours"
-  );
+  )
+  const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>(
+    (existingTrigger?.config as SchedulerConfig)?.interval?.unit || 'hours'
+  )
   const [timezone, setTimezone] = useState(
-    (existingTrigger?.config as SchedulerConfig)?.timezone || "UTC"
-  );
+    (existingTrigger?.config as SchedulerConfig)?.timezone || 'UTC'
+  )
 
   // Schemas
   const [inputSchema, setInputSchema] = useState(
     existingTrigger?.inputSchema || '{\n  "type": "object",\n  "properties": {}\n}'
-  );
+  )
   const [outputSchema, setOutputSchema] = useState(
     existingTrigger?.outputSchema || '{\n  "type": "object",\n  "properties": {}\n}'
-  );
+  )
 
   const resetForm = () => {
-    setSelectedType(null);
-    setTriggerName("");
-    setTriggerDescription("");
-    setShowDescription(false);
-    setRestMethod("POST");
-    setRestPath("/webhook");
-    setRestAuth("none");
-    setWsEvent("");
-    setWsNamespace("");
-    setWsAuth("none");
-    setScheduleMode("recurring");
-    setRunOnceDate("");
-    setRunOnceTime("");
-    setCronExpression("");
-    setIntervalValue(1);
-    setIntervalUnit("hours");
-    setTimezone("UTC");
-    setInputSchema('{\n  "type": "object",\n  "properties": {}\n}');
-    setOutputSchema('{\n  "type": "object",\n  "properties": {}\n}');
-  };
+    setSelectedType(null)
+    setTriggerName('')
+    setTriggerDescription('')
+    setShowDescription(false)
+    setRestMethod('POST')
+    setRestPath('/webhook')
+    setRestAuth('none')
+    setWsEvent('')
+    setWsNamespace('')
+    setWsAuth('none')
+    setScheduleMode('recurring')
+    setRunOnceDate('')
+    setRunOnceTime('')
+    setCronExpression('')
+    setIntervalValue(1)
+    setIntervalUnit('hours')
+    setTimezone('UTC')
+    setInputSchema('{\n  "type": "object",\n  "properties": {}\n}')
+    setOutputSchema('{\n  "type": "object",\n  "properties": {}\n}')
+  }
 
   const handleClose = () => {
     if (!existingTrigger) {
-      resetForm();
+      resetForm()
     }
-    onClose();
-  };
+    onClose()
+  }
 
   const handleSave = () => {
-    if (!selectedType || !triggerName.trim()) return;
+    if (!selectedType || !triggerName.trim()) return
 
-    let config: RestConfig | WebSocketConfig | SchedulerConfig;
+    let config: RestConfig | WebSocketConfig | SchedulerConfig
 
     switch (selectedType) {
-      case "rest":
+      case 'rest':
         config = {
           method: restMethod,
           path: restPath,
           authentication: restAuth,
-        };
-        break;
-      case "websocket":
+        }
+        break
+      case 'websocket':
         config = {
           event: wsEvent,
           namespace: wsNamespace,
           authentication: wsAuth,
-        };
-        break;
-      case "scheduler":
-        if (scheduleMode === "once") {
+        }
+        break
+      case 'scheduler':
+        if (scheduleMode === 'once') {
           // Convert date and time to a cron expression for one-time execution
-          const dateTime = new Date(`${runOnceDate}T${runOnceTime}`);
-          const minutes = dateTime.getMinutes();
-          const hours = dateTime.getHours();
-          const dayOfMonth = dateTime.getDate();
-          const month = dateTime.getMonth() + 1;
-          const year = dateTime.getFullYear();
-          
+          const dateTime = new Date(`${runOnceDate}T${runOnceTime}`)
+          const minutes = dateTime.getMinutes()
+          const hours = dateTime.getHours()
+          const dayOfMonth = dateTime.getDate()
+          const month = dateTime.getMonth() + 1
+          const year = dateTime.getFullYear()
+
           // Special cron expression for one-time execution
           config = {
             cronExpression: `${minutes} ${hours} ${dayOfMonth} ${month} * ${year}`,
             timezone,
-            isOneTime: true
-          };
-        } else if (scheduleMode === "advanced") {
-          config = { cronExpression, timezone };
+            isOneTime: true,
+          }
+        } else if (scheduleMode === 'advanced') {
+          config = { cronExpression, timezone }
         } else {
-          config = { interval: { value: intervalValue, unit: intervalUnit }, timezone };
+          config = { interval: { value: intervalValue, unit: intervalUnit }, timezone }
         }
-        break;
+        break
     }
 
     const trigger: TriggerConfig = {
@@ -210,54 +190,51 @@ export function TriggerModal({
       config,
       inputSchema,
       outputSchema,
-    };
+    }
 
-    onTriggerConfigured(trigger);
-    handleClose();
-  };
+    onTriggerConfigured(trigger)
+    handleClose()
+  }
 
   const triggerTypes = [
     {
-      type: "rest" as TriggerType,
+      type: 'rest' as TriggerType,
       icon: Globe,
-      title: "REST HTTP",
-      description: "Trigger workflow via HTTP endpoint",
-      color: "blue",
+      title: 'REST HTTP',
+      description: 'Trigger workflow via HTTP endpoint',
+      color: 'blue',
     },
     {
-      type: "websocket" as TriggerType,
+      type: 'websocket' as TriggerType,
       icon: Cable,
-      title: "WebSocket",
-      description: "Real-time event-based triggers",
-      color: "green",
+      title: 'WebSocket',
+      description: 'Real-time event-based triggers',
+      color: 'green',
     },
     {
-      type: "scheduler" as TriggerType,
+      type: 'scheduler' as TriggerType,
       icon: Clock,
-      title: "Scheduler",
-      description: "Time-based workflow execution",
-      color: "purple",
+      title: 'Scheduler',
+      description: 'Time-based workflow execution',
+      color: 'purple',
     },
-  ];
+  ]
 
   return (
     <ModalPortal isOpen={isOpen}>
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={handleClose}
-        />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
         <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {existingTrigger ? "Edit Trigger" : "Configure Workflow Trigger"}
+                {existingTrigger ? 'Edit Trigger' : 'Configure Workflow Trigger'}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
                 {existingTrigger
-                  ? "Modify your workflow trigger configuration"
-                  : "Choose how your workflow will be triggered"}
+                  ? 'Modify your workflow trigger configuration'
+                  : 'Choose how your workflow will be triggered'}
               </p>
             </div>
             <button
@@ -273,7 +250,7 @@ export function TriggerModal({
             {!selectedType && !existingTrigger ? (
               // Trigger type selection
               <div className="grid grid-cols-3 gap-4">
-                {triggerTypes.map((trigger) => (
+                {triggerTypes.map(trigger => (
                   <button
                     key={trigger.type}
                     onClick={() => setSelectedType(trigger.type)}
@@ -283,17 +260,11 @@ export function TriggerModal({
                       <div
                         className={`p-4 bg-${trigger.color}-100 rounded-full group-hover:bg-${trigger.color}-200 transition-colors`}
                       >
-                        <trigger.icon
-                          className={`w-8 h-8 text-${trigger.color}-600`}
-                        />
+                        <trigger.icon className={`w-8 h-8 text-${trigger.color}-600`} />
                       </div>
                       <div className="text-center">
-                        <h3 className="font-semibold text-gray-900">
-                          {trigger.title}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {trigger.description}
-                        </p>
+                        <h3 className="font-semibold text-gray-900">{trigger.title}</h3>
+                        <p className="text-sm text-gray-500 mt-1">{trigger.description}</p>
                       </div>
                     </div>
                   </button>
@@ -311,9 +282,7 @@ export function TriggerModal({
                       ← Back
                     </button>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      Configure{" "}
-                      {triggerTypes.find((t) => t.type === selectedType)?.title}{" "}
-                      Trigger
+                      Configure {triggerTypes.find(t => t.type === selectedType)?.title} Trigger
                     </h3>
                   </div>
                 )}
@@ -326,7 +295,7 @@ export function TriggerModal({
                   <input
                     type="text"
                     value={triggerName}
-                    onChange={(e) => setTriggerName(e.target.value)}
+                    onChange={e => setTriggerName(e.target.value)}
                     placeholder="My Workflow Trigger"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -348,7 +317,7 @@ export function TriggerModal({
                   {showDescription && (
                     <textarea
                       value={triggerDescription}
-                      onChange={(e) => setTriggerDescription(e.target.value)}
+                      onChange={e => setTriggerDescription(e.target.value)}
                       placeholder="Describe what this trigger does..."
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -357,7 +326,7 @@ export function TriggerModal({
                 </div>
 
                 {/* Type-specific configuration */}
-                {selectedType === "rest" && (
+                {selectedType === 'rest' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -366,9 +335,7 @@ export function TriggerModal({
                         </label>
                         <select
                           value={restMethod}
-                          onChange={(e) =>
-                            setRestMethod(e.target.value as RestConfig["method"])
-                          }
+                          onChange={e => setRestMethod(e.target.value as RestConfig['method'])}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="GET">GET</option>
@@ -385,7 +352,7 @@ export function TriggerModal({
                         <input
                           type="text"
                           value={restPath}
-                          onChange={(e) => setRestPath(e.target.value)}
+                          onChange={e => setRestPath(e.target.value)}
                           placeholder="/api/webhook"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -397,11 +364,7 @@ export function TriggerModal({
                       </label>
                       <select
                         value={restAuth}
-                        onChange={(e) =>
-                          setRestAuth(
-                            e.target.value as RestConfig["authentication"]
-                          )
-                        }
+                        onChange={e => setRestAuth(e.target.value as RestConfig['authentication'])}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="none">None</option>
@@ -413,7 +376,7 @@ export function TriggerModal({
                   </div>
                 )}
 
-                {selectedType === "websocket" && (
+                {selectedType === 'websocket' && (
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -422,7 +385,7 @@ export function TriggerModal({
                       <input
                         type="text"
                         value={wsEvent}
-                        onChange={(e) => setWsEvent(e.target.value)}
+                        onChange={e => setWsEvent(e.target.value)}
                         placeholder="workflow:trigger"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -434,7 +397,7 @@ export function TriggerModal({
                       <input
                         type="text"
                         value={wsNamespace}
-                        onChange={(e) => setWsNamespace(e.target.value)}
+                        onChange={e => setWsNamespace(e.target.value)}
                         placeholder="/workflows"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -445,10 +408,8 @@ export function TriggerModal({
                       </label>
                       <select
                         value={wsAuth}
-                        onChange={(e) =>
-                          setWsAuth(
-                            e.target.value as WebSocketConfig["authentication"]
-                          )
+                        onChange={e =>
+                          setWsAuth(e.target.value as WebSocketConfig['authentication'])
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
@@ -459,7 +420,7 @@ export function TriggerModal({
                   </div>
                 )}
 
-                {selectedType === "scheduler" && (
+                {selectedType === 'scheduler' && (
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -467,42 +428,44 @@ export function TriggerModal({
                       </label>
                       <div className="space-y-2">
                         <button
-                          onClick={() => setScheduleMode("once")}
+                          onClick={() => setScheduleMode('once')}
                           className={`w-full text-left px-4 py-3 rounded-md border-2 transition-all ${
-                            scheduleMode === "once"
-                              ? "border-purple-500 bg-purple-50"
-                              : "border-gray-200 hover:border-gray-300"
+                            scheduleMode === 'once'
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
                           <div className="font-medium text-gray-900">Run once</div>
                           <div className="text-sm text-gray-500">Schedule a one-time execution</div>
                         </button>
                         <button
-                          onClick={() => setScheduleMode("recurring")}
+                          onClick={() => setScheduleMode('recurring')}
                           className={`w-full text-left px-4 py-3 rounded-md border-2 transition-all ${
-                            scheduleMode === "recurring"
-                              ? "border-purple-500 bg-purple-50"
-                              : "border-gray-200 hover:border-gray-300"
+                            scheduleMode === 'recurring'
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
                           <div className="font-medium text-gray-900">Run repeatedly</div>
                           <div className="text-sm text-gray-500">Set up a recurring schedule</div>
                         </button>
                         <button
-                          onClick={() => setScheduleMode("advanced")}
+                          onClick={() => setScheduleMode('advanced')}
                           className={`w-full text-left px-4 py-3 rounded-md border-2 transition-all ${
-                            scheduleMode === "advanced"
-                              ? "border-purple-500 bg-purple-50 text-purple-700"
-                              : "border-gray-200 hover:border-gray-300"
+                            scheduleMode === 'advanced'
+                              ? 'border-purple-500 bg-purple-50 text-purple-700'
+                              : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
                           <div className="font-medium text-gray-900">Advanced</div>
-                          <div className="text-sm text-gray-500">Use cron expression for complex schedules</div>
+                          <div className="text-sm text-gray-500">
+                            Use cron expression for complex schedules
+                          </div>
                         </button>
                       </div>
                     </div>
 
-                    {scheduleMode === "once" && (
+                    {scheduleMode === 'once' && (
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -512,7 +475,7 @@ export function TriggerModal({
                             <input
                               type="date"
                               value={runOnceDate}
-                              onChange={(e) => setRunOnceDate(e.target.value)}
+                              onChange={e => setRunOnceDate(e.target.value)}
                               min={new Date().toISOString().split('T')[0]}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
@@ -524,7 +487,7 @@ export function TriggerModal({
                             <input
                               type="time"
                               value={runOnceTime}
-                              onChange={(e) => setRunOnceTime(e.target.value)}
+                              onChange={e => setRunOnceTime(e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
@@ -532,7 +495,7 @@ export function TriggerModal({
                       </div>
                     )}
 
-                    {scheduleMode === "recurring" && (
+                    {scheduleMode === 'recurring' && (
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -540,23 +503,23 @@ export function TriggerModal({
                           </label>
                           <div className="grid grid-cols-2 gap-2">
                             {[
-                              { label: "Every 5 minutes", value: 5, unit: "minutes" },
-                              { label: "Every 30 minutes", value: 30, unit: "minutes" },
-                              { label: "Every hour", value: 1, unit: "hours" },
-                              { label: "Every 6 hours", value: 6, unit: "hours" },
-                              { label: "Daily", value: 1, unit: "days" },
-                              { label: "Weekly", value: 1, unit: "weeks" },
-                            ].map((option) => (
+                              { label: 'Every 5 minutes', value: 5, unit: 'minutes' },
+                              { label: 'Every 30 minutes', value: 30, unit: 'minutes' },
+                              { label: 'Every hour', value: 1, unit: 'hours' },
+                              { label: 'Every 6 hours', value: 6, unit: 'hours' },
+                              { label: 'Daily', value: 1, unit: 'days' },
+                              { label: 'Weekly', value: 1, unit: 'weeks' },
+                            ].map(option => (
                               <button
                                 key={`${option.value}-${option.unit}`}
                                 onClick={() => {
-                                  setIntervalValue(option.value);
-                                  setIntervalUnit(option.unit as IntervalUnit);
+                                  setIntervalValue(option.value)
+                                  setIntervalUnit(option.unit as IntervalUnit)
                                 }}
                                 className={`px-3 py-2 text-sm rounded-md border transition-all ${
                                   intervalValue === option.value && intervalUnit === option.unit
-                                    ? "border-purple-500 bg-purple-50 text-purple-700"
-                                    : "border-gray-200 hover:border-gray-300"
+                                    ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                    : 'border-gray-200 hover:border-gray-300'
                                 }`}
                               >
                                 {option.label}
@@ -564,16 +527,18 @@ export function TriggerModal({
                             ))}
                           </div>
                         </div>
-                        
+
                         <div className="relative">
                           <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-gray-300" />
                           </div>
                           <div className="relative flex justify-center text-xs">
-                            <span className="px-2 bg-white text-gray-500">Or set custom interval</span>
+                            <span className="px-2 bg-white text-gray-500">
+                              Or set custom interval
+                            </span>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -583,9 +548,7 @@ export function TriggerModal({
                               type="number"
                               min="1"
                               value={intervalValue}
-                              onChange={(e) =>
-                                setIntervalValue(parseInt(e.target.value))
-                              }
+                              onChange={e => setIntervalValue(parseInt(e.target.value))}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
@@ -595,11 +558,7 @@ export function TriggerModal({
                             </label>
                             <select
                               value={intervalUnit}
-                              onChange={(e) =>
-                                setIntervalUnit(
-                                  e.target.value as IntervalUnit
-                                )
-                              }
+                              onChange={e => setIntervalUnit(e.target.value as IntervalUnit)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                               <option value="minutes">Minutes</option>
@@ -612,7 +571,7 @@ export function TriggerModal({
                       </div>
                     )}
 
-                    {scheduleMode === "advanced" && (
+                    {scheduleMode === 'advanced' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Cron Expression
@@ -620,7 +579,7 @@ export function TriggerModal({
                         <input
                           type="text"
                           value={cronExpression}
-                          onChange={(e) => setCronExpression(e.target.value)}
+                          onChange={e => setCronExpression(e.target.value)}
                           placeholder="0 0 * * *"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                         />
@@ -640,7 +599,7 @@ export function TriggerModal({
                       <input
                         type="text"
                         value={timezone}
-                        onChange={(e) => setTimezone(e.target.value)}
+                        onChange={e => setTimezone(e.target.value)}
                         placeholder="UTC"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -650,10 +609,8 @@ export function TriggerModal({
 
                 {/* Schema Configuration */}
                 <div className="space-y-4 pt-6 border-t border-gray-200">
-                  <h4 className="text-sm font-semibold text-gray-900">
-                    Schema Configuration
-                  </h4>
-                  
+                  <h4 className="text-sm font-semibold text-gray-900">Schema Configuration</h4>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Input Schema (JSON Schema)
@@ -701,27 +658,27 @@ export function TriggerModal({
                 onClick={handleSave}
                 disabled={
                   !triggerName.trim() ||
-                  (selectedType === "websocket" && !wsEvent.trim()) ||
-                  (selectedType === "scheduler" &&
-                    ((scheduleMode === "advanced" && !cronExpression.trim()) ||
-                     (scheduleMode === "once" && (!runOnceDate || !runOnceTime))))
+                  (selectedType === 'websocket' && !wsEvent.trim()) ||
+                  (selectedType === 'scheduler' &&
+                    ((scheduleMode === 'advanced' && !cronExpression.trim()) ||
+                      (scheduleMode === 'once' && (!runOnceDate || !runOnceTime))))
                 }
                 className={`px-6 py-2 text-sm font-medium text-white rounded-md transition-colors ${
                   !triggerName.trim() ||
-                  (selectedType === "websocket" && !wsEvent.trim()) ||
-                  (selectedType === "scheduler" &&
-                    ((scheduleMode === "advanced" && !cronExpression.trim()) ||
-                     (scheduleMode === "once" && (!runOnceDate || !runOnceTime))))
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
+                  (selectedType === 'websocket' && !wsEvent.trim()) ||
+                  (selectedType === 'scheduler' &&
+                    ((scheduleMode === 'advanced' && !cronExpression.trim()) ||
+                      (scheduleMode === 'once' && (!runOnceDate || !runOnceTime))))
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {existingTrigger ? "Update Trigger" : "Save Trigger"}
+                {existingTrigger ? 'Update Trigger' : 'Save Trigger'}
               </button>
             </div>
           )}
         </div>
       </div>
     </ModalPortal>
-  );
+  )
 }

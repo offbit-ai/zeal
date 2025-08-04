@@ -23,6 +23,20 @@ CRDT_PORT="8080"
 echo -e "${BLUE}🚀 Starting Zeal Development Environment${NC}"
 echo ""
 
+# Check for force rebuild flag
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo -e "${GREEN}Usage:${NC}"
+    echo -e "  ./start-dev.sh                    # Start normally"
+    echo -e "  ./start-dev.sh --rebuild-crdt     # Force rebuild CRDT server"
+    echo -e "  FORCE_REBUILD_CRDT=true ./start-dev.sh  # Alternative way to force rebuild"
+    echo ""
+    exit 0
+fi
+
+if [ "$1" = "--rebuild-crdt" ]; then
+    export FORCE_REBUILD_CRDT=true
+fi
+
 # Function to check if Docker is running
 check_docker() {
     if ! docker info > /dev/null 2>&1; then
@@ -123,20 +137,42 @@ start_redis() {
 start_crdt_server() {
     echo -e "${BLUE}🦀 Starting CRDT server...${NC}"
     
-    # Check if container exists
-    if [ "$(docker ps -aq -f name=^${CRDT_CONTAINER}$)" ]; then
-        if [ "$(docker ps -q -f name=^${CRDT_CONTAINER}$)" ]; then
-            echo -e "${YELLOW}CRDT server is already running${NC}"
-            return
-        else
-            echo -e "Starting existing CRDT server container..."
-            docker start $CRDT_CONTAINER > /dev/null
+    # Check if we should force rebuild
+    if [ "$1" = "--rebuild" ] || [ "$FORCE_REBUILD_CRDT" = "true" ]; then
+        echo -e "${YELLOW}Force rebuilding CRDT server...${NC}"
+        # Stop and remove existing container
+        if [ "$(docker ps -aq -f name=^${CRDT_CONTAINER}$)" ]; then
+            docker stop $CRDT_CONTAINER > /dev/null 2>&1
+            docker rm $CRDT_CONTAINER > /dev/null 2>&1
         fi
+        # Remove existing image to force full rebuild
+        docker rmi zeal-crdt-server:latest > /dev/null 2>&1
     else
+        # Check if container exists
+        if [ "$(docker ps -aq -f name=^${CRDT_CONTAINER}$)" ]; then
+            if [ "$(docker ps -q -f name=^${CRDT_CONTAINER}$)" ]; then
+                echo -e "${YELLOW}CRDT server is already running${NC}"
+                return
+            else
+                echo -e "Starting existing CRDT server container..."
+                docker start $CRDT_CONTAINER > /dev/null
+                return
+            fi
+        fi
+    fi
+    
+    # If we get here, we need to build and start
         echo -e "Building and starting CRDT server..."
         # Build the CRDT server image if it doesn't exist
         if [ -d "crdt-server" ]; then
-            docker build -t zeal-crdt-server:latest ./crdt-server > /dev/null 2>&1
+            echo -e "${YELLOW}Building CRDT server with --no-cache to ensure latest changes...${NC}"
+            # Don't suppress output so we can see build errors
+            if ! docker build --no-cache -t zeal-crdt-server:latest ./crdt-server; then
+                echo -e "${RED}❌ Failed to build CRDT server image${NC}"
+                echo -e "${YELLOW}Check the build output above for errors${NC}"
+                return 1
+            fi
+            echo -e "${GREEN}✅ CRDT server image built successfully${NC}"
             
             # Run the CRDT server
             docker run -d \
@@ -151,7 +187,6 @@ start_crdt_server() {
             echo -e "${RED}❌ CRDT server directory not found${NC}"
             return
         fi
-    fi
     
     # Wait for CRDT server to be ready
     echo -e "Waiting for CRDT server..."
@@ -200,6 +235,8 @@ NEXT_PUBLIC_VERBOSE_LOGGING=false
 EOF
 
     echo -e "${GREEN}✅ .env.local file created${NC}"
+    rm -f .env.local.backup.*  # Clean up backups to avoid clutter
+    echo -e "${BLUE}   Remember to update the .env.local file with your actual"
 }
 
 # Function to start the Next.js dev server

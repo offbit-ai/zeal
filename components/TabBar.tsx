@@ -28,7 +28,7 @@ export function TabBar({
   onTabClose,
   onTabAdd,
   onTabRename,
-  onSetMainTab
+  onSetMainTab,
 }: TabBarProps) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -63,7 +63,7 @@ export function TabBar({
   return (
     <div className="flex items-center bg-gray-50/20 border-b border-gray-200 px-2 pt-2 h-12">
       <div className="flex items-center gap-1 flex-1 overflow-x-auto">
-        {tabs.map((tab) => (
+        {tabs.map(tab => (
           <div
             key={tab.id}
             className={`group flex items-center gap-1 px-3 py-1.5 rounded-t-md cursor-pointer transition-colors ${
@@ -72,7 +72,7 @@ export function TabBar({
                 : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
             }`}
             onClick={() => onTabSelect(tab.id)}
-            onContextMenu={(e) => handleContextMenu(e, tab)}
+            onContextMenu={e => handleContextMenu(e, tab)}
           >
             {/* Main tab indicator */}
             {tab.isMain && (
@@ -86,12 +86,12 @@ export function TabBar({
               <input
                 type="text"
                 value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
+                onChange={e => setEditingName(e.target.value)}
                 onBlur={handleFinishEdit}
                 onKeyDown={handleKeyDown}
                 className="px-1 py-0 text-sm border-none outline-none bg-transparent"
                 autoFocus
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
               />
             ) : (
               <span
@@ -100,7 +100,10 @@ export function TabBar({
               >
                 {tab.name}
                 {tab.isDirty && (
-                  <span className="inline-block w-2 h-2 bg-green-500 rounded-full" title="Unsaved changes" />
+                  <span
+                    className="inline-block w-2 h-2 bg-green-500 rounded-full"
+                    title="Unsaved changes"
+                  />
                 )}
               </span>
             )}
@@ -111,7 +114,7 @@ export function TabBar({
                 className={`opacity-0 group-hover:opacity-100 transition-opacity ${
                   activeTabId === tab.id ? 'opacity-100' : ''
                 }`}
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation()
                   onTabClose(tab.id)
                 }}

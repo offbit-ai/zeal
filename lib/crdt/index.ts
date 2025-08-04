@@ -1,6 +1,6 @@
 /**
  * CRDT Module Exports
- * 
+ *
  * Provides all necessary components for implementing
  * local-first architecture with real-time collaboration.
  */

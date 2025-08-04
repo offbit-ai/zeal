@@ -1,9 +1,18 @@
 import { apiClient } from './apiClient'
 import { NodeRepositoryItem, NodeCategory } from '@/types/nodeRepository'
 import { iconLibrary } from '@/lib/icons'
-import { 
-  Database, Code, GitBranch, Shuffle, Cloud, 
-  Mail, Brain, Cpu, PencilRuler, Folder, ArrowRightLeft
+import {
+  Database,
+  Code,
+  GitBranch,
+  Shuffle,
+  Cloud,
+  Mail,
+  Brain,
+  Cpu,
+  PencilRuler,
+  Folder,
+  ArrowRightLeft,
 } from 'lucide-react'
 
 // Icon mapping for categories (Lucide components for categories)
@@ -12,19 +21,18 @@ const CATEGORY_ICONS: Record<string, any> = {
   'ai-models': Brain,
   'logic-control': GitBranch,
   'data-processing': Shuffle,
-  'communication': Mail,
-  'scripting': Code,
+  communication: Mail,
+  scripting: Code,
   'tools-utilities': PencilRuler,
   'storage-memory': Cpu,
   'cloud-services': Cloud,
-  'graph-io': ArrowRightLeft
+  'graph-io': ArrowRightLeft,
 }
 
 // Note: Icon mapping is now handled by the Icon Library
 // This eliminates the need for manual icon mapping
 
 export class NodeRepositoryService {
-
   static async getNodes(params?: {
     category?: string
     subcategory?: string
@@ -47,7 +55,7 @@ export class NodeRepositoryService {
       search: params?.search,
       tags: params?.tags?.join(','),
       limit: params?.limit || 50,
-      page: params?.page || 1
+      page: params?.page || 1,
     })
 
     // Convert API response to NodeRepositoryItem format
@@ -55,7 +63,7 @@ export class NodeRepositoryService {
 
     return {
       nodes,
-      pagination: response.pagination
+      pagination: response.pagination,
     }
   }
 
@@ -66,21 +74,25 @@ export class NodeRepositoryService {
 
   static async getCategories(): Promise<NodeCategory[]> {
     const categories = await apiClient.get<any[]>('/nodes/categories')
-    
+
     return categories.map(cat => ({
       id: cat.name,
       name: cat.displayName,
       description: cat.description,
       icon: CATEGORY_ICONS[cat.name] || Folder,
-      subcategories: cat.subcategories?.map((sub: any) => ({
-        id: sub.name,
-        name: sub.displayName,
-        description: sub.description
-      })) || []
+      subcategories:
+        cat.subcategories?.map((sub: any) => ({
+          id: sub.name,
+          name: sub.displayName,
+          description: sub.description,
+        })) || [],
     }))
   }
 
-  static async validateNode(templateId: string, properties: Record<string, any>): Promise<{
+  static async validateNode(
+    templateId: string,
+    properties: Record<string, any>
+  ): Promise<{
     isValid: boolean
     errors: Array<{ field: string; message: string; code: string }>
     warnings: Array<{ field: string; message: string; code: string }>
@@ -88,23 +100,26 @@ export class NodeRepositoryService {
   }> {
     const validation = await apiClient.post<any>('/nodes/validate', {
       nodeTemplateId: templateId,
-      properties
+      properties,
     })
-    
+
     return validation
   }
 
-  static async searchNodes(query: string, filters?: {
-    category?: string
-    tags?: string[]
-  }): Promise<NodeRepositoryItem[]> {
+  static async searchNodes(
+    query: string,
+    filters?: {
+      category?: string
+      tags?: string[]
+    }
+  ): Promise<NodeRepositoryItem[]> {
     const response = await this.getNodes({
       search: query,
       category: filters?.category,
       tags: filters?.tags,
-      limit: 100
+      limit: 100,
     })
-    
+
     return response.nodes
   }
 
@@ -131,14 +146,15 @@ export class NodeRepositoryService {
         ports: apiNode.ports || [],
         properties: apiNode.properties || {},
         requiredEnvVars: apiNode.requiredEnvVars || [],
-        propertyRules: apiNode.propertyRules // Include property rules from template
+        propertyRules: apiNode.propertyRules, // Include property rules from template
       },
       isBuiltIn: true,
-      isInstalled: !['tpl_gemini', 'tpl_huggingface', 'tpl_mongodb', 'tpl_redis'].includes(apiNode.id),
+      isInstalled: !['tpl_gemini', 'tpl_huggingface', 'tpl_mongodb', 'tpl_redis'].includes(
+        apiNode.id
+      ),
       version: apiNode.version || '1.0.0',
       author: 'Zeal Team',
-      documentation: `Documentation for ${apiNode.title}`
+      documentation: `Documentation for ${apiNode.title}`,
     }
   }
-
 }

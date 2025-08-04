@@ -11,12 +11,12 @@ interface UnsavedChangesDialogProps {
   graphName?: string
 }
 
-export function UnsavedChangesDialog({ 
-  isOpen, 
-  onSave, 
-  onDiscard, 
+export function UnsavedChangesDialog({
+  isOpen,
+  onSave,
+  onDiscard,
   onCancel,
-  graphName 
+  graphName,
 }: UnsavedChangesDialogProps) {
   if (!isOpen) return null
 
@@ -30,14 +30,11 @@ export function UnsavedChangesDialog({
               <AlertTriangle className="w-6 h-6 text-yellow-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Unsaved Changes
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900">Unsaved Changes</h3>
               <p className="mt-1 text-sm text-gray-600">
-                {graphName 
+                {graphName
                   ? `You have unsaved changes in "${graphName}". What would you like to do?`
-                  : 'You have unsaved changes. What would you like to do?'
-                }
+                  : 'You have unsaved changes. What would you like to do?'}
               </p>
             </div>
           </div>

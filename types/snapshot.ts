@@ -89,7 +89,7 @@ export interface SerializedConnection {
     nodeId: string
     portId: string
   }
-  state?: 'pending' | 'warning' | 'error' | 'success'| 'running',
+  state?: 'pending' | 'warning' | 'error' | 'success' | 'running'
   metadata?: any
 }
 

@@ -26,56 +26,56 @@ export const useEnvVarStore = create<EnvVarStore>((set, get) => ({
   requiredVars: new Set(),
   configuredVars: new Set(),
   missingVars: [],
-  
+
   addRequiredVars: (vars: string[]) => {
-    set((state) => {
+    set(state => {
       const newRequired = new Set(state.requiredVars)
       vars.forEach(v => newRequired.add(v))
-      
+
       // Compute missing vars
       const missing = Array.from(newRequired).filter(v => !state.configuredVars.has(v))
-      
+
       return {
         requiredVars: newRequired,
-        missingVars: missing
+        missingVars: missing,
       }
     })
   },
-  
+
   removeRequiredVars: (vars: string[]) => {
-    set((state) => {
+    set(state => {
       const newRequired = new Set(state.requiredVars)
       vars.forEach(v => newRequired.delete(v))
-      
+
       // Compute missing vars
       const missing = Array.from(newRequired).filter(v => !state.configuredVars.has(v))
-      
+
       return {
         requiredVars: newRequired,
-        missingVars: missing
+        missingVars: missing,
       }
     })
   },
-  
+
   updateConfiguredVars: (vars: string[]) => {
-    set((state) => {
+    set(state => {
       const newConfigured = new Set(vars)
-      
+
       // Compute missing vars
       const missing = Array.from(state.requiredVars).filter(v => !newConfigured.has(v))
-      
+
       return {
         configuredVars: newConfigured,
-        missingVars: missing
+        missingVars: missing,
       }
     })
   },
-  
+
   clear: () => {
     set({
       requiredVars: new Set(),
       configuredVars: new Set(),
-      missingVars: []
+      missingVars: [],
     })
-  }
+  },
 }))

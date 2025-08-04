@@ -19,11 +19,11 @@ export function getRuntimeConfig(): RuntimeConfig {
   if (typeof window !== 'undefined' && window.__ZEAL_CONFIG__) {
     return window.__ZEAL_CONFIG__
   }
-  
+
   // Fall back to environment variables
   return {
     CRDT_SERVER_URL: process.env.NEXT_PUBLIC_CRDT_SERVER_URL,
-    ENABLE_COLLABORATION: process.env.NEXT_PUBLIC_ENABLE_COLLABORATION === 'true'
+    ENABLE_COLLABORATION: process.env.NEXT_PUBLIC_ENABLE_COLLABORATION === 'true',
   }
 }
 
@@ -32,7 +32,7 @@ export function getCRDTServerUrl(): string {
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_CRDT_SERVER_URL || 'ws://localhost:8080'
   }
-  
+
   const config = getRuntimeConfig()
   return config.CRDT_SERVER_URL || 'ws://localhost:8080'
 }
@@ -42,7 +42,7 @@ export function isCollaborationEnabled(): boolean {
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_ENABLE_COLLABORATION === 'true'
   }
-  
+
   const config = getRuntimeConfig()
   return config.ENABLE_COLLABORATION ?? true
 }

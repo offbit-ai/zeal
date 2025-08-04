@@ -13,22 +13,26 @@ export function DragConnectionLine({ sourcePosition, currentPosition }: DragConn
   const y1 = sourcePosition.y
   const x2 = currentPosition.x
   const y2 = currentPosition.y
-  
+
   // Calculate control points based on source port position
   const getControlOffset = (position: 'top' | 'right' | 'bottom' | 'left') => {
     const distance = 40
     switch (position) {
-      case 'top': return { dx: 0, dy: -distance }
-      case 'right': return { dx: distance, dy: 0 }
-      case 'bottom': return { dx: 0, dy: distance }
-      case 'left': return { dx: -distance, dy: 0 }
+      case 'top':
+        return { dx: 0, dy: -distance }
+      case 'right':
+        return { dx: distance, dy: 0 }
+      case 'bottom':
+        return { dx: 0, dy: distance }
+      case 'left':
+        return { dx: -distance, dy: 0 }
     }
   }
-  
+
   const sourceControl = getControlOffset(sourcePosition.position)
   const c1x = x1 + sourceControl.dx
   const c1y = y1 + sourceControl.dy
-  
+
   // For the target, use a simple offset towards the source
   const dx = x1 - x2
   const dy = y1 - y2
@@ -36,11 +40,14 @@ export function DragConnectionLine({ sourcePosition, currentPosition }: DragConn
   const normalized = dist > 0 ? { x: dx / dist, y: dy / dist } : { x: 0, y: 0 }
   const c2x = x2 + normalized.x * 40
   const c2y = y2 + normalized.y * 40
-  
+
   const path = `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`
-  
+
   return (
-    <svg className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible', zIndex: 1000 }}>
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      style={{ overflow: 'visible', zIndex: 1000 }}
+    >
       {/* Shadow */}
       <path
         d={path}

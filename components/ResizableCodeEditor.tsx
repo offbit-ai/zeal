@@ -30,7 +30,7 @@ export function ResizableCodeEditor({
   readOnly = false,
   lineNumbers = true,
   wordWrap = true,
-  theme = 'dark'
+  theme = 'dark',
 }: ResizableCodeEditorProps) {
   const [height, setHeight] = useState(defaultHeight)
   const [isResizing, setIsResizing] = useState(false)
@@ -86,7 +86,7 @@ export function ResizableCodeEditor({
         theme={theme}
         minimap={false}
       />
-      
+
       {/* Resize handle */}
       <div
         className={`absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center transition-colors ${

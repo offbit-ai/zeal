@@ -43,10 +43,10 @@ export function Tooltip({ content, children, position = 'top', delay = 500 }: To
     if (isVisible && triggerRef.current && tooltipRef.current) {
       const triggerRect = triggerRef.current.getBoundingClientRect()
       const tooltipRect = tooltipRef.current.getBoundingClientRect()
-      
+
       let x = 0
       let y = 0
-      
+
       switch (position) {
         case 'top':
           x = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2
@@ -65,44 +65,44 @@ export function Tooltip({ content, children, position = 'top', delay = 500 }: To
           y = triggerRect.top + triggerRect.height / 2 - tooltipRect.height / 2
           break
       }
-      
+
       setTooltipPosition({ x, y })
     }
   }, [isVisible, position])
 
   return (
     <>
-      <div 
-        ref={triggerRef}
-        onMouseEnter={showTooltip}
-        onMouseLeave={hideTooltip}
-      >
+      <div ref={triggerRef} onMouseEnter={showTooltip} onMouseLeave={hideTooltip}>
         {children}
       </div>
-      {isVisible && createPortal(
-        <div
-          ref={tooltipRef}
-          className="fixed z-50 pointer-events-none transition-opacity duration-150"
-          style={{
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y}px`,
-            opacity: isShowing && tooltipPosition.x !== 0 ? 1 : 0
-          }}
-        >
-          <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap relative">
-            {content}
-            <div 
-              className={`absolute w-0 h-0 border-4 border-transparent ${
-                position === 'top' ? 'top-full left-1/2 -translate-x-1/2 border-t-gray-900' :
-                position === 'bottom' ? 'bottom-full left-1/2 -translate-x-1/2 border-b-gray-900' :
-                position === 'left' ? 'left-full top-1/2 -translate-y-1/2 border-l-gray-900' :
-                'right-full top-1/2 -translate-y-1/2 border-r-gray-900'
-              }`}
-            />
-          </div>
-        </div>,
-        document.body
-      )}
+      {isVisible &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            className="fixed z-50 pointer-events-none transition-opacity duration-150"
+            style={{
+              left: `${tooltipPosition.x}px`,
+              top: `${tooltipPosition.y}px`,
+              opacity: isShowing && tooltipPosition.x !== 0 ? 1 : 0,
+            }}
+          >
+            <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap relative">
+              {content}
+              <div
+                className={`absolute w-0 h-0 border-4 border-transparent ${
+                  position === 'top'
+                    ? 'top-full left-1/2 -translate-x-1/2 border-t-gray-900'
+                    : position === 'bottom'
+                      ? 'bottom-full left-1/2 -translate-x-1/2 border-b-gray-900'
+                      : position === 'left'
+                        ? 'left-full top-1/2 -translate-y-1/2 border-l-gray-900'
+                        : 'right-full top-1/2 -translate-y-1/2 border-r-gray-900'
+                }`}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   )
 }

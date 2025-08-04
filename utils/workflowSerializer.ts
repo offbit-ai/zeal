@@ -1,8 +1,17 @@
-import type { WorkflowSnapshot, WorkflowGraph, SerializedNode, SerializedConnection, SerializedGroup } from '@/types/snapshot'
+import type {
+  WorkflowSnapshot,
+  WorkflowGraph,
+  SerializedNode,
+  SerializedConnection,
+  SerializedGroup,
+} from '@/types/snapshot'
 import type { NodeMetadata, Connection, NodeGroup } from '@/types/workflow'
 
 // Serialize a single node
-export function serializeNode(node: { metadata: NodeMetadata; position: { x: number; y: number } }): any {
+export function serializeNode(node: {
+  metadata: NodeMetadata
+  position: { x: number; y: number }
+}): any {
   return {
     id: node.metadata.id,
     type: node.metadata.type,
@@ -10,8 +19,8 @@ export function serializeNode(node: { metadata: NodeMetadata; position: { x: num
     metadata: {
       ...node.metadata,
       // Icon is already a string, no conversion needed
-      icon: node.metadata.icon
-    }
+      icon: node.metadata.icon,
+    },
   }
 }
 
@@ -22,8 +31,8 @@ export function deserializeNode(serialized: SerializedNode): any {
     metadata: {
       ...serialized.metadata,
       // Icon is already a string, no conversion needed
-      icon: serialized.metadata.icon || 'box' // Fallback to 'box' if undefined
-    }
+      icon: serialized.metadata.icon || 'box', // Fallback to 'box' if undefined
+    },
   }
 }
 
@@ -33,7 +42,7 @@ export function serializeConnection(connection: Connection): SerializedConnectio
     id: connection.id,
     source: connection.source,
     target: connection.target,
-    state: connection.state
+    state: connection.state,
   }
 }
 
@@ -49,7 +58,7 @@ export function serializeGroup(group: NodeGroup): SerializedGroup {
     color: group.color,
     isCollapsed: group.isCollapsed,
     createdAt: group.createdAt,
-    updatedAt: group.updatedAt
+    updatedAt: group.updatedAt,
   }
 }
 
@@ -63,7 +72,16 @@ export function createWorkflowGraph(
   connections: Connection[],
   groups: NodeGroup[] = [],
   canvasState?: { offset: { x: number; y: number }; zoom: number },
-  portPositions?: Map<string, { nodeId: string; portId: string; x: number; y: number; position: 'top' | 'right' | 'bottom' | 'left' }>
+  portPositions?: Map<
+    string,
+    {
+      nodeId: string
+      portId: string
+      x: number
+      y: number
+      position: 'top' | 'right' | 'bottom' | 'left'
+    }
+  >
 ): WorkflowGraph {
   return {
     id,
@@ -74,14 +92,16 @@ export function createWorkflowGraph(
     connections: (connections || []).map(serializeConnection),
     groups: (groups || []).map(serializeGroup),
     canvasState,
-    portPositions: portPositions ? Array.from(portPositions.entries()).map(([key, value]) => ({
-      key,
-      nodeId: value.nodeId,
-      portId: value.portId,
-      x: value.x,
-      y: value.y,
-      position: value.position
-    })) : undefined
+    portPositions: portPositions
+      ? Array.from(portPositions.entries()).map(([key, value]) => ({
+          key,
+          nodeId: value.nodeId,
+          portId: value.portId,
+          x: value.x,
+          y: value.y,
+          position: value.position,
+        }))
+      : undefined,
   }
 }
 
@@ -95,12 +115,12 @@ export function createWorkflowSnapshot(
   trigger?: any
 ): WorkflowSnapshot {
   const now = new Date().toISOString()
-  
+
   // Calculate totals across all graphs
   const totalNodeCount = graphs.reduce((sum, g) => sum + (g.nodes?.length || 0), 0)
   const totalConnectionCount = graphs.reduce((sum, g) => sum + (g.connections?.length || 0), 0)
   const totalGroupCount = graphs.reduce((sum, g) => sum + (g.groups?.length || 0), 0)
-  
+
   return {
     id: id || crypto.randomUUID(),
     name,
@@ -120,8 +140,8 @@ export function createWorkflowSnapshot(
       totalConnectionCount,
       totalGroupCount,
       graphCount: graphs.length,
-      tags: existingSnapshot?.metadata?.tags || ['draft']
-    }
+      tags: existingSnapshot?.metadata?.tags || ['draft'],
+    },
   }
 }
 
@@ -135,7 +155,16 @@ export function createLegacyWorkflowSnapshot(
   groups: NodeGroup[] = [],
   trigger?: any,
   canvasState?: { offset: { x: number; y: number }; zoom: number },
-  portPositions?: Map<string, { nodeId: string; portId: string; x: number; y: number; position: 'top' | 'right' | 'bottom' | 'left' }>
+  portPositions?: Map<
+    string,
+    {
+      nodeId: string
+      portId: string
+      x: number
+      y: number
+      position: 'top' | 'right' | 'bottom' | 'left'
+    }
+  >
 ): WorkflowSnapshot {
   // Create a single main graph
   const mainGraph = createWorkflowGraph(
@@ -149,7 +178,7 @@ export function createLegacyWorkflowSnapshot(
     canvasState,
     portPositions
   )
-  
+
   return createWorkflowSnapshot([mainGraph], 'main', name, id, existingSnapshot, trigger)
 }
 
@@ -159,18 +188,32 @@ export function restoreGraphFromSerialized(graph: WorkflowGraph): {
   connections: Connection[]
   groups: NodeGroup[]
   canvasState?: { offset: { x: number; y: number }; zoom: number }
-  portPositions?: Map<string, { nodeId: string; portId: string; x: number; y: number; position: 'top' | 'right' | 'bottom' | 'left' }>
+  portPositions?: Map<
+    string,
+    {
+      nodeId: string
+      portId: string
+      x: number
+      y: number
+      position: 'top' | 'right' | 'bottom' | 'left'
+    }
+  >
 } {
-  const portPositionsMap = graph.portPositions ? new Map(
-    graph.portPositions.map(pos => [pos.key, { nodeId: pos.nodeId, portId: pos.portId, x: pos.x, y: pos.y, position: pos.position }])
-  ) : undefined
+  const portPositionsMap = graph.portPositions
+    ? new Map(
+        graph.portPositions.map(pos => [
+          pos.key,
+          { nodeId: pos.nodeId, portId: pos.portId, x: pos.x, y: pos.y, position: pos.position },
+        ])
+      )
+    : undefined
 
   return {
     nodes: graph.nodes.map(deserializeNode),
     connections: graph.connections,
     groups: graph.groups || [],
     canvasState: graph.canvasState,
-    portPositions: portPositionsMap
+    portPositions: portPositionsMap,
   }
 }
 
@@ -186,10 +229,10 @@ export function restoreWorkflowFromSnapshot(snapshot: WorkflowSnapshot): {
   // Check if this is a multi-graph snapshot (v2.0.0+)
   if (snapshot.graphs && Array.isArray(snapshot.graphs)) {
     return {
-      graphs: snapshot.graphs
+      graphs: snapshot.graphs,
     }
   }
-  
+
   // Legacy single-graph snapshot (backwards compatibility)
   // if (snapshot.nodes) {
   //   return {
@@ -199,17 +242,19 @@ export function restoreWorkflowFromSnapshot(snapshot: WorkflowSnapshot): {
   //     canvasState: snapshot.canvasState
   //   }
   // }
-  
+
   // Empty workflow
   return {
-    graphs: [{
-      id: 'main',
-      name: 'Main',
-      namespace: 'main',
-      isMain: true,
-      nodes: [],
-      connections: [],
-      groups: []
-    }]
+    graphs: [
+      {
+        id: 'main',
+        name: 'Main',
+        namespace: 'main',
+        isMain: true,
+        nodes: [],
+        connections: [],
+        groups: [],
+      },
+    ],
   }
 }

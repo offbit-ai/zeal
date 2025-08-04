@@ -1,8 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, X, GripVertical, Code, Filter, ArrowUpDown, Shuffle, Users, Calculator, Merge, Split, Info } from 'lucide-react'
-import { DataOperationSet, DataOperation, DataOperationType, SortDirection, AggregateFunction } from '@/types/workflow'
+import {
+  Plus,
+  X,
+  GripVertical,
+  Code,
+  Filter,
+  ArrowUpDown,
+  Shuffle,
+  Users,
+  Calculator,
+  Merge,
+  Split,
+  Info,
+} from 'lucide-react'
+import {
+  DataOperationSet,
+  DataOperation,
+  DataOperationType,
+  SortDirection,
+  AggregateFunction,
+} from '@/types/workflow'
 
 interface DataOperationBuilderProps {
   value: DataOperationSet[]
@@ -15,59 +34,63 @@ const OPERATION_CONFIGS = {
     icon: Code,
     label: 'Map Fields',
     color: 'bg-blue-500',
-    description: 'Transform field names and values'
+    description: 'Transform field names and values',
   },
   filter: {
     icon: Filter,
     label: 'Filter Data',
     color: 'bg-green-500',
-    description: 'Remove items based on conditions'
+    description: 'Remove items based on conditions',
   },
   sort: {
     icon: ArrowUpDown,
     label: 'Sort',
     color: 'bg-purple-500',
-    description: 'Order data by field values'
+    description: 'Order data by field values',
   },
   transform: {
     icon: Shuffle,
     label: 'Transform',
     color: 'bg-orange-500',
-    description: 'Apply custom transformations'
+    description: 'Apply custom transformations',
   },
   group: {
     icon: Users,
     label: 'Group By',
     color: 'bg-indigo-500',
-    description: 'Group items by field values'
+    description: 'Group items by field values',
   },
   aggregate: {
     icon: Calculator,
     label: 'Aggregate',
     color: 'bg-red-500',
-    description: 'Calculate summary values'
+    description: 'Calculate summary values',
   },
   merge: {
     icon: Merge,
     label: 'Merge',
     color: 'bg-teal-500',
-    description: 'Combine multiple data sources'
+    description: 'Combine multiple data sources',
   },
   split: {
     icon: Split,
     label: 'Split',
     color: 'bg-pink-500',
-    description: 'Split data into multiple outputs'
-  }
+    description: 'Split data into multiple outputs',
+  },
 } as const
 
-const AGGREGATE_FUNCTIONS: AggregateFunction[] = ['sum', 'avg', 'count', 'min', 'max', 'first', 'last']
+const AGGREGATE_FUNCTIONS: AggregateFunction[] = [
+  'sum',
+  'avg',
+  'count',
+  'min',
+  'max',
+  'first',
+  'last',
+]
 
-export function DataOperationBuilder({ 
-  value = [], 
-  onChange
-}: DataOperationBuilderProps) {
-  
+export function DataOperationBuilder({ value = [], onChange }: DataOperationBuilderProps) {
   const generateId = () => Math.random().toString(36).substr(2, 9)
 
   // Create a new operation
@@ -75,14 +98,14 @@ export function DataOperationBuilder({
     id: generateId(),
     type,
     enabled: true,
-    description: ''
+    description: '',
   })
 
   // Create a new operation set
   const createOperationSet = (): DataOperationSet => ({
     id: generateId(),
     name: 'Data Pipeline',
-    operations: []
+    operations: [],
   })
 
   // Add new operation set
@@ -112,21 +135,29 @@ export function DataOperationBuilder({
   // Remove operation
   const removeOperation = (setIndex: number, opIndex: number) => {
     const newValue = [...value]
-    newValue[setIndex].operations = newValue[setIndex].operations.filter((_, index) => index !== opIndex)
+    newValue[setIndex].operations = newValue[setIndex].operations.filter(
+      (_, index) => index !== opIndex
+    )
     onChange(newValue)
   }
 
   // Update operation
   const updateOperation = (setIndex: number, opIndex: number, updates: Partial<DataOperation>) => {
     const newValue = [...value]
-    newValue[setIndex].operations[opIndex] = { ...newValue[setIndex].operations[opIndex], ...updates }
+    newValue[setIndex].operations[opIndex] = {
+      ...newValue[setIndex].operations[opIndex],
+      ...updates,
+    }
     onChange(newValue)
   }
 
   // Add mapping field
   const addMappingField = (setIndex: number, opIndex: number) => {
     const operation = value[setIndex].operations[opIndex]
-    const newMapping = [...(operation.mapping || []), { sourceField: '', targetField: '', transform: '' }]
+    const newMapping = [
+      ...(operation.mapping || []),
+      { sourceField: '', targetField: '', transform: '' },
+    ]
     updateOperation(setIndex, opIndex, { mapping: newMapping })
   }
 
@@ -138,7 +169,13 @@ export function DataOperationBuilder({
   }
 
   // Update mapping field
-  const updateMappingField = (setIndex: number, opIndex: number, mappingIndex: number, field: string, fieldValue: string) => {
+  const updateMappingField = (
+    setIndex: number,
+    opIndex: number,
+    mappingIndex: number,
+    field: string,
+    fieldValue: string
+  ) => {
     const operation = value[setIndex].operations[opIndex]
     const newMapping = [...(operation.mapping || [])]
     newMapping[mappingIndex] = { ...newMapping[mappingIndex], [field]: fieldValue }
@@ -167,7 +204,15 @@ export function DataOperationBuilder({
                   <input
                     type="text"
                     value={mapping.sourceField}
-                    onChange={(e) => updateMappingField(setIndex, opIndex, mappingIndex, 'sourceField', e.target.value)}
+                    onChange={e =>
+                      updateMappingField(
+                        setIndex,
+                        opIndex,
+                        mappingIndex,
+                        'sourceField',
+                        e.target.value
+                      )
+                    }
                     placeholder="e.g., ${input.get('data').data.fieldName}"
                     className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
                   />
@@ -177,7 +222,15 @@ export function DataOperationBuilder({
                   <input
                     type="text"
                     value={mapping.targetField}
-                    onChange={(e) => updateMappingField(setIndex, opIndex, mappingIndex, 'targetField', e.target.value)}
+                    onChange={e =>
+                      updateMappingField(
+                        setIndex,
+                        opIndex,
+                        mappingIndex,
+                        'targetField',
+                        e.target.value
+                      )
+                    }
                     placeholder="New field name"
                     className="w-full text-xs border border-gray-200 rounded px-2 py-1"
                   />
@@ -195,7 +248,15 @@ export function DataOperationBuilder({
                   <input
                     type="text"
                     value={mapping.transform || ''}
-                    onChange={(e) => updateMappingField(setIndex, opIndex, mappingIndex, 'transform', e.target.value)}
+                    onChange={e =>
+                      updateMappingField(
+                        setIndex,
+                        opIndex,
+                        mappingIndex,
+                        'transform',
+                        e.target.value
+                      )
+                    }
                     placeholder="e.g., ${input.get('data').data.value}.toUpperCase(), ${input.get('data').data.price} * 2"
                     className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
                   />
@@ -208,10 +269,14 @@ export function DataOperationBuilder({
       case 'filter':
         return (
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Filter Expression</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Filter Expression
+            </label>
             <textarea
               value={operation.filterExpression || ''}
-              onChange={(e) => updateOperation(setIndex, opIndex, { filterExpression: e.target.value })}
+              onChange={e =>
+                updateOperation(setIndex, opIndex, { filterExpression: e.target.value })
+              }
               placeholder="e.g., ${input.get('data').data.age} > 18 && ${input.get('data').data.status} === 'active'"
               rows={2}
               className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
@@ -227,7 +292,7 @@ export function DataOperationBuilder({
               <input
                 type="text"
                 value={operation.sortField || ''}
-                onChange={(e) => updateOperation(setIndex, opIndex, { sortField: e.target.value })}
+                onChange={e => updateOperation(setIndex, opIndex, { sortField: e.target.value })}
                 placeholder="e.g., ${input.get('data').data.timestamp}"
                 className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
               />
@@ -236,7 +301,11 @@ export function DataOperationBuilder({
               <label className="block text-xs font-medium text-gray-600 mb-1">Direction</label>
               <select
                 value={operation.sortDirection || 'asc'}
-                onChange={(e) => updateOperation(setIndex, opIndex, { sortDirection: e.target.value as SortDirection })}
+                onChange={e =>
+                  updateOperation(setIndex, opIndex, {
+                    sortDirection: e.target.value as SortDirection,
+                  })
+                }
                 className="w-full text-xs border border-gray-200 rounded px-2 py-1"
               >
                 <option value="asc">Ascending</option>
@@ -249,10 +318,14 @@ export function DataOperationBuilder({
       case 'transform':
         return (
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Transform Expression</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Transform Expression
+            </label>
             <textarea
               value={operation.transformExpression || ''}
-              onChange={(e) => updateOperation(setIndex, opIndex, { transformExpression: e.target.value })}
+              onChange={e =>
+                updateOperation(setIndex, opIndex, { transformExpression: e.target.value })
+              }
               placeholder="e.g., { ...${input.get('data').data}, fullName: ${input.get('data').data.firstName} + ' ' + ${input.get('data').data.lastName} }"
               rows={3}
               className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
@@ -267,7 +340,7 @@ export function DataOperationBuilder({
             <input
               type="text"
               value={operation.groupByField || ''}
-              onChange={(e) => updateOperation(setIndex, opIndex, { groupByField: e.target.value })}
+              onChange={e => updateOperation(setIndex, opIndex, { groupByField: e.target.value })}
               placeholder="e.g., ${input.get('data').data.category}"
               className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
             />
@@ -282,7 +355,9 @@ export function DataOperationBuilder({
               <input
                 type="text"
                 value={operation.aggregateField || ''}
-                onChange={(e) => updateOperation(setIndex, opIndex, { aggregateField: e.target.value })}
+                onChange={e =>
+                  updateOperation(setIndex, opIndex, { aggregateField: e.target.value })
+                }
                 placeholder="e.g., ${input.get('data').data.amount}"
                 className="w-full text-xs border border-gray-200 rounded px-2 py-1 font-mono"
               />
@@ -291,11 +366,17 @@ export function DataOperationBuilder({
               <label className="block text-xs font-medium text-gray-600 mb-1">Function</label>
               <select
                 value={operation.aggregateFunction || 'sum'}
-                onChange={(e) => updateOperation(setIndex, opIndex, { aggregateFunction: e.target.value as AggregateFunction })}
+                onChange={e =>
+                  updateOperation(setIndex, opIndex, {
+                    aggregateFunction: e.target.value as AggregateFunction,
+                  })
+                }
                 className="w-full text-xs border border-gray-200 rounded px-2 py-1"
               >
                 {AGGREGATE_FUNCTIONS.map(func => (
-                  <option key={func} value={func}>{func.toUpperCase()}</option>
+                  <option key={func} value={func}>
+                    {func.toUpperCase()}
+                  </option>
                 ))}
               </select>
             </div>
@@ -320,10 +401,28 @@ export function DataOperationBuilder({
           <div className="text-xs text-blue-800">
             <div className="font-semibold mb-1">Dynamic Input Syntax</div>
             <div className="space-y-1">
-              <div>• Access data from specific input port: <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data}'}</code></div>
-              <div>• Access nested fields: <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data.fieldName}'}</code></div>
-              <div>• Array access: <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data[0]}'}</code></div>
-              <div>• Multiple ports: <code className="bg-blue-100 px-1 rounded">${'{input.get("port1").data.value + input.get("port2").data.value}'}</code></div>
+              <div>
+                • Access data from specific input port:{' '}
+                <code className="bg-blue-100 px-1 rounded">${'{input.get("portName").data}'}</code>
+              </div>
+              <div>
+                • Access nested fields:{' '}
+                <code className="bg-blue-100 px-1 rounded">
+                  ${'{input.get("portName").data.fieldName}'}
+                </code>
+              </div>
+              <div>
+                • Array access:{' '}
+                <code className="bg-blue-100 px-1 rounded">
+                  ${'{input.get("portName").data[0]}'}
+                </code>
+              </div>
+              <div>
+                • Multiple ports:{' '}
+                <code className="bg-blue-100 px-1 rounded">
+                  ${'{input.get("port1").data.value + input.get("port2").data.value}'}
+                </code>
+              </div>
               <div>• Supports JavaScript expressions within template literals</div>
             </div>
           </div>
@@ -336,7 +435,7 @@ export function DataOperationBuilder({
             <input
               type="text"
               value={operationSet.name}
-              onChange={(e) => updateOperationSet(setIndex, { name: e.target.value })}
+              onChange={e => updateOperationSet(setIndex, { name: e.target.value })}
               className="text-sm font-medium bg-transparent border-none outline-none"
             />
             <button
@@ -367,7 +466,9 @@ export function DataOperationBuilder({
                         <input
                           type="checkbox"
                           checked={operation.enabled}
-                          onChange={(e) => updateOperation(setIndex, opIndex, { enabled: e.target.checked })}
+                          onChange={e =>
+                            updateOperation(setIndex, opIndex, { enabled: e.target.checked })
+                          }
                           className="w-3 h-3"
                         />
                         <span className="text-xs text-gray-500">Enabled</span>
@@ -386,7 +487,9 @@ export function DataOperationBuilder({
                     <input
                       type="text"
                       value={operation.description || ''}
-                      onChange={(e) => updateOperation(setIndex, opIndex, { description: e.target.value })}
+                      onChange={e =>
+                        updateOperation(setIndex, opIndex, { description: e.target.value })
+                      }
                       placeholder={config.description}
                       className="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1"
                     />
@@ -432,7 +535,9 @@ export function DataOperationBuilder({
       {value.length === 0 && (
         <div className="text-center py-8 text-gray-500">
           <div className="text-sm">No data operations configured</div>
-          <div className="text-xs mt-1">Click "Add Data Pipeline" to create your first data transformation</div>
+          <div className="text-xs mt-1">
+            Click "Add Data Pipeline" to create your first data transformation
+          </div>
         </div>
       )}
     </div>

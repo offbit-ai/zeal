@@ -9,13 +9,13 @@ export function hasUnconfiguredDefaults(metadata: NodeMetadata): boolean {
   }
 
   const propertyValues = metadata.propertyValues || {}
-  
+
   // Check each property for unconfigured defaults
   for (const [propertyId, property] of Object.entries(metadata.properties)) {
     // Only check required fields
     if (property.required) {
       const currentValue = propertyValues[propertyId]
-      
+
       // If property value is undefined, null, or empty string
       if (currentValue === undefined || currentValue === null || currentValue === '') {
         return true
@@ -35,12 +35,12 @@ export function getUnconfiguredProperties(metadata: NodeMetadata): PropertyDefin
 
   const propertyValues = metadata.propertyValues || {}
   const unconfigured: PropertyDefinition[] = []
-  
+
   for (const [propertyId, property] of Object.entries(metadata.properties)) {
     // Only check required fields
     if (property.required) {
       const currentValue = propertyValues[propertyId]
-      
+
       // If property value is undefined, null, or empty string
       if (currentValue === undefined || currentValue === null || currentValue === '') {
         property.id = propertyId // Ensure property has an ID for display
@@ -49,7 +49,7 @@ export function getUnconfiguredProperties(metadata: NodeMetadata): PropertyDefin
       }
     }
   }
-  
+
   return unconfigured
 }
 
@@ -58,18 +58,21 @@ export function getUnconfiguredProperties(metadata: NodeMetadata): PropertyDefin
  */
 export function getConfigurationMessage(metadata: NodeMetadata): string {
   const unconfigured = getUnconfiguredProperties(metadata)
-  
+
   if (unconfigured.length === 0) {
     return ''
   }
-  
+
   if (unconfigured.length === 1) {
     return `Please configure the "${unconfigured[0].label}" property`
   }
-  
+
   if (unconfigured.length === 2) {
     return `Please configure "${unconfigured[0].label}" and "${unconfigured[1].label}"`
   }
-  
-  return `Please configure ${unconfigured.length} properties: ${unconfigured.slice(0, 2).map(p => p.label).join(', ')} and others`
+
+  return `Please configure ${unconfigured.length} properties: ${unconfigured
+    .slice(0, 2)
+    .map(p => p.label)
+    .join(', ')} and others`
 }

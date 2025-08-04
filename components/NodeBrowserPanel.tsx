@@ -12,19 +12,35 @@ interface NodeBrowserPanelProps {
   onGroupCreationRequest?: () => void
 }
 
-export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGroupCreationRequest }: NodeBrowserPanelProps) {
+export function NodeBrowserPanel({
+  isExpanded,
+  onNodeSelect,
+  onNodeAdded,
+  onGroupCreationRequest,
+}: NodeBrowserPanelProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['all']))
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
-  const { nodes, connections, removeNode, addNode, groups, createGroup, setSelectedNodes: setStoreSelectedNodes } = useWorkflowStore()
+  const {
+    nodes,
+    connections,
+    removeNode,
+    addNode,
+    groups,
+    createGroup,
+    setSelectedNodes: setStoreSelectedNodes,
+  } = useWorkflowStore()
 
   // Group nodes by type
-  const nodesByType = nodes.reduce((acc, node) => {
-    const type = node.metadata.type
-    if (!acc[type]) acc[type] = []
-    acc[type].push(node)
-    return acc
-  }, {} as Record<string, typeof nodes>)
+  const nodesByType = nodes.reduce(
+    (acc, node) => {
+      const type = node.metadata.type
+      if (!acc[type]) acc[type] = []
+      acc[type].push(node)
+      return acc
+    },
+    {} as Record<string, typeof nodes>
+  )
 
   // Get connection counts for each node
   const getNodeConnectionCount = (nodeId: string) => {
@@ -43,7 +59,11 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
     setExpandedCategories(newExpanded)
   }
 
-  const handleNodeClick = (nodeId: string, position: { x: number; y: number }, e?: React.MouseEvent) => {
+  const handleNodeClick = (
+    nodeId: string,
+    position: { x: number; y: number },
+    e?: React.MouseEvent
+  ) => {
     if (isMultiSelectMode) {
       e?.stopPropagation()
       const newSelected = new Set(selectedNodes)
@@ -67,29 +87,29 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
     if (selectedNodes.size > 0) {
       // First select the nodes in the store, then trigger group creation modal
       const selectedNodesList = Array.from(selectedNodes)
-      
+
       // Clear existing selection and select the chosen nodes
       setStoreSelectedNodes(selectedNodesList)
-      
+
       // Trigger group creation modal via callback
       onGroupCreationRequest?.()
-      
+
       setSelectedNodes(new Set())
       setIsMultiSelectMode(false)
     }
   }
 
-  const handleDuplicate = (e: React.MouseEvent, node: typeof nodes[0]) => {
+  const handleDuplicate = (e: React.MouseEvent, node: (typeof nodes)[0]) => {
     e.stopPropagation()
     const timestamp = Date.now()
     const newMetadata = {
       ...node.metadata,
       id: `${node.metadata.id}-copy-${timestamp}`,
-      title: `${node.metadata.title} (Copy)`
+      title: `${node.metadata.title} (Copy)`,
     }
     const newPosition = {
       x: node.position.x + 50,
-      y: node.position.y + 50
+      y: node.position.y + 50,
     }
     const addedNodeId = addNode(newMetadata, newPosition)
     if (addedNodeId && onNodeAdded) {
@@ -103,9 +123,11 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
   }
 
   return (
-    <div className={`fixed right-0 top-[60px] bottom-0 w-64 bg-white border-l border-gray-200 flex flex-col transition-transform duration-300 ease-in-out z-20 ${
-      isExpanded ? 'translate-x-0' : 'translate-x-full'
-    }`}>
+    <div
+      className={`fixed right-0 top-[60px] bottom-0 w-64 bg-white border-l border-gray-200 flex flex-col transition-transform duration-300 ease-in-out z-20 ${
+        isExpanded ? 'translate-x-0' : 'translate-x-full'
+      }`}
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
@@ -113,8 +135,8 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
           <button
             onClick={handleToggleMultiSelect}
             className={`px-2 py-1 text-xs font-medium rounded border transition-colors ${
-              isMultiSelectMode 
-                ? 'bg-blue-600 text-white border-blue-600' 
+              isMultiSelectMode
+                ? 'bg-blue-600 text-white border-blue-600'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
             title={isMultiSelectMode ? 'Exit multi-select mode' : 'Enable multi-select mode'}
@@ -125,7 +147,7 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
         <p className="text-xs text-gray-500">
           {nodes.length} nodes • {connections.length} connections • {groups.length} groups
         </p>
-        
+
         {/* Multi-select controls */}
         {isMultiSelectMode && (
           <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
@@ -178,18 +200,16 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
                   <div
                     key={node.metadata.id}
                     className={`group flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
-                      isSelected 
-                        ? 'bg-blue-50 border border-blue-200' 
-                        : 'hover:bg-gray-50'
+                      isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
                     }`}
-                    onClick={(e) => handleNodeClick(node.metadata.id, node.position, e)}
+                    onClick={e => handleNodeClick(node.metadata.id, node.position, e)}
                   >
                     {/* Checkbox in multi-select mode */}
                     {isMultiSelectMode && (
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={(e) => {
+                        onChange={e => {
                           e.stopPropagation()
                           const newSelected = new Set(selectedNodes)
                           if (newSelected.has(node.metadata.id)) {
@@ -202,32 +222,35 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
                         className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                     )}
-                    <div className={`p-1 rounded ${
-                      node.metadata.variant === 'black' ? 'bg-black' :
-                      node.metadata.variant === 'gray-700' ? 'bg-gray-700' :
-                      node.metadata.variant === 'gray-600' ? 'bg-gray-600' :
-                      'bg-gray-500'
-                    }`}>
+                    <div
+                      className={`p-1 rounded ${
+                        node.metadata.variant === 'black'
+                          ? 'bg-black'
+                          : node.metadata.variant === 'gray-700'
+                            ? 'bg-gray-700'
+                            : node.metadata.variant === 'gray-600'
+                              ? 'bg-gray-600'
+                              : 'bg-gray-500'
+                      }`}
+                    >
                       <Icon name={node.metadata.icon} className="w-3 h-3 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium text-gray-900 truncate">
                         {node.metadata.title}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {connections.total} connections
-                      </div>
+                      <div className="text-xs text-gray-500">{connections.total} connections</div>
                     </div>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={(e) => handleDuplicate(e, node)}
+                        onClick={e => handleDuplicate(e, node)}
                         className="p-1 hover:bg-gray-200 rounded transition-colors"
                         title="Duplicate"
                       >
                         <Copy className="w-3 h-3 text-gray-500" />
                       </button>
                       <button
-                        onClick={(e) => handleDelete(e, node.metadata.id)}
+                        onClick={e => handleDelete(e, node.metadata.id)}
                         className="p-1 hover:bg-red-100 rounded transition-colors"
                         title="Delete"
                       >
@@ -261,25 +284,23 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
 
             {expandedCategories.has(type) && (
               <div className="px-2 pb-2">
-                {typeNodes.map((node) => {
+                {typeNodes.map(node => {
                   const connections = getNodeConnectionCount(node.metadata.id)
                   const isSelected = selectedNodes.has(node.metadata.id)
                   return (
                     <div
                       key={node.metadata.id}
                       className={`group flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
-                        isSelected 
-                          ? 'bg-blue-50 border border-blue-200' 
-                          : 'hover:bg-gray-50'
+                        isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
                       }`}
-                      onClick={(e) => handleNodeClick(node.metadata.id, node.position, e)}
+                      onClick={e => handleNodeClick(node.metadata.id, node.position, e)}
                     >
                       {/* Checkbox in multi-select mode */}
                       {isMultiSelectMode && (
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={(e) => {
+                          onChange={e => {
                             e.stopPropagation()
                             const newSelected = new Set(selectedNodes)
                             if (newSelected.has(node.metadata.id)) {
@@ -292,12 +313,17 @@ export function NodeBrowserPanel({ isExpanded, onNodeSelect, onNodeAdded, onGrou
                           className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                       )}
-                      <div className={`p-1 rounded ${
-                        node.metadata.variant === 'black' ? 'bg-black' :
-                        node.metadata.variant === 'gray-700' ? 'bg-gray-700' :
-                        node.metadata.variant === 'gray-600' ? 'bg-gray-600' :
-                        'bg-gray-500'
-                      }`}>
+                      <div
+                        className={`p-1 rounded ${
+                          node.metadata.variant === 'black'
+                            ? 'bg-black'
+                            : node.metadata.variant === 'gray-700'
+                              ? 'bg-gray-700'
+                              : node.metadata.variant === 'gray-600'
+                                ? 'bg-gray-600'
+                                : 'bg-gray-500'
+                        }`}
+                      >
                         <Icon name={node.metadata.icon} className="w-3 h-3 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">

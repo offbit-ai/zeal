@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  createSuccessResponse, 
-  withErrorHandling, 
+import {
+  createSuccessResponse,
+  withErrorHandling,
   parsePaginationParams,
   parseFilterParams,
-  extractUserId
+  extractUserId,
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
@@ -15,51 +15,49 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const userId = extractUserId(req)
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
-  
+
   const { sessions, total } = await FlowTraceDatabase.getSessions(userId, {
     limit: pagination.limit,
     offset: (pagination.page - 1) * pagination.limit,
     search: filters.search,
     status: filters.status as 'running' | 'completed' | 'failed' | undefined,
     startDate: filters.dateFrom,
-    endDate: filters.dateTo
+    endDate: filters.dateTo,
   })
-  
+
   const totalPages = Math.ceil(total / pagination.limit)
-  
-  return NextResponse.json(createSuccessResponse(sessions, {
-    pagination: {
-      page: pagination.page,
-      limit: pagination.limit,
-      total,
-      totalPages
-    },
-    timestamp: new Date().toISOString(),
-    requestId: `req_${Date.now()}`
-  }))
+
+  return NextResponse.json(
+    createSuccessResponse(sessions, {
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages,
+      },
+      timestamp: new Date().toISOString(),
+      requestId: `req_${Date.now()}`,
+    })
+  )
 })
 
 // POST /api/flow-traces - Create a new trace session
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const userId = extractUserId(req)
   const body = await req.json()
-  
+
   // Validate required fields
   if (!body.workflowId || !body.workflowName) {
-    throw new ApiError(
-      'VALIDATION_ERROR', 
-      'workflowId and workflowName are required',
-      400
-    )
+    throw new ApiError('VALIDATION_ERROR', 'workflowId and workflowName are required', 400)
   }
-  
+
   // Create new session
   const session = await FlowTraceDatabase.createSession({
     workflowId: body.workflowId,
     workflowVersionId: body.workflowVersionId,
     workflowName: body.workflowName,
-    userId
+    userId,
   })
-  
+
   return NextResponse.json(createSuccessResponse(session), { status: 201 })
 })

@@ -1,79 +1,77 @@
-"use client";
+'use client'
 
-import React, { useState } from "react";
-import { Zap, Edit2, Trash2, AlertCircle, Globe, Cable, Clock, Lock } from "lucide-react";
-import { TriggerModal, TriggerConfig } from "./TriggerModal";
-import { useWorkflowStore } from "@/store/workflow-store";
-import { ModalPortal } from "./ModalPortal";
-import { useGraphStore } from "@/store/graphStore";
+import React, { useState } from 'react'
+import { Zap, Edit2, Trash2, AlertCircle, Globe, Cable, Clock, Lock } from 'lucide-react'
+import { TriggerModal, TriggerConfig } from './TriggerModal'
+import { useWorkflowStore } from '@/store/workflow-store'
+import { ModalPortal } from './ModalPortal'
+import { useGraphStore } from '@/store/graphStore'
 
 export function TriggerManager() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTrigger, setEditingTrigger] = useState<TriggerConfig | null>(
-    null
-  );
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const { workflowTrigger, setWorkflowTrigger } = useWorkflowStore();
-  const { getCurrentGraph, currentGraphId, setGraphDirty } = useGraphStore();
-  
-  const currentGraph = getCurrentGraph();
-  const isMainGraph = currentGraph?.isMain || false;
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingTrigger, setEditingTrigger] = useState<TriggerConfig | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const { workflowTrigger, setWorkflowTrigger } = useWorkflowStore()
+  const { getCurrentGraph, currentGraphId, setGraphDirty } = useGraphStore()
+
+  const currentGraph = getCurrentGraph()
+  const isMainGraph = currentGraph?.isMain || false
 
   const handleTriggerConfigured = (trigger: TriggerConfig) => {
-    setWorkflowTrigger(trigger);
-    setGraphDirty(currentGraphId, true);
-    setEditingTrigger(null);
-  };
+    setWorkflowTrigger(trigger)
+    setGraphDirty(currentGraphId, true)
+    setEditingTrigger(null)
+  }
 
   const handleEdit = () => {
     if (workflowTrigger) {
-      setEditingTrigger(workflowTrigger);
-      setIsModalOpen(true);
+      setEditingTrigger(workflowTrigger)
+      setIsModalOpen(true)
     }
-  };
+  }
 
   const handleDelete = () => {
-    setWorkflowTrigger(null);
-    setGraphDirty(currentGraphId, true);
-    setShowDeleteConfirm(false);
-  };
+    setWorkflowTrigger(null)
+    setGraphDirty(currentGraphId, true)
+    setShowDeleteConfirm(false)
+  }
 
   const getTriggerIcon = () => {
-    if (!workflowTrigger) return Zap;
-    
+    if (!workflowTrigger) return Zap
+
     switch (workflowTrigger.type) {
-      case "rest":
-        return Globe;
-      case "websocket":
-        return Cable;
-      case "scheduler":
-        return Clock;
+      case 'rest':
+        return Globe
+      case 'websocket':
+        return Cable
+      case 'scheduler':
+        return Clock
       default:
-        return Zap;
+        return Zap
     }
-  };
+  }
 
   const getTriggerDescription = () => {
-    if (!workflowTrigger) return "No trigger configured";
-    
+    if (!workflowTrigger) return 'No trigger configured'
+
     switch (workflowTrigger.type) {
-      case "rest":
-        const restConfig = workflowTrigger.config as any;
-        return `${restConfig.method} ${restConfig.path}`;
-      case "websocket":
-        const wsConfig = workflowTrigger.config as any;
-        return `Event: ${wsConfig.event}`;
-      case "scheduler":
-        const schedConfig = workflowTrigger.config as any;
+      case 'rest':
+        const restConfig = workflowTrigger.config as any
+        return `${restConfig.method} ${restConfig.path}`
+      case 'websocket':
+        const wsConfig = workflowTrigger.config as any
+        return `Event: ${wsConfig.event}`
+      case 'scheduler':
+        const schedConfig = workflowTrigger.config as any
         if (schedConfig.cronExpression) {
-          return `Cron: ${schedConfig.cronExpression}`;
+          return `Cron: ${schedConfig.cronExpression}`
         } else {
-          return `Every ${schedConfig.interval.value} ${schedConfig.interval.unit}`;
+          return `Every ${schedConfig.interval.value} ${schedConfig.interval.unit}`
         }
       default:
-        return workflowTrigger.name;
+        return workflowTrigger.name
     }
-  };
+  }
 
   return (
     <>
@@ -84,24 +82,24 @@ export function TriggerManager() {
             onClick={() => isMainGraph && setIsModalOpen(true)}
             className={`p-3 rounded-lg shadow-lg transition-all transform ${
               !isMainGraph
-                ? "bg-gray-400 cursor-not-allowed"
+                ? 'bg-gray-400 cursor-not-allowed'
                 : workflowTrigger
-                ? "bg-green-600 hover:bg-green-700 hover:scale-105"
-                : "bg-gray-800 hover:bg-gray-900 hover:scale-105"
+                  ? 'bg-green-600 hover:bg-green-700 hover:scale-105'
+                  : 'bg-gray-800 hover:bg-gray-900 hover:scale-105'
             }`}
             title={
               !isMainGraph
-                ? "Triggers are only available for the main graph"
+                ? 'Triggers are only available for the main graph'
                 : workflowTrigger
-                ? "Edit Trigger"
-                : "Configure Trigger"
+                  ? 'Edit Trigger'
+                  : 'Configure Trigger'
             }
             disabled={!isMainGraph}
           >
             {!isMainGraph ? (
               <Lock className="w-5 h-5 text-white" />
             ) : workflowTrigger ? (
-              React.createElement(getTriggerIcon(), { className: "w-5 h-5 text-white" })
+              React.createElement(getTriggerIcon(), { className: 'w-5 h-5 text-white' })
             ) : (
               <Zap className="w-5 h-5 text-white" />
             )}
@@ -116,8 +114,8 @@ export function TriggerManager() {
                   <h4 className="font-medium text-sm">Triggers Disabled</h4>
                 </div>
                 <p className="text-xs text-gray-300">
-                  Triggers are only available for the main graph. 
-                  This is a subgraph that can be called from other graphs.
+                  Triggers are only available for the main graph. This is a subgraph that can be
+                  called from other graphs.
                 </p>
               </div>
             </div>
@@ -125,21 +123,17 @@ export function TriggerManager() {
             <div className="absolute left-full ml-2 top-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
               <div className="bg-white rounded-lg shadow-xl p-3 min-w-[200px]">
                 <div className="flex items-center justify-between mb-1">
-                  <h4 className="font-medium text-gray-900 text-sm">
-                    {workflowTrigger.name}
-                  </h4>
+                  <h4 className="font-medium text-gray-900 text-sm">{workflowTrigger.name}</h4>
                 </div>
                 <p className="text-xs text-gray-500">{getTriggerDescription()}</p>
                 {workflowTrigger.description && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    {workflowTrigger.description}
-                  </p>
+                  <p className="text-xs text-gray-400 mt-1">{workflowTrigger.description}</p>
                 )}
                 <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit();
+                    onClick={e => {
+                      e.stopPropagation()
+                      handleEdit()
                     }}
                     className="p-1 hover:bg-gray-100 rounded text-gray-600"
                     title="Edit trigger"
@@ -147,9 +141,9 @@ export function TriggerManager() {
                     <Edit2 className="w-3 h-3" />
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDeleteConfirm(true);
+                    onClick={e => {
+                      e.stopPropagation()
+                      setShowDeleteConfirm(true)
                     }}
                     className="p-1 hover:bg-red-50 rounded text-red-600"
                     title="Delete trigger"
@@ -172,8 +166,8 @@ export function TriggerManager() {
       <TriggerModal
         isOpen={isModalOpen}
         onClose={() => {
-          setIsModalOpen(false);
-          setEditingTrigger(null);
+          setIsModalOpen(false)
+          setEditingTrigger(null)
         }}
         onTriggerConfigured={handleTriggerConfigured}
         existingTrigger={editingTrigger}
@@ -192,18 +186,14 @@ export function TriggerManager() {
                 <AlertCircle className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Delete Trigger
-                </h3>
-                <p className="text-sm text-gray-500">
-                  This action cannot be undone
-                </p>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Trigger</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
               </div>
             </div>
 
             <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete the trigger "{workflowTrigger?.name}"?
-              The workflow will no longer have an automated trigger.
+              Are you sure you want to delete the trigger "{workflowTrigger?.name}"? The workflow
+              will no longer have an automated trigger.
             </p>
 
             <div className="flex gap-3">
@@ -224,5 +214,5 @@ export function TriggerManager() {
         </div>
       </ModalPortal>
     </>
-  );
+  )
 }

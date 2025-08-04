@@ -2,7 +2,7 @@
  * Node Template Type Definitions
  */
 
-import { NodeShape, NodeVariant } from "@/types/workflow"
+import { NodeShape, NodeVariant } from '@/types/workflow'
 
 export interface Port {
   id: string
@@ -12,7 +12,15 @@ export interface Port {
 }
 
 export interface PropertyDefinition {
-  type: 'text' | 'number' | 'select' | 'boolean' | 'textarea' | 'code-editor' | 'rules' | 'dataOperations'
+  type:
+    | 'text'
+    | 'number'
+    | 'select'
+    | 'boolean'
+    | 'textarea'
+    | 'code-editor'
+    | 'rules'
+    | 'dataOperations'
   label?: string
   required?: boolean
   placeholder?: any
@@ -29,8 +37,8 @@ export interface PropertyDefinition {
   minimap?: boolean
   availableFields?: string[]
   availableOperators?: string[]
-  id?: string,
-  [key:string]: any
+  id?: string
+  [key: string]: any
 }
 
 export interface PropertyRule {

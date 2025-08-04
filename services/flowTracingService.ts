@@ -158,7 +158,7 @@ export class FlowTracingService {
         page: params?.page || 1,
         limit: params?.limit || 50,
         sortBy: params?.sortBy || 'timestamp',
-        sortOrder: params?.sortOrder || 'desc'
+        sortOrder: params?.sortOrder || 'desc',
       })
 
       // Extract stats from response meta
@@ -167,20 +167,24 @@ export class FlowTracingService {
         successCount: response.data.filter((t: FlowTrace) => t.status === 'success').length,
         errorCount: response.data.filter((t: FlowTrace) => t.status === 'error').length,
         pendingCount: response.data.filter((t: FlowTrace) => t.status === 'pending').length,
-        avgDuration: response.data.length > 0 
-          ? Math.round(response.data.reduce((sum: number, t: FlowTrace) => sum + t.duration, 0) / response.data.length)
-          : 0,
-        totalDataSize: response.data.reduce((sum: number, t: FlowTrace) => sum + t.dataSize, 0)
+        avgDuration:
+          response.data.length > 0
+            ? Math.round(
+                response.data.reduce((sum: number, t: FlowTrace) => sum + t.duration, 0) /
+                  response.data.length
+              )
+            : 0,
+        totalDataSize: response.data.reduce((sum: number, t: FlowTrace) => sum + t.dataSize, 0),
       }
 
       return {
         traces: response.data,
         pagination: response.pagination,
-        stats
+        stats,
       }
     } catch (error) {
       console.error('Failed to fetch flow traces:', error)
-      
+
       // Fall back to local mock data
       return this.getMockFlowTraces(params)
     }
@@ -196,15 +200,18 @@ export class FlowTracingService {
     }
   }
 
-  static async getTraceSession(sessionId: string, includeDetails = false): Promise<FlowTraceSession | null> {
+  static async getTraceSession(
+    sessionId: string,
+    includeDetails = false
+  ): Promise<FlowTraceSession | null> {
     try {
       const session = await apiClient.get<FlowTraceSession>(`/flow-traces/sessions/${sessionId}`, {
-        include_details: includeDetails
+        include_details: includeDetails,
       })
-      
+
       // Update cache
       this.sessionCache.set(sessionId, session)
-      
+
       return session
     } catch (error) {
       console.error(`Failed to fetch trace session ${sessionId}:`, error)
@@ -213,7 +220,7 @@ export class FlowTracingService {
   }
 
   static async replaySession(
-    sessionId: string, 
+    sessionId: string,
     options?: {
       preserveTimestamps?: boolean
       replaySpeed?: number
@@ -255,13 +262,13 @@ export class FlowTracingService {
       const analytics = await apiClient.get<FlowTraceAnalytics>('/flow-traces/analytics', {
         date_from: params?.dateFrom,
         date_to: params?.dateTo,
-        workflow_id: params?.workflowId
+        workflow_id: params?.workflowId,
       })
-      
+
       return analytics
     } catch (error) {
       console.error('Failed to fetch flow trace analytics:', error)
-      
+
       // Return mock analytics
       return this.getMockAnalytics()
     }
@@ -302,26 +309,33 @@ export class FlowTracingService {
   }
 
   // Query helper methods for filtering
-  static buildTimeFilter(hoursAgo?: number, dateFrom?: string, dateTo?: string): {
+  static buildTimeFilter(
+    hoursAgo?: number,
+    dateFrom?: string,
+    dateTo?: string
+  ): {
     dateFrom?: string
     dateTo?: string
   } {
     if (hoursAgo) {
-      const cutoff = new Date(Date.now() - (hoursAgo * 60 * 60 * 1000))
+      const cutoff = new Date(Date.now() - hoursAgo * 60 * 60 * 1000)
       return { dateFrom: cutoff.toISOString() }
     }
-    
+
     return {
       dateFrom: dateFrom,
-      dateTo: dateTo
+      dateTo: dateTo,
     }
   }
 
-  static async searchTraces(query: string, filters?: {
-    workflowId?: string
-    status?: string[]
-    dateRange?: { from: string; to: string }
-  }): Promise<FlowTrace[]> {
+  static async searchTraces(
+    query: string,
+    filters?: {
+      workflowId?: string
+      status?: string[]
+      dateRange?: { from: string; to: string }
+    }
+  ): Promise<FlowTrace[]> {
     try {
       const response = await this.getFlowTraces({
         search: query,
@@ -329,9 +343,9 @@ export class FlowTracingService {
         status: filters?.status,
         dateFrom: filters?.dateRange?.from,
         dateTo: filters?.dateRange?.to,
-        limit: 100
+        limit: 100,
       })
-      
+
       return response.traces
     } catch (error) {
       console.error('Failed to search flow traces:', error)
@@ -353,14 +367,17 @@ export class FlowTracingService {
   }
 
   static groupTracesByStatus(traces: FlowTrace[]): Record<string, FlowTrace[]> {
-    return traces.reduce((groups, trace) => {
-      const status = trace.status
-      if (!groups[status]) {
-        groups[status] = []
-      }
-      groups[status].push(trace)
-      return groups
-    }, {} as Record<string, FlowTrace[]>)
+    return traces.reduce(
+      (groups, trace) => {
+        const status = trace.status
+        if (!groups[status]) {
+          groups[status] = []
+        }
+        groups[status].push(trace)
+        return groups
+      },
+      {} as Record<string, FlowTrace[]>
+    )
   }
 
   // Mock data fallbacks
@@ -390,9 +407,9 @@ export class FlowTracingService {
           dataType: 'application/json',
           transformations: ['sanitize', 'validate'],
           retryCount: 0,
-          executionTime: 1250
-        }
-      }
+          executionTime: 1250,
+        },
+      },
     ]
 
     return {
@@ -404,8 +421,8 @@ export class FlowTracingService {
         errorCount: 0,
         pendingCount: 0,
         avgDuration: 1250,
-        totalDataSize: 2048
-      }
+        totalDataSize: 2048,
+      },
     }
   }
 
@@ -417,25 +434,25 @@ export class FlowTracingService {
         totalWorkflows: 5,
         successRate: 85,
         avgDuration: 1500,
-        totalDataProcessed: 524288
+        totalDataProcessed: 524288,
       },
       performance: {
         slowestTraces: [],
         fastestTraces: [],
         avgDurationByNode: {},
-        avgDurationByWorkflow: {}
+        avgDurationByWorkflow: {},
       },
       errors: {
         errorsByType: {},
         errorsByNode: {},
         errorsByWorkflow: {},
-        recentErrors: []
+        recentErrors: [],
       },
       trends: {
         dailyTraceCount: [],
         hourlyDistribution: {},
-        dataVolumeOverTime: []
-      }
+        dataVolumeOverTime: [],
+      },
     }
   }
 

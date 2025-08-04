@@ -13,26 +13,26 @@ interface PresenceIndicatorProps {
   className?: string
 }
 
-export function PresenceIndicator({ 
-  presence, 
-  isCollaborative, 
+export function PresenceIndicator({
+  presence,
+  isCollaborative,
   isSyncing,
   isOptimized = false,
   localClientId,
-  className = '' 
+  className = '',
 }: PresenceIndicatorProps) {
   // Debug presence data (only on client)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    
+
     console.log('[PresenceIndicator] Presence data:', {
       presenceSize: presence.size,
       localClientId,
       entries: Array.from(presence.entries()).map(([id, user]) => ({
         clientId: id,
         userId: user.userId,
-        userName: user.userName
-      }))
+        userName: user.userName,
+      })),
     })
   }, [presence, localClientId])
   // Add pulsate animation styles
@@ -96,7 +96,7 @@ export function PresenceIndicator({
       `
       document.head.appendChild(style)
     }
-    
+
     return () => {
       const style = document.getElementById(styleId)
       if (style && document.querySelectorAll('.status-pulsate').length === 0) {
@@ -104,54 +104,65 @@ export function PresenceIndicator({
       }
     }
   }, [])
-  
+
   if (!isCollaborative) return null
-  
+
   // Get local user ID to properly filter out all instances of current user
   const localUserId = presence.get(localClientId || 0)?.userId
-  
+
   // Debug local user filtering (only on client)
-  if (typeof window !== 'undefined') {
-    console.log('[PresenceIndicator] Filtering:', { localClientId, localUserId })
-  }
-  
-  // Filter out our own presence (current client only) - each tab has unique userId
-  const otherUsers = Array.from(presence.entries())
-    .filter(([clientId, user]) => clientId !== localClientId)
-    .map(([_, user]) => user)
-  
+  // if (typeof window !== 'undefined') {
+  //   console.log('[PresenceIndicator] Filtering:', {
+  //     localClientId,
+  //     localUserId,
+  //     allUsers: Array.from(presence.entries()).map(([id, user]) => ({
+  //       clientId: id,
+  //       userId: user.userId,
+  //       userName: user.userName,
+  //     })),
+  //   })
+  // }
+
+  // Filter out our own presence and deduplicate by userId
+  const otherUsers = Array.from(
+    Array.from(presence.entries())
+      .filter(([clientId, user]) => user.userId !== localUserId) // Filter by userId, not clientId
+      .reduce((unique, [clientId, user]) => {
+        // Only keep one instance per userId
+        if (!Array.from(unique.values()).some(u => u.userId === user.userId)) {
+          unique.set(clientId, user)
+        }
+        return unique
+      }, new Map<number, CRDTPresence>())
+      .values()
+  )
+
   return (
     <div className={`flex items-center gap-2 py-2  ${className}`}>
       {/* Connection Status */}
       <div className="flex items-center gap-2">
-        <div className={`status-pulsate-wrapper ${
-          isSyncing
-            ? 'text-yellow-500'
-            : isOptimized
-            ? 'text-blue-500'
-            : 'text-green-500'
-        }`}>
-          <Circle
-            className="w-2.5 h-2.5 status-pulsate"
-            fill="currentColor"
-          />
+        <div
+          className={`status-pulsate-wrapper ${
+            isSyncing ? 'text-yellow-500' : isOptimized ? 'text-blue-500' : 'text-green-500'
+          }`}
+        >
+          <Circle className="w-2.5 h-2.5 status-pulsate" fill="currentColor" />
         </div>
         <span className="text-xs font-medium text-gray-600">
           {isSyncing ? 'Syncing' : isOptimized ? '' : ''}
         </span>
       </div>
-      
+
       {/* User Count */}
       <div className="flex items-center gap-1.5">
         <Users className="w-3.5 h-3.5 text-gray-500" />
         <span className="text-xs font-medium text-gray-700">
-          {otherUsers.length === 0 
-            ? 'Just you' 
-            : `${otherUsers.length + 1} user${otherUsers.length === 0 ? '' : 's'}`
-          }
+          {otherUsers.length === 0
+            ? 'Just you'
+            : `${otherUsers.length + 1} user${otherUsers.length + 1 === 1 ? '' : 's'}`}
         </span>
       </div>
-      
+
       {/* User Avatars */}
       {otherUsers.length > 0 && (
         <div className="flex -space-x-2">
@@ -159,8 +170,8 @@ export function PresenceIndicator({
             <div
               key={user.userId}
               className="w-4 h-4 rounded-full  flex items-center justify-center text-xs font-medium text-white"
-              style={{ 
-                backgroundColor: user.userColor
+              style={{
+                backgroundColor: user.userColor,
               }}
               title={user.userName}
             >

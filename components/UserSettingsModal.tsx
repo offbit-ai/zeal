@@ -10,9 +10,18 @@ interface UserSettingsModalProps {
 }
 
 const colorOptions = [
-  '#ef4444', '#f59e0b', '#10b981', '#3b82f6',
-  '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-  '#f97316', '#14b8a6', '#a855f7', '#e11d48'
+  '#ef4444',
+  '#f59e0b',
+  '#10b981',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#84cc16',
+  '#f97316',
+  '#14b8a6',
+  '#a855f7',
+  '#e11d48',
 ]
 
 export function UserSettingsModal({ isOpen, onClose, onSave }: UserSettingsModalProps) {
@@ -31,7 +40,10 @@ export function UserSettingsModal({ isOpen, onClose, onSave }: UserSettingsModal
     const name = userName.trim() || 'Anonymous User'
     sessionStorage.setItem('userName', name)
     sessionStorage.setItem('userColor', userColor)
-    sessionStorage.setItem('userId', `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
+    sessionStorage.setItem(
+      'userId',
+      `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    )
     onSave(name, userColor)
     onClose()
   }
@@ -46,10 +58,7 @@ export function UserSettingsModal({ isOpen, onClose, onSave }: UserSettingsModal
             <User className="w-5 h-5" />
             User Settings
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-md"
-          >
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-md">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -57,13 +66,11 @@ export function UserSettingsModal({ isOpen, onClose, onSave }: UserSettingsModal
         <div className="space-y-4">
           {/* User Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Your Name
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
             <input
               type="text"
               value={userName}
-              onChange={(e) => setUserName(e.target.value)}
+              onChange={e => setUserName(e.target.value)}
               placeholder="Enter your name"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -71,11 +78,9 @@ export function UserSettingsModal({ isOpen, onClose, onSave }: UserSettingsModal
 
           {/* User Color */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Color
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Your Color</label>
             <div className="grid grid-cols-6 gap-2">
-              {colorOptions.map((color) => (
+              {colorOptions.map(color => (
                 <button
                   key={color}
                   onClick={() => setUserColor(color)}

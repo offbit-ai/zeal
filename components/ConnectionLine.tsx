@@ -7,13 +7,13 @@ interface ConnectionLineProps {
   color?: string
 }
 
-export function ConnectionLine({ 
-  startX, 
-  startY, 
-  endX, 
-  endY, 
+export function ConnectionLine({
+  startX,
+  startY,
+  endX,
+  endY,
   type = 'solid',
-  color = '#D1D5DB' 
+  color = '#D1D5DB',
 }: ConnectionLineProps) {
   // Create a curved path for smooth connections
   const midX = (startX + endX) / 2

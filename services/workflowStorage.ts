@@ -57,22 +57,22 @@ export class WorkflowStorageService {
       try {
         const data = localStorage.getItem(STORAGE_KEY)
         const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
-        
+
         // When saving a published workflow, we keep both the draft and published versions
         if (workflow.isPublished) {
           // Add as a new published version (keep the same ID)
           workflows.push(workflow)
         } else {
           // For drafts, update the existing draft or add new
-          const existingDraftIndex = workflows.findIndex(w => 
-            w.id === workflow.id && w.isDraft && !w.isPublished
+          const existingDraftIndex = workflows.findIndex(
+            w => w.id === workflow.id && w.isDraft && !w.isPublished
           )
-          
+
           if (existingDraftIndex >= 0) {
             // Update existing draft
             workflows[existingDraftIndex] = {
               ...workflow,
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
             }
           } else {
             // Add new draft - generate ID if needed
@@ -82,12 +82,12 @@ export class WorkflowStorageService {
             workflows.push(workflow)
           }
         }
-        
+
         localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows))
-        
+
         // Set as current workflow
         this.setCurrentWorkflowId(workflow.id)
-        
+
         // Return the workflow
         return workflow
       } catch (localError) {
@@ -101,7 +101,7 @@ export class WorkflowStorageService {
   static async deleteWorkflow(id: string): Promise<void> {
     try {
       await WorkflowService.deleteWorkflow(id)
-      
+
       // Clear current workflow if it was deleted
       if (this.getCurrentWorkflowId() === id) {
         this.clearCurrentWorkflowId()
@@ -114,7 +114,7 @@ export class WorkflowStorageService {
         const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
         const filtered = workflows.filter(w => w.id !== id)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
-        
+
         // Clear current workflow if it was deleted
         if (this.getCurrentWorkflowId() === id) {
           this.clearCurrentWorkflowId()
@@ -153,25 +153,27 @@ export class WorkflowStorageService {
       saveCount: 0,
       isDraft: true,
       isPublished: false,
-      graphs: [{
-        id: 'main',
-        name: 'Main',
-        namespace: 'main',
-        isMain: true,
-        nodes: [],
-        connections: [],
-        groups: []
-      }],
+      graphs: [
+        {
+          id: 'main',
+          name: 'Main',
+          namespace: 'main',
+          isMain: true,
+          nodes: [],
+          connections: [],
+          groups: [],
+        },
+      ],
       metadata: {
         version: '1.0.0',
         tags: ['draft'],
         totalNodeCount: 0,
         totalConnectionCount: 0,
         totalGroupCount: 0,
-        graphCount: 1
-      }
+        graphCount: 1,
+      },
     }
-    
+
     // Create new workflow via API - let backend generate ID
     const created = await WorkflowService.createWorkflow(workflow)
     return created
@@ -180,7 +182,11 @@ export class WorkflowStorageService {
   // Get workflow history (for future use)
   static async getWorkflowHistory(limit: number = 10): Promise<WorkflowSnapshot[]> {
     try {
-      const response = await WorkflowService.getWorkflows({ limit, sortBy: 'updatedAt', sortOrder: 'desc' })
+      const response = await WorkflowService.getWorkflows({
+        limit,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      })
       return response.workflows
     } catch (error) {
       console.error('Error loading workflow history from API, falling back to localStorage:', error)
@@ -204,10 +210,11 @@ export class WorkflowStorageService {
       const data = localStorage.getItem(STORAGE_KEY)
       const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
       const lowerQuery = query.toLowerCase()
-      
-      return workflows.filter(w => 
-        w.name.toLowerCase().includes(lowerQuery) ||
-        (w.description && w.description.toLowerCase().includes(lowerQuery))
+
+      return workflows.filter(
+        w =>
+          w.name.toLowerCase().includes(lowerQuery) ||
+          (w.description && w.description.toLowerCase().includes(lowerQuery))
       )
     }
   }
@@ -216,7 +223,7 @@ export class WorkflowStorageService {
   static async exportWorkflow(id: string): Promise<string | null> {
     const workflow = await this.getWorkflow(id)
     if (!workflow) return null
-    
+
     return JSON.stringify(workflow, null, 2)
   }
 
@@ -229,7 +236,7 @@ export class WorkflowStorageService {
       workflow.createdAt = new Date().toISOString()
       workflow.updatedAt = new Date().toISOString()
       workflow.name = `${workflow.name} (Imported)`
-      
+
       await this.saveWorkflow(workflow)
       return workflow
     } catch (error) {
@@ -245,9 +252,9 @@ export class WorkflowStorageService {
     } catch (error) {
       console.error('Error publishing workflow via API, falling back to localStorage:', error)
       // Fallback to localStorage
-        const workflow = await this.getWorkflow(workflowId)
+      const workflow = await this.getWorkflow(workflowId)
       if (!workflow) return null
-      
+
       const now = new Date().toISOString()
       const publishedWorkflow: WorkflowSnapshot = {
         ...workflow,
@@ -256,9 +263,9 @@ export class WorkflowStorageService {
         publishedAt: now,
         updatedAt: now,
         lastSavedAt: now,
-        saveCount: workflow.saveCount + 1
+        saveCount: workflow.saveCount + 1,
       }
-      
+
       await this.saveWorkflow(publishedWorkflow)
       return publishedWorkflow
     }
@@ -288,15 +295,18 @@ export class WorkflowStorageService {
   }
 
   // Rollback to a specific version
-  static async rollbackToVersion(workflowId: string, versionTimestamp: string): Promise<WorkflowSnapshot | null> {
+  static async rollbackToVersion(
+    workflowId: string,
+    versionTimestamp: string
+  ): Promise<WorkflowSnapshot | null> {
     const versions = await this.getWorkflowVersions(workflowId)
     const targetVersion = versions.find(v => v.updatedAt === versionTimestamp)
-    
+
     if (!targetVersion || !targetVersion.isPublished) {
       console.error('Can only rollback to published versions')
       return null
     }
-    
+
     // Create a new draft based on the published version
     const now = new Date().toISOString()
     const rolledBackWorkflow: WorkflowSnapshot = {
@@ -307,19 +317,19 @@ export class WorkflowStorageService {
       updatedAt: now,
       lastSavedAt: now,
       saveCount: 0, // Reset save count for the new draft
-      name: targetVersion.name // Keep the same name
+      name: targetVersion.name, // Keep the same name
     }
-    
+
     // Remove any existing draft for this workflow ID
     const workflows = await this.getAllWorkflows()
-    const filteredWorkflows = workflows.filter(w => 
-      !(w.id === workflowId && w.isDraft && !w.isPublished)
+    const filteredWorkflows = workflows.filter(
+      w => !(w.id === workflowId && w.isDraft && !w.isPublished)
     )
     filteredWorkflows.push(rolledBackWorkflow)
-    
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredWorkflows))
     this.setCurrentWorkflowId(workflowId)
-    
+
     return rolledBackWorkflow
   }
 }

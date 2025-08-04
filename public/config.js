@@ -8,10 +8,11 @@ window.__ZEAL_CONFIG__ = {
   // - Same domain: "wss://yourdomain.com/ws"
   // - Subdomain: "wss://crdt.yourdomain.com"
   // - Local: "ws://localhost:8080"
-  CRDT_SERVER_URL: window.location.protocol === 'https:' 
-    ? `wss://${window.location.host}/ws`
-    : `ws://${window.location.hostname}:8080`,
-  
+  CRDT_SERVER_URL:
+    window.location.protocol === 'https:'
+      ? `wss://${window.location.host}/ws`
+      : `ws://${window.location.hostname}:8080`,
+
   // Enable real-time collaboration
-  ENABLE_COLLABORATION: true
-};
+  ENABLE_COLLABORATION: true,
+}

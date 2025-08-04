@@ -5,16 +5,15 @@
 
 export function initializeConsoleOverride() {
   // Check if console logs should be disabled
-  const shouldDisable = 
-    process.env.NODE_ENV === 'production' || 
-    process.env.NEXT_PUBLIC_DISABLE_CONSOLE_LOGS === 'true'
+  const shouldDisable =
+    process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_DISABLE_CONSOLE_LOGS === 'true'
 
   if (shouldDisable && typeof window !== 'undefined') {
     // Save original console methods for critical logs
     const originalLog = window.console.log
     const originalWarn = window.console.warn
     const originalError = window.console.error
-    
+
     // Create no-op function
     const noop = () => {}
 
@@ -22,26 +21,32 @@ export function initializeConsoleOverride() {
     window.console.log = (...args: any[]) => {
       // Allow critical CRDT and connection logs
       const message = args[0]?.toString() || ''
-      if (message.includes('[Rust CRDT]') && 
-          (message.includes('error') || 
-           message.includes('Error') || 
-           message.includes('Connection') ||
-           message.includes('disconnected'))) {
+      if (
+        message.includes('[Rust CRDT]') &&
+        (message.includes('error') ||
+          message.includes('Error') ||
+          message.includes('Connection') ||
+          message.includes('disconnected'))
+      ) {
         originalLog(...args)
       }
     }
-    
+
     window.console.debug = noop
     window.console.info = noop
-    
+
     // Keep warnings for connection issues
     window.console.warn = (...args: any[]) => {
       const message = args[0]?.toString() || ''
-      if (message.includes('[Rust CRDT]') || message.includes('connection') || message.includes('sync')) {
+      if (
+        message.includes('[Rust CRDT]') ||
+        message.includes('connection') ||
+        message.includes('sync')
+      ) {
         originalWarn(...args)
       }
     }
-    
+
     // Always keep console.error
     // window.console.error = noop
 

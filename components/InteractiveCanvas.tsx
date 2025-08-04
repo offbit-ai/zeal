@@ -24,8 +24,8 @@ interface InteractiveCanvasProps {
   onContextMenu?: (e: MouseEvent) => void
 }
 
-export function InteractiveCanvas({ 
-  children, 
+export function InteractiveCanvas({
+  children,
   gridSize = 20,
   dotSize = 1,
   dotColor = '#d1d5db',
@@ -40,7 +40,7 @@ export function InteractiveCanvas({
   onSelectionEnd,
   onSelectionClear,
   onMouseMove,
-  onContextMenu
+  onContextMenu,
 }: InteractiveCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isPanning, setIsPanning] = useState(false)
@@ -48,7 +48,7 @@ export function InteractiveCanvas({
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 })
   const [internalOffset, setInternalOffset] = useState({ x: 0, y: 0 })
   const [internalZoom, setInternalZoom] = useState(1)
-  
+
   const offset = externalOffset || internalOffset
   const zoom = externalZoom || internalZoom
 
@@ -69,33 +69,38 @@ export function InteractiveCanvas({
     // Detect if user is on macOS
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
     const hasModifier = isMac ? e.metaKey : e.ctrlKey
-    
+
     // Check if clicking on the canvas background (not on a node or group)
     const target = e.target as HTMLElement
     const isGroupClick = target.closest('[data-group-container]') !== null
     const isNodeClick = target.closest('[data-draggable-node]') !== null
-    const isCanvasClick = !isGroupClick && !isNodeClick && (target === canvasRef.current || 
-                         target.getAttribute('data-canvas') === 'true' ||
-                         (target.classList.contains('absolute') && target.classList.contains('inset-0') && !target.closest('[data-draggable-node]')))
-    
+    const isCanvasClick =
+      !isGroupClick &&
+      !isNodeClick &&
+      (target === canvasRef.current ||
+        target.getAttribute('data-canvas') === 'true' ||
+        (target.classList.contains('absolute') &&
+          target.classList.contains('inset-0') &&
+          !target.closest('[data-draggable-node]')))
+
     // If clicking on a node, don't handle the event
     if (isNodeClick) {
       // [InteractiveCanvas] log removed
       return
     }
-    
+
     if (isCanvasClick) {
       // Clear selection if clicking on empty space without modifier keys
       if (e.button === 0 && !e.shiftKey && !hasModifier) {
         onSelectionClear?.()
       }
-      
+
       // Pan with middle mouse button or left button + modifier key on canvas
       if (e.button === 1 || (e.button === 0 && hasModifier)) {
         setIsPanning(true)
         setStartPoint({
           x: e.clientX - offset.x,
-          y: e.clientY - offset.y
+          y: e.clientY - offset.y,
         })
         e.preventDefault()
       }
@@ -106,7 +111,7 @@ export function InteractiveCanvas({
           // Convert screen coordinates to canvas coordinates
           const canvasX = (e.clientX - rect.left - offset.x) / zoom
           const canvasY = (e.clientY - rect.top - offset.y) / zoom
-          
+
           setIsSelecting(true)
           setStartPoint({ x: canvasX, y: canvasY })
           onSelectionStart?.({ x: canvasX, y: canvasY })
@@ -125,11 +130,11 @@ export function InteractiveCanvas({
       const canvasY = (e.clientY - rect.top - offset.y) / zoom
       onMouseMove({ x: canvasX, y: canvasY })
     }
-    
+
     if (isPanning) {
       const newOffset = {
         x: e.clientX - startPoint.x,
-        y: e.clientY - startPoint.y
+        y: e.clientY - startPoint.y,
       }
       if (onOffsetChange) {
         onOffsetChange(newOffset)
@@ -142,7 +147,7 @@ export function InteractiveCanvas({
         // Convert screen coordinates to canvas coordinates
         const canvasX = (e.clientX - rect.left - offset.x) / zoom
         const canvasY = (e.clientY - rect.top - offset.y) / zoom
-        
+
         onSelectionUpdate?.({ x: canvasX, y: canvasY })
       }
     }
@@ -160,38 +165,38 @@ export function InteractiveCanvas({
 
   const handleWheel = (e: WheelEvent) => {
     e.preventDefault()
-    
+
     // Detect if user is on macOS
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
     const hasModifier = isMac ? e.metaKey : e.ctrlKey
-    
+
     if (hasModifier) {
       // Zoom with Cmd + wheel on Mac, Ctrl + wheel on Windows/Linux
       const rect = canvasRef.current?.getBoundingClientRect()
       if (!rect) return
-      
+
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
-      
+
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
       const newZoom = Math.max(minZoom, Math.min(maxZoom, zoom * zoomFactor))
-      
+
       if (newZoom !== zoom) {
         // Calculate zoom point to maintain mouse position
         const zoomPointX = (mouseX - offset.x) / zoom
         const zoomPointY = (mouseY - offset.y) / zoom
-        
+
         const newOffset = {
           x: mouseX - zoomPointX * newZoom,
-          y: mouseY - zoomPointY * newZoom
+          y: mouseY - zoomPointY * newZoom,
         }
-        
+
         if (onZoomChange) {
           onZoomChange(newZoom)
         } else {
           setInternalZoom(newZoom)
         }
-        
+
         if (onOffsetChange) {
           onOffsetChange(newOffset)
         } else {
@@ -202,7 +207,7 @@ export function InteractiveCanvas({
       // Pan with mouse wheel
       const newOffset = {
         x: offset.x - e.deltaX,
-        y: offset.y - e.deltaY
+        y: offset.y - e.deltaY,
       }
       if (onOffsetChange) {
         onOffsetChange(newOffset)
@@ -233,7 +238,7 @@ export function InteractiveCanvas({
   const backgroundPositionY = offset.y % scaledGridSize
 
   return (
-    <div 
+    <div
       ref={canvasRef}
       className="relative w-full h-full overflow-hidden bg-gray-100"
       data-canvas="true"
@@ -243,26 +248,26 @@ export function InteractiveCanvas({
       onWheel={handleWheel}
       onContextMenu={onContextMenu}
       style={{
-        cursor: isPanning ? 'grabbing' : isSelecting ? 'crosshair' : 'default'
+        cursor: isPanning ? 'grabbing' : isSelecting ? 'crosshair' : 'default',
       }}
     >
       {/* Infinite grid background */}
-      <div 
+      <div
         className="absolute inset-0"
         style={{
           backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svgPattern)}")`,
           backgroundPosition: `${backgroundPositionX}px ${backgroundPositionY}px`,
           backgroundSize: `${scaledGridSize}px ${scaledGridSize}px`,
-          opacity: 0.7
+          opacity: 0.7,
         }}
       />
-      
+
       {/* Content container that moves with pan and scales with zoom */}
-      <div 
+      <div
         className="absolute inset-0"
         style={{
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-          transformOrigin: '0 0'
+          transformOrigin: '0 0',
         }}
       >
         {children}

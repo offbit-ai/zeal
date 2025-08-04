@@ -19,11 +19,13 @@ This document provides comprehensive documentation for all node templates in the
 ## AI Models
 
 ### LangChain Agent (`tpl_langchain_agent`)
+
 **Type:** `ai-agent` | **Category:** `ai-models` | **Subcategory:** `agent-tools`
 
 AI agent with access to multiple tools for complex reasoning and action execution.
 
 #### Properties
+
 - **agentType** (select): Agent reasoning type
   - Options: `zero-shot-react`, `conversational`, `plan-and-execute`
   - Default: `zero-shot-react`
@@ -36,22 +38,25 @@ AI agent with access to multiple tools for complex reasoning and action executio
   - Default: `true`
 
 #### Property Rules
+
 **Triggers:** `agentType`
 
-| Agent Type | Title | Subtitle | Description |
-|------------|-------|----------|-------------|
-| `zero-shot-react` | ReAct Agent | Reasoning + Acting | Agent that reasons about actions and observes results |
-| `conversational` | Conversational Agent | Memory-Aware | Agent that maintains conversation context |
-| `plan-and-execute` | Planning Agent | Strategic Execution | Agent that plans tasks before execution |
+| Agent Type         | Title                | Subtitle            | Description                                           |
+| ------------------ | -------------------- | ------------------- | ----------------------------------------------------- |
+| `zero-shot-react`  | ReAct Agent          | Reasoning + Acting  | Agent that reasons about actions and observes results |
+| `conversational`   | Conversational Agent | Memory-Aware        | Agent that maintains conversation context             |
+| `plan-and-execute` | Planning Agent       | Strategic Execution | Agent that plans tasks before execution               |
 
 ---
 
 ### Claude (`tpl_claude`)
+
 **Type:** `ai-model` | **Category:** `ai-models` | **Subcategory:** `llm`
 
 Anthropic Claude AI assistant for text generation and analysis.
 
 #### Properties
+
 - **model** (select): Claude model version
   - Options: `claude-3-5-sonnet`, `claude-3-opus`, `claude-3-sonnet`, `claude-3-haiku`
   - Default: `claude-3-5-sonnet`
@@ -63,23 +68,26 @@ Anthropic Claude AI assistant for text generation and analysis.
 - **responseRules** (rules): Process and route AI responses based on content analysis
 
 #### Property Rules
+
 **Triggers:** `model`
 
-| Model | Title | Subtitle | Description |
-|-------|-------|----------|-------------|
-| `claude-3-5-sonnet` | Claude 3.5 Sonnet | Most Intelligent | Most capable Claude model with advanced reasoning |
-| `claude-3-opus` | Claude 3 Opus | Powerful & Complex | Excellent at complex tasks requiring deep understanding |
-| `claude-3-sonnet` | Claude 3 Sonnet | Balanced Performance | Good balance of capability and speed |
-| `claude-3-haiku` | Claude 3 Haiku | Fast & Light | Fastest Claude model for simple tasks |
+| Model               | Title             | Subtitle             | Description                                             |
+| ------------------- | ----------------- | -------------------- | ------------------------------------------------------- |
+| `claude-3-5-sonnet` | Claude 3.5 Sonnet | Most Intelligent     | Most capable Claude model with advanced reasoning       |
+| `claude-3-opus`     | Claude 3 Opus     | Powerful & Complex   | Excellent at complex tasks requiring deep understanding |
+| `claude-3-sonnet`   | Claude 3 Sonnet   | Balanced Performance | Good balance of capability and speed                    |
+| `claude-3-haiku`    | Claude 3 Haiku    | Fast & Light         | Fastest Claude model for simple tasks                   |
 
 ---
 
 ### OpenAI GPT (`tpl_openai_gpt`)
+
 **Type:** `ai-model` | **Category:** `ai-models` | **Subcategory:** `llm`
 
 OpenAI GPT models for text generation and analysis.
 
 #### Properties
+
 - **model** (select): GPT model version
   - Options: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`
   - Default: `gpt-4`
@@ -92,22 +100,25 @@ OpenAI GPT models for text generation and analysis.
 - **systemPrompt** (textarea): System message to guide model behavior
 
 #### Property Rules
+
 **Triggers:** `model`
 
-| Model | Title | Subtitle | Description |
-|-------|-------|----------|-------------|
-| `gpt-4` | GPT-4 | Most Capable | OpenAI most advanced language model |
-| `gpt-4-turbo` | GPT-4 Turbo | Fast & Advanced | Faster GPT-4 with larger context window |
-| `gpt-3.5-turbo` | GPT-3.5 Turbo | Fast & Affordable | Cost-effective model for simpler tasks |
+| Model           | Title         | Subtitle          | Description                             |
+| --------------- | ------------- | ----------------- | --------------------------------------- |
+| `gpt-4`         | GPT-4         | Most Capable      | OpenAI most advanced language model     |
+| `gpt-4-turbo`   | GPT-4 Turbo   | Fast & Advanced   | Faster GPT-4 with larger context window |
+| `gpt-3.5-turbo` | GPT-3.5 Turbo | Fast & Affordable | Cost-effective model for simpler tasks  |
 
 ---
 
 ### Gemini (`tpl_gemini`)
+
 **Type:** `ai-model` | **Category:** `ai-models` | **Subcategory:** `llm`
 
 Google Gemini for multimodal AI tasks.
 
 #### Properties
+
 - **model** (select): Gemini model type
   - Options: `gemini-pro`, `gemini-pro-vision`
   - Default: `gemini-pro`
@@ -120,21 +131,24 @@ Google Gemini for multimodal AI tasks.
   - Default: `block_few`
 
 #### Property Rules
+
 **Triggers:** `model`
 
-| Model | Title | Subtitle | Description |
-|-------|-------|----------|-------------|
-| `gemini-pro` | Gemini Pro | Text Generation | Google's advanced text generation model |
-| `gemini-pro-vision` | Gemini Pro Vision | Multimodal AI | Process both text and images |
+| Model               | Title             | Subtitle        | Description                             |
+| ------------------- | ----------------- | --------------- | --------------------------------------- |
+| `gemini-pro`        | Gemini Pro        | Text Generation | Google's advanced text generation model |
+| `gemini-pro-vision` | Gemini Pro Vision | Multimodal AI   | Process both text and images            |
 
 ---
 
 ### OpenRouter (`tpl_openrouter`)
+
 **Type:** `ai-model` | **Category:** `ai-models` | **Subcategory:** `llm`
 
 Access multiple AI models through OpenRouter unified API.
 
 #### Properties
+
 - **provider** (select): AI model provider
   - Options: `openai`, `anthropic`, `google`, `meta`, `mistral`, `cohere`
   - Default: `openai`
@@ -148,15 +162,18 @@ Access multiple AI models through OpenRouter unified API.
   - Default: `false`
 
 #### Property Rules
+
 **Triggers:** `provider`, `model`
 
 **Compound Rules (provider && model):**
+
 - `openai && gpt-4-turbo` → "OpenRouter GPT-4" / "GPT-4 Turbo" (green-600, openai icon)
 - `anthropic && claude-3-opus` → "OpenRouter Claude" / "Claude 3 Opus" (black, anthropic icon)
 - `google && gemini-pro` → "OpenRouter Gemini" / "Gemini Pro" (blue-600, gemini icon)
-- *...and many more combinations*
+- _...and many more combinations_
 
 **Simple Rules (provider only):**
+
 - `openai` → green-600 variant, openai icon
 - `anthropic` → black variant, anthropic icon
 - `google` → blue-600 variant, gemini icon
@@ -167,11 +184,13 @@ Access multiple AI models through OpenRouter unified API.
 ---
 
 ### HuggingFace (`tpl_huggingface`)
+
 **Type:** `ai-model` | **Category:** `ai-models` | **Subcategory:** `llm`
 
 Access thousands of open-source models via HuggingFace Inference API.
 
 #### Properties
+
 - **taskType** (select): Type of AI task to perform
   - Options: `text-generation`, `text-classification`, `translation`, `summarization`, `question-answering`, `image-classification`, `object-detection`, `text-to-image`
   - Default: `text-generation`
@@ -184,29 +203,32 @@ Access thousands of open-source models via HuggingFace Inference API.
   - Default: `100`
 
 #### Property Rules
+
 **Triggers:** `taskType`
 
-| Task Type | Title | Subtitle | Icon | Variant | Description |
-|-----------|-------|----------|------|---------|-------------|
-| `text-generation` | HF Text Generation | Generate Text | file-text | yellow-600 | Generate text using language models |
-| `text-classification` | HF Classification | Classify Text | tag | green-600 | Classify text into categories |
-| `translation` | HF Translation | Translate Text | globe | blue-600 | Translate text between languages |
-| `summarization` | HF Summarization | Summarize Text | file-minus | purple-600 | Generate text summaries |
-| `question-answering` | HF Q&A | Answer Questions | help-circle | indigo-600 | Answer questions based on context |
-| `image-classification` | HF Image Classifier | Classify Images | image | pink-600 | Classify images into categories |
-| `object-detection` | HF Object Detection | Detect Objects | scan | red-600 | Detect objects in images |
-| `text-to-image` | HF Image Generation | Generate Images | image-plus | orange-600 | Generate images from text descriptions |
+| Task Type              | Title               | Subtitle         | Icon        | Variant    | Description                            |
+| ---------------------- | ------------------- | ---------------- | ----------- | ---------- | -------------------------------------- |
+| `text-generation`      | HF Text Generation  | Generate Text    | file-text   | yellow-600 | Generate text using language models    |
+| `text-classification`  | HF Classification   | Classify Text    | tag         | green-600  | Classify text into categories          |
+| `translation`          | HF Translation      | Translate Text   | globe       | blue-600   | Translate text between languages       |
+| `summarization`        | HF Summarization    | Summarize Text   | file-minus  | purple-600 | Generate text summaries                |
+| `question-answering`   | HF Q&A              | Answer Questions | help-circle | indigo-600 | Answer questions based on context      |
+| `image-classification` | HF Image Classifier | Classify Images  | image       | pink-600   | Classify images into categories        |
+| `object-detection`     | HF Object Detection | Detect Objects   | scan        | red-600    | Detect objects in images               |
+| `text-to-image`        | HF Image Generation | Generate Images  | image-plus  | orange-600 | Generate images from text descriptions |
 
 ---
 
 ## Communication
 
 ### Email Sender (`tpl_email_sender`)
+
 **Type:** `communication` | **Category:** `communication` | **Subcategory:** `email`
 
 Send emails via SMTP or email service providers.
 
 #### Properties
+
 - **provider** (select): Email service provider
   - Options: `smtp`, `sendgrid`, `mailgun`, `ses`
   - Default: `smtp`
@@ -218,25 +240,28 @@ Send emails via SMTP or email service providers.
   - Default: `none`
 
 #### Property Rules
+
 **Triggers:** `provider`, `templateEngine`
 
-| Provider | Title | Subtitle | Description | Required Env Vars |
-|----------|-------|----------|-------------|-------------------|
-| `smtp` | SMTP Email | Direct SMTP | Send emails via SMTP server | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` |
-| `sendgrid` | SendGrid Email | Cloud Email Service | Send emails via SendGrid API | `SENDGRID_API_KEY` |
-| `mailgun` | Mailgun Email | Email API Service | Send emails via Mailgun API | `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` |
-| `ses` | Amazon SES | AWS Email Service | Send emails via Amazon SES | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` |
+| Provider   | Title          | Subtitle            | Description                  | Required Env Vars                                          |
+| ---------- | -------------- | ------------------- | ---------------------------- | ---------------------------------------------------------- |
+| `smtp`     | SMTP Email     | Direct SMTP         | Send emails via SMTP server  | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`     |
+| `sendgrid` | SendGrid Email | Cloud Email Service | Send emails via SendGrid API | `SENDGRID_API_KEY`                                         |
+| `mailgun`  | Mailgun Email  | Email API Service   | Send emails via Mailgun API  | `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`                        |
+| `ses`      | Amazon SES     | AWS Email Service   | Send emails via Amazon SES   | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` |
 
 ---
 
 ## Data Processing
 
 ### Apache Arrow (`tpl_arrow_operations`)
+
 **Type:** `arrow` | **Category:** `data-processing` | **Subcategory:** `aggregators`
 
 Process data using Apache Arrow columnar format for high-performance operations.
 
 #### Properties
+
 - **operation** (select): Arrow operation type
   - Options: `convert`, `filter`, `aggregate`, `join`, `sort`
   - Default: `convert`
@@ -249,24 +274,27 @@ Process data using Apache Arrow columnar format for high-performance operations.
   - Default: `true`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `convert` | Arrow Convert | Data Conversion | Convert data to Apache Arrow columnar format |
-| `filter` | Arrow Filter | Filter Rows | Filter rows using Apache Arrow operations |
-| `aggregate` | Arrow Aggregate | Aggregate Data | Perform aggregations using Apache Arrow |
-| `join` | Arrow Join | Join Tables | Join datasets using Apache Arrow operations |
-| `sort` | Arrow Sort | Sort Data | Sort data using Apache Arrow operations |
+| Operation   | Title           | Subtitle        | Description                                  |
+| ----------- | --------------- | --------------- | -------------------------------------------- |
+| `convert`   | Arrow Convert   | Data Conversion | Convert data to Apache Arrow columnar format |
+| `filter`    | Arrow Filter    | Filter Rows     | Filter rows using Apache Arrow operations    |
+| `aggregate` | Arrow Aggregate | Aggregate Data  | Perform aggregations using Apache Arrow      |
+| `join`      | Arrow Join      | Join Tables     | Join datasets using Apache Arrow operations  |
+| `sort`      | Arrow Sort      | Sort Data       | Sort data using Apache Arrow operations      |
 
 ---
 
 ### CSV Reader (`tpl_csv_reader`)
+
 **Type:** `reader` | **Category:** `data-processing` | **Subcategory:** `transformers`
 
 Read and parse CSV files with configurable options.
 
 #### Properties
+
 - **delimiter** (select): Field separator
   - Options: `,`, `;`, `\t`, `|`
   - Default: `,`
@@ -280,25 +308,28 @@ Read and parse CSV files with configurable options.
 - **dateFormat** (text): Date parsing format
 
 #### Property Rules
+
 **Triggers:** `delimiter`, `encoding`
 
-| Delimiter | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `,` | CSV Reader | Comma Separated | Read comma-separated values file |
-| `;` | CSV Reader | Semicolon Separated | Read semicolon-separated values file |
-| `\t` | TSV Reader | Tab Separated | Read tab-separated values file |
-| `|` | PSV Reader | Pipe Separated | Read pipe-separated values file |
+| Delimiter | Title      | Subtitle            | Description                          |
+| --------- | ---------- | ------------------- | ------------------------------------ | ------------------------------- |
+| `,`       | CSV Reader | Comma Separated     | Read comma-separated values file     |
+| `;`       | CSV Reader | Semicolon Separated | Read semicolon-separated values file |
+| `\t`      | TSV Reader | Tab Separated       | Read tab-separated values file       |
+| `         | `          | PSV Reader          | Pipe Separated                       | Read pipe-separated values file |
 
 ---
 
 ## Data Sources
 
 ### GitHub API (`tpl_github_api`)
+
 **Type:** `api` | **Category:** `data-sources` | **Subcategory:** `apis`
 
 Interact with GitHub repositories and data.
 
 #### Properties
+
 - **operation** (select): GitHub API operation
   - Options: `get-repo`, `list-issues`, `create-issue`, `get-pr`, `list-commits`
   - Default: `get-repo`
@@ -308,24 +339,27 @@ Interact with GitHub repositories and data.
   - Default: `30`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `get-repo` | GitHub Repo | Repository Info | Get repository information |
-| `list-issues` | GitHub Issues | List Issues | List repository issues |
-| `create-issue` | GitHub Create Issue | New Issue | Create new repository issue |
-| `get-pr` | GitHub PR | Pull Request | Get pull request information |
-| `list-commits` | GitHub Commits | Commit History | List repository commits |
+| Operation      | Title               | Subtitle        | Description                  |
+| -------------- | ------------------- | --------------- | ---------------------------- |
+| `get-repo`     | GitHub Repo         | Repository Info | Get repository information   |
+| `list-issues`  | GitHub Issues       | List Issues     | List repository issues       |
+| `create-issue` | GitHub Create Issue | New Issue       | Create new repository issue  |
+| `get-pr`       | GitHub PR           | Pull Request    | Get pull request information |
+| `list-commits` | GitHub Commits      | Commit History  | List repository commits      |
 
 ---
 
 ### HubSpot (`tpl_hubspot`)
+
 **Type:** `crm` | **Category:** `data-sources` | **Subcategory:** `apis`
 
 Interact with HubSpot CRM and Marketing Hub.
 
 #### Properties
+
 - **objectType** (select): HubSpot object type
   - Options: `contacts`, `companies`, `deals`, `tickets`
   - Default: `contacts`
@@ -337,24 +371,27 @@ Interact with HubSpot CRM and Marketing Hub.
   - Default: `false`
 
 #### Property Rules
+
 **Triggers:** `operation`, `objectType`
 
-| Operation | Subtitle |
-|-----------|----------|
-| `get` | Get Records |
-| `create` | Create Records |
-| `update` | Update Records |
-| `search` | Search Records |
-| `batch` | Batch Operations |
+| Operation | Subtitle         |
+| --------- | ---------------- |
+| `get`     | Get Records      |
+| `create`  | Create Records   |
+| `update`  | Update Records   |
+| `search`  | Search Records   |
+| `batch`   | Batch Operations |
 
 ---
 
 ### Salesforce (`tpl_salesforce`)
+
 **Type:** `crm` | **Category:** `data-sources` | **Subcategory:** `apis`
 
 Interact with Salesforce CRM.
 
 #### Properties
+
 - **operation** (select): Salesforce operation
   - Options: `query`, `insert`, `update`, `delete`, `upsert`
   - Default: `query`
@@ -365,24 +402,27 @@ Interact with Salesforce CRM.
 - **externalIdField** (text): External ID field for upserts
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `query` | SOQL Query | Query Records | Execute SOQL queries on Salesforce |
-| `insert` | SF Insert | Create Records | Insert new records into Salesforce |
-| `update` | SF Update | Update Records | Update existing Salesforce records |
-| `delete` | SF Delete | Remove Records | Delete records from Salesforce |
-| `upsert` | SF Upsert | Insert or Update | Insert new or update existing records |
+| Operation | Title      | Subtitle         | Description                           |
+| --------- | ---------- | ---------------- | ------------------------------------- |
+| `query`   | SOQL Query | Query Records    | Execute SOQL queries on Salesforce    |
+| `insert`  | SF Insert  | Create Records   | Insert new records into Salesforce    |
+| `update`  | SF Update  | Update Records   | Update existing Salesforce records    |
+| `delete`  | SF Delete  | Remove Records   | Delete records from Salesforce        |
+| `upsert`  | SF Upsert  | Insert or Update | Insert new or update existing records |
 
 ---
 
 ### MongoDB Collection (`tpl_mongo_get_collection`)
+
 **Type:** `mongo-operation` | **Category:** `data-sources` | **Subcategory:** `databases`
 
 Retrieve documents from MongoDB collection.
 
 #### Properties
+
 - **collection** (text, required): Collection name
 - **operation** (select): MongoDB operation
   - Options: `find`, `findOne`, `aggregate`
@@ -393,22 +433,25 @@ Retrieve documents from MongoDB collection.
 - **projection** (textarea): Field projection (JSON)
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `find` | MongoDB Find | Query Documents | Find multiple documents matching query |
-| `findOne` | MongoDB Find One | Single Document | Find first document matching query |
+| Operation   | Title             | Subtitle            | Description                            |
+| ----------- | ----------------- | ------------------- | -------------------------------------- |
+| `find`      | MongoDB Find      | Query Documents     | Find multiple documents matching query |
+| `findOne`   | MongoDB Find One  | Single Document     | Find first document matching query     |
 | `aggregate` | MongoDB Aggregate | Pipeline Processing | Run aggregation pipeline on collection |
 
 ---
 
 ### AWS S3 (`tpl_s3_storage`)
+
 **Type:** `storage` | **Category:** `data-sources` | **Subcategory:** `files`
 
 Store and retrieve files from AWS S3.
 
 #### Properties
+
 - **bucket** (text, required): S3 bucket name
 - **operation** (select): S3 operation
   - Options: `upload`, `download`, `delete`, `list`
@@ -421,23 +464,26 @@ Store and retrieve files from AWS S3.
   - Default: `STANDARD`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `upload` | S3 Upload | Upload File | Upload file to S3 bucket |
+| Operation  | Title       | Subtitle      | Description                  |
+| ---------- | ----------- | ------------- | ---------------------------- |
+| `upload`   | S3 Upload   | Upload File   | Upload file to S3 bucket     |
 | `download` | S3 Download | Download File | Download file from S3 bucket |
-| `delete` | S3 Delete | Delete Object | Delete object from S3 bucket |
-| `list` | S3 List | List Objects | List objects in S3 bucket |
+| `delete`   | S3 Delete   | Delete Object | Delete object from S3 bucket |
+| `list`     | S3 List     | List Objects  | List objects in S3 bucket    |
 
 ---
 
 ### Google Sheets (`tpl_google_sheets`)
+
 **Type:** `spreadsheet` | **Category:** `data-sources` | **Subcategory:** `files`
 
 Interact with Google Sheets for data operations.
 
 #### Properties
+
 - **spreadsheetId** (text, required): Google Sheets ID
 - **operation** (select): Sheets operation
   - Options: `read`, `write`, `append`, `clear`
@@ -449,25 +495,28 @@ Interact with Google Sheets for data operations.
   - Default: `USER_ENTERED`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `read` | Sheets Read | Read Data | Read data from Google Sheets |
-| `write` | Sheets Write | Write Data | Write data to Google Sheets |
-| `append` | Sheets Append | Add Rows | Append new rows to Google Sheets |
-| `clear` | Sheets Clear | Clear Data | Clear data from Google Sheets |
+| Operation | Title         | Subtitle   | Description                      |
+| --------- | ------------- | ---------- | -------------------------------- |
+| `read`    | Sheets Read   | Read Data  | Read data from Google Sheets     |
+| `write`   | Sheets Write  | Write Data | Write data to Google Sheets      |
+| `append`  | Sheets Append | Add Rows   | Append new rows to Google Sheets |
+| `clear`   | Sheets Clear  | Clear Data | Clear data from Google Sheets    |
 
 ---
 
 ## Logic Control
 
 ### Loop (`tpl_loop`)
+
 **Type:** `control` | **Category:** `logic-control` | **Subcategory:** `loops`
 
 Loop through arrays or collections with different iteration strategies.
 
 #### Properties
+
 - **loopType** (select): Type of loop iteration
   - Options: `for-each`, `while`, `do-while`
   - Default: `for-each`
@@ -478,12 +527,13 @@ Loop through arrays or collections with different iteration strategies.
 - **breakCondition** (textarea): JavaScript condition to break loop
 
 #### Property Rules
+
 **Triggers:** `loopType`
 
-| Loop Type | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `for-each` | For Each Loop | Iterate Array | Iterate through each item in an array |
-| `while` | While Loop | Conditional Loop | Loop while condition is true |
+| Loop Type  | Title         | Subtitle           | Description                                              |
+| ---------- | ------------- | ------------------ | -------------------------------------------------------- |
+| `for-each` | For Each Loop | Iterate Array      | Iterate through each item in an array                    |
+| `while`    | While Loop    | Conditional Loop   | Loop while condition is true                             |
 | `do-while` | Do-While Loop | Execute Then Check | Execute at least once, then loop while condition is true |
 
 ---
@@ -491,11 +541,13 @@ Loop through arrays or collections with different iteration strategies.
 ## Scripting
 
 ### SQL Script (`tpl_sql_script`)
+
 **Type:** `script` | **Category:** `scripting` | **Subcategory:** `sql`
 
 Execute SQL queries using database connection pool.
 
 #### Properties
+
 - **query** (code-editor): SQL query with parameters
   - Language: `sql`
 - **queryType** (select): Type of SQL operation
@@ -507,14 +559,15 @@ Execute SQL queries using database connection pool.
   - Default: `1000`
 
 #### Property Rules
+
 **Triggers:** `queryType`
 
-| Query Type | Title | Subtitle | Description |
-|------------|-------|----------|-------------|
-| `SELECT` | SQL Select | Query Data | Retrieve data from database tables |
-| `INSERT` | SQL Insert | Add Records | Insert new records into database |
-| `UPDATE` | SQL Update | Modify Records | Update existing records in database |
-| `DELETE` | SQL Delete | Remove Records | Delete records from database |
+| Query Type    | Title           | Subtitle          | Description                                |
+| ------------- | --------------- | ----------------- | ------------------------------------------ |
+| `SELECT`      | SQL Select      | Query Data        | Retrieve data from database tables         |
+| `INSERT`      | SQL Insert      | Add Records       | Insert new records into database           |
+| `UPDATE`      | SQL Update      | Modify Records    | Update existing records in database        |
+| `DELETE`      | SQL Delete      | Remove Records    | Delete records from database               |
 | `TRANSACTION` | SQL Transaction | Atomic Operations | Execute multiple SQL operations atomically |
 
 ---
@@ -522,11 +575,13 @@ Execute SQL queries using database connection pool.
 ## Server Nodes
 
 ### Server Request (`tpl_server_request`)
+
 **Type:** `server-request` | **Category:** `tools-utilities` | **Subcategory:** `http`
 
 Receives and processes incoming HTTP/WebSocket requests.
 
 #### Properties
+
 - **requestType** (select): Type of request to handle
   - Options: `HTTP`, `WebSocket`, `Any`
   - Default: `Any`
@@ -540,26 +595,29 @@ Receives and processes incoming HTTP/WebSocket requests.
   - Default: `None`
 
 #### Property Rules
+
 **Triggers:** `requestType`, `authentication`
 
-| Request Type | Subtitle | Icon |
-|--------------|----------|------|
-| `HTTP` | HTTP Request Handler | globe |
-| `WebSocket` | WebSocket Message Handler | cable |
+| Request Type | Subtitle                  | Icon  |
+| ------------ | ------------------------- | ----- |
+| `HTTP`       | HTTP Request Handler      | globe |
+| `WebSocket`  | WebSocket Message Handler | cable |
 
-| Authentication | Required Env Vars |
-|-----------------|-------------------|
-| `Bearer Token` | `AUTH_SECRET_KEY` |
-| `API Key` | `API_KEY_HEADER`, `VALID_API_KEYS` |
+| Authentication | Required Env Vars                  |
+| -------------- | ---------------------------------- |
+| `Bearer Token` | `AUTH_SECRET_KEY`                  |
+| `API Key`      | `API_KEY_HEADER`, `VALID_API_KEYS` |
 
 ---
 
 ### Server Response (`tpl_server_response`)
+
 **Type:** `server-response` | **Category:** `tools-utilities` | **Subcategory:** `http`
 
 Sends formatted responses back to the client.
 
 #### Properties
+
 - **responseType** (select): Type of response to send
   - Options: `Success`, `Error`, `Redirect`, `Custom`
   - Default: `Success`
@@ -577,25 +635,28 @@ Sends formatted responses back to the client.
   - Default: `No Cache`
 
 #### Property Rules
+
 **Triggers:** `responseType`, `contentType`, `cache`
 
-| Response Type | Status Code | Icon | Variant | Subtitle |
-|---------------|-------------|------|---------|----------|
-| `Success` | 200 | check-circle | green-600 | Success Response |
-| `Error` | 400 | alert-circle | red-600 | Error Response |
-| `Redirect` | 302 | external-link | yellow-600 | Redirect Response |
-| `Custom` | - | settings | gray-600 | Custom Response |
+| Response Type | Status Code | Icon          | Variant    | Subtitle          |
+| ------------- | ----------- | ------------- | ---------- | ----------------- |
+| `Success`     | 200         | check-circle  | green-600  | Success Response  |
+| `Error`       | 400         | alert-circle  | red-600    | Error Response    |
+| `Redirect`    | 302         | external-link | yellow-600 | Redirect Response |
+| `Custom`      | -           | settings      | gray-600   | Custom Response   |
 
 ---
 
 ## Storage & Memory
 
 ### Cache (`tpl_cache`)
+
 **Type:** `cache` | **Category:** `storage-memory` | **Subcategory:** `cache`
 
 Cache data in memory with TTL support and eviction policies.
 
 #### Properties
+
 - **operation** (select): Cache operation
   - Options: `get`, `set`, `delete`, `clear`, `has`
   - Default: `get`
@@ -608,24 +669,27 @@ Cache data in memory with TTL support and eviction policies.
   - Default: `lru`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `get` | Cache Get | Retrieve Value | Get cached value by key |
-| `set` | Cache Set | Store Value | Store value in cache with TTL |
-| `delete` | Cache Delete | Remove Entry | Remove cached entry by key |
-| `clear` | Cache Clear | Clear All | Clear all cached entries |
-| `has` | Cache Has | Check Existence | Check if key exists in cache |
+| Operation | Title        | Subtitle        | Description                   |
+| --------- | ------------ | --------------- | ----------------------------- |
+| `get`     | Cache Get    | Retrieve Value  | Get cached value by key       |
+| `set`     | Cache Set    | Store Value     | Store value in cache with TTL |
+| `delete`  | Cache Delete | Remove Entry    | Remove cached entry by key    |
+| `clear`   | Cache Clear  | Clear All       | Clear all cached entries      |
+| `has`     | Cache Has    | Check Existence | Check if key exists in cache  |
 
 ---
 
 ### Redis (`tpl_redis`)
+
 **Type:** `redis` | **Category:** `storage-memory` | **Subcategory:** `cache`
 
 Interact with Redis for caching and data storage.
 
 #### Properties
+
 - **command** (select): Redis command
   - Options: `GET`, `SET`, `DEL`, `EXISTS`, `EXPIRE`, `HGET`, `HSET`, `LPUSH`, `RPOP`
   - Default: `GET`
@@ -635,28 +699,31 @@ Interact with Redis for caching and data storage.
 - **expiry** (number): Key expiration time in seconds
 
 #### Property Rules
+
 **Triggers:** `command`
 
-| Command | Title | Subtitle | Description |
-|---------|-------|----------|-------------|
-| `GET` | Redis GET | Get Value | Get value from Redis by key |
-| `SET` | Redis SET | Set Value | Set key-value pair in Redis |
-| `DEL` | Redis DEL | Delete Key | Delete key from Redis |
-| `EXISTS` | Redis EXISTS | Check Key | Check if key exists in Redis |
-| `EXPIRE` | Redis EXPIRE | Set TTL | Set expiration time for Redis key |
-| `HGET` | Redis HGET | Get Hash Field | Get field value from Redis hash |
-| `HSET` | Redis HSET | Set Hash Field | Set field value in Redis hash |
-| `LPUSH` | Redis LPUSH | Push to List | Push element to left of Redis list |
-| `RPOP` | Redis RPOP | Pop from List | Pop element from right of Redis list |
+| Command  | Title        | Subtitle       | Description                          |
+| -------- | ------------ | -------------- | ------------------------------------ |
+| `GET`    | Redis GET    | Get Value      | Get value from Redis by key          |
+| `SET`    | Redis SET    | Set Value      | Set key-value pair in Redis          |
+| `DEL`    | Redis DEL    | Delete Key     | Delete key from Redis                |
+| `EXISTS` | Redis EXISTS | Check Key      | Check if key exists in Redis         |
+| `EXPIRE` | Redis EXPIRE | Set TTL        | Set expiration time for Redis key    |
+| `HGET`   | Redis HGET   | Get Hash Field | Get field value from Redis hash      |
+| `HSET`   | Redis HSET   | Set Hash Field | Set field value in Redis hash        |
+| `LPUSH`  | Redis LPUSH  | Push to List   | Push element to left of Redis list   |
+| `RPOP`   | Redis RPOP   | Pop from List  | Pop element from right of Redis list |
 
 ---
 
 ### Queue (`tpl_queue`)
+
 **Type:** `queue` | **Category:** `storage-memory` | **Subcategory:** `sessions`
 
 Send and receive messages from various queue providers.
 
 #### Properties
+
 - **operation** (select): Queue operation
   - Options: `send`, `receive`, `peek`, `ack`, `nack`
   - Default: `send`
@@ -668,6 +735,7 @@ Send and receive messages from various queue providers.
   - Default: `1`
 
 #### Property Rules
+
 **Triggers:** `operation`, `provider`
 
 **Operation Rules:**
@@ -690,11 +758,13 @@ Send and receive messages from various queue providers.
 ---
 
 ### State Store (`tpl_state_store`)
+
 **Type:** `storage` | **Category:** `storage-memory` | **Subcategory:** `sessions`
 
 Store and retrieve persistent state across workflow executions.
 
 #### Properties
+
 - **operation** (select): State operation
   - Options: `get`, `set`, `delete`, `exists`
   - Default: `get`
@@ -705,25 +775,28 @@ Store and retrieve persistent state across workflow executions.
   - Default: `memory`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `get` | State Get | Retrieve State | Get stored state value by key |
-| `set` | State Set | Store State | Store state value with key |
-| `delete` | State Delete | Remove State | Delete stored state by key |
-| `exists` | State Exists | Check State | Check if state key exists |
+| Operation | Title        | Subtitle       | Description                   |
+| --------- | ------------ | -------------- | ----------------------------- |
+| `get`     | State Get    | Retrieve State | Get stored state value by key |
+| `set`     | State Set    | Store State    | Store state value with key    |
+| `delete`  | State Delete | Remove State   | Delete stored state by key    |
+| `exists`  | State Exists | Check State    | Check if state key exists     |
 
 ---
 
 ## Tools & Utilities
 
 ### GraphQL Query (`tpl_graphql_query`)
+
 **Type:** `graphql` | **Category:** `tools-utilities` | **Subcategory:** `http`
 
 Execute GraphQL queries, mutations, and subscriptions.
 
 #### Properties
+
 - **endpoint** (text, required): GraphQL endpoint URL
 - **query** (code-editor): GraphQL query/mutation/subscription
   - Language: `graphql`
@@ -732,22 +805,25 @@ Execute GraphQL queries, mutations, and subscriptions.
   - Default: `query`
 
 #### Property Rules
+
 **Triggers:** `operationType`
 
-| Operation Type | Title | Subtitle | Description |
-|----------------|-------|----------|-------------|
-| `query` | GraphQL Query | Fetch Data | Execute GraphQL query to fetch data |
-| `mutation` | GraphQL Mutation | Modify Data | Execute GraphQL mutation to modify data |
-| `subscription` | GraphQL Subscription | Real-time Data | Subscribe to real-time GraphQL updates |
+| Operation Type | Title                | Subtitle       | Description                             |
+| -------------- | -------------------- | -------------- | --------------------------------------- |
+| `query`        | GraphQL Query        | Fetch Data     | Execute GraphQL query to fetch data     |
+| `mutation`     | GraphQL Mutation     | Modify Data    | Execute GraphQL mutation to modify data |
+| `subscription` | GraphQL Subscription | Real-time Data | Subscribe to real-time GraphQL updates  |
 
 ---
 
 ### HTTP Request (`tpl_http_request`)
+
 **Type:** `http` | **Category:** `tools-utilities` | **Subcategory:** `http`
 
 Make HTTP requests to external APIs and services.
 
 #### Properties
+
 - **url** (text, required): Request URL
 - **method** (select): HTTP method
   - Options: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`
@@ -760,24 +836,27 @@ Make HTTP requests to external APIs and services.
   - Default: `true`
 
 #### Property Rules
+
 **Triggers:** `method`
 
-| Method | Title | Subtitle | Description |
-|--------|-------|----------|-------------|
-| `GET` | HTTP GET | Fetch Data | Retrieve data from web API |
-| `POST` | HTTP POST | Send Data | Send data to web API |
-| `PUT` | HTTP PUT | Update Resource | Update or create resource via API |
-| `PATCH` | HTTP PATCH | Partial Update | Partially update resource via API |
-| `DELETE` | HTTP DELETE | Remove Resource | Delete resource via API |
+| Method   | Title       | Subtitle        | Description                       |
+| -------- | ----------- | --------------- | --------------------------------- |
+| `GET`    | HTTP GET    | Fetch Data      | Retrieve data from web API        |
+| `POST`   | HTTP POST   | Send Data       | Send data to web API              |
+| `PUT`    | HTTP PUT    | Update Resource | Update or create resource via API |
+| `PATCH`  | HTTP PATCH  | Partial Update  | Partially update resource via API |
+| `DELETE` | HTTP DELETE | Remove Resource | Delete resource via API           |
 
 ---
 
 ### RPC Call (`tpl_rpc_call`)
+
 **Type:** `rpc` | **Category:** `tools-utilities` | **Subcategory:** `http`
 
 Make remote procedure calls using various RPC protocols.
 
 #### Properties
+
 - **protocol** (select): RPC protocol
   - Options: `json-rpc`, `grpc`, `xml-rpc`
   - Default: `json-rpc`
@@ -787,22 +866,25 @@ Make remote procedure calls using various RPC protocols.
   - Default: `2.0`
 
 #### Property Rules
+
 **Triggers:** `protocol`
 
-| Protocol | Title | Subtitle | Description |
-|----------|-------|----------|-------------|
-| `json-rpc` | JSON-RPC Call | JSON Remote Call | Make JSON-RPC remote procedure call |
-| `grpc` | gRPC Call | Binary RPC | Make gRPC binary remote procedure call |
-| `xml-rpc` | XML-RPC Call | XML Remote Call | Make XML-RPC remote procedure call |
+| Protocol   | Title         | Subtitle         | Description                            |
+| ---------- | ------------- | ---------------- | -------------------------------------- |
+| `json-rpc` | JSON-RPC Call | JSON Remote Call | Make JSON-RPC remote procedure call    |
+| `grpc`     | gRPC Call     | Binary RPC       | Make gRPC binary remote procedure call |
+| `xml-rpc`  | XML-RPC Call  | XML Remote Call  | Make XML-RPC remote procedure call     |
 
 ---
 
 ### Math Round (`tpl_math_round`)
+
 **Type:** `math` | **Category:** `tools-utilities` | **Subcategory:** `math`
 
 Round numbers using different rounding methods.
 
 #### Properties
+
 - **precision** (number): Number of decimal places (0-10)
   - Default: `0`
 - **method** (select): Rounding method
@@ -810,23 +892,26 @@ Round numbers using different rounding methods.
   - Default: `round`
 
 #### Property Rules
+
 **Triggers:** `method`
 
-| Method | Title | Subtitle | Description |
-|--------|-------|----------|-------------|
-| `round` | Round | Round Number | Round a number to specified precision |
-| `floor` | Floor | Round Down | Round down to the nearest integer or precision |
-| `ceil` | Ceiling | Round Up | Round up to the nearest integer or precision |
-| `trunc` | Truncate | Remove Decimals | Remove decimal places without rounding |
+| Method  | Title    | Subtitle        | Description                                    |
+| ------- | -------- | --------------- | ---------------------------------------------- |
+| `round` | Round    | Round Number    | Round a number to specified precision          |
+| `floor` | Floor    | Round Down      | Round down to the nearest integer or precision |
+| `ceil`  | Ceiling  | Round Up        | Round up to the nearest integer or precision   |
+| `trunc` | Truncate | Remove Decimals | Remove decimal places without rounding         |
 
 ---
 
 ### Date/Time (`tpl_date_time`)
+
 **Type:** `datetime` | **Category:** `tools-utilities` | **Subcategory:** `utilities`
 
 Parse, format, and manipulate dates and times.
 
 #### Properties
+
 - **operation** (select): Date/time operation
   - Options: `format`, `parse`, `add`, `subtract`, `diff`, `now`
   - Default: `format`
@@ -839,16 +924,17 @@ Parse, format, and manipulate dates and times.
   - Default: `days`
 
 #### Property Rules
+
 **Triggers:** `operation`
 
-| Operation | Title | Subtitle | Description |
-|-----------|-------|----------|-------------|
-| `format` | Date Format | Format Date | Format date using specified pattern |
-| `parse` | Date Parse | Parse Date | Parse date string into date object |
-| `add` | Date Add | Add Time | Add time duration to date |
-| `subtract` | Date Subtract | Subtract Time | Subtract time duration from date |
-| `diff` | Date Diff | Calculate Difference | Calculate difference between two dates |
-| `now` | Current Time | Get Now | Get current date and time |
+| Operation  | Title         | Subtitle             | Description                            |
+| ---------- | ------------- | -------------------- | -------------------------------------- |
+| `format`   | Date Format   | Format Date          | Format date using specified pattern    |
+| `parse`    | Date Parse    | Parse Date           | Parse date string into date object     |
+| `add`      | Date Add      | Add Time             | Add time duration to date              |
+| `subtract` | Date Subtract | Subtract Time        | Subtract time duration from date       |
+| `diff`     | Date Diff     | Calculate Difference | Calculate difference between two dates |
+| `now`      | Current Time  | Get Now              | Get current date and time              |
 
 ---
 
@@ -867,6 +953,7 @@ Property rules enable dynamic visual updates to node templates based on property
 ### Supported Updates
 
 Property rules can update these node properties:
+
 - **title**: Node display name
 - **subtitle**: Secondary text below title
 - **description**: Detailed description
@@ -877,6 +964,7 @@ Property rules can update these node properties:
 ### JSONPath Syntax
 
 Rules use JSONPath expressions with these operators:
+
 - `==`: Equal to
 - `!=`: Not equal to
 - `>`: Greater than

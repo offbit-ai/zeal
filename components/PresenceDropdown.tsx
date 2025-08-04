@@ -26,7 +26,7 @@ export function PresenceDropdown({
   workflowId,
   onShare,
   onUserSettings,
-  className = ''
+  className = '',
 }: PresenceDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -61,7 +61,9 @@ export function PresenceDropdown({
           isOptimized={isOptimized}
           localClientId={localClientId}
         />
-        <ChevronDown className={` w-3 h-3 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={` w-3 h-3 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {/* Dropdown Menu */}
@@ -73,9 +75,11 @@ export function PresenceDropdown({
             <div className="text-xs text-gray-500 mt-0.5">
               {(() => {
                 // Count unique users (not sessions)
-                const uniqueUsers = new Set(Array.from(presence.values()).map(p => p.userId));
-                const otherUsersCount = uniqueUsers.size - 1; // Exclude local user
-                return otherUsersCount === 0 ? 'Working alone' : `Collaborating with ${otherUsersCount} other${otherUsersCount === 1 ? '' : 's'}`;
+                const uniqueUsers = new Set(Array.from(presence.values()).map(p => p.userId))
+                const otherUsersCount = uniqueUsers.size - 1 // Exclude local user
+                return otherUsersCount === 0
+                  ? 'Working alone'
+                  : `Collaborating with ${otherUsersCount} other${otherUsersCount === 1 ? '' : 's'}`
               })()}
             </div>
           </div>
@@ -110,8 +114,8 @@ export function PresenceDropdown({
 
             {/* Active Users (if any) */}
             {(() => {
-              const uniqueUsers = new Set(Array.from(presence.values()).map(p => p.userId));
-              return uniqueUsers.size > 1;
+              const uniqueUsers = new Set(Array.from(presence.values()).map(p => p.userId))
+              return uniqueUsers.size > 1
             })() && (
               <>
                 <div className="border-t border-gray-100 my-1" />
@@ -123,9 +127,9 @@ export function PresenceDropdown({
                       .filter(user => user.userId !== localUser?.userId)
                       .reduce((unique, user) => {
                         if (!unique.has(user.userId)) {
-                          unique.set(user.userId, user);
+                          unique.set(user.userId, user)
                         }
-                        return unique;
+                        return unique
                       }, new Map<string, CRDTPresence>())
                       .values()
                   ).map(user => (

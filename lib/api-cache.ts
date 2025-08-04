@@ -18,7 +18,7 @@ class ApiCache {
     const pathname = url.pathname
     const searchParams = url.searchParams.toString()
     const userId = req.headers.get('x-user-id') || 'anonymous'
-    
+
     // Create a unique key based on path, query params, and user
     return `${userId}:${pathname}:${searchParams}`
   }
@@ -28,7 +28,7 @@ class ApiCache {
    */
   get<T>(key: string): T | null {
     const entry = this.cache.get(key)
-    
+
     if (!entry) {
       return null
     }
@@ -52,7 +52,7 @@ class ApiCache {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
+      ttl: ttl || this.defaultTTL,
     })
   }
 
@@ -95,7 +95,7 @@ class ApiCache {
   getStats(): { size: number; keys: string[] } {
     return {
       size: this.cache.size,
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
     }
   }
 }
@@ -105,23 +105,20 @@ export const apiCache = new ApiCache()
 
 // Cache TTL configurations for different endpoints
 export const CACHE_TTL = {
-  ENV_VARS: 300000,      // 5 minutes - env vars change infrequently
-  NODES: 600000,         // 10 minutes - node templates are relatively static
-  CATEGORIES: 900000,    // 15 minutes - categories rarely change
-  USER_DATA: 60000,      // 1 minute - user-specific data
-  SEARCH_RESULTS: 30000  // 30 seconds - search results
+  ENV_VARS: 300000, // 5 minutes - env vars change infrequently
+  NODES: 600000, // 10 minutes - node templates are relatively static
+  CATEGORIES: 900000, // 15 minutes - categories rarely change
+  USER_DATA: 60000, // 1 minute - user-specific data
+  SEARCH_RESULTS: 30000, // 30 seconds - search results
 }
 
 /**
  * Higher-order function to add caching to an API handler
  */
-export function withCache<T>(
-  handler: (req: NextRequest) => Promise<T>,
-  ttl: number = 60000
-) {
+export function withCache<T>(handler: (req: NextRequest) => Promise<T>, ttl: number = 60000) {
   return async (req: NextRequest): Promise<T> => {
     const cacheKey = apiCache.generateKey(req)
-    
+
     // Check if we have a cached response
     const cachedData = apiCache.get<T>(cacheKey)
     if (cachedData !== null) {
@@ -132,10 +129,10 @@ export function withCache<T>(
     // If not cached, execute the handler
     // console.log removed
     const result = await handler(req)
-    
+
     // Cache the result
     apiCache.set(cacheKey, result, ttl)
-    
+
     return result
   }
 }

@@ -37,6 +37,6 @@ export function useNodeBounds() {
     nodeBounds,
     updateNodeBounds,
     removeNodeBounds,
-    getNodeBoundsArray
+    getNodeBoundsArray,
   }
 }

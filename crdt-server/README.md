@@ -30,7 +30,7 @@ High-performance Rust WebSocket server for real-time collaborative document edit
 The server implements the Yjs synchronization protocol with these message types:
 
 - **SYNC (0)**: Document synchronization messages
-- **AWARENESS (1)**: User presence and cursor information  
+- **AWARENESS (1)**: User presence and cursor information
 - **AUTH (2)**: User authentication and metadata
 - **QUERY_AWARENESS (3)**: Request awareness state
 - **CUSTOM (4)**: Custom application messages
@@ -38,6 +38,7 @@ The server implements the Yjs synchronization protocol with these message types:
 ## Usage
 
 ### Development Mode
+
 ```bash
 npm run crdt:dev
 # or
@@ -45,9 +46,10 @@ cd crdt-server && cargo run -- --port 8080 --verbose
 ```
 
 ### Production Mode
+
 ```bash
 npm run crdt:start
-# or  
+# or
 cd crdt-server && cargo run --release -- --port 8080
 ```
 
@@ -92,10 +94,12 @@ ymap.set('key', 'value') // This will sync to all connected clients
 const ws = new WebSocket('ws://localhost:8080/ws')
 
 // Join a room
-ws.send(JSON.stringify({
-  action: 'join',
-  room: 'my-room'
-}))
+ws.send(
+  JSON.stringify({
+    action: 'join',
+    room: 'my-room',
+  })
+)
 
 // Send CRDT messages as binary data
 const encoder = new encoding.Encoder()
@@ -153,6 +157,7 @@ curl http://localhost:8080/stats
 ```
 
 Returns:
+
 ```json
 {
   "rooms": 42,
@@ -215,9 +220,10 @@ RUST_LOG=debug cargo run -- --verbose
 ```
 
 This will show detailed information about:
+
 - Client connections and disconnections
 - Message processing and routing
-- Room creation and cleanup  
+- Room creation and cleanup
 - Error conditions and recovery
 
 ## License

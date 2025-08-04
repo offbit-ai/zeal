@@ -12,7 +12,7 @@ export interface NodeRepositoryItem {
   category: string
   subcategory?: string
   tags: string[]
-  template: NodeTemplate,
+  template: NodeTemplate
   isInstalled: boolean
 }
 
@@ -29,7 +29,7 @@ export function useNodeRepository() {
       subcategory: template.subcategory,
       tags: template.tags,
       template: template,
-      isInstalled: template.isActive
+      isInstalled: template.isActive,
     }))
   }, [])
 

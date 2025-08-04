@@ -49,17 +49,8 @@
         "defaultValue": 30000
       }
     },
-    "requiredEnvVars": [
-      "DATABASE_URL",
-      "DB_PASSWORD",
-      "DB_USER"
-    ],
-    "tags": [
-      "database",
-      "sql",
-      "postgresql",
-      "pool"
-    ],
+    "requiredEnvVars": ["DATABASE_URL", "DB_PASSWORD", "DB_USER"],
+    "tags": ["database", "sql", "postgresql", "pool"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -113,17 +104,8 @@
         "defaultValue": 30000
       }
     },
-    "requiredEnvVars": [
-      "MYSQL_URL",
-      "MYSQL_PASSWORD",
-      "MYSQL_USER"
-    ],
-    "tags": [
-      "database",
-      "sql",
-      "mysql",
-      "pool"
-    ],
+    "requiredEnvVars": ["MYSQL_URL", "MYSQL_PASSWORD", "MYSQL_USER"],
+    "tags": ["database", "sql", "mysql", "pool"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -177,17 +159,8 @@
         "placeholder": "rs0"
       }
     },
-    "requiredEnvVars": [
-      "MONGODB_URL",
-      "MONGODB_PASSWORD",
-      "MONGODB_USER"
-    ],
-    "tags": [
-      "database",
-      "nosql",
-      "mongodb",
-      "pool"
-    ],
+    "requiredEnvVars": ["MONGODB_URL", "MONGODB_PASSWORD", "MONGODB_USER"],
+    "tags": ["database", "nosql", "mongodb", "pool"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -237,11 +210,7 @@
       },
       "operation": {
         "type": "select",
-        "options": [
-          "find",
-          "findOne",
-          "aggregate"
-        ],
+        "options": ["find", "findOne", "aggregate"],
         "defaultValue": "find"
       },
       "limit": {
@@ -257,11 +226,7 @@
         "placeholder": "{ \"password\": 0 }"
       }
     },
-    "tags": [
-      "mongodb",
-      "collection",
-      "query"
-    ],
+    "tags": ["mongodb", "collection", "query"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -329,13 +294,7 @@
         "description": "Memory limit in MB"
       }
     },
-    "tags": [
-      "script",
-      "python",
-      "sandboxed",
-      "pip",
-      "processing"
-    ],
+    "tags": ["script", "python", "sandboxed", "pip", "processing"],
     "version": "1.1.0",
     "isActive": true
   },
@@ -398,12 +357,7 @@
         "description": "Memory limit in MB"
       }
     },
-    "tags": [
-      "script",
-      "javascript",
-      "sandboxed",
-      "processing"
-    ],
+    "tags": ["script", "javascript", "sandboxed", "processing"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -465,12 +419,7 @@
         "placeholder": "/tmp/workspace"
       }
     },
-    "tags": [
-      "script",
-      "nushell",
-      "shell",
-      "structured"
-    ],
+    "tags": ["script", "nushell", "shell", "structured"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -523,13 +472,7 @@
       },
       "queryType": {
         "type": "select",
-        "options": [
-          "SELECT",
-          "INSERT",
-          "UPDATE",
-          "DELETE",
-          "TRANSACTION"
-        ],
+        "options": ["SELECT", "INSERT", "UPDATE", "DELETE", "TRANSACTION"],
         "defaultValue": "SELECT"
       },
       "timeout": {
@@ -544,18 +487,11 @@
         "description": "Maximum rows to return"
       }
     },
-    "tags": [
-      "script",
-      "sql",
-      "database",
-      "query"
-    ],
+    "tags": ["script", "sql", "database", "query"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "queryType"
-      ],
+      "triggers": ["queryType"],
       "rules": [
         {
           "when": "$.queryType == 'SELECT'",
@@ -641,12 +577,7 @@
     "properties": {
       "model": {
         "type": "select",
-        "options": [
-          "claude-3-5-sonnet",
-          "claude-3-opus",
-          "claude-3-sonnet",
-          "claude-3-haiku"
-        ],
+        "options": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
         "defaultValue": "claude-3-5-sonnet"
       },
       "maxTokens": {
@@ -688,15 +619,8 @@
         "description": "Define rules to process and route AI responses based on content analysis"
       }
     },
-    "requiredEnvVars": [
-      "ANTHROPIC_API_KEY"
-    ],
-    "tags": [
-      "ai",
-      "llm",
-      "claude",
-      "text-generation"
-    ],
+    "requiredEnvVars": ["ANTHROPIC_API_KEY"],
+    "tags": ["ai", "llm", "claude", "text-generation"],
     "version": "1.2.0",
     "isActive": true
   },
@@ -741,11 +665,7 @@
     "properties": {
       "model": {
         "type": "select",
-        "options": [
-          "gpt-4",
-          "gpt-4-turbo",
-          "gpt-3.5-turbo"
-        ],
+        "options": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
         "defaultValue": "gpt-4"
       },
       "maxTokens": {
@@ -774,22 +694,12 @@
         "description": "System message to guide model behavior"
       }
     },
-    "requiredEnvVars": [
-      "OPENAI_API_KEY"
-    ],
-    "tags": [
-      "ai",
-      "llm",
-      "openai",
-      "gpt",
-      "text-generation"
-    ],
+    "requiredEnvVars": ["OPENAI_API_KEY"],
+    "tags": ["ai", "llm", "openai", "gpt", "text-generation"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "model"
-      ],
+      "triggers": ["model"],
       "rules": [
         {
           "when": "$.model == 'gpt-4'",
@@ -859,10 +769,7 @@
     "properties": {
       "model": {
         "type": "select",
-        "options": [
-          "gemini-pro",
-          "gemini-pro-vision"
-        ],
+        "options": ["gemini-pro", "gemini-pro-vision"],
         "defaultValue": "gemini-pro"
       },
       "maxTokens": {
@@ -880,25 +787,12 @@
       },
       "safetySettings": {
         "type": "select",
-        "options": [
-          "block_none",
-          "block_few",
-          "block_some",
-          "block_most"
-        ],
+        "options": ["block_none", "block_few", "block_some", "block_most"],
         "defaultValue": "block_few"
       }
     },
-    "requiredEnvVars": [
-      "GOOGLE_API_KEY"
-    ],
-    "tags": [
-      "ai",
-      "llm",
-      "google",
-      "gemini",
-      "multimodal"
-    ],
+    "requiredEnvVars": ["GOOGLE_API_KEY"],
+    "tags": ["ai", "llm", "google", "gemini", "multimodal"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -959,15 +853,8 @@
         "defaultValue": 60000
       }
     },
-    "requiredEnvVars": [
-      "REPLICATE_API_TOKEN"
-    ],
-    "tags": [
-      "ai",
-      "agent",
-      "replicate",
-      "custom-model"
-    ],
+    "requiredEnvVars": ["REPLICATE_API_TOKEN"],
+    "tags": ["ai", "agent", "replicate", "custom-model"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1012,27 +899,14 @@
     "properties": {
       "agentType": {
         "type": "select",
-        "options": [
-          "zero-shot-react",
-          "conversational",
-          "plan-and-execute"
-        ],
+        "options": ["zero-shot-react", "conversational", "plan-and-execute"],
         "defaultValue": "zero-shot-react"
       },
       "enabledTools": {
         "type": "select",
         "multiple": true,
-        "options": [
-          "search",
-          "calculator",
-          "wikipedia",
-          "weather",
-          "news"
-        ],
-        "defaultValue": [
-          "search",
-          "calculator"
-        ]
+        "options": ["search", "calculator", "wikipedia", "weather", "news"],
+        "defaultValue": ["search", "calculator"]
       },
       "maxIterations": {
         "type": "number",
@@ -1045,22 +919,12 @@
         "defaultValue": true
       }
     },
-    "requiredEnvVars": [
-      "OPENAI_API_KEY",
-      "SERPAPI_API_KEY"
-    ],
-    "tags": [
-      "ai",
-      "agent",
-      "langchain",
-      "tools"
-    ],
+    "requiredEnvVars": ["OPENAI_API_KEY", "SERPAPI_API_KEY"],
+    "tags": ["ai", "agent", "langchain", "tools"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "agentType"
-      ],
+      "triggers": ["agentType"],
       "rules": [
         {
           "when": "$.agentType == 'zero-shot-react'",
@@ -1150,12 +1014,7 @@
         "description": "Define the conditions that determine True or False output. If any rule set evaluates to true, the True port will be activated."
       }
     },
-    "tags": [
-      "logic",
-      "conditional",
-      "routing",
-      "branch"
-    ],
+    "tags": ["logic", "conditional", "routing", "branch"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1227,12 +1086,7 @@
         "defaultValue": true
       }
     },
-    "tags": [
-      "logic",
-      "switch",
-      "routing",
-      "multi-branch"
-    ],
+    "tags": ["logic", "switch", "routing", "multi-branch"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1277,11 +1131,7 @@
     "properties": {
       "loopType": {
         "type": "select",
-        "options": [
-          "for-each",
-          "while",
-          "do-while"
-        ],
+        "options": ["for-each", "while", "do-while"],
         "defaultValue": "for-each"
       },
       "batchSize": {
@@ -1299,12 +1149,7 @@
         "placeholder": "item.status === 'stop'"
       }
     },
-    "tags": [
-      "loop",
-      "iterate",
-      "control",
-      "batch"
-    ],
+    "tags": ["loop", "iterate", "control", "batch"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1369,12 +1214,7 @@
       },
       "errorHandling": {
         "type": "select",
-        "options": [
-          "ignore",
-          "skip_item",
-          "stop_pipeline",
-          "log_and_continue"
-        ],
+        "options": ["ignore", "skip_item", "stop_pipeline", "log_and_continue"],
         "defaultValue": "log_and_continue"
       },
       "batchSize": {
@@ -1388,12 +1228,7 @@
         "description": "Validate data before and after transformation"
       }
     },
-    "tags": [
-      "transform",
-      "data",
-      "processing",
-      "filter"
-    ],
+    "tags": ["transform", "data", "processing", "filter"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1432,12 +1267,7 @@
     "properties": {
       "delimiter": {
         "type": "select",
-        "options": [
-          ",",
-          ";",
-          "\t",
-          "|"
-        ],
+        "options": [",", ";", "\t", "|"],
         "defaultValue": ","
       },
       "hasHeader": {
@@ -1450,11 +1280,7 @@
       },
       "encoding": {
         "type": "select",
-        "options": [
-          "utf-8",
-          "latin1",
-          "ascii"
-        ],
+        "options": ["utf-8", "latin1", "ascii"],
         "defaultValue": "utf-8"
       },
       "dateFormat": {
@@ -1462,19 +1288,11 @@
         "placeholder": "YYYY-MM-DD"
       }
     },
-    "tags": [
-      "csv",
-      "reader",
-      "parser",
-      "file"
-    ],
+    "tags": ["csv", "reader", "parser", "file"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "delimiter",
-        "encoding"
-      ],
+      "triggers": ["delimiter", "encoding"],
       "rules": [
         {
           "when": "$.delimiter == ','",
@@ -1552,23 +1370,12 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "convert",
-          "filter",
-          "aggregate",
-          "join",
-          "sort"
-        ],
+        "options": ["convert", "filter", "aggregate", "join", "sort"],
         "defaultValue": "convert"
       },
       "compression": {
         "type": "select",
-        "options": [
-          "none",
-          "snappy",
-          "gzip",
-          "lz4"
-        ],
+        "options": ["none", "snappy", "gzip", "lz4"],
         "defaultValue": "snappy"
       },
       "chunkSize": {
@@ -1580,12 +1387,7 @@
         "defaultValue": true
       }
     },
-    "tags": [
-      "arrow",
-      "columnar",
-      "performance",
-      "analytics"
-    ],
+    "tags": ["arrow", "columnar", "performance", "analytics"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1630,12 +1432,7 @@
     "properties": {
       "provider": {
         "type": "select",
-        "options": [
-          "smtp",
-          "sendgrid",
-          "mailgun",
-          "ses"
-        ],
+        "options": ["smtp", "sendgrid", "mailgun", "ses"],
         "defaultValue": "smtp"
       },
       "subject": {
@@ -1654,32 +1451,16 @@
       },
       "templateEngine": {
         "type": "select",
-        "options": [
-          "none",
-          "handlebars",
-          "mustache"
-        ],
+        "options": ["none", "handlebars", "mustache"],
         "defaultValue": "none"
       }
     },
-    "requiredEnvVars": [
-      "SMTP_HOST",
-      "SMTP_USER",
-      "SMTP_PASSWORD"
-    ],
-    "tags": [
-      "email",
-      "communication",
-      "smtp",
-      "notification"
-    ],
+    "requiredEnvVars": ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"],
+    "tags": ["email", "communication", "smtp", "notification"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "provider",
-        "templateEngine"
-      ],
+      "triggers": ["provider", "templateEngine"],
       "rules": [
         {
           "when": "$.provider == 'smtp'",
@@ -1763,23 +1544,12 @@
       },
       "messageType": {
         "type": "select",
-        "options": [
-          "plain",
-          "markdown",
-          "blocks"
-        ],
+        "options": ["plain", "markdown", "blocks"],
         "defaultValue": "markdown"
       }
     },
-    "requiredEnvVars": [
-      "SLACK_WEBHOOK_URL"
-    ],
-    "tags": [
-      "slack",
-      "webhook",
-      "chat",
-      "notification"
-    ],
+    "requiredEnvVars": ["SLACK_WEBHOOK_URL"],
+    "tags": ["slack", "webhook", "chat", "notification"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1841,16 +1611,8 @@
         "placeholder": "0.10"
       }
     },
-    "requiredEnvVars": [
-      "TWILIO_ACCOUNT_SID",
-      "TWILIO_AUTH_TOKEN"
-    ],
-    "tags": [
-      "sms",
-      "twilio",
-      "communication",
-      "mobile"
-    ],
+    "requiredEnvVars": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"],
+    "tags": ["sms", "twilio", "communication", "mobile"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1904,15 +1666,8 @@
         "placeholder": "#7289DA"
       }
     },
-    "requiredEnvVars": [
-      "DISCORD_WEBHOOK_URL"
-    ],
-    "tags": [
-      "discord",
-      "webhook",
-      "chat",
-      "gaming"
-    ],
+    "requiredEnvVars": ["DISCORD_WEBHOOK_URL"],
+    "tags": ["discord", "webhook", "chat", "gaming"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -1978,12 +1733,7 @@
       "TWITTER_ACCESS_TOKEN",
       "TWITTER_ACCESS_SECRET"
     ],
-    "tags": [
-      "twitter",
-      "social",
-      "tweet",
-      "microblog"
-    ],
+    "tags": ["twitter", "social", "tweet", "microblog"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2044,15 +1794,8 @@
         "placeholder": "{ \"countries\": [\"US\", \"CA\"] }"
       }
     },
-    "requiredEnvVars": [
-      "FACEBOOK_ACCESS_TOKEN"
-    ],
-    "tags": [
-      "facebook",
-      "social",
-      "meta",
-      "marketing"
-    ],
+    "requiredEnvVars": ["FACEBOOK_ACCESS_TOKEN"],
+    "tags": ["facebook", "social", "meta", "marketing"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2097,21 +1840,12 @@
     "properties": {
       "visibility": {
         "type": "select",
-        "options": [
-          "anyone",
-          "connections",
-          "logged_in"
-        ],
+        "options": ["anyone", "connections", "logged_in"],
         "defaultValue": "anyone"
       },
       "shareType": {
         "type": "select",
-        "options": [
-          "share",
-          "article",
-          "image",
-          "video"
-        ],
+        "options": ["share", "article", "image", "video"],
         "defaultValue": "share"
       },
       "companyId": {
@@ -2119,15 +1853,8 @@
         "placeholder": "Company page ID (optional)"
       }
     },
-    "requiredEnvVars": [
-      "LINKEDIN_ACCESS_TOKEN"
-    ],
-    "tags": [
-      "linkedin",
-      "social",
-      "professional",
-      "business"
-    ],
+    "requiredEnvVars": ["LINKEDIN_ACCESS_TOKEN"],
+    "tags": ["linkedin", "social", "professional", "business"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2177,12 +1904,7 @@
       },
       "operation": {
         "type": "select",
-        "options": [
-          "read",
-          "write",
-          "append",
-          "clear"
-        ],
+        "options": ["read", "write", "append", "clear"],
         "defaultValue": "read"
       },
       "range": {
@@ -2191,29 +1913,16 @@
       },
       "valueInputOption": {
         "type": "select",
-        "options": [
-          "RAW",
-          "USER_ENTERED"
-        ],
+        "options": ["RAW", "USER_ENTERED"],
         "defaultValue": "USER_ENTERED"
       }
     },
-    "requiredEnvVars": [
-      "GOOGLE_SHEETS_API_KEY",
-      "GOOGLE_SHEETS_CLIENT_EMAIL"
-    ],
-    "tags": [
-      "google",
-      "sheets",
-      "spreadsheet",
-      "data"
-    ],
+    "requiredEnvVars": ["GOOGLE_SHEETS_API_KEY", "GOOGLE_SHEETS_CLIENT_EMAIL"],
+    "tags": ["google", "sheets", "spreadsheet", "data"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "operation"
-      ],
+      "triggers": ["operation"],
       "rules": [
         {
           "when": "$.operation == 'read'",
@@ -2306,12 +2015,7 @@
         "defaultValue": "YYYY-MM-DD"
       }
     },
-    "tags": [
-      "excel",
-      "microsoft",
-      "spreadsheet",
-      "xlsx"
-    ],
+    "tags": ["excel", "microsoft", "spreadsheet", "xlsx"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2361,44 +2065,22 @@
       },
       "operation": {
         "type": "select",
-        "options": [
-          "upload",
-          "download",
-          "delete",
-          "list"
-        ],
+        "options": ["upload", "download", "delete", "list"],
         "defaultValue": "upload"
       },
       "acl": {
         "type": "select",
-        "options": [
-          "private",
-          "public-read",
-          "public-read-write"
-        ],
+        "options": ["private", "public-read", "public-read-write"],
         "defaultValue": "private"
       },
       "storageClass": {
         "type": "select",
-        "options": [
-          "STANDARD",
-          "GLACIER",
-          "DEEP_ARCHIVE"
-        ],
+        "options": ["STANDARD", "GLACIER", "DEEP_ARCHIVE"],
         "defaultValue": "STANDARD"
       }
     },
-    "requiredEnvVars": [
-      "AWS_ACCESS_KEY_ID",
-      "AWS_SECRET_ACCESS_KEY",
-      "AWS_REGION"
-    ],
-    "tags": [
-      "aws",
-      "s3",
-      "storage",
-      "cloud"
-    ],
+    "requiredEnvVars": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"],
+    "tags": ["aws", "s3", "storage", "cloud"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2437,13 +2119,7 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "get-repo",
-          "list-issues",
-          "create-issue",
-          "get-pr",
-          "list-commits"
-        ],
+        "options": ["get-repo", "list-issues", "create-issue", "get-pr", "list-commits"],
         "defaultValue": "get-repo"
       },
       "owner": {
@@ -2462,21 +2138,12 @@
         "max": 100
       }
     },
-    "requiredEnvVars": [
-      "GITHUB_TOKEN"
-    ],
-    "tags": [
-      "github",
-      "git",
-      "api",
-      "repository"
-    ],
+    "requiredEnvVars": ["GITHUB_TOKEN"],
+    "tags": ["github", "git", "api", "repository"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "operation"
-      ],
+      "triggers": ["operation"],
       "rules": [
         {
           "when": "$.operation == 'get-repo'",
@@ -2556,24 +2223,12 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "query",
-          "insert",
-          "update",
-          "delete",
-          "upsert"
-        ],
+        "options": ["query", "insert", "update", "delete", "upsert"],
         "defaultValue": "query"
       },
       "object": {
         "type": "select",
-        "options": [
-          "Account",
-          "Contact",
-          "Lead",
-          "Opportunity",
-          "Case"
-        ],
+        "options": ["Account", "Contact", "Lead", "Opportunity", "Case"],
         "defaultValue": "Account"
       },
       "soqlQuery": {
@@ -2591,12 +2246,7 @@
       "SALESFORCE_USERNAME",
       "SALESFORCE_PASSWORD"
     ],
-    "tags": [
-      "salesforce",
-      "crm",
-      "sales",
-      "enterprise"
-    ],
+    "tags": ["salesforce", "crm", "sales", "enterprise"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2641,23 +2291,12 @@
     "properties": {
       "objectType": {
         "type": "select",
-        "options": [
-          "contacts",
-          "companies",
-          "deals",
-          "tickets"
-        ],
+        "options": ["contacts", "companies", "deals", "tickets"],
         "defaultValue": "contacts"
       },
       "operation": {
         "type": "select",
-        "options": [
-          "get",
-          "create",
-          "update",
-          "search",
-          "batch"
-        ],
+        "options": ["get", "create", "update", "search", "batch"],
         "defaultValue": "get"
       },
       "properties": {
@@ -2669,15 +2308,8 @@
         "defaultValue": false
       }
     },
-    "requiredEnvVars": [
-      "HUBSPOT_API_KEY"
-    ],
-    "tags": [
-      "hubspot",
-      "crm",
-      "marketing",
-      "sales"
-    ],
+    "requiredEnvVars": ["HUBSPOT_API_KEY"],
+    "tags": ["hubspot", "crm", "marketing", "sales"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2727,13 +2359,7 @@
       },
       "method": {
         "type": "select",
-        "options": [
-          "GET",
-          "POST",
-          "PUT",
-          "PATCH",
-          "DELETE"
-        ],
+        "options": ["GET", "POST", "PUT", "PATCH", "DELETE"],
         "defaultValue": "GET"
       },
       "timeout": {
@@ -2753,18 +2379,11 @@
         "defaultValue": true
       }
     },
-    "tags": [
-      "http",
-      "api",
-      "request",
-      "web"
-    ],
+    "tags": ["http", "api", "request", "web"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "method"
-      ],
+      "triggers": ["method"],
       "rules": [
         {
           "when": "$.method == 'GET'",
@@ -2856,23 +2475,12 @@
       },
       "operationType": {
         "type": "select",
-        "options": [
-          "query",
-          "mutation",
-          "subscription"
-        ],
+        "options": ["query", "mutation", "subscription"],
         "defaultValue": "query"
       }
     },
-    "requiredEnvVars": [
-      "GRAPHQL_API_KEY"
-    ],
-    "tags": [
-      "graphql",
-      "api",
-      "query",
-      "mutation"
-    ],
+    "requiredEnvVars": ["GRAPHQL_API_KEY"],
+    "tags": ["graphql", "api", "query", "mutation"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2911,11 +2519,7 @@
     "properties": {
       "protocol": {
         "type": "select",
-        "options": [
-          "json-rpc",
-          "grpc",
-          "xml-rpc"
-        ],
+        "options": ["json-rpc", "grpc", "xml-rpc"],
         "defaultValue": "json-rpc"
       },
       "endpoint": {
@@ -2933,12 +2537,7 @@
         "defaultValue": "2.0"
       }
     },
-    "tags": [
-      "rpc",
-      "remote",
-      "api",
-      "protocol"
-    ],
+    "tags": ["rpc", "remote", "api", "protocol"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -2984,12 +2583,7 @@
         "description": "Number of decimal places in the result"
       }
     },
-    "tags": [
-      "math",
-      "add",
-      "sum",
-      "arithmetic"
-    ],
+    "tags": ["math", "add", "sum", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3035,12 +2629,7 @@
         "description": "Number of decimal places in the result"
       }
     },
-    "tags": [
-      "math",
-      "subtract",
-      "minus",
-      "arithmetic"
-    ],
+    "tags": ["math", "subtract", "minus", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3086,12 +2675,7 @@
         "description": "Number of decimal places in the result"
       }
     },
-    "tags": [
-      "math",
-      "multiply",
-      "times",
-      "arithmetic"
-    ],
+    "tags": ["math", "multiply", "times", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3145,22 +2729,12 @@
       "handleDivByZero": {
         "type": "select",
         "label": "Handle Division by Zero",
-        "options": [
-          "error",
-          "infinity",
-          "zero",
-          "null"
-        ],
+        "options": ["error", "infinity", "zero", "null"],
         "defaultValue": "error",
         "description": "How to handle division by zero"
       }
     },
-    "tags": [
-      "math",
-      "divide",
-      "division",
-      "arithmetic"
-    ],
+    "tags": ["math", "divide", "division", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3206,12 +2780,7 @@
         "description": "Number of decimal places in the result"
       }
     },
-    "tags": [
-      "math",
-      "power",
-      "exponent",
-      "arithmetic"
-    ],
+    "tags": ["math", "power", "exponent", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3259,21 +2828,12 @@
       "handleNegative": {
         "type": "select",
         "label": "Handle Negative Numbers",
-        "options": [
-          "error",
-          "absolute",
-          "complex"
-        ],
+        "options": ["error", "absolute", "complex"],
         "defaultValue": "error",
         "description": "How to handle negative input values"
       }
     },
-    "tags": [
-      "math",
-      "sqrt",
-      "root",
-      "arithmetic"
-    ],
+    "tags": ["math", "sqrt", "root", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3310,12 +2870,7 @@
       }
     ],
     "properties": {},
-    "tags": [
-      "math",
-      "modulo",
-      "remainder",
-      "arithmetic"
-    ],
+    "tags": ["math", "modulo", "remainder", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3346,12 +2901,7 @@
       }
     ],
     "properties": {},
-    "tags": [
-      "math",
-      "absolute",
-      "abs",
-      "arithmetic"
-    ],
+    "tags": ["math", "absolute", "abs", "arithmetic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3393,29 +2943,16 @@
       "method": {
         "type": "select",
         "label": "Rounding Method",
-        "options": [
-          "round",
-          "floor",
-          "ceil",
-          "trunc"
-        ],
+        "options": ["round", "floor", "ceil", "trunc"],
         "defaultValue": "round",
         "description": "Method to use for rounding"
       }
     },
-    "tags": [
-      "math",
-      "round",
-      "floor",
-      "ceil",
-      "arithmetic"
-    ],
+    "tags": ["math", "round", "floor", "ceil", "arithmetic"],
     "version": "1.0.0",
     "isActive": true,
     "propertyRules": {
-      "triggers": [
-        "method"
-      ],
+      "triggers": ["method"],
       "rules": [
         {
           "when": "$.method == 'round'",
@@ -3510,13 +3047,7 @@
         "description": "Use sandboxed evaluation (recommended)"
       }
     },
-    "tags": [
-      "math",
-      "expression",
-      "formula",
-      "calculate",
-      "evaluate"
-    ],
+    "tags": ["math", "expression", "formula", "calculate", "evaluate"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3554,12 +3085,7 @@
         "description": "Skip non-numeric values instead of erroring"
       }
     },
-    "tags": [
-      "math",
-      "sum",
-      "aggregate",
-      "array"
-    ],
+    "tags": ["math", "sum", "aggregate", "array"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3604,13 +3130,7 @@
         "max": 10
       }
     },
-    "tags": [
-      "math",
-      "average",
-      "mean",
-      "aggregate",
-      "statistics"
-    ],
+    "tags": ["math", "average", "mean", "aggregate", "statistics"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3653,13 +3173,7 @@
       }
     ],
     "properties": {},
-    "tags": [
-      "math",
-      "min",
-      "max",
-      "range",
-      "aggregate"
-    ],
+    "tags": ["math", "min", "max", "range", "aggregate"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3702,13 +3216,7 @@
       }
     ],
     "properties": {},
-    "tags": [
-      "math",
-      "clamp",
-      "limit",
-      "range",
-      "constrain"
-    ],
+    "tags": ["math", "clamp", "limit", "range", "constrain"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3754,10 +3262,7 @@
       "type": {
         "type": "select",
         "label": "Number Type",
-        "options": [
-          "float",
-          "integer"
-        ],
+        "options": ["float", "integer"],
         "defaultValue": "float",
         "description": "Generate float or integer"
       },
@@ -3768,12 +3273,7 @@
         "description": "Seed for reproducible random numbers"
       }
     },
-    "tags": [
-      "math",
-      "random",
-      "generate",
-      "number"
-    ],
+    "tags": ["math", "random", "generate", "number"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3842,14 +3342,7 @@
         "description": "Use Bessel's correction for sample variance"
       }
     },
-    "tags": [
-      "math",
-      "statistics",
-      "mean",
-      "median",
-      "mode",
-      "variance"
-    ],
+    "tags": ["math", "statistics", "mean", "median", "mode", "variance"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3909,12 +3402,7 @@
         "defaultValue": false
       }
     },
-    "tags": [
-      "json",
-      "parser",
-      "transform",
-      "data"
-    ],
+    "tags": ["json", "parser", "transform", "data"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -3967,20 +3455,11 @@
       },
       "outputFormat": {
         "type": "select",
-        "options": [
-          "json",
-          "array",
-          "object"
-        ],
+        "options": ["json", "array", "object"],
         "defaultValue": "json"
       }
     },
-    "tags": [
-      "xml",
-      "parser",
-      "xpath",
-      "data"
-    ],
+    "tags": ["xml", "parser", "xpath", "data"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4031,33 +3510,16 @@
       "flags": {
         "type": "select",
         "multiple": true,
-        "options": [
-          "i",
-          "g",
-          "m",
-          "s"
-        ],
-        "defaultValue": [
-          "g"
-        ]
+        "options": ["i", "g", "m", "s"],
+        "defaultValue": ["g"]
       },
       "returnType": {
         "type": "select",
-        "options": [
-          "matches",
-          "groups",
-          "split",
-          "replace"
-        ],
+        "options": ["matches", "groups", "split", "replace"],
         "defaultValue": "matches"
       }
     },
-    "tags": [
-      "regex",
-      "pattern",
-      "text",
-      "match"
-    ],
+    "tags": ["regex", "pattern", "text", "match"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4096,14 +3558,7 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "format",
-          "parse",
-          "add",
-          "subtract",
-          "diff",
-          "now"
-        ],
+        "options": ["format", "parse", "add", "subtract", "diff", "now"],
         "defaultValue": "format"
       },
       "format": {
@@ -4116,23 +3571,11 @@
       },
       "unit": {
         "type": "select",
-        "options": [
-          "years",
-          "months",
-          "days",
-          "hours",
-          "minutes",
-          "seconds"
-        ],
+        "options": ["years", "months", "days", "hours", "minutes", "seconds"],
         "defaultValue": "days"
       }
     },
-    "tags": [
-      "date",
-      "time",
-      "datetime",
-      "format"
-    ],
+    "tags": ["date", "time", "datetime", "format"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4177,12 +3620,7 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "get",
-          "set",
-          "delete",
-          "exists"
-        ],
+        "options": ["get", "set", "delete", "exists"],
         "defaultValue": "get"
       },
       "namespace": {
@@ -4196,20 +3634,11 @@
       },
       "storageType": {
         "type": "select",
-        "options": [
-          "memory",
-          "redis",
-          "file"
-        ],
+        "options": ["memory", "redis", "file"],
         "defaultValue": "memory"
       }
     },
-    "tags": [
-      "storage",
-      "state",
-      "memory",
-      "persistence"
-    ],
+    "tags": ["storage", "state", "memory", "persistence"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4248,12 +3677,7 @@
     "properties": {
       "scope": {
         "type": "select",
-        "options": [
-          "workflow",
-          "global",
-          "environment",
-          "runtime"
-        ],
+        "options": ["workflow", "global", "environment", "runtime"],
         "defaultValue": "workflow"
       },
       "defaultValue": {
@@ -4269,12 +3693,7 @@
         "defaultValue": false
       }
     },
-    "tags": [
-      "variable",
-      "lookup",
-      "scope",
-      "dynamic"
-    ],
+    "tags": ["variable", "lookup", "scope", "dynamic"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4319,13 +3738,7 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "get",
-          "set",
-          "delete",
-          "clear",
-          "has"
-        ],
+        "options": ["get", "set", "delete", "clear", "has"],
         "defaultValue": "get"
       },
       "ttl": {
@@ -4340,20 +3753,11 @@
       },
       "evictionPolicy": {
         "type": "select",
-        "options": [
-          "lru",
-          "lfu",
-          "fifo"
-        ],
+        "options": ["lru", "lfu", "fifo"],
         "defaultValue": "lru"
       }
     },
-    "tags": [
-      "cache",
-      "memory",
-      "performance",
-      "storage"
-    ],
+    "tags": ["cache", "memory", "performance", "storage"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4398,17 +3802,7 @@
     "properties": {
       "command": {
         "type": "select",
-        "options": [
-          "GET",
-          "SET",
-          "DEL",
-          "EXISTS",
-          "EXPIRE",
-          "HGET",
-          "HSET",
-          "LPUSH",
-          "RPOP"
-        ],
+        "options": ["GET", "SET", "DEL", "EXISTS", "EXPIRE", "HGET", "HSET", "LPUSH", "RPOP"],
         "defaultValue": "GET"
       },
       "key": {
@@ -4427,16 +3821,8 @@
         "placeholder": 3600
       }
     },
-    "requiredEnvVars": [
-      "REDIS_URL",
-      "REDIS_PASSWORD"
-    ],
-    "tags": [
-      "redis",
-      "cache",
-      "database",
-      "nosql"
-    ],
+    "requiredEnvVars": ["REDIS_URL", "REDIS_PASSWORD"],
+    "tags": ["redis", "cache", "database", "nosql"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4481,13 +3867,7 @@
     "properties": {
       "operation": {
         "type": "select",
-        "options": [
-          "send",
-          "receive",
-          "peek",
-          "ack",
-          "nack"
-        ],
+        "options": ["send", "receive", "peek", "ack", "nack"],
         "defaultValue": "send"
       },
       "queueName": {
@@ -4497,12 +3877,7 @@
       },
       "provider": {
         "type": "select",
-        "options": [
-          "rabbitmq",
-          "sqs",
-          "kafka",
-          "redis"
-        ],
+        "options": ["rabbitmq", "sqs", "kafka", "redis"],
         "defaultValue": "rabbitmq"
       },
       "maxMessages": {
@@ -4512,15 +3887,8 @@
         "max": 10
       }
     },
-    "requiredEnvVars": [
-      "QUEUE_CONNECTION_STRING"
-    ],
-    "tags": [
-      "queue",
-      "messaging",
-      "async",
-      "mq"
-    ],
+    "requiredEnvVars": ["QUEUE_CONNECTION_STRING"],
+    "tags": ["queue", "messaging", "async", "mq"],
     "version": "1.0.0",
     "isActive": true
   },
@@ -4578,20 +3946,11 @@
       },
       "priority": {
         "type": "select",
-        "options": [
-          "low",
-          "normal",
-          "high"
-        ],
+        "options": ["low", "normal", "high"],
         "defaultValue": "normal"
       }
     },
-    "tags": [
-      "event",
-      "pubsub",
-      "messaging",
-      "async"
-    ],
+    "tags": ["event", "pubsub", "messaging", "async"],
     "version": "1.0.0",
     "isActive": true
   }

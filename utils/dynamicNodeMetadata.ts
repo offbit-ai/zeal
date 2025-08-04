@@ -35,87 +35,87 @@ interface PropertyRules {
 function evaluateJsonQuery(query: string, data: Record<string, any>): boolean {
   try {
     // Handle compound conditions by splitting on && and ||
-    const compoundParts = query.split(/(\s*&&\s*|\s*\|\|\s*)/);
-    let results: boolean[] = [];
-    let operators: string[] = [];
-    
+    const compoundParts = query.split(/(\s*&&\s*|\s*\|\|\s*)/)
+    let results: boolean[] = []
+    let operators: string[] = []
+
     for (let i = 0; i < compoundParts.length; i++) {
-      const part = compoundParts[i].trim();
-      
+      const part = compoundParts[i].trim()
+
       if (part === '&&' || part === '||') {
-        operators.push(part);
-        continue;
+        operators.push(part)
+        continue
       }
-      
+
       // Parse individual condition: $.property operator value
-      const conditionMatch = part.match(/(\$[.\w\[\]]+)\s*(==|!=|>|<|>=|<=)\s*(.+)/);
-      
+      const conditionMatch = part.match(/(\$[.\w\[\]]+)\s*(==|!=|>|<|>=|<=)\s*(.+)/)
+
       if (!conditionMatch) {
-        console.warn('Failed to parse condition:', part);
-        return false;
+        console.warn('Failed to parse condition:', part)
+        return false
       }
-      
-      const [, jsonPath, operator, expectedValueRaw] = conditionMatch;
-      
+
+      const [, jsonPath, operator, expectedValueRaw] = conditionMatch
+
       // Use JSONPath to get the actual value
-      const actualValues = JSONPath({ path: jsonPath, json: data });
-      
+      const actualValues = JSONPath({ path: jsonPath, json: data })
+
       if (actualValues.length === 0) {
         // Path not found, condition is false
-        results.push(false);
-        continue;
+        results.push(false)
+        continue
       }
-      
-      const actualValue = actualValues[0];
-      
+
+      const actualValue = actualValues[0]
+
       // Clean expected value (remove quotes if present)
-      const expectedValue = expectedValueRaw.trim().replace(/^['"]|['"]$/g, '');
-      
-      let result = false;
-      
+      const expectedValue = expectedValueRaw.trim().replace(/^['"]|['"]$/g, '')
+
+      let result = false
+
       switch (operator) {
         case '==':
-          result = String(actualValue) === expectedValue;
-          break;
+          result = String(actualValue) === expectedValue
+          break
         case '!=':
-          result = String(actualValue) !== expectedValue;
-          break;
+          result = String(actualValue) !== expectedValue
+          break
         case '>':
-          result = Number(actualValue) > Number(expectedValue);
-          break;
+          result = Number(actualValue) > Number(expectedValue)
+          break
         case '<':
-          result = Number(actualValue) < Number(expectedValue);
-          break;
+          result = Number(actualValue) < Number(expectedValue)
+          break
         case '>=':
-          result = Number(actualValue) >= Number(expectedValue);
-          break;
+          result = Number(actualValue) >= Number(expectedValue)
+          break
         case '<=':
-          result = Number(actualValue) <= Number(expectedValue);
-          break;
+          result = Number(actualValue) <= Number(expectedValue)
+          break
       }
-      
-      results.push(result);
+
+      results.push(result)
     }
-    
+
     // Evaluate compound conditions
     if (results.length === 1) {
-      return results[0];
+      return results[0]
     }
-    
+
     // Process compound conditions left to right
-    let finalResult = results[0];
+    let finalResult = results[0]
     for (let i = 0; i < operators.length; i++) {
       if (operators[i] === '&&') {
-        finalResult = finalResult && results[i + 1];
+        finalResult = finalResult && results[i + 1]
       } else if (operators[i] === '||') {
-        finalResult = finalResult || results[i + 1];
+        finalResult = finalResult || results[i + 1]
       }
     }
-    
-    return finalResult;
+
+    return finalResult
   } catch (error) {
-    console.error('Failed to evaluate JSON query:', query, error);
-    return false;
+    console.error('Failed to evaluate JSON query:', query, error)
+    return false
   }
 }
 
@@ -123,20 +123,20 @@ function evaluateJsonQuery(query: string, data: Record<string, any>): boolean {
  * Updates node metadata with dynamic changes based on property values using JSON queries
  */
 export async function updateDynamicNodeMetadata(
-  metadata: NodeMetadata, 
+  metadata: NodeMetadata,
   propertyValues: Record<string, any>,
   propertyRules?: PropertyRules
 ): Promise<NodeMetadata> {
   if (!propertyRules) {
     return metadata // No property rules, return as-is
   }
-  
+
   let updatedMetadata = { ...metadata }
-  
+
   // Evaluate rules from most specific to least specific
   // First, apply compound rules (provider && model)
   let ruleApplied = false
-  
+
   for (const rule of propertyRules.rules) {
     // Check if this is a compound rule (contains &&)
     if (rule.when.includes('&&')) {
@@ -161,19 +161,19 @@ export async function updateDynamicNodeMetadata(
           // Could update property definitions dynamically
           // This would be more complex and require careful handling
         }
-        
+
         ruleApplied = true
         break // Take first matching compound rule
       }
     }
   }
-  
+
   // If no compound rule matched, try simple rules
   if (!ruleApplied) {
     for (const rule of propertyRules.rules) {
       // Skip compound rules
       if (rule.when.includes('&&')) continue
-      
+
       if (evaluateJsonQuery(rule.when, propertyValues)) {
         // Apply updates from this rule
         if (rule.updates.title) {
@@ -195,13 +195,13 @@ export async function updateDynamicNodeMetadata(
           // Could update property definitions dynamically
           // This would be more complex and require careful handling
         }
-        
+
         ruleApplied = true
         break // Take first matching simple rule
       }
     }
   }
-  
+
   // Log metadata changes for debugging
   // if (
   //   updatedMetadata.title !== metadata.title ||
@@ -211,19 +211,22 @@ export async function updateDynamicNodeMetadata(
   // ) {
   //   // console.log removed
   // }
-  
+
   // Ensure propertyValues are preserved
   if (!updatedMetadata.propertyValues && metadata.propertyValues) {
     updatedMetadata.propertyValues = metadata.propertyValues
   }
-  
+
   return updatedMetadata
 }
 
 /**
  * Checks if a property change should trigger dynamic metadata update
  */
-export function shouldUpdateDynamicMetadata(propertyRules: PropertyRules | undefined, propertyId: string): boolean {
+export function shouldUpdateDynamicMetadata(
+  propertyRules: PropertyRules | undefined,
+  propertyId: string
+): boolean {
   if (!propertyRules) return false
   return propertyRules.triggers.includes(propertyId)
 }

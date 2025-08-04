@@ -39,7 +39,7 @@ const BaseSVG: React.FC<CustomIconProps & { children: React.ReactNode }> = ({
  */
 
 // Workflow-specific icons
-export const WorkflowIcon: React.FC<CustomIconProps> = (props) => (
+export const WorkflowIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M3 12h3l2-8h4l2 8h6" />
     <circle cx="6" cy="16" r="2" />
@@ -48,7 +48,7 @@ export const WorkflowIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const NodeIcon: React.FC<CustomIconProps> = (props) => (
+export const NodeIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <rect x="4" y="4" width="16" height="16" rx="4" />
     <circle cx="12" cy="12" r="3" />
@@ -57,7 +57,7 @@ export const NodeIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const ConnectionIcon: React.FC<CustomIconProps> = (props) => (
+export const ConnectionIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <circle cx="6" cy="12" r="3" />
     <circle cx="18" cy="12" r="3" />
@@ -67,7 +67,7 @@ export const ConnectionIcon: React.FC<CustomIconProps> = (props) => (
 )
 
 // Data processing icons
-export const TransformIcon: React.FC<CustomIconProps> = (props) => (
+export const TransformIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M3 12h6l3-3 3 3h6" />
     <path d="M12 3v6" />
@@ -76,7 +76,7 @@ export const TransformIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const FilterIcon: React.FC<CustomIconProps> = (props) => (
+export const FilterIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M3 6h18" />
     <path d="M7 12h10" />
@@ -85,7 +85,7 @@ export const FilterIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const AggregateIcon: React.FC<CustomIconProps> = (props) => (
+export const AggregateIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
     <path d="M3 18h18" />
@@ -94,7 +94,7 @@ export const AggregateIcon: React.FC<CustomIconProps> = (props) => (
 )
 
 // Math operation icons (more specific than Lucide)
-export const SumIcon: React.FC<CustomIconProps> = (props) => (
+export const SumIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M8 6h8" />
     <path d="M8 12h8" />
@@ -104,7 +104,7 @@ export const SumIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const AverageIcon: React.FC<CustomIconProps> = (props) => (
+export const AverageIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M8 6h8" />
     <path d="M6 12h12" />
@@ -114,7 +114,7 @@ export const AverageIcon: React.FC<CustomIconProps> = (props) => (
 )
 
 // AI/ML specific icons
-export const NeuralNetworkIcon: React.FC<CustomIconProps> = (props) => (
+export const NeuralNetworkIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <circle cx="6" cy="6" r="2" />
     <circle cx="18" cy="6" r="2" />
@@ -128,7 +128,7 @@ export const NeuralNetworkIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const ModelIcon: React.FC<CustomIconProps> = (props) => (
+export const ModelIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <rect x="3" y="3" width="18" height="10" rx="2" />
     <circle cx="7" cy="8" r="1" />
@@ -141,7 +141,7 @@ export const ModelIcon: React.FC<CustomIconProps> = (props) => (
 )
 
 // Cloud & Services icons
-export const APIIcon: React.FC<CustomIconProps> = (props) => (
+export const APIIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <rect x="4" y="8" width="16" height="8" rx="2" />
     <path d="M8 12h8" />
@@ -150,7 +150,7 @@ export const APIIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const WebhookIcon: React.FC<CustomIconProps> = (props) => (
+export const WebhookIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2" />
     <path d="M6 17a4 4 0 0 1 6.24-3.26C12.8 13.4 13.1 13 13.5 13H18" />
@@ -159,7 +159,7 @@ export const WebhookIcon: React.FC<CustomIconProps> = (props) => (
 )
 
 // Brand icons (simple versions)
-export const SlackIcon: React.FC<CustomIconProps> = (props) => (
+export const SlackIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M8.5 8.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 5 0" />
     <path d="M15.5 8.5a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1 5 0" />
@@ -168,7 +168,7 @@ export const SlackIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const DiscordIcon: React.FC<CustomIconProps> = (props) => (
+export const DiscordIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M20 12c-2 4-7 8-8 8s-6-4-8-8c0-6 4-8 8-8s8 2 8 8Z" />
     <circle cx="9" cy="10" r="1" />
@@ -178,7 +178,7 @@ export const DiscordIcon: React.FC<CustomIconProps> = (props) => (
 )
 
 // Utility icons
-export const JsonIcon: React.FC<CustomIconProps> = (props) => (
+export const JsonIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M8 3H5a2 2 0 0 0-2 2v3m18-3v3a2 2 0 0 1-2 2h-3m-8 8h3a2 2 0 0 0 2-2v-3m-8 0v3a2 2 0 0 0 2 2h3" />
     <path d="M8 12h8" />
@@ -186,7 +186,7 @@ export const JsonIcon: React.FC<CustomIconProps> = (props) => (
   </BaseSVG>
 )
 
-export const YamlIcon: React.FC<CustomIconProps> = (props) => (
+export const YamlIcon: React.FC<CustomIconProps> = props => (
   <BaseSVG {...props}>
     <path d="M3 6h4" />
     <path d="M5 6v6" />
@@ -203,36 +203,36 @@ export const YamlIcon: React.FC<CustomIconProps> = (props) => (
  */
 export const CustomSVGIcons: Record<string, React.ComponentType<CustomIconProps>> = {
   // Workflow
-  'workflow': WorkflowIcon,
-  'node': NodeIcon,
-  'connection': ConnectionIcon,
-  
+  workflow: WorkflowIcon,
+  node: NodeIcon,
+  connection: ConnectionIcon,
+
   // Data processing
-  'transform': TransformIcon,
-  'filter': FilterIcon,
-  'aggregate': AggregateIcon,
-  
+  transform: TransformIcon,
+  filter: FilterIcon,
+  aggregate: AggregateIcon,
+
   // Math
-  'sum': SumIcon,
-  'average': AverageIcon,
-  
+  sum: SumIcon,
+  average: AverageIcon,
+
   // AI/ML
   'neural-network': NeuralNetworkIcon,
-  'neural_network': NeuralNetworkIcon,
-  'model': ModelIcon,
-  
+  neural_network: NeuralNetworkIcon,
+  model: ModelIcon,
+
   // Cloud & Services
-  'api': APIIcon,
-  'webhook': WebhookIcon,
-  
+  api: APIIcon,
+  webhook: WebhookIcon,
+
   // Brands
-  'slack': SlackIcon,
-  'discord': DiscordIcon,
-  
+  slack: SlackIcon,
+  discord: DiscordIcon,
+
   // Utilities
-  'json': JsonIcon,
-  'yaml': YamlIcon,
-  
+  json: JsonIcon,
+  yaml: YamlIcon,
+
   // Add kebab-case and snake_case variants for consistency
   'workflow-icon': WorkflowIcon,
   'node-icon': NodeIcon,

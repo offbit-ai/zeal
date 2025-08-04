@@ -28,16 +28,19 @@ The Zeal Workflow Editor is a powerful visual programming environment that allow
 ### Basic Operations
 
 #### Adding Nodes
+
 1. **Drag and Drop**: Open the node browser and drag nodes onto the canvas
 2. **Double Click**: Double-click on empty canvas space to open quick add menu
 3. **Copy/Paste**: Select a node and use Ctrl+C/Ctrl+V (Cmd on Mac)
 
 #### Connecting Nodes
+
 1. Click and drag from an output port (right side) to an input port (left side)
 2. Compatible ports will highlight when hovering
 3. Release to create the connection
 
 #### Deleting Elements
+
 - **Nodes**: Select and press Delete key or use the delete button
 - **Connections**: Click on a connection line and press Delete
 
@@ -48,29 +51,34 @@ The Zeal Workflow Editor is a powerful visual programming environment that allow
 #### Node Types
 
 **Data Sources**
+
 - API Request: Make HTTP/REST API calls
 - Database Query: Execute SQL queries
 - File Reader: Read local or remote files
 - Webhook Receiver: Accept incoming webhooks
 
 **Data Processing**
+
 - Transform: Modify data structure
 - Filter: Filter arrays or objects
 - Aggregate: Perform calculations
 - Join: Combine multiple data sources
 
 **Logic & Control**
+
 - Conditional: If/else branching
 - Loop: Iterate over collections
 - Delay: Add time delays
 - Schedule: Time-based triggers
 
 **AI & ML**
+
 - LLM Query: Interface with language models
 - Text Analysis: Sentiment, entity extraction
 - Image Processing: Computer vision tasks
 
 **Storage & Output**
+
 - Database Write: Save to database
 - File Writer: Export to files
 - Email Sender: Send notifications
@@ -91,11 +99,13 @@ Click on any node to open the property panel:
 Groups help organize complex workflows by bundling related nodes together.
 
 #### Creating Groups
+
 1. Select multiple nodes (drag selection box or Ctrl+Click)
 2. Right-click and select "Create Group"
 3. Name and configure the group
 
 #### Group Features
+
 - **Collapse/Expand**: Click the arrow to hide/show group contents
 - **Move Together**: Dragging a group moves all contained nodes
 - **Resize**: Drag corners to resize the group boundary
@@ -125,12 +135,14 @@ Debug your workflows with the built-in flow tracer:
 Track changes, review past executions, and manage versions:
 
 #### Version History
+
 - **Auto-save**: Changes are saved automatically every 30 seconds
 - **Manual Snapshots**: Create named versions at important milestones
 - **Version Browser**: Access via History panel in sidebar
 - **Change Tracking**: See who made changes and when
 
 #### Version Management
+
 1. **View History**:
    - Click History icon in sidebar
    - Browse versions chronologically
@@ -181,6 +193,7 @@ The flow tracer maintains a complete history of workflow executions:
    - Node execution heatmap
 
 Example workflow for debugging with history:
+
 ```
 1. Open Flow Traces panel
 2. Find the failed execution
@@ -206,19 +219,19 @@ Create reusable workflow components:
 
 ### 1. Keyboard Shortcuts
 
-| Action | Windows/Linux | Mac |
-|--------|--------------|-----|
-| Save | Ctrl+S | Cmd+S |
-| Undo | Ctrl+Z | Cmd+Z |
-| Redo | Ctrl+Y | Cmd+Shift+Z |
-| Copy | Ctrl+C | Cmd+C |
-| Paste | Ctrl+V | Cmd+V |
-| Delete | Delete | Delete |
-| Select All | Ctrl+A | Cmd+A |
-| Search | Ctrl+F | Cmd+F |
-| Zoom In | Ctrl++ | Cmd++ |
-| Zoom Out | Ctrl+- | Cmd+- |
-| Reset Zoom | Ctrl+0 | Cmd+0 |
+| Action     | Windows/Linux | Mac         |
+| ---------- | ------------- | ----------- |
+| Save       | Ctrl+S        | Cmd+S       |
+| Undo       | Ctrl+Z        | Cmd+Z       |
+| Redo       | Ctrl+Y        | Cmd+Shift+Z |
+| Copy       | Ctrl+C        | Cmd+C       |
+| Paste      | Ctrl+V        | Cmd+V       |
+| Delete     | Delete        | Delete      |
+| Select All | Ctrl+A        | Cmd+A       |
+| Search     | Ctrl+F        | Cmd+F       |
+| Zoom In    | Ctrl++        | Cmd++       |
+| Zoom Out   | Ctrl+-        | Cmd+-       |
+| Reset Zoom | Ctrl+0        | Cmd+0       |
 
 ### 2. Canvas Navigation
 
@@ -230,6 +243,7 @@ Create reusable workflow components:
 ### 3. Search & Filter
 
 Use the search feature (Ctrl+F) to:
+
 - Find nodes by name or type
 - Search within node configurations
 - Filter by node category
@@ -238,11 +252,13 @@ Use the search feature (Ctrl+F) to:
 ### 4. Import/Export
 
 #### Export Options
+
 - **JSON**: Complete workflow definition
 - **Image**: PNG/SVG snapshot
 - **Documentation**: Auto-generated markdown
 
 #### Import Formats
+
 - Zeal JSON format
 - Compatible node-RED flows
 - Custom node templates
@@ -291,17 +307,20 @@ Manage configuration across environments:
 ### Common Issues
 
 **Nodes Not Connecting**
+
 - Check port compatibility (data types must match)
 - Ensure no circular dependencies
 - Verify node output is configured
 
 **Performance Problems**
+
 - Reduce visible node count (use groups)
 - Disable flow tracing when not needed
 - Check for infinite loops
 - Optimize heavy computations
 
 **Sync Issues**
+
 - Refresh the page
 - Check network connection
 - Verify CRDT server is running

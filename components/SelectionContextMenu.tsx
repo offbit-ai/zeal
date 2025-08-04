@@ -14,15 +14,15 @@ interface SelectionContextMenuProps {
   onClose: () => void
 }
 
-export function SelectionContextMenu({ 
-  isVisible, 
-  position, 
+export function SelectionContextMenu({
+  isVisible,
+  position,
   selectedNodeCount,
   onCreateGroup,
   onCopy,
   onCut,
   onDelete,
-  onClose 
+  onClose,
 }: SelectionContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -42,7 +42,7 @@ export function SelectionContextMenu({
     if (isVisible) {
       document.addEventListener('mousedown', handleClickOutside)
       document.addEventListener('keydown', handleKeyDown)
-      
+
       return () => {
         document.removeEventListener('mousedown', handleClickOutside)
         document.removeEventListener('keydown', handleKeyDown)
@@ -53,7 +53,8 @@ export function SelectionContextMenu({
   if (!isVisible) return null
 
   // Detect platform for showing correct keyboard shortcut
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const isMac =
+    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const groupShortcut = isMac ? '⌘G' : 'Ctrl+G'
 
   return (

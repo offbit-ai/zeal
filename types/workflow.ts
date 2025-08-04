@@ -2,7 +2,18 @@
 
 export type NodeShape = 'rectangle' | 'circle' | 'diamond'
 
-export type NodeVariant = 'black' | 'gray-700' | 'gray-600' | 'gray-800' | 'gray-900' | 'blue-600' | 'green-600' | 'orange-600' | 'orange-700' | 'yellow-600' | 'purple-600'
+export type NodeVariant =
+  | 'black'
+  | 'gray-700'
+  | 'gray-600'
+  | 'gray-800'
+  | 'gray-900'
+  | 'blue-600'
+  | 'green-600'
+  | 'orange-600'
+  | 'orange-700'
+  | 'yellow-600'
+  | 'purple-600'
 
 // Special type for subgraph nodes
 export interface SubgraphNodeMetadata extends NodeMetadata {
@@ -21,9 +32,28 @@ export interface Port {
   position: 'top' | 'right' | 'bottom' | 'left'
 }
 
-export type PropertyType = 'text' | 'number' | 'select' | 'boolean' | 'textarea' | 'rules' | 'dataOperations' | 'code-editor'
+export type PropertyType =
+  | 'text'
+  | 'number'
+  | 'select'
+  | 'boolean'
+  | 'textarea'
+  | 'rules'
+  | 'dataOperations'
+  | 'code-editor'
 
-export type RuleOperator = 'is' | 'is_not' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'greater_equal' | 'less_equal' | 'between' | 'empty' | 'not_empty'
+export type RuleOperator =
+  | 'is'
+  | 'is_not'
+  | 'contains'
+  | 'not_contains'
+  | 'greater_than'
+  | 'less_than'
+  | 'greater_equal'
+  | 'less_equal'
+  | 'between'
+  | 'empty'
+  | 'not_empty'
 
 export type RuleConnector = 'AND' | 'OR'
 
@@ -51,7 +81,15 @@ export interface RuleSet {
   }
 }
 
-export type DataOperationType = 'map' | 'filter' | 'sort' | 'transform' | 'group' | 'aggregate' | 'merge' | 'split'
+export type DataOperationType =
+  | 'map'
+  | 'filter'
+  | 'sort'
+  | 'transform'
+  | 'group'
+  | 'aggregate'
+  | 'merge'
+  | 'split'
 
 export type SortDirection = 'asc' | 'desc'
 
@@ -89,7 +127,7 @@ export interface DataOperationSet {
   operations: DataOperation[]
 }
 
-export type  PropertyDefinition = {
+export type PropertyDefinition = {
   id: string
   label: string
   type: PropertyType
@@ -107,8 +145,7 @@ export type  PropertyDefinition = {
   wordWrap?: boolean // Enable word wrap in code editor
   height?: number // Height of the code editor in pixels
   minimap?: boolean // Show minimap in code editor
-  
-} & {[key:string]: any} // Allow additional properties for flexibility}
+} & { [key: string]: any } // Allow additional properties for flexibility}
 
 export interface NodeMetadata {
   id: string
@@ -130,9 +167,9 @@ export interface NodeMetadata {
       when: string
       updates: Record<string, any>
     }>
-  },
+  }
   [key: string]: any // Allow additional metadata fields
-} 
+}
 
 export interface WorkflowNodeData {
   metadata: NodeMetadata

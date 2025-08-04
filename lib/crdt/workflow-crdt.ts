@@ -1,6 +1,6 @@
 /**
  * Workflow CRDT Implementation
- * 
+ *
  * Demonstrates how to integrate Y.js CRDTs with the existing workflow store
  * for real-time collaboration and offline-first functionality.
  */
@@ -8,21 +8,13 @@
 import * as Y from 'yjs'
 import { create } from 'zustand'
 import { CRDTPersistence } from './persistence'
-import type {
-  CRDTWorkflowDoc,
-  CRDTGraph,
-  CRDTNode,
-  CRDTConnection,
-  CRDTPresence
-} from './types'
+import type { CRDTWorkflowDoc, CRDTGraph, CRDTNode, CRDTConnection, CRDTPresence } from './types'
 import type {
   WorkflowNodeData as WorkflowNode,
   Connection as WorkflowConnection,
-  NodeGroup
+  NodeGroup,
 } from '@/types/workflow'
-import type {
-  WorkflowGraph
-} from '@/types/snapshot'
+import type { WorkflowGraph } from '@/types/snapshot'
 
 /**
  * Convert a regular workflow node to CRDT format
@@ -31,7 +23,7 @@ export function nodeToCRDT(node: WorkflowNode, doc: Y.Doc): Y.Map<any> {
   const yNode = new Y.Map()
 
   // Use metadata.id as the primary ID to maintain consistency
-  const nodeId = node.metadata?.id  || ''
+  const nodeId = node.metadata?.id || ''
   yNode.set('id', nodeId)
 
   // Create and set position map
@@ -79,7 +71,7 @@ export function nodeFromCRDT(crdtNode: CRDTNode | any): WorkflowNode {
 
   const position = {
     x: getPositionValue('x'),
-    y: getPositionValue('y')
+    y: getPositionValue('y'),
   }
 
   const metadata: any = {}
@@ -111,19 +103,15 @@ export function nodeFromCRDT(crdtNode: CRDTNode | any): WorkflowNode {
     metadata: {
       ...metadata,
       id: nodeId, // Ensure metadata.id matches the node ID
-      propertyValues
+      propertyValues,
     },
-
   }
 }
 
 /**
  * Convert a connection to CRDT format
  */
-export function connectionToCRDT(
-  connection: WorkflowConnection,
-  doc: Y.Doc
-): Y.Map<any> {
+export function connectionToCRDT(connection: WorkflowConnection, doc: Y.Doc): Y.Map<any> {
   const yConnection = new Y.Map()
 
   // Set the ID
@@ -161,9 +149,7 @@ export function connectionToCRDT(
 /**
  * Convert a CRDT connection back to regular format
  */
-export function connectionFromCRDT(
-  crdtConnection: CRDTConnection | any
-): WorkflowConnection {
+export function connectionFromCRDT(crdtConnection: CRDTConnection | any): WorkflowConnection {
   // Handle both Y.Map and plain object formats
   const getSourceValue = (key: string) => {
     if (crdtConnection.source && typeof crdtConnection.source.get === 'function') {
@@ -181,12 +167,12 @@ export function connectionFromCRDT(
 
   const source = {
     nodeId: getSourceValue('nodeId'),
-    portId: getSourceValue('portId')
+    portId: getSourceValue('portId'),
   }
 
   const target = {
     nodeId: getTargetValue('nodeId'),
-    portId: getTargetValue('portId')
+    portId: getTargetValue('portId'),
   }
 
   const metadata: any = {}
@@ -199,17 +185,19 @@ export function connectionFromCRDT(
   }
 
   // Get the connection state
-  const state = (typeof crdtConnection.state === 'string')
-    ? crdtConnection.state
-    : crdtConnection.state?.get ? crdtConnection.state.get('state')
-      : 'pending'
+  const state =
+    typeof crdtConnection.state === 'string'
+      ? crdtConnection.state
+      : crdtConnection.state?.get
+        ? crdtConnection.state.get('state')
+        : 'pending'
 
   return {
     id: crdtConnection.id,
     source,
     target,
     metadata,
-    state: state as any
+    state: state as any,
   }
 }
 
@@ -283,12 +271,12 @@ export function groupFromCRDT(crdtGroup: any): NodeGroup {
 
   const position = {
     x: getPositionValue('x', 0),
-    y: getPositionValue('y', 0)
+    y: getPositionValue('y', 0),
   }
 
   const size = {
     width: getSizeValue('width', 300),
-    height: getSizeValue('height', 200)
+    height: getSizeValue('height', 200),
   }
 
   // Get nodeIds array
@@ -312,13 +300,13 @@ export function groupFromCRDT(crdtGroup: any): NodeGroup {
     color: getValue('color', '#e5e7eb'),
     isCollapsed: getValue('collapsed', false),
     createdAt: getValue('createdAt', new Date().toISOString()),
-    updatedAt: getValue('updatedAt', new Date().toISOString())
+    updatedAt: getValue('updatedAt', new Date().toISOString()),
   }
 }
 
 /**
  * Example: Create a CRDT-enabled workflow store
- * 
+ *
  * Note: This example is commented out as it uses withCRDT which
  * is not needed for the current implementation.
  */
@@ -477,13 +465,10 @@ export const useCRDTWorkflowStore = create(
 /**
  * Initialize CRDT persistence
  */
-export async function initializeCRDTPersistence(
-  doc: Y.Doc,
-  workflowId: string
-): Promise<void> {
+export async function initializeCRDTPersistence(doc: Y.Doc, workflowId: string): Promise<void> {
   const persistence = new CRDTPersistence({
     dbName: 'zeal-workflows',
-    autoSaveInterval: 1000
+    autoSaveInterval: 1000,
   })
 
   await persistence.initializeDoc(workflowId, doc, () => {
@@ -505,7 +490,7 @@ export function createPresenceProvider(
 } {
   const awareness = {
     clientID: doc.clientID,
-    states: new Map<number, any>()
+    states: new Map<number, any>(),
   }
 
   const setPresence = (presence: Partial<CRDTPresence>) => {
@@ -515,7 +500,7 @@ export function createPresenceProvider(
       userColor: generateUserColor(userId),
       isActive: true,
       lastSeen: Date.now(),
-      ...presence
+      ...presence,
     }
 
     awareness.states.set(awareness.clientID, fullPresence)

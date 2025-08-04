@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  createSuccessResponse, 
-  withErrorHandling, 
-  extractUserId,
-  mockDelay
-} from '@/lib/api-utils'
+import { createSuccessResponse, withErrorHandling, extractUserId, mockDelay } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { NodeRepositoryService } from '@/services/nodeRepositoryService'
 import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
@@ -36,29 +31,29 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'databases',
         displayName: 'Databases',
         description: 'SQL and NoSQL database connectors',
-        nodeCount: 5
+        nodeCount: 5,
       },
       {
         name: 'apis',
         displayName: 'APIs',
         description: 'REST, GraphQL, and other API connectors',
-        nodeCount: 8
+        nodeCount: 8,
       },
       {
         name: 'files',
         displayName: 'Files',
         description: 'File system and cloud storage',
-        nodeCount: 4
+        nodeCount: 4,
       },
       {
         name: 'streams',
         displayName: 'Streams',
         description: 'Real-time data streams and events',
-        nodeCount: 2
-      }
+        nodeCount: 2,
+      },
     ],
     totalNodes: 19,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'ai-models',
@@ -70,41 +65,41 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'llm',
         displayName: 'Language Models',
         description: 'GPT, Claude, Gemini, and other LLMs',
-        nodeCount: 6
+        nodeCount: 6,
       },
       {
         name: 'agents',
         displayName: 'AI Agents',
         description: 'Autonomous AI agents and assistants',
-        nodeCount: 8
+        nodeCount: 8,
       },
       {
         name: 'agent-tools',
         displayName: 'Agent Tools',
         description: 'Tools and functions for AI agents',
-        nodeCount: 12
+        nodeCount: 12,
       },
       {
         name: 'vision',
         displayName: 'Computer Vision',
         description: 'Image and video analysis models',
-        nodeCount: 4
+        nodeCount: 4,
       },
       {
         name: 'audio',
         displayName: 'Audio Processing',
         description: 'Speech-to-text, text-to-speech, audio analysis',
-        nodeCount: 3
+        nodeCount: 3,
       },
       {
         name: 'specialized',
         displayName: 'Specialized AI',
         description: 'Domain-specific AI models and tools',
-        nodeCount: 5
-      }
+        nodeCount: 5,
+      },
     ],
     totalNodes: 38,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'logic-control',
@@ -116,29 +111,29 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'conditions',
         displayName: 'Conditions',
         description: 'If/else, switch, and conditional logic',
-        nodeCount: 4
+        nodeCount: 4,
       },
       {
         name: 'loops',
         displayName: 'Loops',
         description: 'For each, while, and iteration controls',
-        nodeCount: 3
+        nodeCount: 3,
       },
       {
         name: 'timing',
         displayName: 'Timing',
         description: 'Delays, schedules, and time-based controls',
-        nodeCount: 5
+        nodeCount: 5,
       },
       {
         name: 'error-handling',
         displayName: 'Error Handling',
         description: 'Try/catch, error recovery, and validation',
-        nodeCount: 4
-      }
+        nodeCount: 4,
+      },
     ],
     totalNodes: 16,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'data-processing',
@@ -150,29 +145,29 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'transformers',
         displayName: 'Transformers',
         description: 'Data mapping and transformation',
-        nodeCount: 8
+        nodeCount: 8,
       },
       {
         name: 'filters',
         displayName: 'Filters',
         description: 'Data filtering and selection',
-        nodeCount: 6
+        nodeCount: 6,
       },
       {
         name: 'aggregators',
         displayName: 'Aggregators',
         description: 'Data grouping and aggregation',
-        nodeCount: 5
+        nodeCount: 5,
       },
       {
         name: 'validators',
         displayName: 'Validators',
         description: 'Data validation and cleaning',
-        nodeCount: 4
-      }
+        nodeCount: 4,
+      },
     ],
     totalNodes: 23,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'communication',
@@ -184,29 +179,29 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'messaging',
         displayName: 'Messaging',
         description: 'Chat platforms and instant messaging',
-        nodeCount: 8
+        nodeCount: 8,
       },
       {
         name: 'email',
         displayName: 'Email',
         description: 'Email sending and receiving',
-        nodeCount: 5
+        nodeCount: 5,
       },
       {
         name: 'notifications',
         displayName: 'Notifications',
         description: 'Push notifications and alerts',
-        nodeCount: 6
+        nodeCount: 6,
       },
       {
         name: 'voice',
         displayName: 'Voice & SMS',
         description: 'Voice calls and SMS messaging',
-        nodeCount: 4
-      }
+        nodeCount: 4,
+      },
     ],
     totalNodes: 23,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'scripting',
@@ -218,29 +213,29 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'javascript',
         displayName: 'JavaScript',
         description: 'Sandboxed JavaScript execution with imports access',
-        nodeCount: 1
+        nodeCount: 1,
       },
       {
         name: 'python',
         displayName: 'Python',
         description: 'Sandboxed Python execution with pip package support',
-        nodeCount: 1
+        nodeCount: 1,
       },
       {
         name: 'sql',
         displayName: 'SQL',
         description: 'SQL query execution and database operations',
-        nodeCount: 5
+        nodeCount: 5,
       },
       {
         name: 'nushell',
         displayName: 'Nushell',
         description: 'Modern shell scripting with structured data',
-        nodeCount: 3
-      }
+        nodeCount: 3,
+      },
     ],
     totalNodes: 12,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'tools-utilities',
@@ -252,29 +247,29 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'http',
         displayName: 'HTTP Tools',
         description: 'REST clients and web requests',
-        nodeCount: 6
+        nodeCount: 6,
       },
       {
         name: 'math',
         displayName: 'Mathematics',
         description: 'Calculations and mathematical operations',
-        nodeCount: 8
+        nodeCount: 8,
       },
       {
         name: 'text',
         displayName: 'Text Processing',
         description: 'String manipulation and text utilities',
-        nodeCount: 7
+        nodeCount: 7,
       },
       {
         name: 'utilities',
         displayName: 'General Utils',
         description: 'Miscellaneous utility functions',
-        nodeCount: 5
-      }
+        nodeCount: 5,
+      },
     ],
     totalNodes: 26,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'storage-memory',
@@ -286,23 +281,23 @@ const categoriesStore: NodeCategoryResponse[] = [
         name: 'variables',
         displayName: 'Variables',
         description: 'Variable storage and retrieval',
-        nodeCount: 4
+        nodeCount: 4,
       },
       {
         name: 'sessions',
         displayName: 'Sessions',
         description: 'Session and state management',
-        nodeCount: 3
+        nodeCount: 3,
       },
       {
         name: 'cache',
         displayName: 'Caching',
         description: 'Temporary data storage and caching',
-        nodeCount: 5
-      }
+        nodeCount: 5,
+      },
     ],
     totalNodes: 12,
-    isActive: true
+    isActive: true,
   },
   {
     name: 'graph-io',
@@ -311,71 +306,71 @@ const categoriesStore: NodeCategoryResponse[] = [
     icon: 'arrow-right-left',
     subcategories: [],
     totalNodes: 4,
-    isActive: true
-  }
+    isActive: true,
+  },
 ]
 
 // GET /api/nodes/categories - List node categories
 export const GET = withErrorHandling(async (req: NextRequest) => {
   // Generate cache key
   const cacheKey = apiCache.generateKey(req)
-  
+
   // Check cache first
   const cachedResponse = apiCache.get(cacheKey)
   if (cachedResponse) {
     // console.log removed
     return NextResponse.json(cachedResponse)
   }
-  
+
   await mockDelay(75)
-  
+
   const { searchParams } = new URL(req.url)
   const _userId = extractUserId(req) // Prefix with _ to indicate intentionally unused
-  
+
   const includeSubcategories = searchParams.get('include_subcategories') !== 'false'
   const includeInactive = searchParams.get('include_inactive') === 'true'
-  
+
   // Filter categories from backend store
-  let filteredCategories = categoriesStore.filter((category: NodeCategoryResponse) => 
-    includeInactive || category.isActive
+  let filteredCategories = categoriesStore.filter(
+    (category: NodeCategoryResponse) => includeInactive || category.isActive
   )
-  
+
   // Optionally exclude subcategories for simplified response
   if (!includeSubcategories) {
     filteredCategories = filteredCategories.map((category: NodeCategoryResponse) => ({
       ...category,
-      subcategories: []
+      subcategories: [],
     }))
   }
-  
+
   const response = createSuccessResponse(filteredCategories, {
     timestamp: new Date().toISOString(),
-    requestId: `req_${Date.now()}`
+    requestId: `req_${Date.now()}`,
   })
-  
+
   // Cache the response
   apiCache.set(cacheKey, response, CACHE_TTL.CATEGORIES)
-  
+
   return NextResponse.json(response)
 })
 
 // POST /api/nodes/categories - Create new category (admin only)
 export const POST = withErrorHandling(async (req: NextRequest) => {
   await mockDelay(150)
-  
+
   const userId = extractUserId(req)
   const body = await req.json()
-  
+
   // In real implementation, check if user has admin permissions
   if (!userId.startsWith('admin_')) {
     throw new ApiError('FORBIDDEN', 'Only administrators can create categories', 403)
   }
-  
+
   // Validate required fields
   if (!body.name || !body.displayName) {
     throw new ApiError('VALIDATION_ERROR', 'name and displayName are required', 400)
   }
-  
+
   // Check for duplicate category name
   const existingCategory = categoriesStore.find(category => category.name === body.name)
   if (existingCategory) {
@@ -385,7 +380,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       409
     )
   }
-  
+
   // Create new category
   const newCategory: NodeCategoryResponse = {
     name: body.name,
@@ -394,13 +389,13 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     icon: body.icon || 'folder',
     subcategories: body.subcategories || [],
     totalNodes: 0,
-    isActive: true
+    isActive: true,
   }
-  
+
   categoriesStore.push(newCategory)
-  
+
   // Invalidate all categories cache since this affects all users
   invalidateCache('/api/nodes/categories')
-  
+
   return NextResponse.json(createSuccessResponse(newCategory), { status: 201 })
 })

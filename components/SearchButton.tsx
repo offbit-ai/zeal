@@ -13,7 +13,10 @@ export function SearchButton({ onClick }: SearchButtonProps) {
           onClick={onClick}
           className="w-12 h-10 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow flex items-center justify-center group cursor-pointer"
         >
-          <Search className="w-4 h-4 text-gray-600 group-hover:text-gray-800 transition-colors" strokeWidth={1.5} />
+          <Search
+            className="w-4 h-4 text-gray-600 group-hover:text-gray-800 transition-colors"
+            strokeWidth={1.5}
+          />
         </button>
       </Tooltip>
     </div>

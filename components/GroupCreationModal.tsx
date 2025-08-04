@@ -11,18 +11,19 @@ interface GroupCreationModalProps {
   onCancel: () => void
 }
 
-export function GroupCreationModal({ 
-  isOpen, 
-  selectedNodeCount, 
-  selectedNodeNames, 
-  onConfirm, 
-  onCancel 
+export function GroupCreationModal({
+  isOpen,
+  selectedNodeCount,
+  selectedNodeNames,
+  onConfirm,
+  onCancel,
 }: GroupCreationModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  
+
   // Detect platform for showing correct keyboard shortcut
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const isMac =
+    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const shortcutKey = isMac ? '⌘G' : 'Ctrl+G'
 
   useEffect(() => {
@@ -53,11 +54,8 @@ export function GroupCreationModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-      />
-      
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
+
       {/* Modal */}
       <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-in fade-in duration-200">
         {/* Header */}
@@ -94,7 +92,7 @@ export function GroupCreationModal({
                 id="group-title"
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={e => setTitle(e.target.value)}
                 placeholder="Enter group title..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 autoFocus
@@ -104,7 +102,10 @@ export function GroupCreationModal({
 
             {/* Description Input */}
             <div>
-              <label htmlFor="group-description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="group-description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Description
               </label>
               <div className="relative">
@@ -112,7 +113,7 @@ export function GroupCreationModal({
                 <textarea
                   id="group-description"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={e => setDescription(e.target.value)}
                   placeholder="Describe the purpose of this group..."
                   rows={3}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"

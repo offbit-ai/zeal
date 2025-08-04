@@ -1,20 +1,17 @@
 /**
  * CRDT Type Definitions for Workflow Collaboration
- * 
+ *
  * These types define the structure of our Conflict-Free Replicated Data Types
  * using Y.js for real-time collaboration and offline-first functionality.
  */
 
 import * as Y from 'yjs'
-import type { 
-  WorkflowNodeData, 
-  Connection as WorkflowConnection, 
-  NodeGroup
-} from '@/types/workflow'
 import type {
-  WorkflowGraph,
-  WorkflowSnapshot
-} from '@/types/snapshot'
+  WorkflowNodeData,
+  Connection as WorkflowConnection,
+  NodeGroup,
+} from '@/types/workflow'
+import type { WorkflowGraph, WorkflowSnapshot } from '@/types/snapshot'
 
 /**
  * Root document structure containing all workflow data
@@ -133,24 +130,24 @@ export enum CRDTOperationType {
   NODE_UPDATE = 'node:update',
   NODE_DELETE = 'node:delete',
   NODE_MOVE = 'node:move',
-  
+
   // Connection operations
   CONNECTION_ADD = 'connection:add',
   CONNECTION_DELETE = 'connection:delete',
-  
+
   // Group operations
   GROUP_CREATE = 'group:create',
   GROUP_UPDATE = 'group:update',
   GROUP_DELETE = 'group:delete',
-  
+
   // Graph operations
   GRAPH_CREATE = 'graph:create',
   GRAPH_UPDATE = 'graph:update',
   GRAPH_DELETE = 'graph:delete',
-  
+
   // Workflow operations
   WORKFLOW_UPDATE = 'workflow:update',
-  SNAPSHOT_CREATE = 'snapshot:create'
+  SNAPSHOT_CREATE = 'snapshot:create',
 }
 
 /**
@@ -174,19 +171,19 @@ export interface CRDTProviderConfig {
   // Persistence
   enableIndexedDB: boolean
   indexedDBName?: string
-  
+
   // Network sync
   enableWebSocket: boolean
   webSocketUrl?: string
-  
+
   // WebRTC for P2P
   enableWebRTC: boolean
   webRTCSignalingServer?: string
-  
+
   // Performance
   gcEnabled: boolean
   gcInterval?: number
-  
+
   // Security
   encryption?: {
     enabled: boolean

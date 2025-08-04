@@ -9,7 +9,11 @@ interface MissingEnvVarWarningProps {
   onOpenConfig: () => void
 }
 
-export function MissingEnvVarWarning({ missingVars, onDismiss, onOpenConfig }: MissingEnvVarWarningProps) {
+export function MissingEnvVarWarning({
+  missingVars,
+  onDismiss,
+  onOpenConfig,
+}: MissingEnvVarWarningProps) {
   if (missingVars.length === 0) return null
 
   return (
@@ -23,10 +27,14 @@ export function MissingEnvVarWarning({ missingVars, onDismiss, onOpenConfig }: M
             </p>
             <p className="text-sm text-yellow-700 mt-0.5">
               {missingVars.length === 1 ? (
-                <>The variable <span className="font-mono bg-yellow-100 px-1 rounded">{missingVars[0]}</span> is required but not configured.</>
+                <>
+                  The variable{' '}
+                  <span className="font-mono bg-yellow-100 px-1 rounded">{missingVars[0]}</span> is
+                  required but not configured.
+                </>
               ) : (
                 <>
-                  {missingVars.length} variables are required but not configured: {' '}
+                  {missingVars.length} variables are required but not configured:{' '}
                   <span className="font-mono bg-yellow-100 px-1 rounded">
                     {missingVars.slice(0, 3).join(', ')}
                     {missingVars.length > 3 && ` +${missingVars.length - 3} more`}
@@ -36,7 +44,7 @@ export function MissingEnvVarWarning({ missingVars, onDismiss, onOpenConfig }: M
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2 ml-4">
           <button
             onClick={onOpenConfig}
