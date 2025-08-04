@@ -7,9 +7,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import * as Y from 'yjs'
-import { SocketIOProvider } from './socketio-provider'
+import { RustSocketIOProvider } from './rust-socketio-provider'
 import { CRDTPersistence } from './persistence'
-import { CRDTMigration, MigrationPhase } from './migration'
 import type { CRDTPresence, CRDTSyncState } from './types'
 
 /**
@@ -35,14 +34,14 @@ export function useCRDT(options: UseCRDTOptions) {
   const [doc] = useState(() => new Y.Doc({ guid: options.roomName }))
   const [syncState, setSyncState] = useState<CRDTSyncState>({
     isSyncing: false,
-    lastSyncedAt: null,
+    lastSyncedAt: undefined,
     pendingChanges: 0,
     peers: []
   })
   const [presence, setPresence] = useState<Map<number, CRDTPresence>>(new Map())
   const [isInitialized, setIsInitialized] = useState(false)
   
-  const socketProviderRef = useRef<SocketIOProvider | null>(null)
+  const socketProviderRef = useRef<RustSocketIOProvider | null>(null)
   const persistenceRef = useRef<CRDTPersistence | null>(null)
   
   // Initialize providers
@@ -62,8 +61,9 @@ export function useCRDT(options: UseCRDTOptions) {
       
       // Initialize Socket.IO provider
       if (options.enableWebSocket) {
-        socketProviderRef.current = new SocketIOProvider(doc, {
+        socketProviderRef.current = new RustSocketIOProvider(doc, {
           roomName: options.roomName,
+          serverUrl: options.webSocketUrl || 'ws://localhost:8080',
           auth: options.auth,
           onStatusChange: (status) => {
             setSyncState(prev => ({
@@ -82,7 +82,21 @@ export function useCRDT(options: UseCRDTOptions) {
           const awareness = socketProviderRef.current.getAwareness()
           
           awareness.on('change', () => {
-            setPresence(new Map(awareness.getStates()))
+            const states = new Map<number, CRDTPresence>()
+            awareness.getStates().forEach((state, clientId) => {
+              // Only include states that have the required fields
+              if (state && (state.userId || state.user?.userId)) {
+                states.set(clientId, {
+                  userId: state.userId || state.user?.userId || `client-${clientId}`,
+                  userName: state.userName || state.user?.userName || 'Anonymous',
+                  userColor: state.userColor || state.user?.userColor || '#3b82f6',
+                  cursor: state.cursor,
+                  lastSeen: state.lastSeen || Date.now(),
+                  isActive: state.isActive !== undefined ? state.isActive : true
+                } as CRDTPresence)
+              }
+            })
+            setPresence(states)
           })
           
           // Set initial presence
@@ -212,52 +226,6 @@ export function useYMap<T extends Record<string, any>>(
   return [state, set, deleteKey]
 }
 
-/**
- * Hook for managing CRDT migration
- */
-export function useCRDTMigration() {
-  const [migration] = useState(() => new CRDTMigration())
-  const [phase, setPhase] = useState<MigrationPhase>(MigrationPhase.LEGACY)
-  const [migrationProgress, setMigrationProgress] = useState(0)
-  const [isMigrating, setIsMigrating] = useState(false)
-  
-  useEffect(() => {
-    migration.getCurrentPhase().then(setPhase)
-  }, [migration])
-  
-  const runMigration = useCallback(async (workflowIds: string[]) => {
-    setIsMigrating(true)
-    setMigrationProgress(0)
-    
-    try {
-      await migration.runFullMigration(workflowIds, (current, total) => {
-        setMigrationProgress((current / total) * 100)
-      })
-      
-      const newPhase = await migration.getCurrentPhase()
-      setPhase(newPhase)
-    } catch (error) {
-      console.error('Migration failed:', error)
-      throw error
-    } finally {
-      setIsMigrating(false)
-    }
-  }, [migration])
-  
-  const setMigrationPhase = useCallback(async (newPhase: MigrationPhase) => {
-    await migration.setPhase(newPhase)
-    setPhase(newPhase)
-  }, [migration])
-  
-  return {
-    phase,
-    migrationProgress,
-    isMigrating,
-    runMigration,
-    setPhase: setMigrationPhase,
-    compatibilityLayer: migration.createCompatibilityLayer()
-  }
-}
 
 /**
  * Hook for tracking user cursor position
@@ -266,7 +234,7 @@ export function useCursorTracking(
   enabled: boolean = true,
   updatePresence?: (update: Partial<CRDTPresence>) => void
 ) {
-  const rafRef = useRef<number>()
+  const rafRef = useRef<number>(0)
   const lastPositionRef = useRef({ x: 0, y: 0 })
   
   useEffect(() => {

@@ -140,8 +140,8 @@ docker volume rm zeal-postgres-data zeal-redis-data
 1. **Start the environment**: `./start-dev.sh`
 2. **Make code changes** - Next.js HMR will auto-reload
 3. **Database changes**:
-   - Modify `prisma/schema.prisma`
-   - Run `npx prisma migrate dev`
+   - Modify database schema in `init.sql`
+   - Apply changes manually to your database
 4. **Stop when done**: `./stop-dev.sh` or `Ctrl+C`
 
 ## Additional Commands

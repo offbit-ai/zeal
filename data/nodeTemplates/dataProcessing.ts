@@ -252,7 +252,7 @@ export const dataProcessingTemplates: NodeTemplate[] = [
     "subcategory": "transformers",
     "description": "Transform and manipulate data using filters and operations",
     "icon": "shuffle",
-    "variant": "blue-700",
+    "variant": "blue-600",
     "shape": "rectangle",
     "size": "large",
     "ports": [

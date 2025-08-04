@@ -22,6 +22,11 @@ import { Minimap } from '@/components/Minimap'
 import { ZoomControls } from '@/components/ZoomControls'
 import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } from 'lucide-react'
 import { ToastManager } from '@/components/Toast'
+import dynamic from 'next/dynamic'
+
+const CRDTDiagnostics = dynamic(() => import('@/components/CRDTDiagnostics').then(mod => mod.CRDTDiagnostics), {
+  ssr: false
+})
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import type { NodeMetadata, Connection } from '@/types/workflow'
 import { Database, Code, Bot, Cloud, Zap, GitBranch, Shuffle } from 'lucide-react'
@@ -61,7 +66,10 @@ import { LoadingOverlay } from '@/components/LoadingOverlay'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import { SaveGraphButton } from '@/components/SaveGraphButton'
 import { toast } from '@/lib/toast'
-import { PresenceDropdown } from '@/components/PresenceDropdown'
+const PresenceDropdown = dynamic(() => import('@/components/PresenceDropdown').then(mod => mod.PresenceDropdown), {
+  ssr: false,
+  loading: () => null
+})
 import { UserSettingsModal } from '@/components/UserSettingsModal'
 import { CollaborativeCursors } from '@/components/CollaborativeCursors'
 import { CRDTFeatureIndicator } from '@/components/CRDTFeatureIndicator'
@@ -375,6 +383,7 @@ export default function Home() {
 
     // Presence
     presence,
+    localClientId,
     isConnected,
     isSyncing,
     isOptimized,
@@ -741,7 +750,7 @@ export default function Home() {
                     nodes: graphState.nodes,
                     connections: graphState.connections,
                     groups: graphState.groups,
-                    trigger: graph.isMain ? snapshot.trigger : null,
+                    triggerConfig: graph.isMain ? snapshot.trigger : null,
                     portPositions: graphState.portPositions,
                   },
                 }
@@ -960,7 +969,7 @@ export default function Home() {
         nodes: storeNodes,
         connections: connections,
         groups: groups,
-        trigger: currentGraph.isMain ? workflowTrigger : null,
+        triggerConfig: currentGraph.isMain ? workflowTrigger : null,
         portPositions: {}, // TODO: Implement port positions tracking
       }
 
@@ -1259,7 +1268,7 @@ export default function Home() {
         nodes: storeNodes,
         connections: connections,
         groups: groups,
-        trigger: currentGraph.isMain ? workflowTrigger : null,
+        triggerConfig: currentGraph.isMain ? workflowTrigger : null,
         portPositions: {}, // TODO: Implement port positions tracking
       }
       // State is automatically saved in CRDT
@@ -1532,7 +1541,7 @@ export default function Home() {
                 nodes: graphState.nodes,
                 connections: graphState.connections,
                 groups: graphState.groups,
-                trigger: graph.isMain ? snapshot.triggerConfig : null,
+                triggerConfig: graph.isMain ? snapshot.triggerConfig : null,
                 portPositions: graphState.portPositions,
               },
             }
@@ -1953,7 +1962,7 @@ export default function Home() {
         nodes: storeNodes,
         connections: connections,
         groups: groups,
-        trigger: currentGraph.isMain ? workflowTrigger : null,
+        triggerConfig: currentGraph.isMain ? workflowTrigger : null,
         portPositions: {}, // TODO: Implement port positions tracking
       }
       // State is automatically saved in CRDT
@@ -2019,7 +2028,7 @@ export default function Home() {
         nodes: storeNodes,
         connections: connections,
         groups: groups,
-        trigger: currentGraph.isMain ? workflowTrigger : null,
+        triggerConfig: currentGraph.isMain ? workflowTrigger : null,
         portPositions: {}, // TODO: Implement port positions tracking
       }
       // State is automatically saved in CRDT
@@ -2585,7 +2594,7 @@ export default function Home() {
               isCollaborative={isCollaborative}
               isSyncing={isSyncing}
               isOptimized={isOptimized}
-              localClientId={doc?.clientID}
+              localClientId={localClientId}
               workflowId={workflowId}
               onShare={async () => {
                 const shareUrl = workflowId ? `${window.location.origin}/?id=${workflowId}` : ''
@@ -3325,6 +3334,9 @@ export default function Home() {
 
       {/* Debug Panel - Temporary for debugging graph issues */}
       {/* <GraphDebugPanel /> */}
+      
+      {/* CRDT Diagnostics */}
+      <CRDTDiagnostics />
     </main>
   )
 }

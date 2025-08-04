@@ -12,7 +12,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import * as Y from 'yjs'
 import { RustSocketIOProvider } from '@/lib/crdt/rust-socketio-provider'
-import { SyncOptimizerV2 } from '@/lib/crdt/sync-optimizer-v2'
+import { SyncOptimizerV2 } from '@/lib/crdt/sync-optimizer'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import type {
   Connection as WorkflowConnection,
@@ -77,6 +77,7 @@ interface WorkflowStore {
 
   // Presence
   presence: Map<number, CRDTPresence>
+  localClientId?: number
   isConnected: boolean
   isSyncing: boolean
 
@@ -173,6 +174,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         selectedNodeIds: [],
         dirtyGraphs: new Set(),
         presence: new Map(),
+        localClientId: undefined,
         lastUpdate: Date.now(),
         isConnected: false,
         isSyncing: false,
@@ -195,72 +197,85 @@ export const useWorkflowStore = create<WorkflowStore>()(
           setupObservers(doc, set, get)
 
           // Create provider and connect
-          const provider = new RustSocketIOProvider(doc, {
-            roomName: workflowId,
-            serverUrl: process.env.NEXT_PUBLIC_RUST_CRDT_URL || 'ws://localhost:8080',
-            auth: {
-              userId: sessionStorage.getItem('userId') || undefined,
-              userName: sessionStorage.getItem('userName') || undefined
-            },
-            onStatusChange: (status) => {
-              // [WorkflowStore] log removed
-              set({
-                isConnected: status === 'connected',
-                isSyncing: status === 'connecting'
-              })
+          const { isCollaborationEnabled, getCRDTServerUrl } = await import('@/lib/config/runtime')
+          const enableCRDT = isCollaborationEnabled()
 
-              // Auto-reconnect on disconnect
-              if (status === 'disconnected') {
+          let provider: RustSocketIOProvider | null = null
+          if (enableCRDT) {
+            provider = new RustSocketIOProvider(doc, {
+              roomName: workflowId,
+              serverUrl: getCRDTServerUrl(),
+              auth: {
+                userId: sessionStorage.getItem('userId') || undefined,
+                userName: sessionStorage.getItem('userName') || undefined
+              },
+              onStatusChange: (status) => {
                 // [WorkflowStore] log removed
-                setTimeout(() => {
-                  if (provider && !provider.connected) {
-                    try {
-                      // [WorkflowStore] log removed
-                      provider.connect()
-                    } catch (error) {
-                      console.error('[WorkflowStore] Reconnection failed:', error)
-                      // Try again in 5 seconds
-                      setTimeout(() => {
-                        if (provider && !provider.connected) {
-                          provider.connect()
-                        }
-                      }, 5000)
+                set({
+                  isConnected: status === 'connected',
+                  isSyncing: status === 'connecting'
+                })
+
+                // Auto-reconnect on disconnect
+                if (status === 'disconnected') {
+                  // [WorkflowStore] log removed
+                  setTimeout(() => {
+                    if (provider && !provider.connected) {
+                      try {
+                        // [WorkflowStore] log removed
+                        provider.connect()
+                      } catch (error) {
+                        console.error('[WorkflowStore] Reconnection failed:', error)
+                        // Try again in 5 seconds
+                        setTimeout(() => {
+                          if (provider && !provider.connected) {
+                            provider.connect()
+                          }
+                        }, 5000)
+                      }
                     }
-                  }
-                }, 1000)
+                  }, 1000)
+                }
+              },
+              onSyncComplete: () => {
+                set({ isSyncing: false })
+                // [WorkflowStore] log removed
               }
-            },
-            onSyncComplete: () => {
-              set({ isSyncing: false })
-              // [WorkflowStore] log removed
-            }
-          })
+            })
 
-          // Set up presence
-          setupPresence(provider, set, get, doc)
+            // Set up presence
+            setupPresence(provider, set, get, doc)
 
-          // Create sync optimizer
-          const syncOptimizer = new SyncOptimizerV2({
-            onOptimizationChange: (isOptimized) => {
-              // [WorkflowStore] log removed
-              set({ isOptimized })
-            },
-            minUsersForFullSync: 2,
-            optimizedInterval: 30000
-          })
+            // Create sync optimizer
+            const syncOptimizer = new SyncOptimizerV2({
+              onOptimizationChange: (isOptimized) => {
+                // [WorkflowStore] log removed
+                set({ isOptimized })
+              },
+              minUsersForFullSync: 2,
+              optimizedInterval: 30000
+            })
 
-          syncOptimizer.attach(provider)
+            syncOptimizer.attach(provider)
 
-          // Update state
-          set({
-            workflowId,
-            doc,
-            provider,
-            syncOptimizer,
-            initialized: true
-          })
-
-          // [WorkflowStore] log removed
+            // Update state with provider
+            set({
+              workflowId,
+              doc,
+              provider,
+              syncOptimizer,
+              initialized: true
+            })
+          } else {
+            // Update state without provider (no CRDT)
+            set({
+              workflowId,
+              doc,
+              provider: null,
+              syncOptimizer: null,
+              initialized: true
+            })
+          }
 
           // Manually sync graphs state to ensure React gets the update
           const graphs: GraphInfo[] = []
@@ -270,31 +285,24 @@ export const useWorkflowStore = create<WorkflowStore>()(
             if (b.isMain) return 1
             return 0
           })
-          // [WorkflowStore] log removed
           set({ graphs })
-
-          // Wait for initial CRDT sync
-          await new Promise(resolve => setTimeout(resolve, 1000))
 
           // Check if CRDT already has data (from other clients)
           const hasData = graphsMap.size > 0 || doc.getMap('nodes-main').size > 0
 
-          if (hasData) {
-            // [WorkflowStore] log removed
-            // Data will be loaded by observers
+          if (enableCRDT && hasData) {
+            // Data will be loaded by observers from CRDT
             return
           }
 
-          // CRDT is empty, check if this is an existing workflow
+          // Load from storage if no CRDT data
           let snapshot: WorkflowSnapshot | null = null
           let isNewWorkflow = false
 
           try {
-            // [WorkflowStore] log removed
             snapshot = await WorkflowStorageService.getWorkflow(workflowId)
           } catch (error: any) {
             if (error?.code === 'WORKFLOW_NOT_FOUND' || error?.statusCode === 404) {
-              // [WorkflowStore] log removed
               isNewWorkflow = true
             } else {
               console.error('[WorkflowStore] Error loading workflow:', error)
@@ -346,132 +354,132 @@ export const useWorkflowStore = create<WorkflowStore>()(
           if (snapshot) {
             // [WorkflowStore] log removed
 
-            doc.transact(() => {
-              // Set metadata with validation
-              if (snapshot.id) metadataMap.set('workflowId', String(snapshot.id))
-              if (snapshot.name) metadataMap.set('name', String(snapshot.name))
+              doc.transact(() => {
+                // Set metadata with validation
+                if (snapshot.id) metadataMap.set('workflowId', String(snapshot.id))
+                if (snapshot.name) metadataMap.set('name', String(snapshot.name))
 
-              // Load graphs
-              if (snapshot.graphs && snapshot.graphs.length > 0) {
-                snapshot.graphs.forEach(graph => {
-                  // Add graph info
-                  // Validate graph has required fields
-                  if (!graph.id || !graph.name) {
-                    console.warn('[WorkflowStore] Skipping graph with missing id or name:', graph)
-                    return
-                  }
-
-                  const graphInfo = {
-                    id: String(graph.id),
-                    name: String(graph.name),
-                    namespace: String(graph.namespace || `${snapshot.id}/${graph.id}`),
-                    isMain: graph.isMain || graph.id === 'main'
-                  }
-                  // [WorkflowStore] log removed
-                  graphsMap.set(String(graph.id), graphInfo)
-
-                  // Load nodes
-                  const nodesMap = doc.getMap(`nodes-${graph.id}`)
-                  graph.nodes.forEach((node: any) => {
-                    const yNode = new Y.Map()
-                    // Handle both WorkflowNode and SerializedNode formats
-                    const nodeId = node.id || node.metadata?.id
-                    const metadata = node.metadata || {
-                      id: nodeId,
-                      type: node.type,
-                      title: node.title || 'Untitled',
-                      icon: node.icon || 'Circle',
-                      variant: node.variant || 'gray-600',
-                      shape: node.shape || 'rectangle',
-                      size: node.size || 'medium',
-                      ports: node.ports || [],
-                      properties: node.properties || []
-                    }
-                    // Validate nodeId is not null/undefined
-                    if (!nodeId) {
-                      console.warn('[WorkflowStore] Skipping node with no ID:', node)
+                // Load graphs
+                if (snapshot.graphs && snapshot.graphs.length > 0) {
+                  snapshot.graphs.forEach(graph => {
+                    // Add graph info
+                    // Validate graph has required fields
+                    if (!graph.id || !graph.name) {
+                      console.warn('[WorkflowStore] Skipping graph with missing id or name:', graph)
                       return
                     }
 
-                    yNode.set('id', String(nodeId))
-                    yNode.set('metadata', metadata)
-                    yNode.set('position', node.position || { x: 0, y: 0 })
-                    yNode.set('propertyValues', node.propertyValues || metadata.propertyValues || {})
-                    nodesMap.set(String(nodeId), yNode)
-                  })
-
-                  // Load connections
-                  const connectionsMap = doc.getMap(`connections-${graph.id}`)
-                  graph.connections.forEach(conn => {
-                    const yConn = new Y.Map()
-                    // Validate connection has required fields
-                    if (!conn.id || !conn.source || !conn.target) {
-                      console.warn('[WorkflowStore] Skipping connection with missing fields:', conn)
-                      return
+                    const graphInfo = {
+                      id: String(graph.id),
+                      name: String(graph.name),
+                      namespace: String(graph.namespace || `${snapshot.id}/${graph.id}`),
+                      isMain: graph.isMain || graph.id === 'main'
                     }
+                    // [WorkflowStore] log removed
+                    graphsMap.set(String(graph.id), graphInfo)
 
-                    yConn.set('id', String(conn.id))
-                    yConn.set('source', conn.source)
-                    yConn.set('target', conn.target)
-                    yConn.set('metadata', conn.metadata || {})
-                    yConn.set('state', String(conn.state || 'idle'))
-                    connectionsMap.set(String(conn.id), yConn)
-                  })
-
-                  // Load groups as plain objects
-                  const groupsMap = doc.getMap(`groups-${graph.id}`)
-                  graph.groups?.forEach(group => {
-                    // Ensure all required fields have valid values
-                    const plainGroup = {
-                      id: group.id || '',
-                      title: group.title || '',
-                      description: group.description || '',
-                      color: group.color || '#3b82f6',
-                      position: group.position || { x: 0, y: 0 },
-                      size: group.size || { width: 200, height: 150 },
-                      nodeIds: group.nodeIds || [],
-                      isCollapsed: group.isCollapsed || false,
-                      createdAt: group.createdAt || new Date().toISOString(),
-                      updatedAt: group.updatedAt || new Date().toISOString()
-                    }
-
-                    // Validate required string fields are not null/undefined
-                    if (!plainGroup.id || !plainGroup.title) {
-                      console.warn('[WorkflowStore] Skipping group with invalid id or title:', group)
-                      return
-                    }
-
-                    groupsMap.set(plainGroup.id, plainGroup)
-                  })
-
-                  // Load canvas state if available
-                  if (graph.canvasState) {
-                    set((state: any) => ({
-                      canvasStates: {
-                        ...state.canvasStates,
-                        [graph.id]: graph.canvasState
+                    // Load nodes
+                    const nodesMap = doc.getMap(`nodes-${graph.id}`)
+                    graph.nodes.forEach((node: any) => {
+                      const yNode = new Y.Map()
+                      // Handle both WorkflowNode and SerializedNode formats
+                      const nodeId = node.id || node.metadata?.id
+                      const metadata = node.metadata || {
+                        id: nodeId,
+                        type: node.type,
+                        title: node.title || 'Untitled',
+                        icon: node.icon || 'Circle',
+                        variant: node.variant || 'gray-600',
+                        shape: node.shape || 'rectangle',
+                        size: node.size || 'medium',
+                        ports: node.ports || [],
+                        properties: node.properties || []
                       }
-                    }))
-                  }
-                })
-              } else {
-                // Ensure at least main graph exists
-                // [WorkflowStore] log removed
-                graphsMap.set('main', {
-                  id: 'main',
-                  name: 'Main',
-                  namespace: `${snapshot.id}/main`,
-                  isMain: true
-                })
-              }
-            })
+                      // Validate nodeId is not null/undefined
+                      if (!nodeId) {
+                        console.warn('[WorkflowStore] Skipping node with no ID:', node)
+                        return
+                      }
 
-            // Switch to active graph or main
-            const activeGraphId = snapshot.activeGraphId || 'main'
-            if (get().graphs.find(g => g.id === activeGraphId)) {
-              get().switchGraph(activeGraphId)
+                      yNode.set('id', String(nodeId))
+                      yNode.set('metadata', metadata)
+                      yNode.set('position', node.position || { x: 0, y: 0 })
+                      yNode.set('propertyValues', node.propertyValues || metadata.propertyValues || {})
+                      nodesMap.set(String(nodeId), yNode)
+                    })
+
+                    // Load connections
+                    const connectionsMap = doc.getMap(`connections-${graph.id}`)
+                    graph.connections.forEach(conn => {
+                      const yConn = new Y.Map()
+                      // Validate connection has required fields
+                      if (!conn.id || !conn.source || !conn.target) {
+                        console.warn('[WorkflowStore] Skipping connection with missing fields:', conn)
+                        return
+                      }
+
+                      yConn.set('id', String(conn.id))
+                      yConn.set('source', conn.source)
+                      yConn.set('target', conn.target)
+                      yConn.set('metadata', conn.metadata || {})
+                      yConn.set('state', String(conn.state || 'idle'))
+                      connectionsMap.set(String(conn.id), yConn)
+                    })
+
+                    // Load groups as plain objects
+                    const groupsMap = doc.getMap(`groups-${graph.id}`)
+                    graph.groups?.forEach(group => {
+                      // Ensure all required fields have valid values
+                      const plainGroup = {
+                        id: group.id || '',
+                        title: group.title || '',
+                        description: group.description || '',
+                        color: group.color || '#3b82f6',
+                        position: group.position || { x: 0, y: 0 },
+                        size: group.size || { width: 200, height: 150 },
+                        nodeIds: group.nodeIds || [],
+                        isCollapsed: group.isCollapsed || false,
+                        createdAt: group.createdAt || new Date().toISOString(),
+                        updatedAt: group.updatedAt || new Date().toISOString()
+                      }
+
+                      // Validate required string fields are not null/undefined
+                      if (!plainGroup.id || !plainGroup.title) {
+                        console.warn('[WorkflowStore] Skipping group with invalid id or title:', group)
+                        return
+                      }
+
+                      groupsMap.set(plainGroup.id, plainGroup)
+                    })
+
+                    // Load canvas state if available
+                    if (graph.canvasState) {
+                      set((state: any) => ({
+                        canvasStates: {
+                          ...state.canvasStates,
+                          [graph.id]: graph.canvasState
+                        }
+                      }))
+                    }
+                  })
+                } else {
+                  // Ensure at least main graph exists
+                  // [WorkflowStore] log removed
+                  graphsMap.set('main', {
+                    id: 'main',
+                    name: 'Main',
+                    namespace: `${snapshot.id}/main`,
+                    isMain: true
+                  })
+                }
+              })
+
+              // Switch to active graph or main
+              const activeGraphId = snapshot.activeGraphId || 'main'
+              if (get().graphs.find(g => g.id === activeGraphId)) {
+                get().switchGraph(activeGraphId)
+              }
             }
-          }
         },
 
         cleanup: () => {
@@ -508,6 +516,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             groups: [],
             graphs: [],
             presence: new Map(),
+            localClientId: undefined,
             isConnected: false
           })
         },
@@ -636,13 +645,15 @@ export const useWorkflowStore = create<WorkflowStore>()(
           const { doc, currentGraphId } = get()
           if (!doc) return
 
+
           doc.transact(() => {
             const nodesMap = doc.getMap(`nodes-${currentGraphId}`)
             const yNode = nodesMap.get(nodeId) as Y.Map<any>
             if (yNode) {
+              const oldPosition = yNode.get('position')
               yNode.set('position', position)
             }
-          })
+          }, 'local') // Mark as local origin
 
           // Mark graph as dirty
           get().setGraphDirty(currentGraphId, true)
@@ -736,27 +747,16 @@ export const useWorkflowStore = create<WorkflowStore>()(
           const nodes: WorkflowNodeData[] = []
 
           nodesMap.forEach((yNode: any, nodeId: string) => {
+            const metadata = yNode.get('metadata') || {}
+            const position = yNode.get('position')
+
             const node: WorkflowNodeData = {
               metadata: {
                 id: nodeId,
-                templateId: yNode.get('templateId'),
-                type: yNode.get('type'),
-                title: yNode.get('title'),
-                subtitle: yNode.get('subtitle'),
-                icon: yNode.get('icon'),
-                variant: yNode.get('variant') || 'gray-600',
-                shape: yNode.get('shape'),
-                size: yNode.get('size'),
-                ports: yNode.get('ports') || [],
-                properties: yNode.get('properties') || {},
-                propertyValues: yNode.get('propertyValues') || {},
-                requiredEnvVars: yNode.get('requiredEnvVars') || [],
-                propertyRules: yNode.get('propertyRules')
+                ...metadata,
+                propertyValues: yNode.get('propertyValues') || metadata.propertyValues || {}
               },
-              position: {
-                x: yNode.get('x') || 0,
-                y: yNode.get('y') || 0
-              }
+              position: position || { x: 100, y: 100 } // Only use default if position is completely missing
             }
             nodes.push(node)
           })
@@ -1003,8 +1003,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             groupsMap.delete(groupId)
             groupsMap.set(groupId, cleanGroup)
 
-            // console.log removed
-          }, 'updateGroup')
+          }, 'local') // Mark as local origin
 
           // Mark graph as dirty
           get().setGraphDirty(currentGraphId, true);
@@ -1060,7 +1059,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
                     y: currentPos.y + deltaY
                   }
                   yNode.set('position', newPos)
-
                 }
               })
             })
@@ -1554,7 +1552,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
                   const yNode = new Y.Map()
                   yNode.set('id', node.id)
                   yNode.set('metadata', node.metadata)
-                  yNode.set('position', node.position)
+                  yNode.set('position', node.position || { x: 0, y: 0 })
                   yNode.set('size', node.size || { width: 200, height: 100 })
                   yNode.set('propertyValues', node.propertyValues || {})
                   nodesMap.set(node.id, yNode)
@@ -1827,7 +1825,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
   // Set up observers
   const nodesMap = doc.getMap(`nodes-${graphId}`)
   const nodesObserver = (events: Y.YEvent<any>[]) => {
-    // [Workflow Store] Nodes observer triggered: graphId, clientId, eventCount
+    // Simply reload on any change
     loadAll()
   }
   nodesMap.observeDeep(nodesObserver)
@@ -1847,26 +1845,8 @@ function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
 
   const groupsMap = doc.getMap(`groups-${graphId}`)
   const groupsObserver = (events: Y.YEvent<any>[]) => {
-    try {
-      // observeDeep provides an array of events
-      const event = events && events.length > 0 ? events[0] : null
-      // console.log removed
-
-      // Log current state before reload
-      const groupsMap = doc.getMap(`groups-${graphId}`)
-      groupsMap.forEach((value, key) => {
-        if (!key.startsWith('_')) {
-          const isCollapsed = value instanceof Y.Map ? value.get('isCollapsed') : (value as any)?.isCollapsed
-          // console.log removed
-        }
-      })
-
-      loadAll()
-    } catch (error) {
-      console.error('🔷GROUPOPS OBSERVER-ERROR:', error)
-      // Still try to load even if logging fails
-      loadAll()
-    }
+    // Simply reload on any change
+    loadAll()
   }
   // Use observeDeep to catch changes to properties within individual groups
   groupsMap.observeDeep(groupsObserver)
@@ -1886,6 +1866,9 @@ function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
 
 function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: Y.Doc) {
   const awareness = provider.getAwareness()
+  
+  // Store the local client ID
+  set({ localClientId: awareness.clientID })
 
   // Set initial user state from sessionStorage
   const userId = sessionStorage.getItem('userId')
@@ -1914,9 +1897,24 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
         } as CRDTPresence)
       }
     })
+    
+    // Debug: log presence updates
+    if (states.size > 0) {
+      console.log('[WorkflowStore] Presence updated:', {
+        totalUsers: states.size,
+        users: Array.from(states.values()).map(u => ({ 
+          userId: u.userId, 
+          userName: u.userName 
+        }))
+      })
+    }
+    
     set({ presence: states })
   }
 
+  // Initial presence update
+  updatePresence()
+  
   awareness.on('change', (changes: any) => {
     updatePresence()
 

@@ -67,7 +67,7 @@ export const POST = withErrorHandling(async (req: NextRequest, context?: { param
     name: body.name,
     description: body.description,
     graphs: body.graphs,
-    trigger: body.triggerConfig,
+    triggerConfig: body.triggerConfig,
     metadata: body.metadata,
     activeGraphId: body.activeGraphId || 'main',
     isDraft: body.isDraft !== false,

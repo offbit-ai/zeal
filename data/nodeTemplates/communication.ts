@@ -206,7 +206,7 @@ export const communicationTemplates: NodeTemplate[] = [
     "subcategory": "messaging",
     "description": "Create posts on Facebook pages",
     "icon": "facebook",
-    "variant": "blue-700",
+    "variant": "blue-600",
     "shape": "circle",
     "size": "medium",
     "ports": [

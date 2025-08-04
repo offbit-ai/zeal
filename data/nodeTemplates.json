@@ -912,7 +912,7 @@
     "description": "Run custom AI models from Replicate",
     "icon": "brain",
     "variant": "gray-900",
-    "shape": "hexagon",
+    "shape": "rectangle",
     "size": "large",
     "ports": [
       {
@@ -1169,7 +1169,7 @@
     "description": "Route data to multiple outputs based on value matching",
     "icon": "split",
     "variant": "orange-600",
-    "shape": "hexagon",
+    "shape": "rectangle",
     "size": "large",
     "ports": [
       {
@@ -1521,7 +1521,7 @@
     "description": "Process data using Apache Arrow columnar format",
     "icon": "zap",
     "variant": "gray-900",
-    "shape": "hexagon",
+    "shape": "rectangle",
     "size": "large",
     "ports": [
       {
@@ -2819,7 +2819,7 @@
     "description": "Execute GraphQL queries and mutations",
     "icon": "layers",
     "variant": "gray-700",
-    "shape": "hexagon",
+    "shape": "rectangle",
     "size": "medium",
     "ports": [
       {

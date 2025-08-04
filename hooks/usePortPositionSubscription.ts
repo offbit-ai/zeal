@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useWorkflowStore } from '@/store/workflow-store'
+import { useGraphStore } from '@/store/graphStore'
 
 // This hook subscribes to port position changes and forces re-renders
 // when positions change, bypassing React's batching
@@ -9,8 +9,11 @@ export function usePortPositionSubscription() {
 
   useEffect(() => {
     // Subscribe to port position changes
-    const unsubscribe = useWorkflowStore.subscribe(
-      (state) => state.portPositions,
+    const unsubscribe = useGraphStore.subscribe(
+      (state) => {
+        const currentGraph = state.getCurrentGraph()
+        return currentGraph?.workflowState?.portPositions || new Map()
+      },
       (portPositions) => {
         // Check if positions actually changed
         const hasChanged = portPositions.size !== portPositionsRef.current.size ||

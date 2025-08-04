@@ -371,7 +371,7 @@ export class WorkflowDatabase {
   
   // Publish a workflow version
   static async publishWorkflowVersion(workflowId: string, versionId: string, userId: string): Promise<WorkflowVersionRecord> {
-    const db = await getDatabase()
+    // const db = await getDatabase()
     const now = new Date().toISOString()
     
     return withTransaction(async (client) => {

@@ -106,9 +106,8 @@ export function DraggableNode({
       // Use a small delay to ensure the node is fully rendered
       const timer = setTimeout(() => {
         if (nodeRef.current && position) {
-          const effectiveNodeId = nodeId || metadata.id
           const rect = nodeRef.current.getBoundingClientRect()
-          onBoundsChange(effectiveNodeId, {
+          onBoundsChange(metadata.id, {
             x: position.x,
             y: position.y,
             width: rect.width,
@@ -132,6 +131,9 @@ export function DraggableNode({
     }
   }, [position?.x, position?.y, metadata.id])
 
+  // Always use metadata.id as the source of truth
+  const effectiveNodeId = metadata.id
+  
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only start drag if not clicking on a port
     const target = e.target as HTMLElement
@@ -365,10 +367,6 @@ export function DraggableNode({
     userSelect: 'none' as const,
     touchAction: 'none' as const
   };
-
-
-  // Define effectiveNodeId at component level for use in render
-  const effectiveNodeId = nodeId || metadata.id
 
   return (
     <div

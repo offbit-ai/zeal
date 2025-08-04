@@ -320,25 +320,51 @@ impl CRDTServer {
                 return Ok(());
             }
             
-            // Process the message in the room
-            room.handle_message(&socket.id.to_string(), data).await?;
+            // Process the message in the room and get any response
+            let response = room.handle_message(&socket.id.to_string(), data).await?;
 
-            // Broadcast to other clients in the room - convert to JSON array
-            let data_vec: Vec<u8> = data.to_vec();
-            debug!("Broadcasting message to room {} (excluding sender {}), data size: {} bytes", room_name, socket.id, data_vec.len());
+            // If there's a response (e.g., sync step 2), send it back to the sender
+            if !response.is_empty() {
+                debug!("Sending sync response to client {}, size: {} bytes", socket.id, response.len());
+                
+                let response_array = serde_json::Value::Array(
+                    response.iter().map(|&b| serde_json::Value::Number(b.into())).collect()
+                );
+                
+                let response_payload = serde_json::Value::Array(vec![
+                    serde_json::Value::String(room_name.to_string()),
+                    response_array
+                ]);
+                
+                socket.emit("crdt:message", response_payload).ok();
+            }
+
+            // Check if this is a SYNC message type
+            let message_type = if !data.is_empty() { data[0] } else { 255 };
             
-            // Convert Vec<u8> to a JSON array for socketioxide
-            let data_array = serde_json::Value::Array(
-                data_vec.iter().map(|&b| serde_json::Value::Number(b.into())).collect()
-            );
-            
-            // Use consistent format: [roomName, dataArray] for all messages
-            let message_payload = serde_json::Value::Array(vec![
-                serde_json::Value::String(room_name.to_string()),
-                data_array
-            ]);
-            
-            socket.to(room_name.to_string()).emit("crdt:message", message_payload).ok();
+            // Only broadcast SYNC Update messages (type 0) and AWARENESS messages (type 1)
+            // Don't broadcast AUTH (2), QUERY_AWARENESS (3), or other message types
+            if message_type == 0 || message_type == 1 {
+                let data_vec: Vec<u8> = data.to_vec();
+                info!("Broadcasting {} message to room {} (excluding sender {}), data size: {} bytes", 
+                     if message_type == 0 { "SYNC" } else { "AWARENESS" },
+                     room_name, socket.id, data_vec.len());
+                
+                // Convert Vec<u8> to a JSON array for socketioxide
+                let data_array = serde_json::Value::Array(
+                    data_vec.iter().map(|&b| serde_json::Value::Number(b.into())).collect()
+                );
+                
+                // Use consistent format: [roomName, dataArray] for all messages
+                let message_payload = serde_json::Value::Array(vec![
+                    serde_json::Value::String(room_name.to_string()),
+                    data_array
+                ]);
+                
+                socket.to(room_name.to_string()).emit("crdt:message", message_payload).ok();
+            } else {
+                debug!("Not broadcasting message type {} to room {}", message_type, room_name);
+            }
         } else {
             warn!("Client {} sent message to non-existent room: {}", socket.id, room_name);
         }

@@ -8,6 +8,8 @@ A modern, real-time collaborative workflow editor with node-based visual program
 
 ### Using Docker (Recommended)
 
+#### Development
+
 ```bash
 # Clone the repository
 git clone https://github.com/offbit-ai/zeal.git
@@ -24,6 +26,26 @@ docker-compose up -d
 
 # View logs
 docker-compose logs -f
+```
+
+#### Production
+
+```bash
+# Clone the repository
+git clone https://github.com/offbit-ai/zeal.git
+cd zeal
+
+# Copy environment variables
+cp .env.example .env
+
+# Generate a secure secret for NextAuth
+openssl rand -base64 32
+
+# Start all services in production mode
+./docker-compose-prod.sh up
+
+# View logs
+./docker-compose-prod.sh logs -f
 ```
 
 The application will be available at:
@@ -118,8 +140,17 @@ While the editor supports multi-user collaboration, user management is not inclu
 | `NEXT_PUBLIC_CRDT_SERVER_URL` | CRDT server WebSocket URL | ws://localhost:8080 |
 | `NEXTAUTH_SECRET` | NextAuth.js secret key | Required |
 | `NEXTAUTH_URL` | Application URL | http://localhost:3000 |
+| `NEXT_PUBLIC_DISABLE_CONSOLE_LOGS` | Disable console logs in production | false |
 
 See `.env.example` for all configuration options.
+
+### Production Deployment
+
+The production deployment script (`docker-compose-prod.sh`) automatically:
+- Builds optimized production images
+- Enables console log suppression
+- Configures proper health checks
+- Sets production environment variables
 
 ## 📚 Documentation
 

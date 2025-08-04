@@ -21,6 +21,20 @@ export function PresenceIndicator({
   localClientId,
   className = '' 
 }: PresenceIndicatorProps) {
+  // Debug presence data (only on client)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    console.log('[PresenceIndicator] Presence data:', {
+      presenceSize: presence.size,
+      localClientId,
+      entries: Array.from(presence.entries()).map(([id, user]) => ({
+        clientId: id,
+        userId: user.userId,
+        userName: user.userName
+      }))
+    })
+  }, [presence, localClientId])
   // Add pulsate animation styles
   useEffect(() => {
     const styleId = 'presence-pulsate-styles'
@@ -96,21 +110,15 @@ export function PresenceIndicator({
   // Get local user ID to properly filter out all instances of current user
   const localUserId = presence.get(localClientId || 0)?.userId
   
-  // Filter out our own presence (all instances) and group by userId
-  const userMap = new Map<string, CRDTPresence>()
+  // Debug local user filtering (only on client)
+  if (typeof window !== 'undefined') {
+    console.log('[PresenceIndicator] Filtering:', { localClientId, localUserId })
+  }
   
-  Array.from(presence.entries()).forEach(([clientId, user]) => {
-    // Skip if it's the current user (any tab/window)
-    if (user.userId === localUserId) return
-    
-    // Keep only the most recent entry for each userId
-    const existing = userMap.get(user.userId)
-    if (!existing || user.lastSeen > (existing.lastSeen || 0)) {
-      userMap.set(user.userId, user)
-    }
-  })
-  
-  const otherUsers = Array.from(userMap.values())
+  // Filter out our own presence (current client only) - each tab has unique userId
+  const otherUsers = Array.from(presence.entries())
+    .filter(([clientId, user]) => clientId !== localClientId)
+    .map(([_, user]) => user)
   
   return (
     <div className={`flex items-center gap-2 py-2  ${className}`}>

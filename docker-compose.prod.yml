@@ -1,0 +1,22 @@
+# docker-compose.prod.yml
+# Production docker-compose without development volume mounts
+
+version: '3.8'
+
+services:
+  app:
+    env_file:
+      - .env.local
+      - .env
+    # No volume mounts for source code in production
+    volumes:
+      - uploads:/app/uploads
+
+  crdt-server:
+    env_file:
+      - .env.local
+      - .env
+
+volumes:
+  uploads:
+    driver: local

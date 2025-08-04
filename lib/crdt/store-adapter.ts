@@ -38,6 +38,13 @@ export function withCRDT<T extends object>(
         lastSyncedAt: number | null
         peers: string[]
       }
+      undo: () => void
+      redo: () => void
+      canUndo: () => boolean
+      canRedo: () => boolean
+      getCRDTState: () => any
+      applyUpdate: (update: Uint8Array) => void
+      getUpdatesSince: (stateVector?: Uint8Array) => Uint8Array
     },
     [],
     [['zustand/subscribeWithSelector', never]],
@@ -49,6 +56,13 @@ export function withCRDT<T extends object>(
         lastSyncedAt: number | null
         peers: string[]
       }
+      undo: () => void
+      redo: () => void
+      canUndo: () => boolean
+      canRedo: () => boolean
+      getCRDTState: () => any
+      applyUpdate: (update: Uint8Array) => void
+      getUpdatesSince: (stateVector?: Uint8Array) => Uint8Array
     }
   > => {
     return subscribeWithSelector((set, get, api) => {
@@ -88,7 +102,7 @@ export function withCRDT<T extends object>(
           }
 
           // Update local state and Y.Doc
-          set(partial)
+          set(partial as any)
           ydocTransaction()
         },
         get,
@@ -106,13 +120,14 @@ export function withCRDT<T extends object>(
 
       // Track sync state
       doc.on('sync', (isSyncing: boolean) => {
-        set({
+        set((state) => ({
+          ...state,
           syncState: {
-            ...get().syncState,
+            ...state.syncState,
             isSyncing,
             lastSyncedAt: isSyncing ? null : Date.now()
           }
-        })
+        }))
       })
 
       return {

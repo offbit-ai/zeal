@@ -565,7 +565,7 @@ export const aiModelsTemplates: NodeTemplate[] = [
     "description": "Access multiple AI models through OpenRouter unified API",
     "icon": "brain",
     "variant": "purple-600",
-    "shape": "hexagon",
+    "shape": "rectangle",
     "size": "large",
     "ports": [
       {
@@ -846,7 +846,7 @@ export const aiModelsTemplates: NodeTemplate[] = [
     "description": "Access thousands of open-source models via HuggingFace Inference API",
     "icon": "huggingface",
     "variant": "yellow-600",
-    "shape": "hexagon",
+    "shape": "rectangle",
     "size": "large",
     "ports": [
       {

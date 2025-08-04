@@ -57,16 +57,16 @@ export class CRDTPersistence {
     const provider = new IndexeddbPersistence(
       docName,
       doc,
-      {
-        dbName: this.config.dbName,
-        storeName: this.config.storeName
-      }
+      // {
+      //   dbName: this.config.dbName,
+      //   storeName: this.config.storeName
+      // }
     )
 
     // Set initial sync state
     this.syncStates.set(docName, {
       isSyncing: true,
-      lastSyncedAt: null,
+      lastSyncedAt: undefined,
       pendingChanges: 0,
       peers: []
     })
@@ -276,7 +276,7 @@ export class CRDTPersistence {
   ): void {
     const current = this.syncStates.get(docName) || {
       isSyncing: false,
-      lastSyncedAt: null,
+      lastSyncedAt: undefined,
       pendingChanges: 0,
       peers: []
     }
@@ -352,7 +352,7 @@ export class CRDTPersistence {
       update: Array.from(update), // Convert to array for JSON
       metadata: {
         clientsCount: doc.store.clients.size,
-        updatesCount: doc.store.pendingStructs?.size || 0
+        updatesCount: 0
       }
     }
   }

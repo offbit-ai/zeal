@@ -14,6 +14,7 @@ mod message;
 mod redis_manager;
 mod room;
 mod server;
+mod sync_protocol;
 
 use config::ServerConfig;
 use server::CRDTServer;

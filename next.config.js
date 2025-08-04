@@ -3,6 +3,11 @@ const nextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
   
+  // Force dynamic rendering for pages that use client-side features
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
+  
   // Image optimization
   images: {
     domains: ['localhost'],
@@ -14,7 +19,7 @@ const nextConfig = {
   },
 
   // Webpack configuration
-  webpack: (config, { isServer }) => {
+  webpack: (config, { dev, isServer }) => {
     // Fixes npm packages that depend on `fs` module
     if (!isServer) {
       config.resolve.fallback = {
@@ -24,6 +29,29 @@ const nextConfig = {
         tls: false,
       };
     }
+
+    // Remove console logs in production builds
+    if (!dev && !isServer) {
+      config.optimization.minimizer = config.optimization.minimizer || [];
+      const TerserPlugin = require('terser-webpack-plugin');
+      
+      config.optimization.minimizer.push(
+        new TerserPlugin({
+          terserOptions: {
+            compress: {
+              drop_console: true,
+              drop_debugger: true,
+              pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+            },
+            format: {
+              comments: false,
+            },
+          },
+          extractComments: false,
+        })
+      );
+    }
+
     return config;
   },
 

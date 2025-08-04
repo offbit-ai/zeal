@@ -1,11 +1,13 @@
 use crate::config::ServerConfig;
 use crate::redis_manager::RedisManager;
+use crate::sync_protocol::SyncProtocol;
 use anyhow::Result;
 use dashmap::DashMap;
+use lib0::decoding::Cursor;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, warn};
 use yrs::{Doc, ReadTxn, Transact, Update};
 use yrs::updates::decoder::Decode;
 
@@ -105,10 +107,10 @@ impl CRDTRoom {
         &self,
         client_id: &str,
         data: &[u8],
-    ) -> Result<()> {
+    ) -> Result<Vec<u8>> {
         if data.is_empty() {
             warn!("Received empty message from client {}", client_id);
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         // Update client activity
@@ -122,62 +124,58 @@ impl CRDTRoom {
             
             match message_type {
                 0 => {
-                    // SYNC message - broadcast to all other clients
+                    // SYNC message - handle with proper sync protocol
                     debug!("Processing SYNC message from client {}", client_id);
                     
-                    // Apply the update to the local Y.Doc
                     if data.len() > 1 {
-                        let update_data = &data[1..];
-                        debug!("SYNC update data length: {} bytes, first 10 bytes: {:?}", 
-                               update_data.len(), 
-                               &update_data[..std::cmp::min(10, update_data.len())]);
+                        let sync_data = &data[1..];
                         
-                        // Apply update inside a scoped block to avoid Send issues
-                        let should_save = {
+                        // Debug: log first few bytes of sync data
+                        let preview_len = sync_data.len().min(20);
+                        let preview = &sync_data[..preview_len];
+                        info!("SYNC message preview (first {} bytes): {:?}, full length: {}", preview_len, preview, sync_data.len());
+                        
+                        // Create cursor and response buffer for sync protocol
+                        let mut cursor = Cursor::new(sync_data);
+                        let mut response_data_buffer = Vec::new();
+                        
+                        // Process sync message
+                        let response_data = {
                             let doc = self.doc.write().await;
-                            
-                            // Try to apply the update - wrap in panic-safe block
-                            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                Update::decode_v1(update_data)
-                            }));
-                            
-                            match result {
-                                Ok(Ok(update)) => {
-                                    // Successfully decoded, now try to apply
-                                    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                        doc.transact_mut().apply_update(update)
-                                    })) {
-                                        Ok(_) => {
-                                            debug!("Applied SYNC update from client {}", client_id);
-                                            true
-                                        }
-                                        Err(_) => {
-                                            warn!("Panic occurred while applying SYNC update from client {}", client_id);
-                                            false
-                                        }
+                            match SyncProtocol::read_sync_message(&mut cursor, &mut response_data_buffer, &doc) {
+                                Ok(sync_type) => {
+                                    debug!("Processed sync message type {:?} from client {}", sync_type, client_id);
+                                    
+                                    // Save to Redis if we received an update
+                                    drop(doc); // Release lock before async operation
+                                    if let Err(e) = self.save_to_redis().await {
+                                        warn!("Failed to save room {} to Redis: {}", self.name, e);
+                                    }
+                                    
+                                    // If we have a response, wrap it with message type
+                                    if !response_data_buffer.is_empty() {
+                                        let mut response = vec![0]; // SYNC message type
+                                        response.extend_from_slice(&response_data_buffer);
+                                        Some(response)
+                                    } else {
+                                        None
                                     }
                                 }
-                                Ok(Err(e)) => {
-                                    // This is often normal when receiving duplicate updates
-                                    trace!("Could not decode update from client {}: {}", client_id, e);
-                                    false
-                                }
-                                Err(_) => {
-                                    warn!("Panic occurred while decoding SYNC update from client {}, data length: {}", 
-                                          client_id, update_data.len());
-                                    false
+                                Err(e) => {
+                                    warn!("Failed to process sync message from client {}: {}", client_id, e);
+                                    None
                                 }
                             }
-                        }; // doc is dropped here
+                        };
                         
-                        if should_save {
-                            if let Err(e) = self.save_to_redis().await {
-                                warn!("Failed to save room {} to Redis: {}", self.name, e);
-                            }
+                        // Return response if we have one
+                        if let Some(response) = response_data {
+                            return Ok(response);
                         }
                     }
                     
-                    // Broadcasting is handled by the server after this method returns
+                    // Return empty response if no sync response needed
+                    Ok(Vec::new())
                 }
                 1 => {
                     // AWARENESS message - store and broadcast to all other clients
@@ -198,29 +196,29 @@ impl CRDTRoom {
                         }
                     }
                     
-                    // Broadcasting is handled by the server after this method returns
-                    // Note: Awareness messages should be broadcast immediately for presence to work
+                    // Return empty vec - broadcasting is handled by the server
+                    Ok(Vec::new())
                 }
                 2 => {
                     // AUTH message - handle authentication
                     debug!("Processing AUTH message from client {}", client_id);
                     self.handle_auth_message(client_id, data).await?;
+                    Ok(Vec::new())
                 }
                 3 => {
                     // QUERY_AWARENESS message - client is requesting awareness states
                     info!("Processing QUERY_AWARENESS message from client {} - will be handled by server", client_id);
-                    return Ok(()); // This message type doesn't need broadcasting, handled specially
+                    Ok(Vec::new()) // This message type doesn't need broadcasting, handled specially
                 }
                 _ => {
                     // Other messages - broadcast to all other clients
                     debug!("Processing message type {} from client {}", message_type, client_id);
-                    // Broadcasting is handled by the server after this method returns
+                    Ok(Vec::new())
                 }
             }
+        } else {
+            Ok(Vec::new())
         }
-
-        self.update_activity().await;
-        Ok(())
     }
 
 
@@ -285,35 +283,8 @@ impl CRDTRoom {
             return false;
         }
         
-        // More lenient validation - just check the first few bytes for corruption signs
-        if data.len() >= 4 {
-            // Check for obvious corruption patterns - very large values at the start
-            let first_bytes = [data[0], data[1], data[2], data[3]];
-            let first_u32 = u32::from_le_bytes(first_bytes);
-            
-            // Awareness protocol uses varints which can have large values legitimately
-            // Only reject if we see specific corruption patterns we've identified
-            if first_u32 == 1569470423 || first_u32 == 3792861289 || first_u32 == 3855599105 {
-                warn!("Awareness data contains known corruption signature: {}", first_u32);
-                return false;
-            }
-        }
-        
-        // Additional check: look for patterns that indicate the infamous "Invalid typed array length" errors
-        // These often come from interpreting awareness data as array lengths
-        if data.len() >= 4 {
-            for i in 0..data.len().saturating_sub(3) {
-                let window = [data[i], data[i+1], data[i+2], data[i+3]];
-                let value = u32::from_le_bytes(window);
-                
-                // Check for the specific values we've seen in error messages
-                if value == 1569470423 || value == 3792861289 || value == 3855599105 || value > 1_000_000_000 {
-                    warn!("Awareness data contains corruption signature: value {} at offset {}", value, i);
-                    return false;
-                }
-            }
-        }
-        
+        // Y.js awareness protocol data is valid by default
+        // Only reject if we have specific known issues
         true
     }
     

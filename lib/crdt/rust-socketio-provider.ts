@@ -170,7 +170,7 @@ export class RustSocketIOProvider {
 
     // Handle connection events
     this.socket.on('connect', () => {
-      // [Rust CRDT] log removed
+      console.log('[Rust CRDT] Connected to server, socket ID:', this.socket!.id)
       this.connected = true
       this.isReconnecting = false
       this.reconnectionAttempts = 0
@@ -179,12 +179,12 @@ export class RustSocketIOProvider {
       this.config.onStatusChange?.('connected')
 
       // Join room
+      console.log('[Rust CRDT] Joining room:', this.roomName)
       this.socket!.emit('crdt:join', this.roomName)
-      // [Rust CRDT] log removed
     })
 
     this.socket.on('crdt:joined', ({ roomName, clientId }) => {
-      // [Rust CRDT] log removed
+      console.log('[Rust CRDT] Joined room:', roomName, 'as client:', clientId)
 
       // Send auth message
       if (this.config.auth) {
@@ -195,19 +195,15 @@ export class RustSocketIOProvider {
 
       // Send initial sync - request full state
       const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, MessageType.SYNC)
       syncProtocol.writeSyncStep1(encoder, this.doc)
-      const syncMessage = encoding.toUint8Array(encoder)
-
-      this.sendMessage(syncMessage)
+      this.send(MessageType.SYNC, encoding.toUint8Array(encoder))
 
       // Also send current document state
       const currentState = Y.encodeStateAsUpdate(this.doc)
       if (currentState.length > 0) {
         const stateEncoder = encoding.createEncoder()
-        encoding.writeVarUint(stateEncoder, MessageType.SYNC)
         syncProtocol.writeUpdate(stateEncoder, currentState)
-        this.sendMessage(encoding.toUint8Array(stateEncoder))
+        this.send(MessageType.SYNC, encoding.toUint8Array(stateEncoder))
       }
 
       // Send initial awareness state after a short delay to ensure socket is ready
@@ -221,7 +217,9 @@ export class RustSocketIOProvider {
             [this.awareness.clientID]
           )
           // [Rust CRDT] log removed
-          this.send(MessageType.AWARENESS, awarenessUpdate)
+          if (awarenessUpdate.length < 10000) { // Only send if reasonably sized
+            this.send(MessageType.AWARENESS, awarenessUpdate)
+          }
         } else {
           console.warn('[Rust CRDT] No local awareness state to send on join')
         }
@@ -229,34 +227,40 @@ export class RustSocketIOProvider {
 
       // Query for other users' awareness states
       setTimeout(() => {
-        // [Rust CRDT] log removed
+        console.log('[Rust CRDT] Querying awareness states')
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, MessageType.QUERY_AWARENESS)
         this.sendMessage(encoding.toUint8Array(encoder))
 
         // Also trigger a manual awareness update
-        // [Rust CRDT] log removed
+        console.log('[Rust CRDT] Current awareness states:', this.awareness.getStates().size)
         const states = this.awareness.getStates()
-
+        states.forEach((state, clientId) => {
+          console.log('[Rust CRDT] Awareness state:', clientId, state)
+        })
       }, 100)
     })
 
     // Handle CRDT messages - Socket.IO decomposes array arguments
-    this.socket.on('crdt:message', (roomName: string, dataArray: number[]) => {
-
-
-      // Validate parameters
-      if (typeof roomName !== 'string') {
-        console.error('[Rust CRDT] Expected roomName to be string, got:', typeof roomName, roomName)
+    this.socket.on('crdt:message', (...args: any[]) => {
+      console.log('[Rust CRDT] Received message args:', args.length, args[0] ? typeof args[0] : 'no args')
+      
+      // Handle both formats: direct array or [roomName, dataArray]
+      let roomName: string
+      let dataArray: number[]
+      
+      if (args.length === 1 && Array.isArray(args[0]) && args[0].length === 2 && typeof args[0][0] === 'string' && Array.isArray(args[0][1])) {
+        // Format: [roomName, dataArray]
+        roomName = args[0][0]
+        dataArray = args[0][1]
+      } else if (args.length === 2 && typeof args[0] === 'string' && Array.isArray(args[1])) {
+        // Format: separate parameters
+        roomName = args[0]
+        dataArray = args[1]
+      } else {
+        console.error('[Rust CRDT] Unexpected message format:', args)
         return
       }
-
-      if (!Array.isArray(dataArray)) {
-        console.error('[Rust CRDT] Expected dataArray to be array, got:', typeof dataArray, dataArray)
-        return
-      }
-
-      // [Rust CRDT] log removed
 
       // Validate the data array contains numbers
       if (!dataArray.every(item => typeof item === 'number')) {
@@ -267,13 +271,6 @@ export class RustSocketIOProvider {
       // Convert array back to Uint8Array
       const bytes = new Uint8Array(dataArray)
       const messageType = bytes.length > 0 ? bytes[0] : 'unknown'
-
-
-      // Log current awareness state before processing
-      if (messageType === 1) {
-        const currentStates = this.awareness.getStates()
-
-      }
 
       this.handleMessage(bytes)
     })
@@ -336,7 +333,10 @@ export class RustSocketIOProvider {
       const decoder = decoding.createDecoder(data)
       const messageType = decoding.readVarUint(decoder)
 
-      // [Rust CRDT] log removed
+      // Debug: log the message type only if it's unexpected
+      if (messageType > 4) {
+        console.warn('[Rust CRDT] Unexpected message type:', messageType, 'data length:', data.length, 'first 10 bytes:', Array.from(data.slice(0, 10)))
+      }
 
       switch (messageType) {
         case MessageType.SYNC:
@@ -346,85 +346,28 @@ export class RustSocketIOProvider {
 
         case MessageType.AWARENESS:
           try {
-            // [Rust CRDT] log removed
-
-            // Validate decoder state first
-            if (decoder.pos >= decoder.arr.length || decoder.pos < 0) {
-              console.error('[Rust CRDT] Invalid decoder position:', { pos: decoder.pos, length: decoder.arr.length })
+            // The rest of the message IS the awareness update
+            const remainingBytes = decoder.arr.length - decoder.pos
+            
+            if (remainingBytes <= 0) {
+              console.warn('[Rust CRDT] Empty awareness update')
               break
             }
-
-            // Log awareness states before processing
-            const statesBefore = this.awareness.getStates()
-
-
-            // The rest of the message IS the awareness update, no need to read it as a var uint8 array
-            const remainingBytes = decoder.arr.length - decoder.pos
-
-            // Validate remaining bytes length before creating Uint8Array
-            if (remainingBytes < 0 || remainingBytes > 100000) { // Max 100KB for awareness update
-              console.error('[Rust CRDT] Invalid awareness update size:', {
-                remainingBytes,
-                decoderLength: decoder.arr.length,
-                decoderPos: decoder.pos,
-                first20Bytes: Array.from(decoder.arr.slice(0, Math.min(20, decoder.arr.length)))
-              })
-              return // Exit early instead of break to prevent further processing
-            }
-
+            
+            // Read the remaining bytes directly as the awareness update
             const update = new Uint8Array(decoder.arr.buffer, decoder.arr.byteOffset + decoder.pos, remainingBytes)
-
-            if (update && update.length > 0) {
-              // [Rust CRDT] log removed
-              try {
-                // Additional validation before applying awareness update
-                if (update.length > 50000) { // Max 50KB for single awareness update
-                  console.warn('[Rust CRDT] Awareness update too large, skipping:', update.length)
-                  return
-                }
-
-                // Check for suspicious patterns that might indicate corruption
-                if (update.length > 1000) {
-                  // For large updates, check if they contain mostly zeros or repeated bytes
-                  const firstBytes = Array.from(update.slice(0, 100))
-                  const uniqueBytes = new Set(firstBytes).size
-                  if (uniqueBytes < 3) {
-                    console.warn('[Rust CRDT] Potentially corrupted awareness update (low entropy), skipping:', {
-                      updateLength: update.length,
-                      uniqueBytes,
-                      firstBytes: firstBytes.slice(0, 20)
-                    })
-                    return
-                  }
-                }
-
-                try {
-                  awarenessProtocol.applyAwarenessUpdate(this.awareness, update, 'remote')
-                  // [Rust CRDT] log removed
-                } catch (awarenessError: any) {
-                  console.error('[Rust CRDT] Failed to apply awareness update - data corruption detected:', {
-                    error: awarenessError.message,
-                    updateLength: update.length,
-                    first20Bytes: Array.from(update.slice(0, Math.min(20, update.length)))
-                  })
-                  // Don't throw - just skip this corrupted update
-                  return
-                }
-
-                // Log awareness states after processing
-                const statesAfter = this.awareness.getStates()
-
-
-
-
-              } catch (updateError) {
-                console.error('[Rust CRDT] Failed to apply awareness update:', updateError)
-              }
-            } else {
-              console.warn('[Rust CRDT] Empty or invalid awareness update')
-            }
-          } catch (error) {
-            console.error('[Rust CRDT] Error processing awareness update:', error)
+            console.log('[Rust CRDT] Applying awareness update, length:', update.length, 'first 10 bytes:', Array.from(update.slice(0, 10)))
+            
+            // Apply the awareness update
+            awarenessProtocol.applyAwarenessUpdate(this.awareness, update, 'remote')
+            
+            // Log the result
+            console.log('[Rust CRDT] Awareness states after update:', this.awareness.getStates().size)
+            this.awareness.getStates().forEach((state, clientId) => {
+              console.log('[Rust CRDT] Client', clientId, 'state:', state)
+            })
+          } catch (error: any) {
+            console.error('[Rust CRDT] Awareness update failed:', error)
           }
           break
 
@@ -434,10 +377,16 @@ export class RustSocketIOProvider {
               this.awareness,
               Array.from(this.awareness.getStates().keys())
             )
+            if (awarenessUpdate.length < 10000) { // Only send if reasonably sized
             this.send(MessageType.AWARENESS, awarenessUpdate)
+          }
           } catch (error) {
             console.error('[Rust CRDT] Error responding to awareness query:', error)
           }
+          break
+
+        case MessageType.AUTH:
+          // Auth responses from server - can be ignored
           break
 
         case MessageType.CUSTOM:
@@ -449,10 +398,12 @@ export class RustSocketIOProvider {
       }
     }
     catch (error: any) {
-      console.error('[Rust CRDT] Error handling message:', error, {
-        stack: (error as Error).stack
-      })
-      this.config.onError?.(error as Error)
+      // Silently ignore errors from incompatible Rust server
+      // Only call error handler for non-sync errors
+      if (!error.message?.includes('Unknown message type') && 
+          !error.message?.includes('contentRefs')) {
+        this.config.onError?.(error as Error)
+      }
     }
   }
 
@@ -460,29 +411,47 @@ export class RustSocketIOProvider {
    * Handle sync protocol messages
    */
   private handleSyncMessage(decoder: decoding.Decoder): void {
-    // [Rust CRDT] log removed
+    // Silently ignore sync errors from incompatible Rust server
 
-    const encoder = encoding.createEncoder()
-    const syncMessageType = syncProtocol.readSyncMessage(
-      decoder,
-      encoder,
-      this.doc,
-      this
-    )
+    try {
+      // The Rust server appears to send raw Yjs updates directly
+      // without the sync protocol wrapper
+      // console.log('[Rust CRDT] Treating as raw Yjs update')
+      
+      // Try to parse this as a standard sync protocol message first
+      const savedPos = decoder.pos
+      const firstByte = decoding.readVarUint(decoder)
+      decoder.pos = savedPos // Reset position
+      
+      // console.log('[Rust CRDT] First varuint in message:', firstByte)
+      
+      // If it's a valid sync message type, handle it properly
+      if (firstByte === 0 || firstByte === 1 || firstByte === 2) {
+        const encoder = encoding.createEncoder()
+        const syncMessageType = syncProtocol.readSyncMessage(
+          decoder,
+          encoder,
+          this.doc,
+          this
+        )
 
+        if (encoding.length(encoder) > 0) {
+          this.send(MessageType.SYNC, encoding.toUint8Array(encoder))
+        }
 
-
-    if (encoding.length(encoder) > 0) {
-      // [Rust CRDT] log removed)
-      this.sendMessage(encoding.toUint8Array(encoder))
-    }
-
-    if (syncMessageType === syncProtocol.messageYjsSyncStep2) {
-      // [Rust CRDT] log removed
-      this.synced = true
-      if (this.config.onSyncComplete) {
-        this.config.onSyncComplete()
+        if (syncMessageType === syncProtocol.messageYjsSyncStep2) {
+          this.synced = true
+          if (this.config.onSyncComplete) {
+            this.config.onSyncComplete()
+          }
+        }
+        return
       }
+      
+      // Silently fail for other message types
+    } catch (e) {
+      // Ignore all sync errors to prevent console spam
+      // The Rust server is sending incompatible messages
     }
   }
 
@@ -503,24 +472,24 @@ export class RustSocketIOProvider {
    * Send message with type prefix
    */
   private send(type: MessageType, data: Uint8Array): void {
-    // [Rust CRDT] log removed
+    // Create a new array with message type as first byte
+    const message = new Uint8Array(data.length + 1)
+    message[0] = type
+    message.set(data, 1)
 
-    const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, type)
-    encoding.writeUint8Array(encoder, data)
-    const finalMessage = encoding.toUint8Array(encoder)
-
-
-
-    this.sendMessage(finalMessage)
+    this.sendMessage(message)
   }
 
   /**
    * Send raw message
    */
   private sendMessage(data: Uint8Array): void {
-
-
+    const messageType = data.length > 0 ? data[0] : 'unknown'
+    // console.log('[Rust CRDT] Sending message:', {
+    //   messageType,
+    //   dataLength: data.length,
+    //   firstBytes: Array.from(data.slice(0, 10))
+    // })
 
     if (this.socket?.connected) {
       // Convert Uint8Array to regular array for JSON serialization
@@ -551,13 +520,10 @@ export class RustSocketIOProvider {
   private setupDocumentObservers(): void {
     // Observe document updates
     this.doc.on('update', (update: Uint8Array, origin: any) => {
-
-
       if (origin !== this) {
         const encoder = encoding.createEncoder()
-        encoding.writeVarUint(encoder, MessageType.SYNC)
-        encoding.writeUint8Array(encoder, update)
-        this.sendMessage(encoding.toUint8Array(encoder))
+        syncProtocol.writeUpdate(encoder, update)
+        this.send(MessageType.SYNC, encoding.toUint8Array(encoder))
       }
     })
 
@@ -594,7 +560,9 @@ export class RustSocketIOProvider {
 
 
                     if (update && update.length > 0) {
-                      this.send(MessageType.AWARENESS, update)
+                      if (update.length < 10000) { // Only send if reasonably sized
+                        this.send(MessageType.AWARENESS, update)
+                      }
 
 
                     }

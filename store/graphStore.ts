@@ -15,7 +15,7 @@ interface GraphInfo {
     nodes: any[]
     connections: any[]
     groups: any[]
-    trigger: any
+    triggerConfig: any
     portPositions?: Map<string, { nodeId: string; portId: string; x: number; y: number; position: 'top' | 'right' | 'bottom' | 'left' }>
   }
 }
@@ -34,7 +34,7 @@ interface GraphActions {
   setMainGraph: (graphId: string) => void
   setGraphDirty: (graphId: string, isDirty: boolean) => void
   updateCanvasState: (graphId: string, canvasState: { offset: { x: number; y: number }; zoom: number }) => void
-  updateWorkflowState: (graphId: string, workflowState: { nodes: any[]; connections: any[]; groups: any[]; trigger: any; portPositions?: Map<string, { nodeId: string; portId: string; x: number; y: number; position: 'top' | 'right' | 'bottom' | 'left' }> }) => void
+  updateWorkflowState: (graphId: string, workflowState: { nodes: any[]; connections: any[]; groups: any[]; triggerConfig: any; portPositions?: Map<string, { nodeId: string; portId: string; x: number; y: number; position: 'top' | 'right' | 'bottom' | 'left' }> }) => void
   loadGraphs: (graphs: GraphInfo[], currentGraphId?: string) => void
   
   // Getters
@@ -143,7 +143,7 @@ export const useGraphStore = create<GraphStore>()(
       }))
     },
     
-    updateWorkflowState: (graphId: string, workflowState: { nodes: any[]; connections: any[]; groups: any[]; trigger: any }) => {
+    updateWorkflowState: (graphId: string, workflowState: { nodes: any[]; connections: any[]; groups: any[]; triggerConfig: any }) => {
       set((state) => ({
         graphs: state.graphs.map(g => 
           g.id === graphId ? { ...g, workflowState } : g

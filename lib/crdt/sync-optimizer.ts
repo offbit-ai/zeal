@@ -1,74 +1,87 @@
 /**
- * CRDT Sync Optimizer
+ * CRDT Sync Optimizer V2
  * 
  * Optimizes sync behavior based on presence:
- * - Disables awareness updates when user is alone
- * - Reduces polling frequency when no other users
+ * - Reduces awareness update frequency when user is alone
+ * - Maintains full CRDT functionality for local changes
  * - Re-enables full sync when other users join
  */
 
-import type { SocketIOProvider } from './socketio-provider'
+// import type { SocketIOProvider } from './socketio-provider'
+import { RustSocketIOProvider } from './rust-socketio-provider'
 import type { CRDTPresence } from './types'
-import * as awarenessProtocol from 'y-protocols/awareness'
 
 export interface SyncOptimizerConfig {
   onOptimizationChange?: (isOptimized: boolean) => void
   minUsersForFullSync?: number // Default: 2 (self + 1 other)
-  optimizedPollingInterval?: number // Default: 10000ms (10s)
-  normalPollingInterval?: number // Default: 1000ms (1s)
+  optimizedInterval?: number // Default: 30000ms (30s)
+  normalInterval?: number // Default: 200ms
 }
 
-export class SyncOptimizer {
-  private provider: SocketIOProvider | null = null
+export class SyncOptimizerV2 {
+  private provider: RustSocketIOProvider | null = null
   private config: SyncOptimizerConfig
   private isOptimized = false
-  private originalSendMethod: ((type: number, data: Uint8Array) => void) | null = null
   private presenceCheckInterval: NodeJS.Timeout | null = null
   private lastUserCount = 0
-  
+  private awarenessInterval: NodeJS.Timeout | null = null
+
   constructor(config: SyncOptimizerConfig = {}) {
     this.config = {
       minUsersForFullSync: 2,
-      optimizedPollingInterval: 10000,
-      normalPollingInterval: 1000,
+      optimizedInterval: 30000, // 30 seconds when alone
+      normalInterval: 200, // 200ms when with others
       ...config
     }
   }
-  
+
   /**
    * Attach optimizer to a provider
    */
-  attach(provider: SocketIOProvider): void {
+  attach(provider: RustSocketIOProvider): void {
     this.provider = provider
-    
-    // Start monitoring presence
-    this.startPresenceMonitoring()
+    if (provider.isConnected) {
+      // Start monitoring presence
+      this.startPresenceMonitoring()
+    } else {
+      // Wait for connection     
+      const checkConnection = () => {
+        if (this.provider && this.provider.isConnected) {
+          this.startPresenceMonitoring()
+        } else {
+          setTimeout(checkConnection, 1000) // Check every second
+        }
+      }
+      setTimeout(checkConnection, 100)
+    }
   }
-  
+
   /**
    * Detach optimizer and restore normal behavior
    */
   detach(): void {
     this.stopPresenceMonitoring()
-    this.restoreNormalSync()
+    this.stopAwarenessInterval()
     this.provider = null
   }
-  
+
   /**
    * Start monitoring presence changes
    */
   private startPresenceMonitoring(): void {
     if (!this.provider || this.presenceCheckInterval) return
-    
-    // Check presence immediately
-    this.checkPresenceAndOptimize()
-    
+
+    // Check presence after a short delay to allow initial sync
+    setTimeout(() => {
+      this.checkPresenceAndOptimize()
+    }, 1000)
+
     // Check periodically
     this.presenceCheckInterval = setInterval(() => {
       this.checkPresenceAndOptimize()
-    }, 2000) // Check every 2 seconds
+    }, 3000) // Check every 3 seconds
   }
-  
+
   /**
    * Stop monitoring presence
    */
@@ -78,135 +91,166 @@ export class SyncOptimizer {
       this.presenceCheckInterval = null
     }
   }
-  
+
   /**
    * Check presence and optimize accordingly
    */
   private checkPresenceAndOptimize(): void {
     if (!this.provider) return
-    
+
     const awareness = this.provider.getAwareness()
     const states = awareness.getStates()
-    
-    // Count active users (excluding stale ones)
-    const now = Date.now()
-    const activeUsers = Array.from(states.entries()).filter(([clientId, state]) => {
-      const presence = state as CRDTPresence
-      // Consider user active if seen in last 30 seconds
-      return presence.lastSeen && (now - presence.lastSeen < 30000)
+    const localClientId = awareness.clientID
+
+
+
+    // Get local user ID - add safety check
+    const localUserId = states.get(localClientId)?.userId
+
+    if (!localUserId) {
+      console.warn('[SyncOptimizer] No local user ID found yet, skipping optimization check')
+      return
+    }
+
+    // Count only other actual users (exclude local client and other tabs from same user)
+    let actualRemoteUserCount = 0
+    const remoteUsers: Array<{ clientId: number, userId: string, userName?: string }> = []
+    const sameUserTabs: Array<{ clientId: number, userName?: string }> = []
+
+    states.forEach((state, clientId) => {
+      if (clientId !== localClientId && state && state.userId) {
+        // [SyncOptimizer] log removed
+
+        if (state.userId === localUserId) {
+          // Same user, different tab/window
+          sameUserTabs.push({
+            clientId,
+            userName: state.userName || 'Unknown'
+          })
+        } else {
+          // Different user
+          actualRemoteUserCount++
+          remoteUsers.push({
+            clientId,
+            userId: state.userId,
+            userName: state.userName || 'Unknown'
+          })
+        }
+      }
     })
-    
-    const userCount = activeUsers.length
-    
-    // Optimize if user count changes
-    if (userCount !== this.lastUserCount) {
-      this.lastUserCount = userCount
-      
-      if (userCount < this.config.minUsersForFullSync!) {
+
+    // Log presence information
+    // [SyncOptimizer] log removed
+
+    if (sameUserTabs.length > 0) {
+      // [SyncOptimizer] log removed
+    }
+
+    if (actualRemoteUserCount > 0) {
+      // [SyncOptimizer] log removed
+    }
+
+    // Always check optimization state, not just on count change
+    this.lastUserCount = actualRemoteUserCount + 1 // Count unique users, not connections
+
+    // Enable optimization when alone (no other actual users, only same-user tabs)
+    if (actualRemoteUserCount === 0) {
+      if (!this.isOptimized) {
         this.enableOptimizedSync()
-      } else {
-        this.restoreNormalSync()
+      }
+    } else {
+      if (this.isOptimized) {
+        this.disableOptimizedSync()
       }
     }
   }
-  
+
   /**
-   * Enable optimized sync (reduced polling, no cursor updates)
+   * Enable optimized sync (reduced awareness frequency)
    */
   private enableOptimizedSync(): void {
-    if (this.isOptimized || !this.provider) return
-    
+    if (this.isOptimized) return
+
     // [SyncOptimizer] log removed
-    
-    // Store original awareness update handler
-    const awareness = this.provider.getAwareness()
-    const originalUpdate = (awareness as any)._updateHandler
-    
-    // Disable frequent awareness updates but keep sync working
-    if (originalUpdate) {
-      (awareness as any)._updateHandler = () => {
-        // Skip awareness updates when optimized
-      }
-    }
-    
-    // Reduce cursor update frequency
-    const store = (window as any).__zealStore
-    if (store) {
-      const state = store.getState()
-      // Clear existing cursor update timer
-      if (state.cursorUpdateTimer) {
-        clearInterval(state.cursorUpdateTimer)
-      }
-      
-      // Set slower cursor updates
-      store.setState({
-        cursorUpdateTimer: setInterval(() => {
-          // Only update cursor position, not full presence
-          const presence = state.presence.get(state.doc?.clientID)
-          if (presence?.cursor) {
-            // Update only cursor timestamp to keep connection alive
-            store.updatePresence({ lastSeen: Date.now() })
-          }
-        }, this.config.optimizedPollingInterval)
-      })
-    }
-    
+
+    // Set up slower awareness updates
+    this.setupAwarenessInterval(this.config.optimizedInterval!)
+
     this.isOptimized = true
     this.config.onOptimizationChange?.(true)
   }
-  
+
   /**
-   * Restore normal sync behavior
+   * Disable optimized sync (restore normal frequency)
    */
-  private restoreNormalSync(): void {
-    if (!this.isOptimized || !this.provider) return
-    
+  private disableOptimizedSync(): void {
+    if (!this.isOptimized) return
+
     // [SyncOptimizer] log removed
-    
-    // Restore original send method
-    if (this.originalSendMethod) {
-      (this.provider as any).send = this.originalSendMethod
-      this.originalSendMethod = null
-    }
-    
-    // Restore normal cursor update frequency
-    const store = (window as any).__zealStore
-    if (store) {
-      const state = store.getState()
-      // Clear existing cursor update timer
-      if (state.cursorUpdateTimer) {
-        clearInterval(state.cursorUpdateTimer)
-      }
-      
-      // Set normal cursor updates
-      store.setState({
-        cursorUpdateTimer: setInterval(() => {
-          store.updateCursorPosition(state.presence.get(state.doc?.clientID)?.cursor || { x: 0, y: 0 })
-        }, this.config.normalPollingInterval)
-      })
-    }
-    
-    // Send current awareness state to sync with others
-    const awareness = this.provider.getAwareness()
-    const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(
-      awareness,
-      Array.from(awareness.getStates().keys())
-    )
-    if (awarenessUpdate && this.originalSendMethod) {
-      this.originalSendMethod(1, awarenessUpdate) // MessageType.AWARENESS = 1
-    }
-    
+
+    // Set up normal awareness updates
+    this.setupAwarenessInterval(this.config.normalInterval!)
+
+    // Send immediate awareness update
+    this.sendAwarenessUpdate()
+
     this.isOptimized = false
     this.config.onOptimizationChange?.(false)
   }
-  
+
+  /**
+   * Set up awareness update interval
+   */
+  private setupAwarenessInterval(interval: number): void {
+    // Clear existing interval
+    this.stopAwarenessInterval()
+
+    // Send immediate update
+    this.sendAwarenessUpdate()
+
+    // Set up new interval
+    this.awarenessInterval = setInterval(() => {
+      this.sendAwarenessUpdate()
+    }, interval)
+  }
+
+  /**
+   * Stop awareness interval
+   */
+  private stopAwarenessInterval(): void {
+    if (this.awarenessInterval) {
+      clearInterval(this.awarenessInterval)
+      this.awarenessInterval = null
+    }
+  }
+
+  /**
+   * Send awareness update
+   */
+  private sendAwarenessUpdate(): void {
+    if (!this.provider) return
+
+    const store = (window as any).__zealStore
+    if (store && typeof store === 'function') {
+      const state = store()
+
+      // Update presence with current timestamp
+      if (state.updatePresence) {
+        state.updatePresence({
+          lastSeen: Date.now(),
+          cursor: state.presence.get(state.doc?.clientID)?.cursor
+        })
+      }
+    }
+  }
+
   /**
    * Get optimization status
    */
   isOptimizationEnabled(): boolean {
     return this.isOptimized
   }
-  
+
   /**
    * Get current user count
    */

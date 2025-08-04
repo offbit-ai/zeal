@@ -66,7 +66,7 @@ export const POST = withErrorHandling(async (req: NextRequest, context?: { param
     name: targetVersion.name,
     description: targetVersion.description,
     graphs: targetVersion.graphs,
-    trigger: targetVersion.trigger,
+    triggerConfig: targetVersion.triggerConfig,
     metadata: {
       ...targetVersion.metadata,
       rollbackFrom: workflow.publishedVersionId,
@@ -92,7 +92,7 @@ export const POST = withErrorHandling(async (req: NextRequest, context?: { param
     name: updatedWorkflow.name,
     description: updatedWorkflow.description || '',
     graphs: publishedVersion.graphs,
-    triggerConfig: publishedVersion.trigger,
+    triggerConfig: publishedVersion.triggerConfig,
     metadata: {
       nodeCount: publishedVersion.graphs?.[0]?.nodes?.length || 0,
       connectionCount: publishedVersion.graphs?.[0]?.connections?.length || 0,

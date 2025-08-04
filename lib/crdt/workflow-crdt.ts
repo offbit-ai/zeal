@@ -7,7 +7,6 @@
 
 import * as Y from 'yjs'
 import { create } from 'zustand'
-// import { withCRDT } from './store-adapter' // Not used
 import { CRDTPersistence } from './persistence'
 import type {
   CRDTWorkflowDoc,
