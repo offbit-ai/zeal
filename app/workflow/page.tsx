@@ -76,6 +76,7 @@ import { GraphDebugPanel } from '@/components/GraphDebugPanel'
 import { UserPreferencesService } from '@/services/userPreferences'
 import { NotificationButton } from '@/components/NotificationButton'
 import { NotificationPanel } from '@/components/NotificationPanel'
+import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/CollapsedGroupPortHandler'
 
 // Sample nodes metadata
@@ -3338,6 +3339,9 @@ export default function Home() {
 
       {/* Notification Panel - only show in collaborative mode */}
       {isCollaborative && <NotificationPanel />}
+
+      {/* Test Notifications - Temporary for debugging */}
+      {isCollaborative && <TestNotifications />}
 
       {/* Debug Panel - Temporary for debugging graph issues */}
       {/* <GraphDebugPanel /> */}

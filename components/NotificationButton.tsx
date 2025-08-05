@@ -1,11 +1,15 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Bell } from 'lucide-react'
 import { useNotificationStore } from '@/store/notificationStore'
 
 export function NotificationButton() {
   const { unreadCount, togglePanel } = useNotificationStore()
+
+  useEffect(() => {
+    console.log('[NotificationButton] Unread count changed:', unreadCount)
+  }, [unreadCount])
 
   return (
     <button

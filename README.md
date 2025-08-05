@@ -67,12 +67,27 @@ cargo build --release
 cd ..
 
 # Setup database
-createdb zeal_db
-psql zeal_db < init.sql
+# First, ensure PostgreSQL is installed and running
+# Create the database (if using local PostgreSQL):
+# psql -U postgres -c "CREATE DATABASE zeal_db;"
+
+# Initialize database schema
+# Option 1: Using the init script (recommended)
+# Make sure DATABASE_URL is set in .env.local
+./scripts/init-db.sh
+
+# Option 2: Manual initialization
+# Replace with your actual database URL
+psql postgresql://user:password@localhost/zeal_db < init.sql
 
 # Start development servers
 npm run dev
 ```
+
+> **Note**: 
+> - The `createdb` command is part of PostgreSQL client tools. If not available, use `psql -U postgres -c "CREATE DATABASE zeal_db;"`
+> - Make sure to set `DATABASE_URL` in your `.env.local` file before running the init script
+> - If you encounter "relation 'workflows' does not exist" errors, the database schema hasn't been initialized properly
 
 ## 📋 Features
 

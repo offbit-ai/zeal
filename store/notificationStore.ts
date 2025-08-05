@@ -40,13 +40,21 @@ interface NotificationStore {
 // Important operations that should show toasts
 const IMPORTANT_OPERATIONS = ['workflow-renamed', 'graph-renamed', 'graph-added', 'graph-deleted']
 
-export const useNotificationStore = create<NotificationStore>()((set, get) => ({
-  notifications: [],
-  unreadCount: 0,
-  isOpen: false,
+export const useNotificationStore = create<NotificationStore>()((set, get) => {
+  console.log('[NotificationStore] Creating store')
+  
+  // Add to window for debugging
+  if (typeof window !== 'undefined') {
+    (window as any).__notificationStore = { getState: get, setState: set }
+  }
+  
+  return {
+    notifications: [],
+    unreadCount: 0,
+    isOpen: false,
 
   addNotification: notification => {
-    // [Notification] log removed
+    console.log('[NotificationStore] Adding notification:', notification)
 
     const newNotification: Notification = {
       ...notification,
@@ -56,18 +64,21 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
 
     // Show toast for important operations
     if (IMPORTANT_OPERATIONS.includes(notification.type) || notification.isImportant) {
-      // [Notification] log removed
+      console.log('[NotificationStore] Showing toast for important operation')
       toast.info(`${notification.userName} ${notification.message}`)
-    } else {
-      // [Notification] log removed
     }
 
-    set(state => ({
-      notifications: [newNotification, ...state.notifications].slice(0, 100), // Keep last 100
-      unreadCount: state.unreadCount + 1,
-    }))
-
-    // [Notification] log removed.notifications.length);
+    set(state => {
+      const newState = {
+        notifications: [newNotification, ...state.notifications].slice(0, 100), // Keep last 100
+        unreadCount: state.unreadCount + 1,
+      }
+      console.log('[NotificationStore] New state:', {
+        notificationCount: newState.notifications.length,
+        unreadCount: newState.unreadCount
+      })
+      return newState
+    })
   },
 
   markAllAsRead: () => {
@@ -98,4 +109,5 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
       return { isOpen }
     })
   },
-}))
+  }
+})

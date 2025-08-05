@@ -11,7 +11,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import * as Y from 'yjs'
-import type { YMapEvent } from 'yjs'
+import { YMapEvent } from 'yjs'
 import { RustSocketIOProvider } from '@/lib/crdt/rust-socketio-provider'
 import { SyncOptimizerV2 } from '@/lib/crdt/sync-optimizer'
 import { WorkflowStorageService } from '@/services/workflowStorage'
@@ -112,6 +112,7 @@ interface WorkflowStore {
     groupId: string,
     bounds: Partial<{ x: number; y: number; width: number; height: number }>
   ) => void
+  recalculateGroupBounds: (groupId: string) => void
   addNodeToGroup: (nodeId: string, groupId: string) => void
   removeNodeFromGroup: (nodeId: string, groupId: string) => void
   removeGroup: (groupId: string) => void
@@ -556,7 +557,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             namespace: `${workflowId}/${graphId}`,
             isMain: false,
           })
-        })
+        }, 'local')
 
         return graphId
       },
@@ -574,13 +575,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
           doc.getMap(`nodes-${graphId}`).clear()
           doc.getMap(`connections-${graphId}`).clear()
           doc.getMap(`groups-${graphId}`).clear()
-        })
+        }, 'local')
 
         // If we removed the current graph, switch to main
         if (currentGraphId === graphId) {
           get().switchGraph('main')
         }
-        true
+        return true
       },
 
       renameGraph: (graphId: string, newName: string) => {
@@ -593,7 +594,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           if (graphInfo) {
             graphsMap.set(graphId, { ...graphInfo, name: newName })
           }
-        })
+        }, 'local')
       },
 
       switchGraph: (graphId: string) => {
@@ -605,7 +606,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         // Load data for the new graph
         const { doc } = get()
         if (doc) {
-          loadGraphData(doc, graphId, set)
+          loadGraphData(doc, graphId, get, set)
         }
       },
 
@@ -640,7 +641,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           nodesMap.set(nodeId, yNode)
           // [WorkflowStore] log removed
-        }, 'add-node')
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -666,7 +667,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             const oldPosition = yNode.get('position')
             yNode.set('position', position)
           }
-        }, 'local') // Mark as local origin
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -683,7 +684,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             const properties = yNode.get('propertyValues') || {}
             yNode.set('propertyValues', { ...properties, [property]: value })
           }
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -709,7 +710,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
               yNode.set('propertyValues', metadata.propertyValues)
             }
           }
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -744,16 +745,34 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           // Remove from groups
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
-          groupsMap.forEach((yGroup: any, groupId: string) => {
-            const nodeIds = yGroup.get('nodeIds') as string[]
+          groupsMap.forEach((storedGroup: any, groupId: string) => {
+            // Handle both Y.Map and plain object formats
+            let nodeIds: string[]
+            if (storedGroup instanceof Y.Map) {
+              nodeIds = storedGroup.get('nodeIds') || []
+            } else {
+              nodeIds = storedGroup.nodeIds || []
+            }
+            
             if (nodeIds.includes(nodeId)) {
-              yGroup.set(
-                'nodeIds',
-                nodeIds.filter(id => id !== nodeId)
-              )
+              // Update the group by removing the node
+              const updatedNodeIds = nodeIds.filter(id => id !== nodeId)
+              
+              if (storedGroup instanceof Y.Map) {
+                storedGroup.set('nodeIds', updatedNodeIds)
+              } else {
+                // For plain objects, we need to delete and re-add
+                const updatedGroup = {
+                  ...storedGroup,
+                  nodeIds: updatedNodeIds,
+                  updatedAt: new Date().toISOString()
+                }
+                groupsMap.delete(groupId)
+                groupsMap.set(groupId, updatedGroup)
+              }
             }
           })
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -833,7 +852,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             yConn.set('state', String(connection.state || 'pending'))
 
             connectionsMap.set(connection.id, yConn)
-          }, 'add-connection')
+          }, 'local')
         } catch (error) {
           console.error('[WorkflowStore] Error adding connection to CRDT:', error, {
             connection,
@@ -860,7 +879,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           if (yConn) {
             yConn.set('state', state)
           }
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -873,7 +892,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         doc.transact(() => {
           const connectionsMap = doc.getMap(`connections-${currentGraphId}`)
           connectionsMap.delete(connectionId)
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -924,7 +943,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           // Use JSON parse/stringify to ensure clean object
           const cleanGroup = JSON.parse(JSON.stringify(plainGroup))
           groupsMap.set(groupId, cleanGroup)
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -1016,7 +1035,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           // Force Yjs to detect the change by deleting and re-adding
           groupsMap.delete(groupId)
           groupsMap.set(groupId, cleanGroup)
-        }, 'local') // Mark as local origin
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -1080,7 +1099,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
                 yNode.set('position', newPos)
               }
             })
-          })
+          }, 'local')
         }
 
         // Mark graph as dirty
@@ -1131,8 +1150,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
       addNodeToGroup: (nodeId: string, groupId: string) => {
         const { doc, currentGraphId } = get()
         if (!doc) return
-        ;(doc as any)
-          .transact(() => {
+        
+        doc.transact(() => {
             const groupsMap = doc.getMap(`groups-${currentGraphId}`)
             const storedGroup = groupsMap.get(groupId)
             if (!storedGroup) return
@@ -1165,11 +1184,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
               groupsMap.delete(groupId)
               groupsMap.set(groupId, plainGroup)
             }
-          })(
-            // Recalculate group bounds to fit new node
-            get() as any
-          )
-          .recalculateGroupBounds(groupId)
+          }, 'local')
+
+        // Recalculate group bounds to fit new node
+        get().recalculateGroupBounds(groupId)
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -1210,7 +1228,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           // Delete and re-add to trigger observers
           groupsMap.delete(groupId)
           groupsMap.set(groupId, plainGroup)
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -1223,7 +1241,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         doc.transact(() => {
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
           groupsMap.delete(groupId)
-        })
+        }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -1629,7 +1647,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         doc.transact(() => {
           const metadataMap = doc.getMap('metadata')
           metadataMap.set('name', name)
-        })
+        }, 'local')
 
         set({ workflowName: name })
       },
@@ -1645,7 +1663,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           } else {
             metadataMap.delete('trigger')
           }
-        })
+        }, 'local')
 
         set({ workflowTrigger: trigger })
       },
@@ -1730,10 +1748,10 @@ function setupObservers(doc: Y.Doc, set: any, get: any) {
 
   // Load current graph data
   const currentGraphId = get().currentGraphId
-  loadGraphData(doc, currentGraphId, set)
+  loadGraphData(doc, currentGraphId, get, set)
 }
 
-function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
+function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
   if (!doc) {
     console.error('[loadGraphData] No document provided')
     return
@@ -1855,6 +1873,112 @@ function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
   // Set up observers
   const nodesMap = doc.getMap(`nodes-${graphId}`)
   const nodesObserver = (events: Y.YEvent<any>[]) => {
+    console.log('[WorkflowStore] nodesObserver triggered with', events.length, 'events')
+    
+    // Check if changes are from remote client
+    let isRemoteChange = false
+    let remoteUserInfo: any = null
+    let changeActions: Array<{action: 'add' | 'delete' | 'update', key: string}> = []
+    
+    events.forEach(event => {
+      console.log('[WorkflowStore] Event transaction:', {
+        hasTransaction: !!event.transaction,
+        origin: event.transaction?.origin,
+        local: event.transaction?.local
+      })
+      
+      // Capture changes while we're in the event handler
+      if (event instanceof YMapEvent) {
+        event.changes.keys.forEach((change, key) => {
+          changeActions.push({ action: change.action as any, key })
+          console.log('[WorkflowStore] Captured change:', change.action, 'for key:', key)
+        })
+      }
+      
+      // Check if this is a remote change
+      const state = get()
+      const provider = state.provider
+      
+      if (event.transaction) {
+        // If origin is 'local', it's definitely a local change
+        if (event.transaction.origin === 'local') {
+          console.log('[WorkflowStore] Local transaction detected')
+          return // Skip local changes
+        }
+        
+        // If origin is the provider, it's a remote change
+        if (provider && event.transaction.origin === provider) {
+          isRemoteChange = true
+          console.log('[WorkflowStore] Remote transaction detected via provider')
+        }
+        // If origin is not 'local' and exists, it might be remote
+        else if (event.transaction.origin) {
+          isRemoteChange = true
+          console.log('[WorkflowStore] Remote transaction detected, origin:', event.transaction.origin)
+        }
+        // If no origin, check if we're in a sync context
+        else {
+          console.log('[WorkflowStore] Transaction has no origin - checking context')
+          // During initial sync, transactions might not have origins
+          // We'll skip these to avoid false notifications during initial load
+        }
+      }
+      
+      if (isRemoteChange) {
+        const presence = state.presence
+        console.log('[WorkflowStore] Presence map size:', presence.size)
+        console.log('[WorkflowStore] Local client ID:', state.localClientId)
+        
+        // Find a remote user from presence
+        presence.forEach((userPresence: any, clientId: any) => {
+          console.log('[WorkflowStore] Checking presence client:', clientId, userPresence)
+          if (clientId !== state.localClientId && !remoteUserInfo) {
+            remoteUserInfo = userPresence
+            console.log('[WorkflowStore] Found remote user:', remoteUserInfo)
+          }
+        })
+        
+        // If we can't find user info from presence, create a generic one
+        if (!remoteUserInfo && presence.size > 1) {
+          remoteUserInfo = {
+            userName: 'Another User',
+            userId: 'remote-user'
+          }
+          console.log('[WorkflowStore] Using generic remote user info')
+        }
+      }
+    })
+    
+    // Import notification store if we have remote changes
+    if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
+      console.log('[WorkflowStore] Remote change detected in nodes, triggering notification for', changeActions.length, 'changes')
+      import('@/store/notificationStore').then((module) => {
+        const useNotificationStore = module.useNotificationStore
+        console.log('[WorkflowStore] NotificationStore imported successfully')
+        
+        // Process the captured changes
+        changeActions.forEach(change => {
+          if (change.action === 'add') {
+            console.log('[WorkflowStore] Triggering node-added notification')
+            useNotificationStore.getState().addNotification({
+              type: 'node-added',
+              message: 'added a node',
+              userName: remoteUserInfo.userName || 'Remote User',
+              userId: remoteUserInfo.userId || 'unknown',
+            })
+          } else if (change.action === 'delete') {
+            console.log('[WorkflowStore] Triggering node-deleted notification')
+            useNotificationStore.getState().addNotification({
+              type: 'node-deleted',
+              message: 'deleted a node',
+              userName: remoteUserInfo.userName || 'Remote User',
+              userId: remoteUserInfo.userId || 'unknown',
+            })
+          }
+        })
+      })
+    }
+    
     // Simply reload on any change
     loadAll()
   }
@@ -1864,8 +1988,84 @@ function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
   }
 
   const connectionsMap = doc.getMap(`connections-${graphId}`)
-  const connectionsObserver = () => {
-    // // [Workflow Store] log removed
+  const connectionsObserver = (events: Y.YEvent<any>[]) => {
+    console.log('[WorkflowStore] connectionsObserver triggered with', events.length, 'events')
+    
+    // Check if changes are from remote client
+    let isRemoteChange = false
+    let remoteUserInfo: any = null
+    let changeActions: Array<{action: 'add' | 'delete' | 'update', key: string}> = []
+    
+    events.forEach(event => {
+      // Capture changes while we're in the event handler
+      if (event instanceof YMapEvent) {
+        event.changes.keys.forEach((change, key) => {
+          changeActions.push({ action: change.action as any, key })
+        })
+      }
+      
+      const state = get()
+      const provider = state.provider
+      
+      if (event.transaction) {
+        // If origin is 'local', it's definitely a local change
+        if (event.transaction.origin === 'local') {
+          return // Skip local changes
+        }
+        
+        // If origin is the provider, it's a remote change
+        if (provider && event.transaction.origin === provider) {
+          isRemoteChange = true
+        }
+        // If origin is not 'local' and exists, it might be remote
+        else if (event.transaction.origin) {
+          isRemoteChange = true
+        }
+      }
+      
+      if (isRemoteChange) {
+        const presence = state.presence
+        presence.forEach((userPresence:any, clientId:any) => {
+          if (clientId !== state.localClientId && !remoteUserInfo) {
+            remoteUserInfo = userPresence
+          }
+        })
+        
+        // If we can't find user info from presence, create a generic one
+        if (!remoteUserInfo && presence.size > 1) {
+          remoteUserInfo = {
+            userName: 'Another User',
+            userId: 'remote-user'
+          }
+        }
+      }
+    })
+    
+    // Import notification store if we have remote changes
+    if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
+      import('@/store/notificationStore').then((module) => {
+        const useNotificationStore = module.useNotificationStore
+        
+        changeActions.forEach(change => {
+          if (change.action === 'add') {
+            useNotificationStore.getState().addNotification({
+              type: 'connection-added',
+              message: 'added a connection',
+              userName: remoteUserInfo.userName || 'Remote User',
+              userId: remoteUserInfo.userId || 'unknown',
+            })
+          } else if (change.action === 'delete') {
+            useNotificationStore.getState().addNotification({
+              type: 'connection-deleted',
+              message: 'deleted a connection',
+              userName: remoteUserInfo.userName || 'Remote User',
+              userId: remoteUserInfo.userId || 'unknown',
+            })
+          }
+        })
+      })
+    }
+    
     loadAll()
   }
   connectionsMap.observeDeep(connectionsObserver)
@@ -1875,6 +2075,83 @@ function loadGraphData(doc: Y.Doc, graphId: string, set: any) {
 
   const groupsMap = doc.getMap(`groups-${graphId}`)
   const groupsObserver = (events: Y.YEvent<any>[]) => {
+    console.log('[WorkflowStore] groupsObserver triggered with', events.length, 'events')
+    
+    // Check if changes are from remote client
+    let isRemoteChange = false
+    let remoteUserInfo: any = null
+    let changeActions: Array<{action: 'add' | 'delete' | 'update', key: string}> = []
+    
+    events.forEach(event => {
+      // Capture changes while we're in the event handler
+      if (event instanceof YMapEvent) {
+        event.changes.keys.forEach((change, key) => {
+          changeActions.push({ action: change.action as any, key })
+        })
+      }
+      
+      const state = get()
+      const provider = state.provider
+      
+      if (event.transaction) {
+        // If origin is 'local', it's definitely a local change
+        if (event.transaction.origin === 'local') {
+          return // Skip local changes
+        }
+        
+        // If origin is the provider, it's a remote change
+        if (provider && event.transaction.origin === provider) {
+          isRemoteChange = true
+        }
+        // If origin is not 'local' and exists, it might be remote
+        else if (event.transaction.origin) {
+          isRemoteChange = true
+        }
+      }
+      
+      if (isRemoteChange) {
+        const presence = state.presence
+        presence.forEach((userPresence:any, clientId:any) => {
+          if (clientId !== state.localClientId && !remoteUserInfo) {
+            remoteUserInfo = userPresence
+          }
+        })
+        
+        // If we can't find user info from presence, create a generic one
+        if (!remoteUserInfo && presence.size > 1) {
+          remoteUserInfo = {
+            userName: 'Another User',
+            userId: 'remote-user'
+          }
+        }
+      }
+    })
+    
+    // Import notification store if we have remote changes
+    if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
+      import('@/store/notificationStore').then((module) => {
+        const useNotificationStore = module.useNotificationStore
+        
+        changeActions.forEach(change => {
+          if (change.action === 'add') {
+            useNotificationStore.getState().addNotification({
+              type: 'group-created',
+              message: 'created a group',
+              userName: remoteUserInfo.userName || 'Remote User',
+              userId: remoteUserInfo.userId || 'unknown',
+            })
+          } else if (change.action === 'delete') {
+            useNotificationStore.getState().addNotification({
+              type: 'group-deleted',
+              message: 'deleted a group',
+              userName: remoteUserInfo.userName || 'Remote User',
+              userId: remoteUserInfo.userId || 'unknown',
+            })
+          }
+        })
+      })
+    }
+    
     // Simply reload on any change
     loadAll()
   }
