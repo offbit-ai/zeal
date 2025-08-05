@@ -72,11 +72,11 @@ const PresenceDropdown = dynamic(
 import { UserSettingsModal } from '@/components/UserSettingsModal'
 import { CollaborativeCursors } from '@/components/CollaborativeCursors'
 import { CRDTFeatureIndicator } from '@/components/CRDTFeatureIndicator'
-import { GraphDebugPanel } from '@/components/GraphDebugPanel'
+// import { GraphDebugPanel } from '@/components/GraphDebugPanel'
 import { UserPreferencesService } from '@/services/userPreferences'
 import { NotificationButton } from '@/components/NotificationButton'
 import { NotificationPanel } from '@/components/NotificationPanel'
-import { TestNotifications } from '@/components/TestNotifications'
+// import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/CollapsedGroupPortHandler'
 
 // Sample nodes metadata
@@ -3341,7 +3341,7 @@ export default function Home() {
       {isCollaborative && <NotificationPanel />}
 
       {/* Test Notifications - Temporary for debugging */}
-      {isCollaborative && <TestNotifications />}
+      {/* {isCollaborative && <TestNotifications />} */}
 
       {/* Debug Panel - Temporary for debugging graph issues */}
       {/* <GraphDebugPanel /> */}
