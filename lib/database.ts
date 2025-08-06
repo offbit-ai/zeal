@@ -1,48 +1,79 @@
 import { Pool, PoolClient } from 'pg'
+import { WorkflowOperations } from './database/operations'
+import { PostgresOperations } from './database/postgres-operations'
+import { SupabaseOperations } from './database/supabase-operations'
 
-// PostgreSQL connection pool
+// Database operations instance
+let operations: WorkflowOperations | null = null
+// Legacy pool for schema initialization
 let pool: Pool | null = null
 
-// Initialize database connection
+// Initialize database operations
+export async function getDatabaseOperations(): Promise<WorkflowOperations> {
+  if (operations) {
+    return operations
+  }
+
+  if (process.env.USE_SUPABASE === 'true') {
+    operations = new SupabaseOperations()
+  } else {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) {
+      throw new Error('DATABASE_URL environment variable is not set')
+    }
+    
+    pool = new Pool({
+      connectionString,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+    
+    operations = new PostgresOperations(pool)
+  }
+  
+  // Test the connection
+  try {
+    // For PostgreSQL, test with a simple query
+    if (pool) {
+      const client = await pool.connect()
+      await client.query('SELECT 1')
+      client.release()
+    }
+    // For Supabase, connection is tested on first operation
+  } catch (error) {
+    console.error('Failed to connect to database:', error)
+    throw error
+  }
+
+  // Initialize schema on first connection (PostgreSQL only)
+  if (pool) {
+    await initializeSchema()
+  }
+
+  return operations
+}
+
+// Legacy function for compatibility
 export async function getDatabase(): Promise<Pool> {
   if (pool) {
     return pool
   }
-
-  // Create a new pool using the DATABASE_URL environment variable
-  const connectionString = process.env.DATABASE_URL
-
-  if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is not set')
+  
+  // Initialize operations first
+  await getDatabaseOperations()
+  
+  if (!pool) {
+    throw new Error('Database pool not available (might be using Supabase)')
   }
-
-  pool = new Pool({
-    connectionString,
-    max: 20, // Maximum number of clients in the pool
-    idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-    connectionTimeoutMillis: 2000, // How long to wait for a connection
-  })
-
-  // Test the connection
-  try {
-    const client = await pool.connect()
-    await client.query('SELECT 1')
-    client.release()
-    // console.log removed
-  } catch (error) {
-    console.error('Failed to connect to PostgreSQL:', error)
-    throw error
-  }
-
-  // Initialize schema on first connection
-  await initializeSchema()
-
+  
   return pool
 }
 
 async function initializeSchema() {
   if (!pool) {
-    throw new Error('Database pool not initialized')
+    // Skip schema initialization for Supabase
+    return
   }
 
   const client = await pool.connect()
@@ -257,25 +288,30 @@ export async function closeDatabase() {
   if (pool) {
     await pool.end()
     pool = null
-    // console.log removed
   }
+  operations = null
+  // console.log removed
 }
 
 // Transaction helper
 export async function withTransaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
-  const db = await getDatabase()
-  const client = await db.connect()
+  const ops = await getDatabaseOperations()
+  const transaction = await ops.beginTransaction()
 
   try {
-    await client.query('BEGIN')
-    const result = await callback(client)
-    await client.query('COMMIT')
+    // For compatibility, we need to provide a PoolClient-like interface
+    const clientAdapter = {
+      query: transaction.query ? transaction.query.bind(transaction) : async () => { throw new Error('Query not supported in transaction') },
+    } as any as PoolClient
+    
+    const result = await callback(clientAdapter)
+    await transaction.commit()
     return result
   } catch (error) {
-    await client.query('ROLLBACK')
+    await transaction.rollback()
     throw error
   } finally {
-    client.release()
+    transaction.release()
   }
 }
 

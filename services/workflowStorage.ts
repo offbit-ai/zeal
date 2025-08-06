@@ -5,13 +5,14 @@ const STORAGE_KEY = 'zeal_workflows'
 const CURRENT_WORKFLOW_KEY = 'zeal_current_workflow_id'
 
 export class WorkflowStorageService {
-  // Get all workflows from API (with localStorage fallback)
+  // Get all workflows from API/Database (with localStorage fallback)
   static async getAllWorkflows(): Promise<WorkflowSnapshot[]> {
     try {
+      // Use API to get workflows
       const response = await WorkflowService.getWorkflows({ limit: 100 })
       return response.workflows
     } catch (error) {
-      console.error('Error loading workflows from API, falling back to localStorage:', error)
+      console.error('Error loading workflows from API/Database, falling back to localStorage:', error)
       // Fallback to localStorage
       try {
         const data = localStorage.getItem(STORAGE_KEY)
@@ -23,12 +24,13 @@ export class WorkflowStorageService {
     }
   }
 
-  // Get a specific workflow by ID from API (with localStorage fallback)
+  // Get a specific workflow by ID from API/Database (with localStorage fallback)
   static async getWorkflow(id: string): Promise<WorkflowSnapshot | null> {
     try {
+      // Use API to get workflow
       return await WorkflowService.getWorkflow(id)
     } catch (error) {
-      console.error('Error loading workflow from API, falling back to localStorage:', error)
+      console.error('Error loading workflow from API/Database, falling back to localStorage:', error)
       // Fallback to localStorage
       try {
         const data = localStorage.getItem(STORAGE_KEY)
@@ -41,9 +43,10 @@ export class WorkflowStorageService {
     }
   }
 
-  // Save or update a workflow via API (with localStorage fallback)
+  // Save or update a workflow via API/Database (with localStorage fallback)
   static async saveWorkflow(workflow: WorkflowSnapshot): Promise<WorkflowSnapshot> {
     try {
+      // Use API to save workflow
       if (workflow.id) {
         // Update existing workflow
         return await WorkflowService.updateWorkflow(workflow.id, workflow)
@@ -202,6 +205,7 @@ export class WorkflowStorageService {
   // Search workflows by name or description
   static async searchWorkflows(query: string): Promise<WorkflowSnapshot[]> {
     try {
+      // Use API to search workflows
       const response = await WorkflowService.getWorkflows({ search: query, limit: 50 })
       return response.workflows
     } catch (error) {
@@ -273,6 +277,7 @@ export class WorkflowStorageService {
 
   // Get version history for a workflow (all versions with same ID)
   static async getWorkflowVersions(workflowId: string): Promise<WorkflowSnapshot[]> {
+    // Get workflow versions from all workflows
     const workflows = await this.getAllWorkflows()
     return workflows
       .filter(w => w.id === workflowId)

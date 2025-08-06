@@ -1,0 +1,488 @@
+# Supabase Local Development Stack for Kubernetes
+# Based on Supabase self-hosted setup
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supabase-config
+  namespace: zeal
+data:
+  POSTGRES_PASSWORD: "postgres"
+  JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
+  ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+  SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfc3JvbGUiLCJleHAiOjE5ODM4MTI5OTZ9.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+  SITE_URL: "http://localhost:3000"
+  API_EXTERNAL_URL: "http://localhost:8000"
+  GOTRUE_SITE_URL: "http://localhost:3000"
+  GOTRUE_EXTERNAL_URL: "http://localhost:9999"
+---
+# Supabase PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-db
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-db
+  template:
+    metadata:
+      labels:
+        app: supabase-db
+    spec:
+      containers:
+      - name: postgres
+        image: supabase/postgres:15.1.0.117
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          value: "postgres"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-db
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+# Supabase Kong API Gateway
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-gateway
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-gateway
+  template:
+    metadata:
+      labels:
+        app: supabase-gateway
+    spec:
+      containers:
+      - name: kong
+        image: kong:2.8.1-alpine
+        ports:
+        - containerPort: 8000
+        - containerPort: 8443
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_DECLARATIVE_CONFIG
+          value: "/var/lib/kong/kong.yml"
+        - name: KONG_DNS_ORDER
+          value: "LAST,A,CNAME"
+        - name: KONG_PLUGINS
+          value: "request-transformer,cors,key-auth,acl"
+        volumeMounts:
+        - name: kong-config
+          mountPath: /var/lib/kong
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-gateway
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-gateway
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  - name: https
+    port: 8443
+    targetPort: 8443
+---
+# Supabase Auth
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-auth
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-auth
+  template:
+    metadata:
+      labels:
+        app: supabase-auth
+    spec:
+      containers:
+      - name: gotrue
+        image: supabase/gotrue:v2.99.0
+        ports:
+        - containerPort: 9999
+        env:
+        - name: GOTRUE_API_HOST
+          value: "0.0.0.0"
+        - name: GOTRUE_API_PORT
+          value: "9999"
+        - name: API_EXTERNAL_URL
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: API_EXTERNAL_URL
+        - name: GOTRUE_DB_DRIVER
+          value: "postgres"
+        - name: GOTRUE_DB_DATABASE_URL
+          value: "postgres://postgres:postgres@supabase-db:5432/postgres?sslmode=disable"
+        - name: GOTRUE_SITE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: GOTRUE_SITE_URL
+        - name: GOTRUE_JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: JWT_SECRET
+        - name: GOTRUE_JWT_EXP
+          value: "3600"
+        - name: GOTRUE_DISABLE_SIGNUP
+          value: "false"
+        - name: GOTRUE_EMAIL_ENABLE
+          value: "false"
+        - name: GOTRUE_MAILER_AUTOCONFIRM
+          value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-auth
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-auth
+  ports:
+  - port: 9999
+    targetPort: 9999
+---
+# Supabase Realtime
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-realtime
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-realtime
+  template:
+    metadata:
+      labels:
+        app: supabase-realtime
+    spec:
+      containers:
+      - name: realtime
+        image: supabase/realtime:v2.41.15
+        ports:
+        - containerPort: 4000
+        env:
+        - name: PORT
+          value: "4000"
+        - name: DB_HOST
+          value: "supabase-db"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "postgres"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: POSTGRES_PASSWORD
+        - name: DB_SSL
+          value: "false"
+        - name: JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: JWT_SECRET
+        - name: REPLICATION_MODE
+          value: "RLS"
+        - name: REPLICATION_POLL_INTERVAL
+          value: "100"
+        - name: SECURE_CHANNELS
+          value: "true"
+        - name: SLOT_NAME
+          value: "supabase_realtime_rls"
+        - name: TEMPORARY_SLOT
+          value: "true"
+        - name: SECRET_KEY_BASE
+          value: "your-secret-key-base-at-least-64-characters-long-for-realtime-server-12345678"
+        - name: DB_ENC_KEY
+          value: "supabaserealtime_encryption_key_that_is_long"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-realtime
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-realtime
+  ports:
+  - port: 4000
+    targetPort: 4000
+---
+# Supabase REST API (PostgREST)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-rest
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-rest
+  template:
+    metadata:
+      labels:
+        app: supabase-rest
+    spec:
+      containers:
+      - name: postgrest
+        image: postgrest/postgrest:v11.2.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PGRST_DB_URI
+          value: "postgres://postgres:postgres@supabase-db:5432/postgres"
+        - name: PGRST_DB_SCHEMAS
+          value: "public,storage,graphql_public"
+        - name: PGRST_DB_ANON_ROLE
+          value: "anon"
+        - name: PGRST_JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: JWT_SECRET
+        - name: PGRST_DB_USE_LEGACY_GUCS
+          value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-rest
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-rest
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+# Supabase Storage
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-storage
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-storage
+  template:
+    metadata:
+      labels:
+        app: supabase-storage
+    spec:
+      containers:
+      - name: storage
+        image: supabase/storage-api:v0.43.11
+        ports:
+        - containerPort: 5000
+        env:
+        - name: ANON_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: ANON_KEY
+        - name: SERVICE_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: SERVICE_ROLE_KEY
+        - name: POSTGREST_URL
+          value: "http://supabase-rest:3000"
+        - name: PGRST_JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: JWT_SECRET
+        - name: DATABASE_URL
+          value: "postgres://postgres:postgres@supabase-db:5432/postgres"
+        - name: FILE_SIZE_LIMIT
+          value: "52428800"
+        - name: STORAGE_BACKEND
+          value: "file"
+        - name: FILE_STORAGE_BACKEND_PATH
+          value: "/var/lib/storage"
+        - name: TENANT_ID
+          value: "stub"
+        - name: REGION
+          value: "stub"
+        - name: GLOBAL_S3_BUCKET
+          value: "stub"
+        volumeMounts:
+        - name: storage-data
+          mountPath: /var/lib/storage
+      volumes:
+      - name: storage-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-storage
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-storage
+  ports:
+  - port: 5000
+    targetPort: 5000
+---
+# Kong configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: zeal
+data:
+  kong.yml: |
+    _format_version: "1.1"
+    services:
+      - name: auth-v1-open
+        url: http://supabase-auth:9999/verify
+        routes:
+          - name: auth-v1-open
+            strip_path: true
+            paths:
+              - /auth/v1/verify
+        plugins:
+          - name: cors
+      - name: auth-v1-open-callback
+        url: http://supabase-auth:9999/callback
+        routes:
+          - name: auth-v1-open-callback
+            strip_path: true
+            paths:
+              - /auth/v1/callback
+        plugins:
+          - name: cors
+      - name: auth-v1-open-authorize
+        url: http://supabase-auth:9999/authorize
+        routes:
+          - name: auth-v1-open-authorize
+            strip_path: true
+            paths:
+              - /auth/v1/authorize
+        plugins:
+          - name: cors
+      - name: auth-v1
+        url: http://supabase-auth:9999/
+        routes:
+          - name: auth-v1-all
+            strip_path: true
+            paths:
+              - /auth/v1/
+        plugins:
+          - name: cors
+          - name: key-auth
+            config:
+              hide_credentials: false
+      - name: rest-v1
+        url: http://supabase-rest:3000/
+        routes:
+          - name: rest-v1-all
+            strip_path: false
+            paths:
+              - /rest/v1/
+        plugins:
+          - name: cors
+          - name: key-auth
+            config:
+              hide_credentials: true
+      - name: realtime-v1
+        url: http://supabase-realtime:4000/socket/
+        routes:
+          - name: realtime-v1-all
+            strip_path: true
+            paths:
+              - /realtime/v1/
+        plugins:
+          - name: cors
+          - name: key-auth
+            config:
+              hide_credentials: false
+      - name: storage-v1
+        url: http://supabase-storage:5000/
+        routes:
+          - name: storage-v1-all
+            strip_path: true
+            paths:
+              - /storage/v1/
+        plugins:
+          - name: cors
+    consumers:
+      - username: anon
+        keyauth_credentials:
+          - key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      - username: service_role
+        keyauth_credentials:
+          - key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfc3JvbGUiLCJleHAiOjE5ODM4MTI5OTZ9.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+    acls:
+      - consumer: anon
+        group: anon
+      - consumer: service_role
+        group: admin
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - http://localhost:3000
+          credentials: true
+          exposed_headers:
+            - X-Auth-Token
+      - name: key-auth
+        config:
+          hide_credentials: true
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - "apikey:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"

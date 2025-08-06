@@ -99,5 +99,11 @@ CLAUDE.md
 
 .env.local.backup.*
 
+# Minikube
+.minikube-port-forward.pid
+.minikube-tunnel.sh
+.minikube-tunnel.log
+.minikube-ingress.pid
+
 
 

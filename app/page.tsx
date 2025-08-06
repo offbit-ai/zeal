@@ -14,6 +14,36 @@ export default function LandingPage() {
   const [joinUrl, setJoinUrl] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [showJoinForm, setShowJoinForm] = useState(false)
+  const [apiHealth, setApiHealth] = useState<'checking' | 'healthy' | 'error'>('checking')
+  const [apiError, setApiError] = useState<string | null>(null)
+
+  // Check API health on mount
+  useEffect(() => {
+    const checkApiHealth = async () => {
+      try {
+        // Try to fetch workflows to check if API is working
+        await WorkflowService.getWorkflows({ limit: 1 })
+        setApiHealth('healthy')
+      } catch (err) {
+        console.error('API health check failed:', err)
+        setApiHealth('error')
+        if (err instanceof Error) {
+          // Extract more meaningful error message
+          if (err.message.includes('500')) {
+            setApiError('Database connection error. Please check your configuration.')
+          } else if (err.message.includes('Network') || err.message.includes('fetch')) {
+            setApiError('Cannot connect to API server. Please check if the server is running.')
+          } else {
+            setApiError(err.message)
+          }
+        } else {
+          setApiError('API is not available')
+        }
+      }
+    }
+
+    checkApiHealth()
+  }, [])
 
   const createWorkflow = async () => {
     try {
@@ -169,6 +199,26 @@ export default function LandingPage() {
             Create a new workflow or join an existing one
           </p>
 
+          {/* API Health Status */}
+          {apiHealth === 'checking' && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <p className="text-sm text-blue-800">Checking API connection...</p>
+              </div>
+            </div>
+          )}
+
+          {apiHealth === 'error' && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-red-800 mb-1">API Connection Error</p>
+              <p className="text-sm text-red-700">{apiError}</p>
+              <p className="text-xs text-red-600 mt-2">
+                Please ensure the backend services are running and properly configured.
+              </p>
+            </div>
+          )}
+
           {!isCreating && !workflowUrl && !showJoinForm && (
             <div className="space-y-3">
               <button
@@ -176,7 +226,8 @@ export default function LandingPage() {
                   setError(null)
                   createWorkflow()
                 }}
-                className="w-full bg-blue-600 text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                disabled={apiHealth !== 'healthy'}
+                className="w-full bg-blue-600 text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 <Plus className="w-5 h-5" />
                 Create New Workflow
@@ -196,7 +247,8 @@ export default function LandingPage() {
                   setError(null)
                   setShowJoinForm(true)
                 }}
-                className="w-full bg-white text-gray-700 border border-gray-300 rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+                disabled={apiHealth !== 'healthy'}
+                className="w-full bg-white text-gray-700 border border-gray-300 rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
               >
                 <Link2 className="w-5 h-5" />
                 Join Existing Workflow

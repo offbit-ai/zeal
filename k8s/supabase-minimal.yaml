@@ -1,0 +1,287 @@
+# Minimal Supabase Setup for Kubernetes (ARM64 Compatible)
+# Only includes the core services that work reliably on ARM64
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supabase-config
+  namespace: zeal
+data:
+  POSTGRES_PASSWORD: "postgres"
+  JWT_SECRET: "your-super-secret-jwt-token-with-at-least-32-characters-long"
+  ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjIwNjk3OTA1OTgsImlhdCI6MTc1NDQzMDU5OH0.L6odhxPbMcLeEqiFXIIZbC0cNGQjcc8n9vnZNXLSiRo"
+  SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MjA2OTc5MDU5OCwiaWF0IjoxNzU0NDMwNTk4fQ.Zpmigdx8mkloUQhtD-ZtwKWp9LmmbgSbHXU45KSqOHA"
+---
+# PostgreSQL for Supabase
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-db
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-db
+  template:
+    metadata:
+      labels:
+        app: supabase-db
+    spec:
+      containers:
+      - name: postgres
+        image: supabase/postgres:15.6.1.139
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          value: "postgres"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-db
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+# Supabase REST API (PostgREST)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-rest
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-rest
+  template:
+    metadata:
+      labels:
+        app: supabase-rest
+    spec:
+      containers:
+      - name: postgrest
+        image: postgrest/postgrest:v12.2.3
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PGRST_DB_URI
+          value: "postgres://postgres:postgres@supabase-db:5432/postgres"
+        - name: PGRST_DB_SCHEMAS
+          value: "public,storage,graphql_public"
+        - name: PGRST_DB_ANON_ROLE
+          value: "anon"
+        - name: PGRST_JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: JWT_SECRET
+        - name: PGRST_DB_USE_LEGACY_GUCS
+          value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-rest
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-rest
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+# Supabase Auth (GoTrue)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-auth
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-auth
+  template:
+    metadata:
+      labels:
+        app: supabase-auth
+    spec:
+      containers:
+      - name: gotrue
+        image: supabase/gotrue:v2.178.0
+        ports:
+        - containerPort: 9999
+        env:
+        - name: GOTRUE_API_HOST
+          value: "0.0.0.0"
+        - name: GOTRUE_API_PORT
+          value: "9999"
+        - name: API_EXTERNAL_URL
+          value: "http://localhost"
+        - name: GOTRUE_DB_DRIVER
+          value: "postgres"
+        - name: GOTRUE_DB_DATABASE_URL
+          value: "postgres://postgres:postgres@supabase-db:5432/postgres?search_path=auth"
+        - name: GOTRUE_SITE_URL
+          value: "http://localhost"
+        - name: GOTRUE_URI_ALLOW_LIST
+          value: ""
+        - name: GOTRUE_DISABLE_SIGNUP
+          value: "false"
+        - name: GOTRUE_JWT_ADMIN_ROLES
+          value: "service_role"
+        - name: GOTRUE_JWT_AUD
+          value: "authenticated"
+        - name: GOTRUE_JWT_DEFAULT_GROUP_NAME
+          value: "authenticated"
+        - name: GOTRUE_JWT_EXP
+          value: "3600"
+        - name: GOTRUE_JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: supabase-config
+              key: JWT_SECRET
+        - name: GOTRUE_EXTERNAL_EMAIL_ENABLED
+          value: "true"
+        - name: GOTRUE_MAILER_AUTOCONFIRM
+          value: "true"
+        - name: GOTRUE_SMTP_ADMIN_EMAIL
+          value: "admin@example.com"
+        - name: GOTRUE_SMTP_HOST
+          value: "localhost"
+        - name: GOTRUE_SMTP_PORT
+          value: "25"
+        - name: GOTRUE_SMTP_USER
+          value: ""
+        - name: GOTRUE_SMTP_PASS
+          value: ""
+        - name: GOTRUE_SMTP_SENDER_NAME
+          value: ""
+        - name: GOTRUE_EXTERNAL_PHONE_ENABLED
+          value: "true"
+        - name: GOTRUE_SMS_AUTOCONFIRM
+          value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-auth
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-auth
+  ports:
+  - port: 9999
+    targetPort: 9999
+---
+# Simple API Gateway using NGINX instead of Kong
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supabase-nginx-config
+  namespace: zeal
+data:
+  nginx.conf: |
+    events {
+      worker_connections 1024;
+    }
+    
+    http {
+      upstream auth {
+        server supabase-auth:9999;
+      }
+      
+      upstream rest {
+        server supabase-rest:3000;
+      }
+      
+      server {
+        listen 8000;
+        
+        # Auth endpoints
+        location ~ ^/auth/v1/(.*)$ {
+          proxy_pass http://auth/$1$is_args$args;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+        
+        # REST endpoints
+        location ~ ^/rest/v1/(.*)$ {
+          proxy_pass http://rest/$1$is_args$args;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header apikey $http_apikey;
+          proxy_set_header Authorization $http_authorization;
+        }
+        
+        # Health check
+        location /health {
+          return 200 "OK";
+          add_header Content-Type text/plain;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supabase-gateway
+  namespace: zeal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supabase-gateway
+  template:
+    metadata:
+      labels:
+        app: supabase-gateway
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: supabase-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supabase-gateway
+  namespace: zeal
+spec:
+  selector:
+    app: supabase-gateway
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

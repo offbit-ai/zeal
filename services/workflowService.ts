@@ -91,30 +91,23 @@ export class WorkflowService {
       totalPages: number
     }
   }> {
-    try {
-      const response = await apiClient.getPaginated<WorkflowResponse>('/workflows', {
-        page: params?.page || 1,
-        limit: params?.limit || 20,
-        status: params?.status,
-        search: params?.search,
-        sortBy: params?.sortBy || 'updatedAt',
-        sortOrder: params?.sortOrder || 'desc',
-      })
+    const response = await apiClient.getPaginated<WorkflowResponse>('/workflows', {
+      page: params?.page || 1,
+      limit: params?.limit || 20,
+      status: params?.status,
+      search: params?.search,
+      sortBy: params?.sortBy || 'updatedAt',
+      sortOrder: params?.sortOrder || 'desc',
+    })
 
-      // Update cache
-      response.data.forEach(workflow => {
-        this.cache.set(workflow.id, workflow)
-      })
+    // Update cache
+    response.data.forEach(workflow => {
+      this.cache.set(workflow.id, workflow)
+    })
 
-      return {
-        workflows: response.data.map(this.convertToWorkflow),
-        pagination: response.pagination,
-      }
-    } catch (error) {
-      console.error('Failed to fetch workflows:', error)
-
-      // Fall back to localStorage for offline support
-      return this.getWorkflowsFromLocal()
+    return {
+      workflows: response.data.map(this.convertToWorkflow),
+      pagination: response.pagination,
     }
   }
 
@@ -141,59 +134,38 @@ export class WorkflowService {
   }
 
   static async createWorkflow(workflow: Partial<WorkflowSnapshot>): Promise<WorkflowSnapshot> {
-    try {
-      const request = this.convertToApiRequest(workflow)
-      const created = await apiClient.post<WorkflowResponse>('/workflows', request)
+    const request = this.convertToApiRequest(workflow)
+    const created = await apiClient.post<WorkflowResponse>('/workflows', request)
 
-      // Update cache
-      this.cache.set(created.id, created)
-      this.listCache = null // Invalidate list cache
+    // Update cache
+    this.cache.set(created.id, created)
+    this.listCache = null // Invalidate list cache
 
-      return this.convertToWorkflow(created)
-    } catch (error) {
-      console.error('Failed to create workflow:', error)
-
-      // Fall back to localStorage
-      return this.createWorkflowLocal(workflow)
-    }
+    return this.convertToWorkflow(created)
   }
 
   static async updateWorkflow(
     id: string,
     updates: Partial<WorkflowSnapshot>
   ): Promise<WorkflowSnapshot> {
-    try {
-      const request = this.convertToApiRequest(updates)
-      const updated = await apiClient.put<WorkflowResponse>(`/workflows/${id}`, request)
+    const request = this.convertToApiRequest(updates)
+    const updated = await apiClient.put<WorkflowResponse>(`/workflows/${id}`, request)
 
-      // Update cache
-      this.cache.set(id, updated)
-      this.listCache = null // Invalidate list cache
+    // Update cache
+    this.cache.set(id, updated)
+    this.listCache = null // Invalidate list cache
 
-      return this.convertToWorkflow(updated)
-    } catch (error) {
-      console.error(`Failed to update workflow ${id}:`, error)
-
-      // Fall back to localStorage
-      return this.updateWorkflowLocal(id, updates)
-    }
+    return this.convertToWorkflow(updated)
   }
 
   static async deleteWorkflow(id: string): Promise<boolean> {
-    try {
-      await apiClient.delete(`/workflows/${id}`)
+    await apiClient.delete(`/workflows/${id}`)
 
-      // Remove from cache
-      this.cache.delete(id)
-      this.listCache = null // Invalidate list cache
+    // Remove from cache
+    this.cache.delete(id)
+    this.listCache = null // Invalidate list cache
 
-      return true
-    } catch (error) {
-      console.error(`Failed to delete workflow ${id}:`, error)
-
-      // Fall back to localStorage
-      return this.deleteWorkflowLocal(id)
-    }
+    return true
   }
 
   static async publishWorkflow(id: string): Promise<WorkflowSnapshot> {

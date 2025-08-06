@@ -216,6 +216,7 @@ export const DELETE = withErrorHandling(
     const userId = extractUserId(req)
 
     // Delete workflow (includes authorization check)
+    // Delete workflow (cascades to versions and executions)
     await WorkflowDatabase.deleteWorkflow(id, userId)
 
     return NextResponse.json(

@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # Next.js Frontend Service
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: zeal-nextjs
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+      - CRDT_SERVER_URL=${CRDT_SERVER_URL:-ws://crdt:8080}
+      - USE_SUPABASE=${USE_SUPABASE:-false}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - crdt
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # CRDT Server Service
+  crdt:
+    build:
+      context: ./crdt-server
+      dockerfile: Dockerfile
+    container_name: zeal-crdt
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=${RUST_LOG:-info,crdt_server=debug}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Redis Service (for CRDT persistence)
+  redis:
+    image: redis:7-alpine
+    container_name: zeal-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Optional: Local PostgreSQL (if not using Supabase)
+  postgres:
+    image: postgres:16-alpine
+    container_name: zeal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zeal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zeal_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zeal_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - zeal-network
+    profiles:
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zeal} -d ${POSTGRES_DB:-zeal_db}"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Nginx Reverse Proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: zeal-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx.microservices.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - nextjs
+      - crdt
+    networks:
+      - zeal-network
+    profiles:
+      - production
+
+networks:
+  zeal-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:

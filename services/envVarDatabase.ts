@@ -190,7 +190,7 @@ export class EnvVarDatabase {
       key,
       true,
     ])
-    return result.rowCount !== null && result.rowCount > 0
+    return (result.rowCount ?? 0) > 0
   }
 
   static async upsert(data: EnvVarCreateRequest & { userId: string }): Promise<EnvVarResponse> {

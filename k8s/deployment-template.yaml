@@ -1,0 +1,277 @@
+# Zeal Kubernetes Deployment Template
+# Use envsubst to replace variables: envsubst < deployment-template.yaml > deployment.yaml
+#
+# Required environment variables:
+#   - ZEAL_NAMESPACE
+#   - ZEAL_NEXTJS_IMAGE
+#   - ZEAL_CRDT_IMAGE
+#   - ZEAL_REDIS_IMAGE
+#   - ZEAL_DOMAIN
+#   - ZEAL_NEXTAUTH_SECRET
+#   - ZEAL_DATABASE_URL
+#   - ZEAL_USE_SUPABASE (true/false)
+#   - ZEAL_SUPABASE_URL (if using Supabase)
+#   - ZEAL_SUPABASE_ANON_KEY (if using Supabase)
+#   - ZEAL_SUPABASE_SERVICE_ROLE_KEY (if using Supabase)
+#
+# Optional environment variables:
+#   - ZEAL_NEXTJS_REPLICAS (default: 3)
+#   - ZEAL_CRDT_REPLICAS (default: 2)
+#   - ZEAL_ENABLE_TLS (default: true)
+#   - ZEAL_CLUSTER_ISSUER (default: letsencrypt-prod)
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${ZEAL_NAMESPACE:-zeal}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zeal-config
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+data:
+  NEXTAUTH_URL: "https://${ZEAL_DOMAIN}"
+  CRDT_SERVER_URL: "ws://crdt-service:8080"
+  NEXT_PUBLIC_CRDT_SERVER_URL: "$([[ "${ZEAL_ENABLE_TLS:-false}" == "true" ]] && echo "wss://${ZEAL_DOMAIN}" || echo "ws://${ZEAL_DOMAIN}:${INGRESS_PORT:-8080}")"
+  NODE_ENV: "production"
+  USE_SUPABASE: "${ZEAL_USE_SUPABASE:-false}"
+  SUPABASE_URL: "$([[ "${ZEAL_USE_SUPABASE:-false}" == "true" ]] && echo "http://supabase-gateway:8000" || echo "")"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zeal-secrets
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+type: Opaque
+stringData:
+  NEXTAUTH_SECRET: "${ZEAL_NEXTAUTH_SECRET}"
+  DATABASE_URL: "${ZEAL_DATABASE_URL}"
+  SUPABASE_ANON_KEY: "${ZEAL_SUPABASE_ANON_KEY:-}"
+  SUPABASE_SERVICE_ROLE_KEY: "${ZEAL_SUPABASE_SERVICE_ROLE_KEY:-}"
+  REDIS_URL: "redis://redis-service:6379"
+---
+# Next.js Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextjs-deployment
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  replicas: ${ZEAL_NEXTJS_REPLICAS:-3}
+  selector:
+    matchLabels:
+      app: nextjs
+  template:
+    metadata:
+      labels:
+        app: nextjs
+    spec:
+      containers:
+      - name: nextjs
+        image: ${ZEAL_NEXTJS_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: zeal-config
+        - secretRef:
+            name: zeal-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# CRDT Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crdt-deployment
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  replicas: ${ZEAL_CRDT_REPLICAS:-2}
+  selector:
+    matchLabels:
+      app: crdt
+  template:
+    metadata:
+      labels:
+        app: crdt
+    spec:
+      containers:
+      - name: crdt
+        image: ${ZEAL_CRDT_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: RUST_LOG
+          value: "info,crdt_server=debug"
+        - name: SERVER_HOST
+          value: "0.0.0.0"
+        - name: SERVER_PORT
+          value: "8080"
+        envFrom:
+        - secretRef:
+            name: zeal-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: ${ZEAL_REDIS_IMAGE:-redis:7-alpine}
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextjs-service
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  selector:
+    app: nextjs
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crdt-service
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  selector:
+    app: crdt
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zeal-ingress
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: ${ZEAL_CLUSTER_ISSUER:-letsencrypt-prod}
+    nginx.ingress.kubernetes.io/websocket-services: "crdt-service"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  tls:
+  - hosts:
+    - ${ZEAL_DOMAIN}
+    secretName: zeal-tls
+  rules:
+  - host: ${ZEAL_DOMAIN}
+    http:
+      paths:
+      - path: /socket.io
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: crdt-service
+            port:
+              number: 8080
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nextjs-service
+            port:
+              number: 3000
+---
+# Horizontal Pod Autoscaler for Next.js
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nextjs-hpa
+  namespace: ${ZEAL_NAMESPACE:-zeal}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nextjs-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
