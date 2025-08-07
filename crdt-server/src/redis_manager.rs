@@ -87,13 +87,25 @@ impl RedisManager {
         let mut conn = self.get_connection().await?;
         let key = format!("room:{}:state", room_id);
         
-        redis::cmd("SET")
-            .arg(&key)
-            .arg(state)
-            .arg("EX")
-            .arg(86400) // 24 hours TTL
-            .query_async::<_, ()>(&mut conn)
-            .await?;
+        // Check if this is a workflow room (starts with "wf_")
+        if room_id.starts_with("wf_") {
+            // No TTL for workflow rooms - they persist forever
+            redis::cmd("SET")
+                .arg(&key)
+                .arg(state)
+                .query_async::<_, ()>(&mut conn)
+                .await?;
+            info!("Saved persistent workflow room: {}", room_id);
+        } else {
+            // Temporary rooms get 24 hour TTL
+            redis::cmd("SET")
+                .arg(&key)
+                .arg(state)
+                .arg("EX")
+                .arg(86400) // 24 hours TTL
+                .query_async::<_, ()>(&mut conn)
+                .await?;
+        }
         
         Ok(())
     }
@@ -142,11 +154,14 @@ impl RedisManager {
         let mut conn = self.get_connection().await?;
         let key = format!("session:{}", client_id);
         
+        // Use longer TTL for client sessions (minimum 7 days)
+        let actual_ttl = if ttl_seconds < 604800 { 604800 } else { ttl_seconds };
+        
         redis::cmd("SET")
             .arg(&key)
             .arg(session_data)
             .arg("EX")
-            .arg(ttl_seconds)
+            .arg(actual_ttl)
             .query_async::<_, ()>(&mut conn)
             .await?;
         
@@ -179,7 +194,7 @@ impl RedisManager {
         
         redis::cmd("EXPIRE")
             .arg(&key)
-            .arg(3600) // Reset to 1 hour
+            .arg(604800) // Reset to 7 days
             .query_async::<_, ()>(&mut conn)
             .await?;
         
@@ -198,6 +213,26 @@ impl RedisManager {
             .arg(&key)
             .query_async::<_, ()>(&mut conn)
             .await?;
+        
+        Ok(())
+    }
+
+    pub async fn refresh_room_ttl(&self, room_id: &str) -> Result<()> {
+        if !self.enabled {
+            return Ok(());
+        }
+
+        let mut conn = self.get_connection().await?;
+        let key = format!("room:{}:state", room_id);
+        
+        // Only refresh TTL for non-workflow rooms
+        if !room_id.starts_with("wf_") {
+            redis::cmd("EXPIRE")
+                .arg(&key)
+                .arg(86400) // Reset to 24 hours
+                .query_async::<_, ()>(&mut conn)
+                .await?;
+        }
         
         Ok(())
     }

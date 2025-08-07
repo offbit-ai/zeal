@@ -26,6 +26,7 @@ import type {
 } from '@/types/snapshot'
 import { WorkflowNodeData, Connection } from '@/types/workflow'
 import type { TriggerConfig } from '@/components/TriggerModal'
+import { roomKeeper } from '@/lib/services/room-keeper'
 
 // Graph information
 interface GraphInfo {
@@ -287,6 +288,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
             syncOptimizer,
             initialized: true,
           })
+
+          // Start room keeper to keep the CRDT room alive
+          roomKeeper.start(workflowId)
         } else {
           // Update state without provider (no CRDT)
           set({
@@ -505,6 +509,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
       cleanup: () => {
         const { provider, syncOptimizer, doc } = get()
+
+        // Stop room keeper
+        roomKeeper.stop()
 
         // Clean up observers
         cleanupObservers()
