@@ -91,6 +91,7 @@ MINIKUBE_MEMORY=6144 ./scripts/minikube-setup.sh setup
 ```
 
 This creates a complete local Kubernetes environment with:
+
 - Automatic port conflict detection and resolution
 - Local Docker registry
 - Minikube cluster
@@ -113,6 +114,7 @@ cp k8s/.env.k8s.example k8s/.env.k8s
 ```
 
 The Kubernetes deployment supports:
+
 - Custom container registry and image tags
 - Horizontal pod autoscaling
 - TLS/HTTPS with cert-manager
@@ -150,7 +152,8 @@ psql postgresql://user:password@localhost/zeal_db < init.sql
 npm run dev
 ```
 
-> **Note**: 
+> **Note**:
+>
 > - The `createdb` command is part of PostgreSQL client tools. If not available, use `psql -U postgres -c "CREATE DATABASE zeal_db;"`
 > - Make sure to set `DATABASE_URL` in your `.env.local` file before running the init script
 > - If you encounter "relation 'workflows' does not exist" errors, the database schema hasn't been initialized properly
@@ -226,18 +229,18 @@ While the editor supports multi-user collaboration, user management is not inclu
 
 ### Environment Variables
 
-| Variable                           | Description                        | Default               |
-| ---------------------------------- | ---------------------------------- | --------------------- |
+| Variable                           | Description                        | Default                          |
+| ---------------------------------- | ---------------------------------- | -------------------------------- |
 | `DATABASE_URL`                     | PostgreSQL connection string       | Required (if not using Supabase) |
-| `REDIS_URL`                        | Redis connection string            | Required              |
-| `NEXT_PUBLIC_CRDT_SERVER_URL`      | CRDT server WebSocket URL          | ws://localhost:8080   |
-| `NEXTAUTH_SECRET`                  | NextAuth.js secret key             | Required              |
-| `NEXTAUTH_URL`                     | Application URL                    | http://localhost:3000 |
-| `NEXT_PUBLIC_DISABLE_CONSOLE_LOGS` | Disable console logs in production | false                 |
-| `USE_SUPABASE`                     | Use Supabase instead of PostgreSQL | false                 |
-| `SUPABASE_URL`                     | Supabase project URL               | Required (if USE_SUPABASE=true) |
-| `SUPABASE_ANON_KEY`                | Supabase anonymous key             | Required (if USE_SUPABASE=true) |
-| `SUPABASE_SERVICE_ROLE_KEY`        | Supabase service role key          | Required (if USE_SUPABASE=true) |
+| `REDIS_URL`                        | Redis connection string            | Required                         |
+| `NEXT_PUBLIC_CRDT_SERVER_URL`      | CRDT server WebSocket URL          | ws://localhost:8080              |
+| `NEXTAUTH_SECRET`                  | NextAuth.js secret key             | Required                         |
+| `NEXTAUTH_URL`                     | Application URL                    | http://localhost:3000            |
+| `NEXT_PUBLIC_DISABLE_CONSOLE_LOGS` | Disable console logs in production | false                            |
+| `USE_SUPABASE`                     | Use Supabase instead of PostgreSQL | false                            |
+| `SUPABASE_URL`                     | Supabase project URL               | Required (if USE_SUPABASE=true)  |
+| `SUPABASE_ANON_KEY`                | Supabase anonymous key             | Required (if USE_SUPABASE=true)  |
+| `SUPABASE_SERVICE_ROLE_KEY`        | Supabase service role key          | Required (if USE_SUPABASE=true)  |
 
 See `.env.example` and `.env.supabase.example` for all configuration options.
 

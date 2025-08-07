@@ -13,6 +13,7 @@ Use the interactive script to generate a customized deployment:
 ```
 
 This script will:
+
 - Prompt you for all required configuration values
 - Generate a complete deployment manifest
 - Save it to `k8s/deployment-generated.yaml`
@@ -22,11 +23,13 @@ This script will:
 Use environment variables with the template file:
 
 1. Copy the example environment file:
+
    ```bash
    cp k8s/.env.k8s.example k8s/.env.k8s
    ```
 
 2. Edit `.env.k8s` with your values:
+
    ```bash
    # Required variables
    ZEAL_NEXTJS_IMAGE=myregistry/zeal-nextjs:v1.0.0
@@ -53,32 +56,32 @@ kubectl apply -f k8s/deployment.yaml
 
 ### Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `ZEAL_NEXTJS_IMAGE` | Next.js container image | `myregistry/zeal-nextjs:v1.0.0` |
-| `ZEAL_CRDT_IMAGE` | CRDT server container image | `myregistry/zeal-crdt:v1.0.0` |
-| `ZEAL_DOMAIN` | Domain name for ingress | `zeal.example.com` |
-| `ZEAL_NEXTAUTH_SECRET` | NextAuth secret key | Generate with `openssl rand -base64 32` |
-| `ZEAL_DATABASE_URL` | PostgreSQL connection URL | `postgresql://user:pass@host:5432/db` |
+| Variable               | Description                 | Example                                 |
+| ---------------------- | --------------------------- | --------------------------------------- |
+| `ZEAL_NEXTJS_IMAGE`    | Next.js container image     | `myregistry/zeal-nextjs:v1.0.0`         |
+| `ZEAL_CRDT_IMAGE`      | CRDT server container image | `myregistry/zeal-crdt:v1.0.0`           |
+| `ZEAL_DOMAIN`          | Domain name for ingress     | `zeal.example.com`                      |
+| `ZEAL_NEXTAUTH_SECRET` | NextAuth secret key         | Generate with `openssl rand -base64 32` |
+| `ZEAL_DATABASE_URL`    | PostgreSQL connection URL   | `postgresql://user:pass@host:5432/db`   |
 
 ### Optional Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ZEAL_NAMESPACE` | Kubernetes namespace | `zeal` |
-| `ZEAL_REDIS_IMAGE` | Redis container image | `redis:7-alpine` |
-| `ZEAL_NEXTJS_REPLICAS` | Number of Next.js pods | `3` |
-| `ZEAL_CRDT_REPLICAS` | Number of CRDT server pods | `2` |
-| `ZEAL_USE_SUPABASE` | Use Supabase instead of PostgreSQL | `false` |
-| `ZEAL_ENABLE_TLS` | Enable HTTPS/TLS | `true` |
-| `ZEAL_CLUSTER_ISSUER` | Cert-manager cluster issuer | `letsencrypt-prod` |
+| Variable               | Description                        | Default            |
+| ---------------------- | ---------------------------------- | ------------------ |
+| `ZEAL_NAMESPACE`       | Kubernetes namespace               | `zeal`             |
+| `ZEAL_REDIS_IMAGE`     | Redis container image              | `redis:7-alpine`   |
+| `ZEAL_NEXTJS_REPLICAS` | Number of Next.js pods             | `3`                |
+| `ZEAL_CRDT_REPLICAS`   | Number of CRDT server pods         | `2`                |
+| `ZEAL_USE_SUPABASE`    | Use Supabase instead of PostgreSQL | `false`            |
+| `ZEAL_ENABLE_TLS`      | Enable HTTPS/TLS                   | `true`             |
+| `ZEAL_CLUSTER_ISSUER`  | Cert-manager cluster issuer        | `letsencrypt-prod` |
 
 ### Supabase Variables (if `ZEAL_USE_SUPABASE=true`)
 
-| Variable | Description |
-|----------|-------------|
-| `ZEAL_SUPABASE_URL` | Supabase project URL |
-| `ZEAL_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| Variable                         | Description               |
+| -------------------------------- | ------------------------- |
+| `ZEAL_SUPABASE_URL`              | Supabase project URL      |
+| `ZEAL_SUPABASE_ANON_KEY`         | Supabase anonymous key    |
 | `ZEAL_SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 
 ## Prerequisites
@@ -108,21 +111,25 @@ docker push myregistry/zeal-crdt:v1.0.0
 1. **Generate deployment manifest** using one of the options above
 
 2. **Create namespace** (if not included in manifest):
+
    ```bash
    kubectl create namespace zeal
    ```
 
 3. **Apply the deployment**:
+
    ```bash
    kubectl apply -f k8s/deployment-generated.yaml
    ```
 
 4. **Check deployment status**:
+
    ```bash
    kubectl get all -n zeal
    ```
 
 5. **View logs**:
+
    ```bash
    # Next.js logs
    kubectl logs -f deployment/nextjs-deployment -n zeal
@@ -172,6 +179,7 @@ Or let HPA handle it automatically (included in deployment).
 ### Pods not starting
 
 Check pod events:
+
 ```bash
 kubectl describe pod <pod-name> -n zeal
 ```
@@ -179,6 +187,7 @@ kubectl describe pod <pod-name> -n zeal
 ### Connection issues
 
 Check service endpoints:
+
 ```bash
 kubectl get endpoints -n zeal
 ```
@@ -186,6 +195,7 @@ kubectl get endpoints -n zeal
 ### Image pull errors
 
 Ensure images are pushed and accessible:
+
 ```bash
 kubectl get events -n zeal --sort-by='.lastTimestamp'
 ```
@@ -193,6 +203,7 @@ kubectl get events -n zeal --sort-by='.lastTimestamp'
 ### Database connection issues
 
 Verify secrets:
+
 ```bash
 kubectl get secret zeal-secrets -n zeal -o yaml
 ```
@@ -219,6 +230,7 @@ kubectl get secret zeal-secrets -n zeal -o yaml
 ### Backup
 
 Regular backup considerations:
+
 - PostgreSQL database (if not using Supabase)
 - Redis data (CRDT state)
 - Kubernetes secrets and configmaps
@@ -226,6 +238,7 @@ Regular backup considerations:
 ## Support
 
 For issues and questions:
+
 - Check logs: `kubectl logs -f <pod-name> -n zeal`
 - Review events: `kubectl get events -n zeal`
 - Open an issue on GitHub

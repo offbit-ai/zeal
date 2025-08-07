@@ -308,6 +308,56 @@ const categoriesStore: NodeCategoryResponse[] = [
     totalNodes: 4,
     isActive: true,
   },
+  {
+    name: 'media',
+    displayName: 'Media',
+    description: 'Image, audio, and video input/display nodes with streaming support',
+    icon: 'image',
+    subcategories: [
+      {
+        name: 'images',
+        displayName: 'Images',
+        description: 'Image upload, display, and GIF animations',
+        nodeCount: 1,
+      },
+      {
+        name: 'audio',
+        displayName: 'Audio',
+        description: 'Audio upload and playback controls',
+        nodeCount: 1,
+      },
+      {
+        name: 'video',
+        displayName: 'Video',
+        description: 'Video upload, streaming, and embed support',
+        nodeCount: 1,
+      },
+    ],
+    totalNodes: 3,
+    isActive: true,
+  },
+  {
+    name: 'inputs',
+    displayName: 'Inputs',
+    description: 'User input controls for text, numbers, and interactive elements',
+    icon: 'text-cursor-input',
+    subcategories: [
+      {
+        name: 'text',
+        displayName: 'Text',
+        description: 'Text input fields with validation and formatting',
+        nodeCount: 1,
+      },
+      {
+        name: 'numeric',
+        displayName: 'Numeric',
+        description: 'Number inputs, sliders, and range controls',
+        nodeCount: 2,
+      },
+    ],
+    totalNodes: 3,
+    isActive: true,
+  },
 ]
 
 // GET /api/nodes/categories - List node categories

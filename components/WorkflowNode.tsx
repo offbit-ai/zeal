@@ -5,6 +5,10 @@ import { getNodeStyles, getTextColor } from '@/utils/nodeColorVariants'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
 import { Info, Settings } from 'lucide-react'
 import { ResizableCodeEditor } from './ResizableCodeEditor'
+import { ImagePreview } from './MediaPreview'
+import { AudioPlayer } from './AudioPlayer'
+import { VideoPlayer } from './VideoPlayer'
+import { TextInputControl, NumberInputControl, RangeInputControl } from './UserInputControls'
 
 interface WorkflowNodeProps {
   metadata: NodeMetadata
@@ -442,6 +446,16 @@ export function WorkflowNode({
   // Check if this is a script node (has type 'script' and a code editor property)
   const isScriptNode = metadata.type === 'script'
 
+  // Check if this is a user input node
+  const isTextInput = metadata.type === 'text-input'
+  const isNumberInput = metadata.type === 'number-input'
+  const isRangeInput = metadata.type === 'range-input'
+  const isImageInput = metadata.type === 'image-input'
+  const isAudioInput = metadata.type === 'audio-input'
+  const isVideoInput = metadata.type === 'video-input'
+  const isMediaNode = isImageInput || isAudioInput || isVideoInput
+  const isInputNode = isTextInput || isNumberInput || isRangeInput || isMediaNode
+
   // Handle both object and array formats for properties
   // Find the code-editor property (could be 'script', 'query', etc.)
   let codeEditorProperty: PropertyDefinition | undefined
@@ -475,15 +489,19 @@ export function WorkflowNode({
   // Default rectangle shape
   return (
     <div
-      className={`${isScriptNode ? 'flex-col' : 'flex-row'} ${currentSize.container} ${shapeStyles[shape]} flex gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+      className={`${isScriptNode || isInputNode ? 'flex-col' : 'flex-row'} ${currentSize.container} ${shapeStyles[shape]} flex gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
       style={{
         ...nodeStyles,
         ...(isScriptNode ? { width: '400px', maxWidth: '400px' } : {}),
+        ...(isMediaNode ? { width: '350px', maxWidth: '350px' } : {}),
+        ...(isTextInput || isNumberInput || isRangeInput
+          ? { width: '280px', maxWidth: '280px' }
+          : {}),
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`flex items-center gap-3 ${isScriptNode ? 'w-full' : ''}`}>
+      <div className={`flex items-center gap-3 ${isScriptNode || isInputNode ? 'w-full' : ''}`}>
         <div
           className={`${currentSize.icon} rounded-md flex items-center justify-center relative`}
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
@@ -501,7 +519,7 @@ export function WorkflowNode({
             </div>
           )}
         </div>
-        <div className={isScriptNode ? 'flex-1' : ''}>
+        <div className={isScriptNode || isInputNode ? 'flex-1' : ''}>
           <div className={`font-medium ${currentSize.title}`} style={{ color: textColor }}>
             {title}
           </div>
@@ -511,8 +529,8 @@ export function WorkflowNode({
             </div>
           )}
         </div>
-        {/* Settings icon for script nodes */}
-        {isScriptNode && onSettingsClick && (
+        {/* Settings icon for script and input nodes */}
+        {(isScriptNode || isInputNode) && onSettingsClick && (
           <button
             onClick={e => {
               e.stopPropagation()
@@ -547,6 +565,140 @@ export function WorkflowNode({
             lineNumbers={true}
             wordWrap={true}
             theme="dark"
+          />
+        </div>
+      )}
+
+      {/* Text Input Control */}
+      {isTextInput && (
+        <div 
+          className="w-full mt-3" 
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <TextInputControl
+            defaultValue={actualPropertyValues.defaultValue || ''}
+            placeholder={actualPropertyValues.placeholder || 'Enter text...'}
+            multiline={actualPropertyValues.multiline || false}
+            maxLength={actualPropertyValues.maxLength}
+            validation={actualPropertyValues.validation || 'none'}
+            validationPattern={actualPropertyValues.validationPattern}
+            onValueChange={value => onPropertyChange?.('value', value)}
+          />
+        </div>
+      )}
+
+      {/* Number Input Control */}
+      {isNumberInput && (
+        <div 
+          className="w-full mt-3" 
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <NumberInputControl
+            defaultValue={actualPropertyValues.defaultValue || 0}
+            min={actualPropertyValues.min}
+            max={actualPropertyValues.max}
+            step={actualPropertyValues.step || 1}
+            format={actualPropertyValues.format || 'decimal'}
+            decimals={actualPropertyValues.decimals || 2}
+            onValueChange={value => onPropertyChange?.('value', value)}
+          />
+        </div>
+      )}
+
+      {/* Range Input Control */}
+      {isRangeInput && (
+        <div 
+          className="w-full mt-3" 
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <RangeInputControl
+            defaultValue={actualPropertyValues.defaultValue || 50}
+            min={actualPropertyValues.min || 0}
+            max={actualPropertyValues.max || 100}
+            step={actualPropertyValues.step || 1}
+            showValue={actualPropertyValues.showValue !== false}
+            showLabels={actualPropertyValues.showLabels !== false}
+            unit={actualPropertyValues.unit || ''}
+            onValueChange={value => onPropertyChange?.('value', value)}
+          />
+        </div>
+      )}
+
+      {/* Image Preview */}
+      {isImageInput && (
+        <div 
+          className="w-full mt-3" 
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <ImagePreview
+            source={actualPropertyValues.source || 'upload'}
+            url={actualPropertyValues.url}
+            displayMode={actualPropertyValues.displayMode || 'contain'}
+            previewHeight={actualPropertyValues.previewHeight || 200}
+            acceptedFormats={
+              actualPropertyValues.acceptedFormats || 'image/jpeg,image/png,image/gif,image/webp'
+            }
+            maxFileSize={actualPropertyValues.maxFileSize || 10}
+            onDataChange={data => {
+              onPropertyChange?.('imageData', data.url) // Only store URL reference
+              onPropertyChange?.('metadata', data.metadata)
+            }}
+          />
+        </div>
+      )}
+
+      {/* Audio Player */}
+      {isAudioInput && (
+        <div 
+          className="w-full mt-3" 
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <AudioPlayer
+            source={actualPropertyValues.source || 'upload'}
+            url={actualPropertyValues.url}
+            acceptedFormats={
+              actualPropertyValues.acceptedFormats || 'audio/mpeg,audio/wav,audio/ogg,audio/webm'
+            }
+            maxFileSize={actualPropertyValues.maxFileSize || 50}
+            showWaveform={actualPropertyValues.showWaveform !== false}
+            autoplay={actualPropertyValues.autoplay || false}
+            loop={actualPropertyValues.loop || false}
+            onDataChange={data => {
+              onPropertyChange?.('audioData', data.url) // Only store URL reference
+              onPropertyChange?.('metadata', data.metadata)
+            }}
+          />
+        </div>
+      )}
+
+      {/* Video Player */}
+      {isVideoInput && (
+        <div 
+          className="w-full mt-3" 
+          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <VideoPlayer
+            source={actualPropertyValues.source || 'upload'}
+            url={actualPropertyValues.url}
+            acceptedFormats={
+              actualPropertyValues.acceptedFormats || 'video/mp4,video/webm,video/ogg'
+            }
+            maxFileSize={actualPropertyValues.maxFileSize || 100}
+            previewHeight={actualPropertyValues.previewHeight || 300}
+            showControls={actualPropertyValues.showControls !== false}
+            autoplay={actualPropertyValues.autoplay || false}
+            loop={actualPropertyValues.loop || false}
+            muted={actualPropertyValues.muted || false}
+            onDataChange={data => {
+              onPropertyChange?.('videoData', data.url) // Only store URL reference
+              onPropertyChange?.('metadata', data.metadata)
+            }}
           />
         </div>
       )}

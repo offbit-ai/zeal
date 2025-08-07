@@ -9,6 +9,7 @@ export interface Port {
   label: string
   type: 'input' | 'output'
   position: 'top' | 'right' | 'bottom' | 'left'
+  description?: string
 }
 
 export interface PropertyDefinition {

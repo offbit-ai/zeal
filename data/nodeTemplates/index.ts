@@ -14,6 +14,7 @@ import { logicControlTemplates } from './logicControl'
 import { dataProcessingTemplates } from './dataProcessing'
 import { serverNodeTemplates } from './serverNodes'
 import { graphIOTemplates } from './graphIO'
+import { userInputsTemplates } from './userInputs'
 
 // Re-export for convenience
 export { dataSourcesTemplates } from './dataSources'
@@ -26,6 +27,7 @@ export { logicControlTemplates } from './logicControl'
 export { dataProcessingTemplates } from './dataProcessing'
 export { serverNodeTemplates } from './serverNodes'
 export { graphIOTemplates } from './graphIO'
+export { userInputsTemplates } from './userInputs'
 
 export type { NodeTemplate, Port, PropertyDefinition, PropertyRule, PropertyRules } from './types'
 
@@ -41,4 +43,5 @@ export const allNodeTemplates = [
   ...dataProcessingTemplates,
   ...serverNodeTemplates,
   ...graphIOTemplates,
+  ...userInputsTemplates,
 ]

@@ -14,12 +14,15 @@ export interface WorkflowOperations {
 
   getWorkflow(id: string): Promise<any | null>
 
-  updateWorkflow(id: string, data: {
-    name?: string
-    description?: string
-    publishedVersionId?: string | null
-    updatedAt: string
-  }): Promise<any>
+  updateWorkflow(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      publishedVersionId?: string | null
+      updatedAt: string
+    }
+  ): Promise<any>
 
   deleteWorkflow(id: string): Promise<void>
 
@@ -49,29 +52,39 @@ export interface WorkflowOperations {
 
   getWorkflowVersion(id: string): Promise<any | null>
 
-  updateWorkflowVersion(id: string, data: {
-    name?: string
-    description?: string
-    graphs?: string
-    triggerConfig?: string
-    metadata?: string
-    isDraft?: boolean
-    isPublished?: boolean
-    publishedAt?: string | null
-    createdAt?: string
-  }): Promise<any>
+  updateWorkflowVersion(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      graphs?: string
+      triggerConfig?: string
+      metadata?: string
+      isDraft?: boolean
+      isPublished?: boolean
+      publishedAt?: string | null
+      createdAt?: string
+    }
+  ): Promise<any>
 
-  listWorkflowVersions(workflowId: string, params?: {
-    limit?: number
-    offset?: number
-    includePublished?: boolean
-  }): Promise<{ versions: any[]; total: number }>
+  listWorkflowVersions(
+    workflowId: string,
+    params?: {
+      limit?: number
+      offset?: number
+      includePublished?: boolean
+    }
+  ): Promise<{ versions: any[]; total: number }>
 
   getMaxVersionNumber(workflowId: string): Promise<number>
 
   unpublishAllVersions(workflowId: string, exceptId?: string): Promise<void>
 
-  publishWorkflowVersion(workflowId: string, versionId: string, userId: string): Promise<{
+  publishWorkflowVersion(
+    workflowId: string,
+    versionId: string,
+    userId: string
+  ): Promise<{
     workflow: any
     version: any
     newDraftVersion: any
@@ -92,13 +105,16 @@ export interface WorkflowOperations {
 
   getWorkflowExecution(id: string): Promise<any | null>
 
-  updateWorkflowExecution(id: string, data: {
-    status?: string
-    completedAt?: string
-    duration?: number
-    outputData?: string
-    errorMessage?: string
-  }): Promise<any>
+  updateWorkflowExecution(
+    id: string,
+    data: {
+      status?: string
+      completedAt?: string
+      duration?: number
+      outputData?: string
+      errorMessage?: string
+    }
+  ): Promise<any>
 
   listWorkflowExecutions(params: {
     workflowId?: string
@@ -151,14 +167,17 @@ export interface WorkflowOperations {
 
   getEnvVarByKey(key: string): Promise<any | null>
 
-  updateEnvVar(id: string, data: {
-    key?: string
-    value?: string
-    isSecret?: boolean
-    description?: string
-    category?: string
-    updatedAt: string
-  }): Promise<any>
+  updateEnvVar(
+    id: string,
+    data: {
+      key?: string
+      value?: string
+      isSecret?: boolean
+      description?: string
+      category?: string
+      updatedAt: string
+    }
+  ): Promise<any>
 
   deleteEnvVar(id: string): Promise<boolean>
 
@@ -185,21 +204,27 @@ export interface WorkflowOperations {
 
   getFlowTraceSession(id: string): Promise<any | null>
 
-  updateFlowTraceSession(id: string, data: {
-    endTime?: string
-    status?: string
-    summary?: string
-  }): Promise<any>
+  updateFlowTraceSession(
+    id: string,
+    data: {
+      endTime?: string
+      status?: string
+      summary?: string
+    }
+  ): Promise<any>
 
   createFlowTrace(data: any): Promise<any>
 
   getFlowTrace(id: string): Promise<any | null>
 
-  listFlowTraces(sessionId: string, params?: {
-    status?: string
-    limit?: number
-    offset?: number
-  }): Promise<{ traces: any[]; total: number }>
+  listFlowTraces(
+    sessionId: string,
+    params?: {
+      status?: string
+      limit?: number
+      offset?: number
+    }
+  ): Promise<{ traces: any[]; total: number }>
 
   // Transaction support
   beginTransaction(): Promise<TransactionOperations>

@@ -19,6 +19,8 @@ import {
   MessageSquare,
   Settings,
   Pen,
+  TextCursorInput,
+  ClapperboardIcon,
 } from 'lucide-react'
 import { Icon } from '@/lib/icons'
 import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
@@ -41,6 +43,8 @@ const CATEGORY_ICONS: Record<string, any> = {
   'storage-memory': Cpu,
   'cloud-services': Cloud,
   'graph-io': ArrowRightLeft,
+  'inputs': TextCursorInput,
+  'media': ClapperboardIcon
 }
 
 export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: WorkflowSidebarProps) {

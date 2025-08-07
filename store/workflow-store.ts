@@ -760,11 +760,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
             } else {
               nodeIds = storedGroup.nodeIds || []
             }
-            
+
             if (nodeIds.includes(nodeId)) {
               // Update the group by removing the node
               const updatedNodeIds = nodeIds.filter(id => id !== nodeId)
-              
+
               if (storedGroup instanceof Y.Map) {
                 storedGroup.set('nodeIds', updatedNodeIds)
               } else {
@@ -772,7 +772,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
                 const updatedGroup = {
                   ...storedGroup,
                   nodeIds: updatedNodeIds,
-                  updatedAt: new Date().toISOString()
+                  updatedAt: new Date().toISOString(),
                 }
                 groupsMap.delete(groupId)
                 groupsMap.set(groupId, updatedGroup)
@@ -1157,41 +1157,41 @@ export const useWorkflowStore = create<WorkflowStore>()(
       addNodeToGroup: (nodeId: string, groupId: string) => {
         const { doc, currentGraphId } = get()
         if (!doc) return
-        
+
         doc.transact(() => {
-            const groupsMap = doc.getMap(`groups-${currentGraphId}`)
-            const storedGroup = groupsMap.get(groupId)
-            if (!storedGroup) return
+          const groupsMap = doc.getMap(`groups-${currentGraphId}`)
+          const storedGroup = groupsMap.get(groupId)
+          if (!storedGroup) return
 
-            let plainGroup: any
+          let plainGroup: any
 
-            // Handle both Y.Map and plain object formats
-            if (storedGroup instanceof Y.Map) {
-              plainGroup = {
-                id: storedGroup.get('id'),
-                title: storedGroup.get('title'),
-                description: storedGroup.get('description'),
-                color: storedGroup.get('color'),
-                position: storedGroup.get('position'),
-                size: storedGroup.get('size'),
-                nodeIds: storedGroup.get('nodeIds') || [],
-                isCollapsed: storedGroup.get('isCollapsed'),
-                createdAt: storedGroup.get('createdAt'),
-                updatedAt: storedGroup.get('updatedAt'),
-              }
-            } else {
-              plainGroup = { ...storedGroup }
+          // Handle both Y.Map and plain object formats
+          if (storedGroup instanceof Y.Map) {
+            plainGroup = {
+              id: storedGroup.get('id'),
+              title: storedGroup.get('title'),
+              description: storedGroup.get('description'),
+              color: storedGroup.get('color'),
+              position: storedGroup.get('position'),
+              size: storedGroup.get('size'),
+              nodeIds: storedGroup.get('nodeIds') || [],
+              isCollapsed: storedGroup.get('isCollapsed'),
+              createdAt: storedGroup.get('createdAt'),
+              updatedAt: storedGroup.get('updatedAt'),
             }
+          } else {
+            plainGroup = { ...storedGroup }
+          }
 
-            if (!plainGroup.nodeIds.includes(nodeId)) {
-              plainGroup.nodeIds = [...plainGroup.nodeIds, nodeId]
-              plainGroup.updatedAt = new Date().toISOString()
+          if (!plainGroup.nodeIds.includes(nodeId)) {
+            plainGroup.nodeIds = [...plainGroup.nodeIds, nodeId]
+            plainGroup.updatedAt = new Date().toISOString()
 
-              // Delete and re-add to trigger observers
-              groupsMap.delete(groupId)
-              groupsMap.set(groupId, plainGroup)
-            }
-          }, 'local')
+            // Delete and re-add to trigger observers
+            groupsMap.delete(groupId)
+            groupsMap.set(groupId, plainGroup)
+          }
+        }, 'local')
 
         // Recalculate group bounds to fit new node
         get().recalculateGroupBounds(groupId)
@@ -1758,7 +1758,7 @@ function setupObservers(doc: Y.Doc, set: any, get: any) {
   loadGraphData(doc, currentGraphId, get, set)
 }
 
-function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
+function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
   if (!doc) {
     console.error('[loadGraphData] No document provided')
     return
@@ -1881,19 +1881,19 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
   const nodesMap = doc.getMap(`nodes-${graphId}`)
   const nodesObserver = (events: Y.YEvent<any>[]) => {
     console.log('[WorkflowStore] nodesObserver triggered with', events.length, 'events')
-    
+
     // Check if changes are from remote client
     let isRemoteChange = false
     let remoteUserInfo: any = null
-    let changeActions: Array<{action: 'add' | 'delete' | 'update', key: string}> = []
-    
+    let changeActions: Array<{ action: 'add' | 'delete' | 'update'; key: string }> = []
+
     events.forEach(event => {
       console.log('[WorkflowStore] Event transaction:', {
         hasTransaction: !!event.transaction,
         origin: event.transaction?.origin,
-        local: event.transaction?.local
+        local: event.transaction?.local,
       })
-      
+
       // Capture changes while we're in the event handler
       if (event instanceof YMapEvent) {
         event.changes.keys.forEach((change, key) => {
@@ -1901,18 +1901,18 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
           console.log('[WorkflowStore] Captured change:', change.action, 'for key:', key)
         })
       }
-      
+
       // Check if this is a remote change
       const state = get()
       const provider = state.provider
-      
+
       if (event.transaction) {
         // If origin is 'local', it's definitely a local change
         if (event.transaction.origin === 'local') {
           console.log('[WorkflowStore] Local transaction detected')
           return // Skip local changes
         }
-        
+
         // If origin is the provider, it's a remote change
         if (provider && event.transaction.origin === provider) {
           isRemoteChange = true
@@ -1921,7 +1921,10 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
         // If origin is not 'local' and exists, it might be remote
         else if (event.transaction.origin) {
           isRemoteChange = true
-          console.log('[WorkflowStore] Remote transaction detected, origin:', event.transaction.origin)
+          console.log(
+            '[WorkflowStore] Remote transaction detected, origin:',
+            event.transaction.origin
+          )
         }
         // If no origin, check if we're in a sync context
         else {
@@ -1930,12 +1933,12 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
           // We'll skip these to avoid false notifications during initial load
         }
       }
-      
+
       if (isRemoteChange) {
         const presence = state.presence
         console.log('[WorkflowStore] Presence map size:', presence.size)
         console.log('[WorkflowStore] Local client ID:', state.localClientId)
-        
+
         // Find a remote user from presence
         presence.forEach((userPresence: any, clientId: any) => {
           console.log('[WorkflowStore] Checking presence client:', clientId, userPresence)
@@ -1944,25 +1947,29 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
             console.log('[WorkflowStore] Found remote user:', remoteUserInfo)
           }
         })
-        
+
         // If we can't find user info from presence, create a generic one
         if (!remoteUserInfo && presence.size > 1) {
           remoteUserInfo = {
             userName: 'Another User',
-            userId: 'remote-user'
+            userId: 'remote-user',
           }
           console.log('[WorkflowStore] Using generic remote user info')
         }
       }
     })
-    
+
     // Import notification store if we have remote changes
     if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
-      console.log('[WorkflowStore] Remote change detected in nodes, triggering notification for', changeActions.length, 'changes')
-      import('@/store/notificationStore').then((module) => {
+      console.log(
+        '[WorkflowStore] Remote change detected in nodes, triggering notification for',
+        changeActions.length,
+        'changes'
+      )
+      import('@/store/notificationStore').then(module => {
         const useNotificationStore = module.useNotificationStore
         console.log('[WorkflowStore] NotificationStore imported successfully')
-        
+
         // Process the captured changes
         changeActions.forEach(change => {
           if (change.action === 'add') {
@@ -1985,7 +1992,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
         })
       })
     }
-    
+
     // Simply reload on any change
     loadAll()
   }
@@ -1997,12 +2004,12 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
   const connectionsMap = doc.getMap(`connections-${graphId}`)
   const connectionsObserver = (events: Y.YEvent<any>[]) => {
     console.log('[WorkflowStore] connectionsObserver triggered with', events.length, 'events')
-    
+
     // Check if changes are from remote client
     let isRemoteChange = false
     let remoteUserInfo: any = null
-    let changeActions: Array<{action: 'add' | 'delete' | 'update', key: string}> = []
-    
+    let changeActions: Array<{ action: 'add' | 'delete' | 'update'; key: string }> = []
+
     events.forEach(event => {
       // Capture changes while we're in the event handler
       if (event instanceof YMapEvent) {
@@ -2010,16 +2017,16 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
           changeActions.push({ action: change.action as any, key })
         })
       }
-      
+
       const state = get()
       const provider = state.provider
-      
+
       if (event.transaction) {
         // If origin is 'local', it's definitely a local change
         if (event.transaction.origin === 'local') {
           return // Skip local changes
         }
-        
+
         // If origin is the provider, it's a remote change
         if (provider && event.transaction.origin === provider) {
           isRemoteChange = true
@@ -2029,30 +2036,30 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
           isRemoteChange = true
         }
       }
-      
+
       if (isRemoteChange) {
         const presence = state.presence
-        presence.forEach((userPresence:any, clientId:any) => {
+        presence.forEach((userPresence: any, clientId: any) => {
           if (clientId !== state.localClientId && !remoteUserInfo) {
             remoteUserInfo = userPresence
           }
         })
-        
+
         // If we can't find user info from presence, create a generic one
         if (!remoteUserInfo && presence.size > 1) {
           remoteUserInfo = {
             userName: 'Another User',
-            userId: 'remote-user'
+            userId: 'remote-user',
           }
         }
       }
     })
-    
+
     // Import notification store if we have remote changes
     if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
-      import('@/store/notificationStore').then((module) => {
+      import('@/store/notificationStore').then(module => {
         const useNotificationStore = module.useNotificationStore
-        
+
         changeActions.forEach(change => {
           if (change.action === 'add') {
             useNotificationStore.getState().addNotification({
@@ -2072,7 +2079,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
         })
       })
     }
-    
+
     loadAll()
   }
   connectionsMap.observeDeep(connectionsObserver)
@@ -2083,12 +2090,12 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
   const groupsMap = doc.getMap(`groups-${graphId}`)
   const groupsObserver = (events: Y.YEvent<any>[]) => {
     console.log('[WorkflowStore] groupsObserver triggered with', events.length, 'events')
-    
+
     // Check if changes are from remote client
     let isRemoteChange = false
     let remoteUserInfo: any = null
-    let changeActions: Array<{action: 'add' | 'delete' | 'update', key: string}> = []
-    
+    let changeActions: Array<{ action: 'add' | 'delete' | 'update'; key: string }> = []
+
     events.forEach(event => {
       // Capture changes while we're in the event handler
       if (event instanceof YMapEvent) {
@@ -2096,16 +2103,16 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
           changeActions.push({ action: change.action as any, key })
         })
       }
-      
+
       const state = get()
       const provider = state.provider
-      
+
       if (event.transaction) {
         // If origin is 'local', it's definitely a local change
         if (event.transaction.origin === 'local') {
           return // Skip local changes
         }
-        
+
         // If origin is the provider, it's a remote change
         if (provider && event.transaction.origin === provider) {
           isRemoteChange = true
@@ -2115,30 +2122,30 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
           isRemoteChange = true
         }
       }
-      
+
       if (isRemoteChange) {
         const presence = state.presence
-        presence.forEach((userPresence:any, clientId:any) => {
+        presence.forEach((userPresence: any, clientId: any) => {
           if (clientId !== state.localClientId && !remoteUserInfo) {
             remoteUserInfo = userPresence
           }
         })
-        
+
         // If we can't find user info from presence, create a generic one
         if (!remoteUserInfo && presence.size > 1) {
           remoteUserInfo = {
             userName: 'Another User',
-            userId: 'remote-user'
+            userId: 'remote-user',
           }
         }
       }
     })
-    
+
     // Import notification store if we have remote changes
     if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
-      import('@/store/notificationStore').then((module) => {
+      import('@/store/notificationStore').then(module => {
         const useNotificationStore = module.useNotificationStore
-        
+
         changeActions.forEach(change => {
           if (change.action === 'add') {
             useNotificationStore.getState().addNotification({
@@ -2158,7 +2165,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get:any, set: any) {
         })
       })
     }
-    
+
     // Simply reload on any change
     loadAll()
   }

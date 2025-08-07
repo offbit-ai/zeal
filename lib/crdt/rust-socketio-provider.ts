@@ -202,9 +202,10 @@ export class RustSocketIOProvider {
 
     // Quick server health check (non-blocking)
     if (typeof window !== 'undefined') {
-      fetch(
-        `${this.config.serverUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/stats`
-      )
+      const healthCheckUrl = this.config.serverUrl
+        .replace('ws://', 'http://')
+        .replace('wss://', 'https://')
+      fetch(`${healthCheckUrl}/stats`)
         .then(res => {
           if (!res.ok) {
             console.warn('[Rust CRDT] Server health check failed:', res.status)
@@ -233,14 +234,20 @@ export class RustSocketIOProvider {
 
     // Initialize socket first to avoid null reference
     try {
+      // Convert ws:// to http:// or wss:// to https:// for Socket.IO
+      const httpUrl = this.config.serverUrl
+        .replace('ws://', 'http://')
+        .replace('wss://', 'https://')
+      
       console.log('[Rust CRDT] Creating socket with options:', {
         serverUrl: this.config.serverUrl,
+        httpUrl: httpUrl,
         transports: ['polling', 'websocket'],
         userId,
         userName,
       })
 
-      this.socket = io(this.config.serverUrl, {
+      this.socket = io(httpUrl, {
         path: '/socket.io/', // Explicit path
         transports: ['websocket'], // Try websocket only to avoid CORS issues with polling
         auth: {
@@ -276,12 +283,12 @@ export class RustSocketIOProvider {
 
     // Clean up on page unload
     if (typeof window !== 'undefined') {
-      let hasCleanedUp = false;
-      
+      let hasCleanedUp = false
+
       const cleanup = () => {
-        if (hasCleanedUp) return;
-        hasCleanedUp = true;
-        
+        if (hasCleanedUp) return
+        hasCleanedUp = true
+
         console.log('[Rust CRDT] Page unload - cleaning up connection')
         if (this.socket) {
           if (this.connected) {
@@ -293,7 +300,7 @@ export class RustSocketIOProvider {
 
       // Only use beforeunload for cleanup
       window.addEventListener('beforeunload', cleanup)
-      
+
       // Don't send leave on visibility change - this causes issues with tab switching
       // The server has grace period handling for temporary disconnections
     }

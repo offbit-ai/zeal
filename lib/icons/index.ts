@@ -435,6 +435,7 @@ export const Icon: React.FC<IconProps> = ({
       sigma: LucideIcons.Sigma || LucideIcons.Calculator,
       'chevron-up': LucideIcons.ChevronUp,
       'chart-area': LucideIcons.ChartArea || LucideIcons.AreaChart,
+      'image-up': LucideIcons.ImageUp,
     }
 
     // Try direct mapping first

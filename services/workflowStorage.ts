@@ -12,7 +12,10 @@ export class WorkflowStorageService {
       const response = await WorkflowService.getWorkflows({ limit: 100 })
       return response.workflows
     } catch (error) {
-      console.error('Error loading workflows from API/Database, falling back to localStorage:', error)
+      console.error(
+        'Error loading workflows from API/Database, falling back to localStorage:',
+        error
+      )
       // Fallback to localStorage
       try {
         const data = localStorage.getItem(STORAGE_KEY)
@@ -30,7 +33,10 @@ export class WorkflowStorageService {
       // Use API to get workflow
       return await WorkflowService.getWorkflow(id)
     } catch (error) {
-      console.error('Error loading workflow from API/Database, falling back to localStorage:', error)
+      console.error(
+        'Error loading workflow from API/Database, falling back to localStorage:',
+        error
+      )
       // Fallback to localStorage
       try {
         const data = localStorage.getItem(STORAGE_KEY)

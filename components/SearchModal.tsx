@@ -18,6 +18,8 @@ import {
   Cloud,
   ArrowRightLeft,
   Folder,
+  ClapperboardIcon,
+  TextCursorInput,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNodeRepository, NodeRepositoryItem } from '@/hooks/useNodeRepository'
@@ -142,6 +144,8 @@ export function SearchModal({
     'storage-memory': HardDrive,
     'cloud-services': Cloud,
     'graph-io': ArrowRightLeft,
+    inputs: TextCursorInput,
+    media: ClapperboardIcon,
   }
 
   const categories = Array.from(categoriesMap.entries()).map(([name, data]) => {

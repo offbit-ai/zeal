@@ -21,17 +21,17 @@ export async function getDatabaseOperations(): Promise<WorkflowOperations> {
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is not set')
     }
-    
+
     pool = new Pool({
       connectionString,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     })
-    
+
     operations = new PostgresOperations(pool)
   }
-  
+
   // Test the connection
   try {
     // For PostgreSQL, test with a simple query
@@ -59,14 +59,14 @@ export async function getDatabase(): Promise<Pool> {
   if (pool) {
     return pool
   }
-  
+
   // Initialize operations first
   await getDatabaseOperations()
-  
+
   if (!pool) {
     throw new Error('Database pool not available (might be using Supabase)')
   }
-  
+
   return pool
 }
 
@@ -301,9 +301,13 @@ export async function withTransaction<T>(callback: (client: PoolClient) => Promi
   try {
     // For compatibility, we need to provide a PoolClient-like interface
     const clientAdapter = {
-      query: transaction.query ? transaction.query.bind(transaction) : async () => { throw new Error('Query not supported in transaction') },
+      query: transaction.query
+        ? transaction.query.bind(transaction)
+        : async () => {
+            throw new Error('Query not supported in transaction')
+          },
     } as any as PoolClient
-    
+
     const result = await callback(clientAdapter)
     await transaction.commit()
     return result

@@ -1,11 +1,11 @@
 import { createServerClient } from '@/lib/supabase/client'
 import { WorkflowOperations, TransactionOperations } from './operations'
-import { 
-  mapWorkflowToDb, 
-  mapWorkflowFromDb, 
-  mapWorkflowVersionToDb, 
+import {
+  mapWorkflowToDb,
+  mapWorkflowFromDb,
+  mapWorkflowVersionToDb,
   mapWorkflowVersionFromDb,
-  toSnakeCase
+  toSnakeCase,
 } from './column-mapping'
 
 export class SupabaseOperations implements WorkflowOperations {
@@ -35,27 +35,27 @@ export class SupabaseOperations implements WorkflowOperations {
   }
 
   async getWorkflow(id: string) {
-    const { data, error } = await this.supabase
-      .from('workflows')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data, error } = await this.supabase.from('workflows').select('*').eq('id', id).single()
 
     if (error && error.code !== 'PGRST116') throw error // PGRST116 = not found
     return mapWorkflowFromDb(data)
   }
 
-  async updateWorkflow(id: string, data: {
-    name?: string
-    description?: string
-    publishedVersionId?: string | null
-    updatedAt: string
-  }) {
+  async updateWorkflow(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      publishedVersionId?: string | null
+      updatedAt: string
+    }
+  ) {
     const updateData: any = { updated_at: data.updatedAt }
-    
+
     if (data.name !== undefined) updateData.name = data.name
     if (data.description !== undefined) updateData.description = data.description
-    if (data.publishedVersionId !== undefined) updateData.published_version_id = data.publishedVersionId
+    if (data.publishedVersionId !== undefined)
+      updateData.published_version_id = data.publishedVersionId
 
     const { data: workflow, error } = await this.supabase
       .from('workflows')
@@ -69,10 +69,7 @@ export class SupabaseOperations implements WorkflowOperations {
   }
 
   async deleteWorkflow(id: string) {
-    const { error } = await this.supabase
-      .from('workflows')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.supabase.from('workflows').delete().eq('id', id)
 
     if (error) throw error
   }
@@ -146,19 +143,22 @@ export class SupabaseOperations implements WorkflowOperations {
     return data ? mapWorkflowVersionFromDb(data) : null
   }
 
-  async updateWorkflowVersion(id: string, data: {
-    name?: string
-    description?: string
-    graphs?: string
-    triggerConfig?: string
-    metadata?: string
-    isDraft?: boolean
-    isPublished?: boolean
-    publishedAt?: string | null
-    createdAt?: string
-  }) {
+  async updateWorkflowVersion(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      graphs?: string
+      triggerConfig?: string
+      metadata?: string
+      isDraft?: boolean
+      isPublished?: boolean
+      publishedAt?: string | null
+      createdAt?: string
+    }
+  ) {
     const updateData: any = {}
-    
+
     if (data.name !== undefined) updateData.name = data.name
     if (data.description !== undefined) updateData.description = data.description
     if (data.graphs !== undefined) updateData.graphs = data.graphs
@@ -180,11 +180,14 @@ export class SupabaseOperations implements WorkflowOperations {
     return mapWorkflowVersionFromDb(version)
   }
 
-  async listWorkflowVersions(workflowId: string, params?: {
-    limit?: number
-    offset?: number
-    includePublished?: boolean
-  }) {
+  async listWorkflowVersions(
+    workflowId: string,
+    params?: {
+      limit?: number
+      offset?: number
+      includePublished?: boolean
+    }
+  ) {
     let query = this.supabase
       .from('workflow_versions')
       .select('*', { count: 'exact' })
@@ -239,10 +242,10 @@ export class SupabaseOperations implements WorkflowOperations {
 
   async publishWorkflowVersion(workflowId: string, versionId: string, userId: string) {
     const now = new Date().toISOString()
-    
+
     // Note: Supabase doesn't support true transactions, so we'll do our best
     // to maintain consistency with sequential operations
-    
+
     try {
       // Get the version to publish
       const { data: versionToPublish, error: versionError } = await this.supabase
@@ -251,90 +254,89 @@ export class SupabaseOperations implements WorkflowOperations {
         .eq('id', versionId)
         .eq('workflow_id', workflowId)
         .single()
-      
+
       if (versionError || !versionToPublish) {
         throw new Error('Version not found')
       }
-      
+
       // Unpublish all other versions
       const { error: unpublishError } = await this.supabase
         .from('workflow_versions')
         .update({ is_published: false, published_at: null })
         .eq('workflow_id', workflowId)
         .neq('id', versionId)
-      
+
       if (unpublishError) throw unpublishError
-      
+
       // Publish the specified version
       const { error: publishError } = await this.supabase
         .from('workflow_versions')
-        .update({ 
-          is_published: true, 
-          is_draft: false, 
-          published_at: now 
+        .update({
+          is_published: true,
+          is_draft: false,
+          published_at: now,
         })
         .eq('id', versionId)
         .eq('workflow_id', workflowId)
-      
+
       if (publishError) throw publishError
-      
+
       // Update workflow's published version reference
       const { error: workflowError } = await this.supabase
         .from('workflows')
-        .update({ 
-          published_version_id: versionId, 
-          updated_at: now 
+        .update({
+          published_version_id: versionId,
+          updated_at: now,
         })
         .eq('id', workflowId)
-      
+
       if (workflowError) throw workflowError
-      
+
       // Create a new draft version
-      const newDraftId = 'wfv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 15)
+      const newDraftId =
+        'wfv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 15)
       const nextVersion = versionToPublish.version + 1
-      
-      const { error: draftError } = await this.supabase
-        .from('workflow_versions')
-        .insert({
-          id: newDraftId,
-          workflow_id: workflowId,
-          name: versionToPublish.name,
-          description: versionToPublish.description,
-          version: nextVersion,
-          is_draft: true,
-          is_published: false,
-          graphs: versionToPublish.graphs,
-          trigger_config: versionToPublish.trigger_config,
-          metadata: versionToPublish.metadata,
-          user_id: userId,
-          created_at: now
-        })
-      
+
+      const { error: draftError } = await this.supabase.from('workflow_versions').insert({
+        id: newDraftId,
+        workflow_id: workflowId,
+        name: versionToPublish.name,
+        description: versionToPublish.description,
+        version: nextVersion,
+        is_draft: true,
+        is_published: false,
+        graphs: versionToPublish.graphs,
+        trigger_config: versionToPublish.trigger_config,
+        metadata: versionToPublish.metadata,
+        user_id: userId,
+        created_at: now,
+      })
+
       if (draftError) throw draftError
-      
+
       // Get updated data
       const { data: workflow } = await this.supabase
         .from('workflows')
         .select('*')
         .eq('id', workflowId)
         .single()
-      
+
       const { data: version } = await this.supabase
         .from('workflow_versions')
         .select('*')
         .eq('id', versionId)
         .single()
-      
+
       const { data: newDraftVersion } = await this.supabase
         .from('workflow_versions')
         .select('*')
         .eq('id', newDraftId)
         .single()
-      
+
       return {
         workflow,
         version,
-        newDraftVersion
+        newDraftVersion,
       }
     } catch (error) {
       // In a real Supabase implementation, you might want to implement
@@ -345,7 +347,7 @@ export class SupabaseOperations implements WorkflowOperations {
 
   async unpublishWorkflow(workflowId: string) {
     const now = new Date().toISOString()
-    
+
     try {
       // Get current published version
       const { data: workflow } = await this.supabase
@@ -353,29 +355,29 @@ export class SupabaseOperations implements WorkflowOperations {
         .select('published_version_id')
         .eq('id', workflowId)
         .single()
-      
+
       if (workflow?.published_version_id) {
         // Mark version as unpublished
         const { error: versionError } = await this.supabase
           .from('workflow_versions')
-          .update({ 
-            is_published: false, 
-            published_at: null 
+          .update({
+            is_published: false,
+            published_at: null,
           })
           .eq('id', workflow.published_version_id)
-        
+
         if (versionError) throw versionError
       }
-      
+
       // Remove published version reference
       const { error: workflowError } = await this.supabase
         .from('workflows')
-        .update({ 
-          published_version_id: null, 
-          updated_at: now 
+        .update({
+          published_version_id: null,
+          updated_at: now,
         })
         .eq('id', workflowId)
-      
+
       if (workflowError) throw workflowError
     } catch (error) {
       throw error
@@ -401,7 +403,7 @@ export class SupabaseOperations implements WorkflowOperations {
         status: data.status,
         startedAt: data.startedAt,
         inputData: data.inputData || null,
-        userId: data.userId
+        userId: data.userId,
       })
       .select()
       .single()
@@ -421,15 +423,18 @@ export class SupabaseOperations implements WorkflowOperations {
     return data || null
   }
 
-  async updateWorkflowExecution(id: string, data: {
-    status?: string
-    completedAt?: string
-    duration?: number
-    outputData?: string
-    errorMessage?: string
-  }) {
+  async updateWorkflowExecution(
+    id: string,
+    data: {
+      status?: string
+      completedAt?: string
+      duration?: number
+      outputData?: string
+      errorMessage?: string
+    }
+  ) {
     const updateData: any = {}
-    
+
     if (data.status !== undefined) updateData.status = data.status
     if (data.completedAt !== undefined) updateData.completedAt = data.completedAt
     if (data.duration !== undefined) updateData.duration = data.duration
@@ -453,9 +458,7 @@ export class SupabaseOperations implements WorkflowOperations {
     limit?: number
     offset?: number
   }) {
-    let query = this.supabase
-      .from('workflow_executions')
-      .select('*', { count: 'exact' })
+    let query = this.supabase.from('workflow_executions').select('*', { count: 'exact' })
 
     if (params.workflowId) {
       query = query.eq('workflowId', params.workflowId)
@@ -516,7 +519,7 @@ export class SupabaseOperations implements WorkflowOperations {
         userId: data.userId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
-        lastSavedAt: data.lastSavedAt
+        lastSavedAt: data.lastSavedAt,
       })
       .select()
       .single()
@@ -540,7 +543,7 @@ export class SupabaseOperations implements WorkflowOperations {
     const now = new Date().toISOString()
     const updateData: any = {
       updatedAt: now,
-      lastSavedAt: now
+      lastSavedAt: now,
     }
 
     // Increment saveCount using RPC or by fetching first
@@ -575,10 +578,7 @@ export class SupabaseOperations implements WorkflowOperations {
   }
 
   async deleteWorkflowSnapshot(id: string): Promise<boolean> {
-    const { error } = await this.supabase
-      .from('workflow_snapshots')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.supabase.from('workflow_snapshots').delete().eq('id', id)
 
     if (error) throw error
     return true
@@ -618,7 +618,7 @@ export class SupabaseOperations implements WorkflowOperations {
         category: data.category,
         userId: data.userId,
         createdAt: data.createdAt,
-        updatedAt: data.updatedAt
+        updatedAt: data.updatedAt,
       })
       .select()
       .single()
@@ -628,37 +628,32 @@ export class SupabaseOperations implements WorkflowOperations {
   }
 
   async getEnvVar(id: string) {
-    const { data, error } = await this.supabase
-      .from('env_vars')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data, error } = await this.supabase.from('env_vars').select('*').eq('id', id).single()
 
     if (error && error.code !== 'PGRST116') throw error
     return data || null
   }
 
   async getEnvVarByKey(key: string) {
-    const { data, error } = await this.supabase
-      .from('env_vars')
-      .select('*')
-      .eq('key', key)
-      .single()
+    const { data, error } = await this.supabase.from('env_vars').select('*').eq('key', key).single()
 
     if (error && error.code !== 'PGRST116') throw error
     return data || null
   }
 
-  async updateEnvVar(id: string, data: {
-    key?: string
-    value?: string
-    isSecret?: boolean
-    description?: string
-    category?: string
-    updatedAt: string
-  }) {
+  async updateEnvVar(
+    id: string,
+    data: {
+      key?: string
+      value?: string
+      isSecret?: boolean
+      description?: string
+      category?: string
+      updatedAt: string
+    }
+  ) {
     const updateData: any = { updatedAt: data.updatedAt }
-    
+
     if (data.key !== undefined) updateData.key = data.key
     if (data.value !== undefined) updateData.value = data.value
     if (data.isSecret !== undefined) updateData.isSecret = data.isSecret
@@ -677,23 +672,14 @@ export class SupabaseOperations implements WorkflowOperations {
   }
 
   async deleteEnvVar(id: string): Promise<boolean> {
-    const { error } = await this.supabase
-      .from('env_vars')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.supabase.from('env_vars').delete().eq('id', id)
 
     if (error) throw error
     return true
   }
 
-  async listEnvVars(params?: {
-    category?: string
-    limit?: number
-    offset?: number
-  }) {
-    let query = this.supabase
-      .from('env_vars')
-      .select('*', { count: 'exact' })
+  async listEnvVars(params?: { category?: string; limit?: number; offset?: number }) {
+    let query = this.supabase.from('env_vars').select('*', { count: 'exact' })
 
     if (params?.category) {
       query = query.eq('category', params.category)
@@ -750,7 +736,7 @@ export class SupabaseOperations implements WorkflowOperations {
         status: data.status,
         summary: data.summary || null,
         userId: data.userId,
-        createdAt: data.createdAt
+        createdAt: data.createdAt,
       })
       .select()
       .single()
@@ -770,13 +756,16 @@ export class SupabaseOperations implements WorkflowOperations {
     return data || null
   }
 
-  async updateFlowTraceSession(id: string, data: {
-    endTime?: string
-    status?: string
-    summary?: string
-  }) {
+  async updateFlowTraceSession(
+    id: string,
+    data: {
+      endTime?: string
+      status?: string
+      summary?: string
+    }
+  ) {
     const updateData: any = {}
-    
+
     if (data.endTime !== undefined) updateData.endTime = data.endTime
     if (data.status !== undefined) updateData.status = data.status
     if (data.summary !== undefined) updateData.summary = data.summary
@@ -824,7 +813,7 @@ export class SupabaseOperations implements WorkflowOperations {
         graphName: data.graphName || null,
         parentTraceId: data.parentTraceId || null,
         depth: data.depth || 0,
-        createdAt: data.createdAt
+        createdAt: data.createdAt,
       })
       .select()
       .single()
@@ -844,11 +833,14 @@ export class SupabaseOperations implements WorkflowOperations {
     return data || null
   }
 
-  async listFlowTraces(sessionId: string, params?: {
-    status?: string
-    limit?: number
-    offset?: number
-  }) {
+  async listFlowTraces(
+    sessionId: string,
+    params?: {
+      status?: string
+      limit?: number
+      offset?: number
+    }
+  ) {
     let query = this.supabase
       .from('flow_traces')
       .select('*', { count: 'exact' })

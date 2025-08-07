@@ -88,18 +88,21 @@ The `docker-compose.microservices.yml` file provides:
 ### Services Configuration
 
 #### Next.js Service
+
 - Port: 3000
 - Replicas: Scalable
 - Health check: `/api/health`
 - Environment: Production optimized
 
 #### CRDT Server
+
 - Port: 8080
 - WebSocket support
 - Redis persistence
 - Rust performance
 
 #### Redis
+
 - Port: 6379
 - Data persistence
 - CRDT state storage
@@ -167,11 +170,13 @@ const provider = createDatabaseProvider()
 ```
 
 ### PostgreSQL Provider
+
 - Direct SQL queries
 - Connection pooling
 - Transaction support
 
 ### Supabase Provider
+
 - Supabase client SDK
 - Row Level Security
 - Real-time subscriptions (optional)
@@ -188,6 +193,7 @@ const provider = createDatabaseProvider()
 ### Vertical Scaling
 
 Adjust resource limits in:
+
 - `docker-compose.microservices.yml`
 - `k8s/deployment.yaml`
 

@@ -27,12 +27,15 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0] || null
   }
 
-  async updateWorkflow(id: string, data: {
-    name?: string
-    description?: string
-    publishedVersionId?: string | null
-    updatedAt: string
-  }) {
+  async updateWorkflow(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      publishedVersionId?: string | null
+      updatedAt: string
+    }
+  ) {
     const updates: string[] = []
     const values: any[] = []
     let paramCount = 0
@@ -51,9 +54,9 @@ export class PostgresOperations implements WorkflowOperations {
     }
     values.push(data.updatedAt)
     updates.push(`"updatedAt" = $${++paramCount}`)
-    
+
     values.push(id)
-    
+
     const result = await this.pool.query(
       `UPDATE workflows SET ${updates.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
       values
@@ -94,11 +97,11 @@ export class PostgresOperations implements WorkflowOperations {
 
     // Get workflows with pagination
     let query = `SELECT * FROM workflows ${whereClause} ORDER BY "updatedAt" DESC`
-    
+
     if (params.limit) {
       queryParams.push(params.limit)
       query += ` LIMIT $${++paramCount}`
-      
+
       if (params.offset) {
         queryParams.push(params.offset)
         query += ` OFFSET $${++paramCount}`
@@ -132,10 +135,19 @@ export class PostgresOperations implements WorkflowOperations {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
-        data.id, data.workflowId, data.name, data.description,
-        data.version, data.isDraft, data.isPublished, data.graphs,
-        data.triggerConfig || null, data.metadata || null,
-        data.userId, data.createdAt, data.publishedAt || null
+        data.id,
+        data.workflowId,
+        data.name,
+        data.description,
+        data.version,
+        data.isDraft,
+        data.isPublished,
+        data.graphs,
+        data.triggerConfig || null,
+        data.metadata || null,
+        data.userId,
+        data.createdAt,
+        data.publishedAt || null,
       ]
     )
     return result.rows[0]
@@ -146,17 +158,20 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0] || null
   }
 
-  async updateWorkflowVersion(id: string, data: {
-    name?: string
-    description?: string
-    graphs?: string
-    triggerConfig?: string
-    metadata?: string
-    isDraft?: boolean
-    isPublished?: boolean
-    publishedAt?: string | null
-    createdAt?: string
-  }) {
+  async updateWorkflowVersion(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      graphs?: string
+      triggerConfig?: string
+      metadata?: string
+      isDraft?: boolean
+      isPublished?: boolean
+      publishedAt?: string | null
+      createdAt?: string
+    }
+  ) {
     const updates: string[] = []
     const values: any[] = []
     let paramCount = 0
@@ -199,7 +214,7 @@ export class PostgresOperations implements WorkflowOperations {
     }
 
     values.push(id)
-    
+
     const result = await this.pool.query(
       `UPDATE workflow_versions SET ${updates.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
       values
@@ -207,11 +222,14 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0]
   }
 
-  async listWorkflowVersions(workflowId: string, params?: {
-    limit?: number
-    offset?: number
-    includePublished?: boolean
-  }) {
+  async listWorkflowVersions(
+    workflowId: string,
+    params?: {
+      limit?: number
+      offset?: number
+      includePublished?: boolean
+    }
+  ) {
     let whereClause = 'WHERE "workflowId" = $1'
     const queryParams: any[] = [workflowId]
     let paramCount = 1
@@ -230,11 +248,11 @@ export class PostgresOperations implements WorkflowOperations {
 
     // Get versions with pagination
     let query = `SELECT * FROM workflow_versions ${whereClause} ORDER BY version DESC`
-    
+
     if (params?.limit) {
       queryParams.push(params.limit)
       query += ` LIMIT $${++paramCount}`
-      
+
       if (params.offset) {
         queryParams.push(params.offset)
         query += ` OFFSET $${++paramCount}`
@@ -273,23 +291,23 @@ export class PostgresOperations implements WorkflowOperations {
 
   async publishWorkflowVersion(workflowId: string, versionId: string, userId: string) {
     const now = new Date().toISOString()
-    
+
     // Start a transaction
     const client = await this.pool.connect()
     try {
       await client.query('BEGIN')
-      
+
       // Get the version to publish
       const versionResult = await client.query(
         'SELECT * FROM workflow_versions WHERE id = $1 AND "workflowId" = $2',
         [versionId, workflowId]
       )
       const versionToPublish = versionResult.rows[0]
-      
+
       if (!versionToPublish) {
         throw new Error('Version not found')
       }
-      
+
       // Unpublish all other versions
       await client.query(
         `UPDATE workflow_versions 
@@ -297,7 +315,7 @@ export class PostgresOperations implements WorkflowOperations {
          WHERE "workflowId" = $2 AND id != $3`,
         [false, workflowId, versionId]
       )
-      
+
       // Publish the specified version
       await client.query(
         `UPDATE workflow_versions 
@@ -305,7 +323,7 @@ export class PostgresOperations implements WorkflowOperations {
          WHERE id = $4 AND "workflowId" = $5`,
         [true, false, now, versionId, workflowId]
       )
-      
+
       // Update workflow's published version reference
       await client.query(
         `UPDATE workflows 
@@ -313,35 +331,52 @@ export class PostgresOperations implements WorkflowOperations {
          WHERE id = $3`,
         [versionId, now, workflowId]
       )
-      
+
       // Create a new draft version
-      const newDraftId = 'wfv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 15)
+      const newDraftId =
+        'wfv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 15)
       const nextVersion = versionToPublish.version + 1
-      
+
       await client.query(
         `INSERT INTO workflow_versions (
           id, "workflowId", name, description, version, "isDraft", "isPublished",
           graphs, "triggerConfig", metadata, "userId", "createdAt"
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
-          newDraftId, workflowId, versionToPublish.name, versionToPublish.description,
-          nextVersion, true, false, versionToPublish.graphs,
-          versionToPublish.triggerConfig, versionToPublish.metadata,
-          userId, now
+          newDraftId,
+          workflowId,
+          versionToPublish.name,
+          versionToPublish.description,
+          nextVersion,
+          true,
+          false,
+          versionToPublish.graphs,
+          versionToPublish.triggerConfig,
+          versionToPublish.metadata,
+          userId,
+          now,
         ]
       )
-      
+
       await client.query('COMMIT')
-      
+
       // Get updated data
-      const workflowResult = await this.pool.query('SELECT * FROM workflows WHERE id = $1', [workflowId])
-      const publishedVersionResult = await this.pool.query('SELECT * FROM workflow_versions WHERE id = $1', [versionId])
-      const newDraftResult = await this.pool.query('SELECT * FROM workflow_versions WHERE id = $1', [newDraftId])
-      
+      const workflowResult = await this.pool.query('SELECT * FROM workflows WHERE id = $1', [
+        workflowId,
+      ])
+      const publishedVersionResult = await this.pool.query(
+        'SELECT * FROM workflow_versions WHERE id = $1',
+        [versionId]
+      )
+      const newDraftResult = await this.pool.query(
+        'SELECT * FROM workflow_versions WHERE id = $1',
+        [newDraftId]
+      )
+
       return {
         workflow: workflowResult.rows[0],
         version: publishedVersionResult.rows[0],
-        newDraftVersion: newDraftResult.rows[0]
+        newDraftVersion: newDraftResult.rows[0],
       }
     } catch (error) {
       await client.query('ROLLBACK')
@@ -354,17 +389,17 @@ export class PostgresOperations implements WorkflowOperations {
   async unpublishWorkflow(workflowId: string) {
     const now = new Date().toISOString()
     const client = await this.pool.connect()
-    
+
     try {
       await client.query('BEGIN')
-      
+
       // Get current published version
       const workflowResult = await client.query(
         'SELECT "publishedVersionId" FROM workflows WHERE id = $1',
         [workflowId]
       )
       const workflow = workflowResult.rows[0]
-      
+
       if (workflow?.publishedVersionId) {
         // Mark version as unpublished
         await client.query(
@@ -374,7 +409,7 @@ export class PostgresOperations implements WorkflowOperations {
           [false, workflow.publishedVersionId]
         )
       }
-      
+
       // Remove published version reference
       await client.query(
         `UPDATE workflows 
@@ -382,7 +417,7 @@ export class PostgresOperations implements WorkflowOperations {
          WHERE id = $2`,
         [now, workflowId]
       )
-      
+
       await client.query('COMMIT')
     } catch (error) {
       await client.query('ROLLBACK')
@@ -408,8 +443,13 @@ export class PostgresOperations implements WorkflowOperations {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *`,
       [
-        data.id, data.workflowId, data.workflowVersionId,
-        data.status, data.startedAt, data.inputData || null, data.userId
+        data.id,
+        data.workflowId,
+        data.workflowVersionId,
+        data.status,
+        data.startedAt,
+        data.inputData || null,
+        data.userId,
       ]
     )
     return result.rows[0]
@@ -420,13 +460,16 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0] || null
   }
 
-  async updateWorkflowExecution(id: string, data: {
-    status?: string
-    completedAt?: string
-    duration?: number
-    outputData?: string
-    errorMessage?: string
-  }) {
+  async updateWorkflowExecution(
+    id: string,
+    data: {
+      status?: string
+      completedAt?: string
+      duration?: number
+      outputData?: string
+      errorMessage?: string
+    }
+  ) {
     const updates: string[] = []
     const values: any[] = []
     let paramCount = 0
@@ -453,7 +496,7 @@ export class PostgresOperations implements WorkflowOperations {
     }
 
     values.push(id)
-    
+
     const result = await this.pool.query(
       `UPDATE workflow_executions SET ${updates.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
       values
@@ -490,11 +533,11 @@ export class PostgresOperations implements WorkflowOperations {
 
     // Get executions with pagination
     let query = `SELECT * FROM workflow_executions ${whereClause} ORDER BY "startedAt" DESC`
-    
+
     if (params.limit) {
       queryParams.push(params.limit)
       query += ` LIMIT $${++paramCount}`
-      
+
       if (params.offset) {
         queryParams.push(params.offset)
         query += ` OFFSET $${++paramCount}`
@@ -530,10 +573,21 @@ export class PostgresOperations implements WorkflowOperations {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
-        data.id, data.workflowId, data.name, data.description || null,
-        data.graphs, data.activeGraphId || null, data.triggerConfig || null,
-        data.metadata || null, data.isDraft, data.isPublished, data.saveCount,
-        data.userId, data.createdAt, data.updatedAt, data.lastSavedAt
+        data.id,
+        data.workflowId,
+        data.name,
+        data.description || null,
+        data.graphs,
+        data.activeGraphId || null,
+        data.triggerConfig || null,
+        data.metadata || null,
+        data.isDraft,
+        data.isPublished,
+        data.saveCount,
+        data.userId,
+        data.createdAt,
+        data.updatedAt,
+        data.lastSavedAt,
       ]
     )
     return result.rows[0]
@@ -549,7 +603,7 @@ export class PostgresOperations implements WorkflowOperations {
     const updateClauses: string[] = [
       '"updatedAt" = $1',
       '"lastSavedAt" = $2',
-      '"saveCount" = "saveCount" + 1'
+      '"saveCount" = "saveCount" + 1',
     ]
     const values: any[] = [now, now]
     let paramCount = 2
@@ -588,7 +642,7 @@ export class PostgresOperations implements WorkflowOperations {
     }
 
     values.push(id)
-    
+
     const result = await this.pool.query(
       `UPDATE workflow_snapshots SET ${updateClauses.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
       values
@@ -627,9 +681,15 @@ export class PostgresOperations implements WorkflowOperations {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *`,
       [
-        data.id, data.key, data.value, data.isSecret,
-        data.description || null, data.category, data.userId,
-        data.createdAt, data.updatedAt
+        data.id,
+        data.key,
+        data.value,
+        data.isSecret,
+        data.description || null,
+        data.category,
+        data.userId,
+        data.createdAt,
+        data.updatedAt,
       ]
     )
     return result.rows[0]
@@ -645,14 +705,17 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0] || null
   }
 
-  async updateEnvVar(id: string, data: {
-    key?: string
-    value?: string
-    isSecret?: boolean
-    description?: string
-    category?: string
-    updatedAt: string
-  }) {
+  async updateEnvVar(
+    id: string,
+    data: {
+      key?: string
+      value?: string
+      isSecret?: boolean
+      description?: string
+      category?: string
+      updatedAt: string
+    }
+  ) {
     const updates: string[] = []
     const values: any[] = []
     let paramCount = 0
@@ -679,9 +742,9 @@ export class PostgresOperations implements WorkflowOperations {
     }
     values.push(data.updatedAt)
     updates.push(`"updatedAt" = $${++paramCount}`)
-    
+
     values.push(id)
-    
+
     const result = await this.pool.query(
       `UPDATE env_vars SET ${updates.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
       values
@@ -694,11 +757,7 @@ export class PostgresOperations implements WorkflowOperations {
     return (result.rowCount ?? 0) > 0
   }
 
-  async listEnvVars(params?: {
-    category?: string
-    limit?: number
-    offset?: number
-  }) {
+  async listEnvVars(params?: { category?: string; limit?: number; offset?: number }) {
     let whereClause = 'WHERE 1=1'
     const queryParams: any[] = []
     let paramCount = 0
@@ -717,11 +776,11 @@ export class PostgresOperations implements WorkflowOperations {
 
     // Get env vars with pagination
     let query = `SELECT * FROM env_vars ${whereClause} ORDER BY key ASC`
-    
+
     if (params?.limit) {
       queryParams.push(params.limit)
       query += ` LIMIT $${++paramCount}`
-      
+
       if (params?.offset) {
         queryParams.push(params.offset)
         query += ` OFFSET $${++paramCount}`
@@ -759,9 +818,15 @@ export class PostgresOperations implements WorkflowOperations {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *`,
       [
-        data.id, data.workflowId, data.workflowVersionId || null,
-        data.workflowName, data.startTime, data.status,
-        data.summary || null, data.userId, data.createdAt
+        data.id,
+        data.workflowId,
+        data.workflowVersionId || null,
+        data.workflowName,
+        data.startTime,
+        data.status,
+        data.summary || null,
+        data.userId,
+        data.createdAt,
       ]
     )
     return result.rows[0]
@@ -772,11 +837,14 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0] || null
   }
 
-  async updateFlowTraceSession(id: string, data: {
-    endTime?: string
-    status?: string
-    summary?: string
-  }) {
+  async updateFlowTraceSession(
+    id: string,
+    data: {
+      endTime?: string
+      status?: string
+      summary?: string
+    }
+  ) {
     const updates: string[] = []
     const values: any[] = []
     let paramCount = 0
@@ -795,7 +863,7 @@ export class PostgresOperations implements WorkflowOperations {
     }
 
     values.push(id)
-    
+
     const result = await this.pool.query(
       `UPDATE flow_trace_sessions SET ${updates.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
       values
@@ -815,15 +883,35 @@ export class PostgresOperations implements WorkflowOperations {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
       RETURNING *`,
       [
-        data.id, data.sessionId, data.timestamp, data.duration, data.status,
-        data.sourceNodeId, data.sourceNodeName, data.sourceNodeType,
-        data.sourcePortId, data.sourcePortName, data.sourcePortType,
-        data.targetNodeId, data.targetNodeName, data.targetNodeType,
-        data.targetPortId, data.targetPortName, data.targetPortType,
-        data.dataPayload || null, data.dataSize, data.dataType, data.dataPreview || null,
-        data.errorMessage || null, data.errorCode || null, data.errorStack || null,
-        data.graphId || null, data.graphName || null, data.parentTraceId || null,
-        data.depth || 0, data.createdAt
+        data.id,
+        data.sessionId,
+        data.timestamp,
+        data.duration,
+        data.status,
+        data.sourceNodeId,
+        data.sourceNodeName,
+        data.sourceNodeType,
+        data.sourcePortId,
+        data.sourcePortName,
+        data.sourcePortType,
+        data.targetNodeId,
+        data.targetNodeName,
+        data.targetNodeType,
+        data.targetPortId,
+        data.targetPortName,
+        data.targetPortType,
+        data.dataPayload || null,
+        data.dataSize,
+        data.dataType,
+        data.dataPreview || null,
+        data.errorMessage || null,
+        data.errorCode || null,
+        data.errorStack || null,
+        data.graphId || null,
+        data.graphName || null,
+        data.parentTraceId || null,
+        data.depth || 0,
+        data.createdAt,
       ]
     )
     return result.rows[0]
@@ -834,11 +922,14 @@ export class PostgresOperations implements WorkflowOperations {
     return result.rows[0] || null
   }
 
-  async listFlowTraces(sessionId: string, params?: {
-    status?: string
-    limit?: number
-    offset?: number
-  }) {
+  async listFlowTraces(
+    sessionId: string,
+    params?: {
+      status?: string
+      limit?: number
+      offset?: number
+    }
+  ) {
     let whereClause = 'WHERE "sessionId" = $1'
     const queryParams: any[] = [sessionId]
     let paramCount = 1
@@ -857,11 +948,11 @@ export class PostgresOperations implements WorkflowOperations {
 
     // Get traces with pagination
     let query = `SELECT * FROM flow_traces ${whereClause} ORDER BY timestamp ASC`
-    
+
     if (params?.limit) {
       queryParams.push(params.limit)
       query += ` LIMIT $${++paramCount}`
-      
+
       if (params?.offset) {
         queryParams.push(params.offset)
         query += ` OFFSET $${++paramCount}`
@@ -876,7 +967,7 @@ export class PostgresOperations implements WorkflowOperations {
   async beginTransaction(): Promise<TransactionOperations> {
     const client = await this.pool.connect()
     await client.query('BEGIN')
-    
+
     return new PostgresTransactionOperations(client)
   }
 }

@@ -9,19 +9,21 @@ This guide explains how to run Zeal in a local Kubernetes cluster using Minikube
    - Linux: [Docker Engine](https://docs.docker.com/engine/install/)
 
 2. **Minikube**
+
    ```bash
    # macOS
    brew install minikube
-   
+
    # Linux/Windows
    # See: https://minikube.sigs.k8s.io/docs/start/
    ```
 
 3. **kubectl**
+
    ```bash
    # macOS
    brew install kubectl
-   
+
    # Linux/Windows
    # See: https://kubernetes.io/docs/tasks/tools/
    ```
@@ -37,6 +39,7 @@ For a completely automated setup with default values:
 ```
 
 This will:
+
 - Start a local Docker registry
 - Create a Minikube cluster
 - Build and push images
@@ -46,6 +49,7 @@ This will:
 - **Enable access at http://zeal.local**
 
 **Note**: You'll be prompted for sudo password to:
+
 - Update `/etc/hosts`
 - Start Minikube tunnel
 
@@ -60,6 +64,7 @@ Run the interactive setup script:
 ```
 
 This will guide you through:
+
 - Checking all required ports for availability
 - Starting a local Docker registry (default port 5001, auto-detects conflicts)
 - Creating/starting a Minikube cluster
@@ -70,6 +75,7 @@ This will guide you through:
 - Setting up local access
 
 **Features**:
+
 - Automatic port conflict detection and resolution
 - macOS AirPlay Receiver detection (port 5000)
 - Intelligent port selection for Docker registry
@@ -101,6 +107,7 @@ If you prefer to run steps individually:
 ### Pre-flight Checks
 
 Before starting, the script:
+
 1. Verifies Docker, Minikube, and kubectl are installed
 2. Checks all required ports (3000, 5001, 5432, 6379, 8080)
 3. Detects port conflicts and suggests alternatives
@@ -136,11 +143,13 @@ The setup script automatically configures Minikube tunnel and updates `/etc/host
 ### Automatic Setup
 
 During setup, the script:
+
 1. Adds/updates `zeal.local` in `/etc/hosts` (requires sudo)
 2. Starts Minikube tunnel in the background
 3. Verifies access is working
 
 You'll be prompted for your password to:
+
 - Modify `/etc/hosts`
 - Start the tunnel (requires sudo)
 
@@ -176,19 +185,21 @@ kubectl port-forward svc/nextjs-service 3000:3000 -n zeal
 ### Troubleshooting Access
 
 1. **Tunnel not working?**
+
    ```bash
    # Check if tunnel is running
    ps aux | grep 'minikube tunnel'
-   
+
    # Restart tunnel manually
    sudo minikube tunnel -p zeal --cleanup=true
    ```
 
 2. **Can't access http://zeal.local?**
+
    ```bash
    # Verify /etc/hosts entry
    cat /etc/hosts | grep zeal.local
-   
+
    # Should show: 192.168.58.2 zeal.local (IP may vary)
    ```
 
@@ -262,17 +273,17 @@ curl http://localhost:5001/v2/zeal-nextjs/tags/list
 
 The setup script generates a deployment with these defaults:
 
-| Setting | Default Value |
-|---------|---------------|
-| Namespace | zeal |
-| Domain | zeal.local |
-| Next.js Replicas | 2 |
-| CRDT Replicas | 1 |
-| Database | PostgreSQL (local) |
-| Registry | localhost:5001 |
-| Kubernetes Version | v1.30.0 |
-| Minikube CPUs | 2 |
-| Minikube Memory | 60% of Docker Desktop |
+| Setting            | Default Value         |
+| ------------------ | --------------------- |
+| Namespace          | zeal                  |
+| Domain             | zeal.local            |
+| Next.js Replicas   | 2                     |
+| CRDT Replicas      | 1                     |
+| Database           | PostgreSQL (local)    |
+| Registry           | localhost:5001        |
+| Kubernetes Version | v1.30.0               |
+| Minikube CPUs      | 2                     |
+| Minikube Memory    | 60% of Docker Desktop |
 
 To customize, edit the generated `k8s/deployment-generated.yaml` before deploying.
 
@@ -281,6 +292,7 @@ To customize, edit the generated `k8s/deployment-generated.yaml` before deployin
 ### Option 1: Local Supabase (Default)
 
 The setup script now deploys a local Supabase instance by default. This includes:
+
 - PostgreSQL database
 - Auth service (GoTrue)
 - REST API (PostgREST)
@@ -289,6 +301,7 @@ The setup script now deploys a local Supabase instance by default. This includes
 - Realtime server
 
 **Note**: On ARM64 (Apple Silicon) systems, some Supabase components may have compatibility issues:
+
 - Kong may require alternative images
 - Realtime server may need additional configuration
 
@@ -297,6 +310,7 @@ The setup script now deploys a local Supabase instance by default. This includes
 To use your existing Supabase project:
 
 1. Set environment variables:
+
    ```bash
    export USE_SUPABASE=no  # Disable local Supabase
    export SUPABASE_URL="your-supabase-url"
@@ -322,6 +336,7 @@ To use your existing Supabase project:
    - Apply & Restart
 
 2. **Use less memory for Minikube**:
+
    ```bash
    # Specify custom memory (in MB)
    MINIKUBE_MEMORY=4096 ./scripts/minikube-setup.sh setup
@@ -337,10 +352,12 @@ To use your existing Supabase project:
 **"❗ kubectl is version X.XX.X, which may have incompatibilities"**
 
 This warning can usually be ignored. kubectl is designed to work with Kubernetes clusters within +/- 1 minor version:
+
 - kubectl 1.32 works fine with Kubernetes 1.30-1.31
 - kubectl 1.31 works fine with Kubernetes 1.29-1.30
 
 If you want to eliminate the warning:
+
 1. Update Minikube's Kubernetes version to match kubectl
 2. Or downgrade kubectl to match the cluster version
 
@@ -353,6 +370,7 @@ The setup script automatically detects and handles port conflicts. If a port is 
 3. **Database Ports** (5432, 6379): Warning only (might be external services)
 
 **Manual port configuration**:
+
 ```bash
 # Use a specific registry port
 REGISTRY_PORT=5002 ./scripts/minikube-setup.sh
@@ -371,6 +389,7 @@ If pods can't pull images with "server gave HTTP response to HTTPS client" error
 
 **Solution 1: Load images directly (Recommended)**
 The updated setup script now loads images directly into Minikube instead of using a registry:
+
 ```bash
 docker save zeal-nextjs:latest | minikube -p zeal image load -
 docker save zeal-crdt:latest | minikube -p zeal image load -
@@ -378,6 +397,7 @@ docker save zeal-crdt:latest | minikube -p zeal image load -
 
 **Solution 2: Fix insecure registry**
 If you need to use a registry:
+
 ```bash
 # Restart Minikube with insecure registry
 minikube stop -p zeal
@@ -449,6 +469,7 @@ docker rm -f zeal-registry
 ### Memory Allocation
 
 The script automatically detects available Docker Desktop memory and allocates:
+
 - **Minimum**: 4GB to Minikube
 - **Default**: 60% of Docker Desktop memory
 - **Maximum**: 8GB to Minikube
@@ -456,18 +477,21 @@ The script automatically detects available Docker Desktop memory and allocates:
 ### Configuring Docker Desktop Memory
 
 **macOS**:
+
 1. Open Docker Desktop
 2. Go to Settings (⚙️) > Resources
 3. Increase Memory to at least 6GB
 4. Click "Apply & Restart"
 
 **Windows**:
+
 1. Open Docker Desktop
 2. Go to Settings > Resources > Advanced
 3. Increase Memory to at least 6GB
 4. Click "Apply & Restart"
 
 **Linux**:
+
 - Docker uses system memory directly
 - Ensure you have at least 8GB total RAM
 
@@ -481,6 +505,7 @@ This setup is for **local development only**:
 - Basic auth secrets
 
 For production, use proper:
+
 - TLS certificates
 - Secret management
 - Network policies

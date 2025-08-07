@@ -188,7 +188,7 @@ export class WorkflowDatabase {
     const ops = await getDatabaseOperations()
     const workflow = await ops.getWorkflow(id)
     if (!workflow) return null
-    
+
     return {
       id: workflow.id,
       name: workflow.name,
@@ -204,7 +204,7 @@ export class WorkflowDatabase {
   static async getWorkflowVersion(id: string): Promise<WorkflowVersionRecord | null> {
     const ops = await getDatabaseOperations()
     const version = await ops.getWorkflowVersion(id)
-    
+
     if (!version) return null
 
     return {
@@ -313,7 +313,7 @@ export class WorkflowDatabase {
         limit: 1,
         includePublished: false,
       })
-      
+
       const existingDraft = versions.find(v => v.isDraft && !v.isPublished)
 
       let versionId: string
@@ -399,16 +399,16 @@ export class WorkflowDatabase {
     userId: string
   ): Promise<WorkflowVersionRecord> {
     const ops = await getDatabaseOperations()
-    
+
     try {
       const result = await ops.publishWorkflowVersion(workflowId, versionId, userId)
-      
+
       // Transform the published version to our expected format
       const version = await this.getWorkflowVersion(versionId)
       if (!version) {
         throw new ApiError('PUBLISH_FAILED', 'Failed to retrieve published version')
       }
-      
+
       return version
     } catch (error) {
       if (error instanceof ApiError) {
@@ -580,18 +580,20 @@ export class WorkflowDatabase {
 
     // Prepare update data
     const updateData: any = {}
-    
+
     if (data.name !== undefined) updateData.name = data.name
     if (data.description !== undefined) updateData.description = data.description
     if (data.graphs !== undefined) updateData.graphs = JSON.stringify(data.graphs)
     if (data.activeGraphId !== undefined) updateData.activeGraphId = data.activeGraphId
-    if (data.triggerConfig !== undefined) updateData.triggerConfig = data.triggerConfig ? JSON.stringify(data.triggerConfig) : null
-    if (data.metadata !== undefined) updateData.metadata = data.metadata ? JSON.stringify(data.metadata) : null
+    if (data.triggerConfig !== undefined)
+      updateData.triggerConfig = data.triggerConfig ? JSON.stringify(data.triggerConfig) : null
+    if (data.metadata !== undefined)
+      updateData.metadata = data.metadata ? JSON.stringify(data.metadata) : null
     if (data.isDraft !== undefined) updateData.isDraft = data.isDraft
     if (data.isPublished !== undefined) updateData.isPublished = data.isPublished
 
     const updated = await ops.updateWorkflowSnapshot(snapshotId, updateData)
-    
+
     if (!updated) return null
 
     return {

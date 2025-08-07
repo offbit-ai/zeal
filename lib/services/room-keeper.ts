@@ -26,11 +26,14 @@ class RoomKeeperService {
     this.callKeepAlive()
 
     // Then call every 5 minutes (well within the 7-day TTL)
-    this.keepAliveInterval = setInterval(() => {
-      if (this.isActive && this.currentWorkflowId) {
-        this.callKeepAlive()
-      }
-    }, 5 * 60 * 1000) // 5 minutes
+    this.keepAliveInterval = setInterval(
+      () => {
+        if (this.isActive && this.currentWorkflowId) {
+          this.callKeepAlive()
+        }
+      },
+      5 * 60 * 1000
+    ) // 5 minutes
 
     console.log('Started room keeper for workflow:', workflowId)
   }
@@ -75,7 +78,7 @@ class RoomKeeperService {
       }
 
       const data = await response.json()
-      
+
       if (data.success) {
         console.log('Room keep-alive successful:', {
           workflowId: this.currentWorkflowId,
