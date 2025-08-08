@@ -36,7 +36,7 @@ export function NodeBrowserPanel({
     (acc, node) => {
       // Skip nodes without metadata
       if (!node || !node.metadata) return acc
-      
+
       const type = node.metadata.type
       if (!acc[type]) acc[type] = []
       acc[type].push(node)

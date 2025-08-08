@@ -5,6 +5,7 @@ This document describes the MinIO integration for handling file uploads in Zeal,
 ## Overview
 
 MinIO provides S3-compatible object storage that allows us to:
+
 - Store files outside the CRDT store (avoiding size limitations)
 - Support larger file uploads (images, audio, video)
 - Maintain file persistence across reloads
@@ -21,6 +22,7 @@ The `start-dev.sh` script automatically sets up MinIO along with other services:
 ```
 
 This will:
+
 - Start MinIO on port 9000 (API) and 9001 (Console)
 - Create the default bucket `zeal-uploads`
 - Configure environment variables in `.env.local`
@@ -28,6 +30,7 @@ This will:
 ### MinIO Console Access
 
 Access the MinIO console at: http://localhost:9001
+
 - Username: `minioadmin`
 - Password: `minioadmin123`
 
@@ -66,6 +69,7 @@ kubectl apply -f k8s/minio.yaml
 ```
 
 This creates:
+
 - MinIO deployment with persistent storage
 - Services for API and console access
 - A job to create the default bucket
@@ -75,11 +79,13 @@ This creates:
 ### Upload Endpoint
 
 POST `/api/upload`
+
 - Accepts multipart form data with a `file` field
 - Returns the public URL and metadata
 - Validates file type and size
 
 Example:
+
 ```javascript
 const formData = new FormData()
 formData.append('file', file)
@@ -95,10 +101,12 @@ const { url, key, size, type, name } = await response.json()
 ### Presigned URL Endpoint
 
 POST `/api/upload/presigned`
+
 - Generates a presigned URL for direct browser uploads
 - Useful for large files or progress tracking
 
 Example:
+
 ```javascript
 const response = await fetch('/api/upload/presigned', {
   method: 'POST',
@@ -122,11 +130,13 @@ await fetch(presignedUrl, {
 ## File Size Limits
 
 Default limits by file type:
+
 - Images: 10MB (configurable up to 100MB)
 - Audio: 50MB (configurable up to 500MB)
 - Video: 100MB (configurable up to 1GB)
 
 These can be adjusted in:
+
 - `/app/api/upload/route.ts` - API limits
 - `/data/nodeTemplates/userInputs.ts` - Node property limits
 
@@ -147,6 +157,7 @@ NEXT_PUBLIC_MINIO_URL=http://localhost:9000
 ## Migration from Base64
 
 The system has been updated to use S3 URLs instead of base64:
+
 - Files are uploaded to MinIO when selected
 - Only the S3 URL is stored in CRDT (not the file data)
 - Files persist across page reloads
@@ -155,6 +166,7 @@ The system has been updated to use S3 URLs instead of base64:
 ## Security Considerations
 
 For production:
+
 1. Change default MinIO credentials
 2. Enable HTTPS/TLS
 3. Configure proper CORS policies
@@ -165,17 +177,20 @@ For production:
 ## Troubleshooting
 
 ### MinIO not starting
+
 - Check if port 9000/9001 are already in use
 - Verify Docker is running
 - Check logs: `docker logs zeal-minio`
 
 ### Upload failures
+
 - Verify MinIO is running and accessible
 - Check bucket exists: `zeal-uploads`
 - Verify environment variables are set correctly
 - Check file size and type restrictions
 
 ### CORS issues
+
 - MinIO allows all origins by default in dev mode
 - For production, configure proper CORS policies in MinIO
 

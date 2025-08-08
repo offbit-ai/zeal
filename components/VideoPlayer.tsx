@@ -34,6 +34,19 @@ export function VideoPlayer({
   onDataChange,
 }: VideoPlayerProps) {
   const { workflowId, currentGraphId } = useWorkflowStore()
+
+  // Use a ref to store the video player state to avoid multiple useState issues
+  const stateRef = useRef({
+    videoData: null as string | null,
+    embedUrl: null as string | null,
+    error: null as string | null,
+    metadata: null as any,
+    isBuffering: false,
+    isLoading: false,
+    lastUrl: undefined as string | undefined,
+  })
+
+  // Individual state hooks for UI reactivity
   const [videoData, setVideoData] = useState<string | null>(null)
   const [embedUrl, setEmbedUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,22 +56,37 @@ export function VideoPlayer({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const onDataChangeRef = useRef(onDataChange)
+
+  // Keep onDataChange ref current
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange
+  }, [onDataChange])
 
   useEffect(() => {
-    if (source === 'url' && url) {
+    if (source === 'url' && url && url !== stateRef.current.lastUrl) {
       setVideoData(url)
       setError(null)
-      onDataChange?.({ url, metadata: { source: 'url' } })
-    } else if (source === 'upload' && url) {
+      stateRef.current.videoData = url
+      stateRef.current.error = null
+      stateRef.current.lastUrl = url
+      onDataChangeRef.current?.({ url, metadata: { source: 'url' } })
+    } else if (source === 'upload' && url && url !== stateRef.current.lastUrl) {
       // Handle pre-uploaded file from property panel
       setVideoData(url)
       setError(null)
+      stateRef.current.videoData = url
+      stateRef.current.error = null
+      stateRef.current.lastUrl = url
       // Don't call onDataChange here as the data is already saved
-    } else if (source === 'stream' && url) {
+    } else if (source === 'stream' && url && url !== stateRef.current.lastUrl) {
       setVideoData(url)
       setError(null)
-      onDataChange?.({ url, metadata: { source: 'stream', streamType } })
-    } else if (source === 'youtube' && url) {
+      stateRef.current.videoData = url
+      stateRef.current.error = null
+      stateRef.current.lastUrl = url
+      onDataChangeRef.current?.({ url, metadata: { source: 'stream', streamType } })
+    } else if (source === 'youtube' && url && url !== stateRef.current.lastUrl) {
       // Extract YouTube video ID
       const match = url.match(
         /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/
@@ -68,11 +96,16 @@ export function VideoPlayer({
         const embed = `https://www.youtube.com/embed/${videoId}${autoplay ? '?autoplay=1' : ''}${loop ? '&loop=1' : ''}${muted ? '&mute=1' : ''}`
         setEmbedUrl(embed)
         setError(null)
-        onDataChange?.({ url: embed, metadata: { source: 'youtube', videoId } })
+        stateRef.current.embedUrl = embed
+        stateRef.current.error = null
+        stateRef.current.lastUrl = url
+        onDataChangeRef.current?.({ url: embed, metadata: { source: 'youtube', videoId } })
       } else {
         setError('Invalid YouTube URL')
+        stateRef.current.error = 'Invalid YouTube URL'
+        stateRef.current.lastUrl = url
       }
-    } else if (source === 'vimeo' && url) {
+    } else if (source === 'vimeo' && url && url !== stateRef.current.lastUrl) {
       // Extract Vimeo video ID
       const match = url.match(/vimeo\.com\/(\d+)/)
       if (match) {
@@ -80,12 +113,26 @@ export function VideoPlayer({
         const embed = `https://player.vimeo.com/video/${videoId}${autoplay ? '?autoplay=1' : ''}${loop ? '&loop=1' : ''}${muted ? '&muted=1' : ''}`
         setEmbedUrl(embed)
         setError(null)
-        onDataChange?.({ url: embed, metadata: { source: 'vimeo', videoId } })
+        stateRef.current.embedUrl = embed
+        stateRef.current.error = null
+        stateRef.current.lastUrl = url
+        onDataChangeRef.current?.({ url: embed, metadata: { source: 'vimeo', videoId } })
       } else {
         setError('Invalid Vimeo URL')
+        stateRef.current.error = 'Invalid Vimeo URL'
+        stateRef.current.lastUrl = url
       }
+    } else if (!url && stateRef.current.lastUrl) {
+      // Clear video data if url becomes null/undefined
+      setVideoData(null)
+      setEmbedUrl(null)
+      setError(null)
+      stateRef.current.videoData = null
+      stateRef.current.embedUrl = null
+      stateRef.current.error = null
+      stateRef.current.lastUrl = undefined
     }
-  }, [source, url, autoplay, loop, muted, streamType, onDataChange])
+  }, [source, url, autoplay, loop, muted, streamType])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -94,6 +141,7 @@ export function VideoPlayer({
     // Validate file size
     if (file.size > maxFileSize * 1024 * 1024) {
       setError(`File size exceeds ${maxFileSize}MB limit`)
+      stateRef.current.error = `File size exceeds ${maxFileSize}MB limit`
       return
     }
 
@@ -101,18 +149,21 @@ export function VideoPlayer({
     const acceptedTypes = acceptedFormats.split(',').map(t => t.trim())
     if (!acceptedTypes.includes(file.type)) {
       setError(`Invalid file type. Accepted: ${acceptedFormats}`)
+      stateRef.current.error = `Invalid file type. Accepted: ${acceptedFormats}`
       return
     }
 
     // Show loading state
     setIsLoading(true)
     setError(null)
+    stateRef.current.isLoading = true
+    stateRef.current.error = null
 
     try {
       // Upload to S3/MinIO
       const formData = new FormData()
       formData.append('file', file)
-      
+
       // Add IDs for namespacing
       if (workflowId) formData.append('workflowId', workflowId)
       if (currentGraphId) formData.append('graphId', currentGraphId)
@@ -130,6 +181,7 @@ export function VideoPlayer({
 
       const data = await response.json()
       setVideoData(data.url)
+      stateRef.current.videoData = data.url
 
       const meta = {
         name: file.name,
@@ -141,13 +193,17 @@ export function VideoPlayer({
         url: data.url,
       }
       setMetadata(meta)
+      stateRef.current.metadata = meta
 
-      onDataChange?.({ url: data.url, metadata: meta })
+      onDataChangeRef.current?.({ url: data.url, metadata: meta })
       setIsLoading(false)
+      stateRef.current.isLoading = false
     } catch (err) {
       setError('Failed to upload video')
+      stateRef.current.error = 'Failed to upload video'
       console.error('Upload error:', err)
       setIsLoading(false)
+      stateRef.current.isLoading = false
     }
   }
 
@@ -158,8 +214,6 @@ export function VideoPlayer({
       videoRef.current.src = ''
     }
 
-    // No need to revoke base64 data URLs
-
     // Clear all states immediately
     setVideoData(null)
     setEmbedUrl(null)
@@ -167,21 +221,31 @@ export function VideoPlayer({
     setMetadata(null)
     setIsBuffering(false)
 
+    // Update ref state as well
+    stateRef.current.videoData = null
+    stateRef.current.embedUrl = null
+    stateRef.current.error = null
+    stateRef.current.metadata = null
+    stateRef.current.isBuffering = false
+    stateRef.current.lastUrl = undefined
+
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
 
-    onDataChange?.({ url: undefined, metadata: undefined })
+    onDataChangeRef.current?.({ url: undefined, metadata: undefined })
   }
 
   const handleBufferStart = () => {
     if (buffering) {
       setIsBuffering(true)
+      stateRef.current.isBuffering = true
     }
   }
 
   const handleBufferEnd = () => {
     setIsBuffering(false)
+    stateRef.current.isBuffering = false
   }
 
   return (
@@ -240,7 +304,10 @@ export function VideoPlayer({
             muted={muted}
             className="w-full rounded-lg bg-black"
             style={{ height: previewHeight }}
-            onError={() => setError('Failed to load video')}
+            onError={() => {
+              setError('Failed to load video')
+              stateRef.current.error = 'Failed to load video'
+            }}
             onWaiting={handleBufferStart}
             onPlaying={handleBufferEnd}
             onCanPlay={handleBufferEnd}

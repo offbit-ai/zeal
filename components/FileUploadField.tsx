@@ -86,7 +86,7 @@ export function FileUploadField({
       // Upload to S3/MinIO
       const formData = new FormData()
       formData.append('file', file)
-      
+
       // Add IDs for namespacing
       if (workflowId) formData.append('workflowId', workflowId)
       if (currentGraphId) formData.append('graphId', currentGraphId)

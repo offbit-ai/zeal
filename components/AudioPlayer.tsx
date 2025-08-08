@@ -26,6 +26,19 @@ export function AudioPlayer({
   onDataChange,
 }: AudioPlayerProps) {
   const { workflowId, currentGraphId } = useWorkflowStore()
+
+  // Use a ref to store the audio player state to avoid multiple useState issues
+  const stateRef = useRef({
+    audioData: null as string | null,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    error: null as string | null,
+    metadata: null as any,
+    isLoading: false,
+  })
+
+  // Individual state hooks for UI reactivity
   const [audioData, setAudioData] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -36,19 +49,41 @@ export function AudioPlayer({
 
   const audioRef = useRef<HTMLAudioElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const onDataChangeRef = useRef(onDataChange)
+
+  // Keep onDataChange ref current
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange
+  }, [onDataChange])
 
   useEffect(() => {
     if (source === 'url' && url) {
-      setAudioData(url)
-      setError(null)
-      onDataChange?.({ url, metadata: { source: 'url' } })
+      // Only update if the URL actually changed
+      if (stateRef.current.audioData !== url) {
+        setAudioData(url)
+        setError(null)
+        stateRef.current.audioData = url
+        stateRef.current.error = null
+        onDataChangeRef.current?.({ url, metadata: { source: 'url' } })
+      }
     } else if (source === 'upload' && url) {
       // Handle pre-uploaded file from property panel
-      setAudioData(url)
+      // Only update if the URL actually changed
+      if (stateRef.current.audioData !== url) {
+        setAudioData(url)
+        setError(null)
+        stateRef.current.audioData = url
+        stateRef.current.error = null
+        // Don't call onDataChange here as the data is already saved
+      }
+    } else if (!url && stateRef.current.audioData) {
+      // Clear audio data if url becomes null/undefined
+      setAudioData(null)
       setError(null)
-      // Don't call onDataChange here as the data is already saved
+      stateRef.current.audioData = null
+      stateRef.current.error = null
     }
-  }, [source, url, onDataChange])
+  }, [source, url])
 
   useEffect(() => {
     if (audioRef.current) {
@@ -64,6 +99,7 @@ export function AudioPlayer({
     // Validate file size
     if (file.size > maxFileSize * 1024 * 1024) {
       setError(`File size exceeds ${maxFileSize}MB limit`)
+      stateRef.current.error = `File size exceeds ${maxFileSize}MB limit`
       return
     }
 
@@ -71,18 +107,21 @@ export function AudioPlayer({
     const acceptedTypes = acceptedFormats.split(',').map(t => t.trim())
     if (!acceptedTypes.includes(file.type)) {
       setError(`Invalid file type. Accepted: ${acceptedFormats}`)
+      stateRef.current.error = `Invalid file type. Accepted: ${acceptedFormats}`
       return
     }
 
     // Show loading state
     setIsLoading(true)
+    stateRef.current.isLoading = true
     setError(null)
+    stateRef.current.error = null
 
     try {
       // Upload to S3/MinIO
       const formData = new FormData()
       formData.append('file', file)
-      
+
       // Add IDs for namespacing
       if (workflowId) formData.append('workflowId', workflowId)
       if (currentGraphId) formData.append('graphId', currentGraphId)
@@ -100,6 +139,7 @@ export function AudioPlayer({
 
       const data = await response.json()
       setAudioData(data.url)
+      stateRef.current.audioData = data.url
 
       const meta = {
         name: file.name,
@@ -111,13 +151,17 @@ export function AudioPlayer({
         url: data.url,
       }
       setMetadata(meta)
+      stateRef.current.metadata = meta
 
-      onDataChange?.({ url: data.url, metadata: meta })
+      onDataChangeRef.current?.({ url: data.url, metadata: meta })
       setIsLoading(false)
+      stateRef.current.isLoading = false
     } catch (err) {
       setError('Failed to upload audio')
+      stateRef.current.error = 'Failed to upload audio'
       console.error('Upload error:', err)
       setIsLoading(false)
+      stateRef.current.isLoading = false
     }
   }
 
@@ -130,17 +174,20 @@ export function AudioPlayer({
       audioRef.current.play()
     }
     setIsPlaying(!isPlaying)
+    stateRef.current.isPlaying = !isPlaying
   }
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime)
+      stateRef.current.currentTime = audioRef.current.currentTime
     }
   }
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration)
+      stateRef.current.duration = audioRef.current.duration
     }
   }
 
@@ -149,6 +196,7 @@ export function AudioPlayer({
     if (audioRef.current) {
       audioRef.current.currentTime = time
       setCurrentTime(time)
+      stateRef.current.currentTime = time
     }
   }
 
@@ -175,11 +223,19 @@ export function AudioPlayer({
     setError(null)
     setMetadata(null)
 
+    // Update ref state as well
+    stateRef.current.audioData = null
+    stateRef.current.isPlaying = false
+    stateRef.current.currentTime = 0
+    stateRef.current.duration = 0
+    stateRef.current.error = null
+    stateRef.current.metadata = null
+
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
 
-    onDataChange?.({ url: undefined, metadata: undefined })
+    onDataChangeRef.current?.({ url: undefined, metadata: undefined })
   }
 
   return (
@@ -225,9 +281,18 @@ export function AudioPlayer({
             src={audioData}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onError={() => setError('Failed to load audio')}
+            onPlay={() => {
+              setIsPlaying(true)
+              stateRef.current.isPlaying = true
+            }}
+            onPause={() => {
+              setIsPlaying(false)
+              stateRef.current.isPlaying = false
+            }}
+            onError={() => {
+              setError('Failed to load audio')
+              stateRef.current.error = 'Failed to load audio'
+            }}
           />
 
           <div className="flex items-center gap-3">

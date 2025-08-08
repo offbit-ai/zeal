@@ -1,23 +1,20 @@
 /**
- * Calculate actual node dimensions based on DOM measurements or fallback to type-based estimates
+ * Calculate actual node dimensions based on DOM measurements
+ * Returns null if DOM measurement fails - caller should handle gracefully
  */
-export const calculateNodeDimensions = (metadata: any): { width: number; height: number } => {
+export const calculateNodeDimensions = (
+  metadata: any
+): { width: number; height: number } | null => {
   // Try to get actual DOM measurements from the draggable node
   const nodeElement = document.querySelector(`[data-node-id="${metadata.id}"]`)
   if (nodeElement) {
     const rect = nodeElement.getBoundingClientRect()
-    return { width: rect.width, height: rect.height }
+    // Only return if we got valid dimensions
+    if (rect.width > 0 && rect.height > 0) {
+      return { width: rect.width, height: rect.height }
+    }
   }
-  
-  // Fallback based on node type for better dimension estimates
-  const nodeType = metadata.type
-  if (nodeType === 'script') {
-    return { width: 400, height: 200 } // Script nodes are wider and taller
-  } else if (['image-input', 'audio-input', 'video-input'].includes(nodeType)) {
-    return { width: 350, height: 250 } // Media nodes are wider and taller  
-  } else if (['text-input', 'number-input', 'range-input'].includes(nodeType)) {
-    return { width: 280, height: 120 } // Input nodes are wider but not too tall
-  } else {
-    return { width: 200, height: 100 } // Default dimensions
-  }
+
+  // Return null if we can't get actual measurements - let caller decide what to do
+  return null
 }

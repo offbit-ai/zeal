@@ -86,17 +86,17 @@ kubectl apply -f k8s/deployment.yaml
 
 ### MinIO/S3 Storage Variables
 
-| Variable                   | Description                          | Default               |
-| -------------------------- | ------------------------------------ | --------------------- |
-| `ZEAL_MINIO_ENABLED`       | Deploy MinIO in cluster              | `true`                |
-| `ZEAL_MINIO_IMAGE`         | MinIO container image                | `minio/minio:latest`  |
-| `ZEAL_MINIO_REPLICAS`      | Number of MinIO pods                 | `1`                   |
-| `ZEAL_MINIO_ACCESS_KEY`    | MinIO access key                     | `minioadmin`          |
-| `ZEAL_MINIO_SECRET_KEY`    | MinIO secret key                     | `minioadmin123`       |
-| `ZEAL_MINIO_BUCKET`        | Default bucket name                  | `zeal-uploads`        |
-| `ZEAL_MINIO_STORAGE_SIZE`  | PVC size for MinIO                   | `10Gi`                |
-| `ZEAL_MINIO_USE_SSL`       | Enable SSL for MinIO                 | `true` (production)   |
-| `ZEAL_MINIO_PUBLIC_URL`    | Public URL for MinIO/S3              | `https://s3.example.com` |
+| Variable                  | Description             | Default                  |
+| ------------------------- | ----------------------- | ------------------------ |
+| `ZEAL_MINIO_ENABLED`      | Deploy MinIO in cluster | `true`                   |
+| `ZEAL_MINIO_IMAGE`        | MinIO container image   | `minio/minio:latest`     |
+| `ZEAL_MINIO_REPLICAS`     | Number of MinIO pods    | `1`                      |
+| `ZEAL_MINIO_ACCESS_KEY`   | MinIO access key        | `minioadmin`             |
+| `ZEAL_MINIO_SECRET_KEY`   | MinIO secret key        | `minioadmin123`          |
+| `ZEAL_MINIO_BUCKET`       | Default bucket name     | `zeal-uploads`           |
+| `ZEAL_MINIO_STORAGE_SIZE` | PVC size for MinIO      | `10Gi`                   |
+| `ZEAL_MINIO_USE_SSL`      | Enable SSL for MinIO    | `true` (production)      |
+| `ZEAL_MINIO_PUBLIC_URL`   | Public URL for MinIO/S3 | `https://s3.example.com` |
 
 ## Prerequisites
 
@@ -156,7 +156,7 @@ docker push myregistry/zeal-crdt:v1.0.0
 
    # CRDT server logs
    kubectl logs -f deployment/crdt-deployment -n zeal
-   
+
    # MinIO logs (if deployed)
    kubectl logs -f deployment/minio -n zeal
    ```
@@ -260,6 +260,7 @@ Regular backup considerations:
 - Kubernetes secrets and configmaps
 
 For MinIO backup:
+
 ```bash
 # Backup MinIO data using mc (MinIO Client)
 mc mirror minio/zeal-uploads /backup/minio/

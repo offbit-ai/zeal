@@ -26,32 +26,65 @@ export function ImagePreview({
   onDataChange,
 }: ImagePreviewProps) {
   const { workflowId, currentGraphId } = useWorkflowStore()
+
+  // Use a ref to store the image preview state to avoid multiple useState issues
+  const stateRef = useRef({
+    imageData: null as string | null,
+    error: null as string | null,
+    metadata: null as any,
+    isGif: false,
+    isPaused: false,
+    lastUrl: undefined as string | undefined,
+  })
+
+  // Individual state hooks for UI reactivity
   const [imageData, setImageData] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [metadata, setMetadata] = useState<any>(null)
   const [isGif, setIsGif] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const lastUrlRef = useRef<string | undefined>(undefined)
+  const onDataChangeRef = useRef(onDataChange)
+
+  // Keep onDataChange ref current
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange
+  }, [onDataChange])
 
   useEffect(() => {
-    if (source === 'url' && url && url !== lastUrlRef.current) {
+    if (source === 'url' && url && url !== stateRef.current.lastUrl) {
       setImageData(url)
       setError(null)
       setIsGif(url.toLowerCase().endsWith('.gif'))
-      lastUrlRef.current = url
-      onDataChange?.({ url, metadata: { source: 'url' } })
-    } else if (source === 'upload' && url && url !== lastUrlRef.current) {
+      stateRef.current.imageData = url
+      stateRef.current.error = null
+      stateRef.current.isGif = url.toLowerCase().endsWith('.gif')
+      stateRef.current.lastUrl = url
+      onDataChangeRef.current?.({ url, metadata: { source: 'url' } })
+    } else if (source === 'upload' && url && url !== stateRef.current.lastUrl) {
       // Handle pre-uploaded file from property panel
       setImageData(url)
       setError(null)
       setIsGif(url.toLowerCase().includes('.gif'))
-      lastUrlRef.current = url
+      stateRef.current.imageData = url
+      stateRef.current.error = null
+      stateRef.current.isGif = url.toLowerCase().includes('.gif')
+      stateRef.current.lastUrl = url
       // Don't call onDataChange here as the data is already saved
+    } else if (!url && stateRef.current.lastUrl) {
+      // Clear image data if url becomes null/undefined
+      setImageData(null)
+      setError(null)
+      setIsGif(false)
+      stateRef.current.imageData = null
+      stateRef.current.error = null
+      stateRef.current.isGif = false
+      stateRef.current.lastUrl = undefined
     }
-  }, [source, url, onDataChange])
+  }, [source, url])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -60,6 +93,7 @@ export function ImagePreview({
     // Validate file size
     if (file.size > maxFileSize * 1024 * 1024) {
       setError(`File size exceeds ${maxFileSize}MB limit`)
+      stateRef.current.error = `File size exceeds ${maxFileSize}MB limit`
       return
     }
 
@@ -67,6 +101,7 @@ export function ImagePreview({
     const acceptedTypes = acceptedFormats.split(',').map(t => t.trim())
     if (!acceptedTypes.includes(file.type)) {
       setError(`Invalid file type. Accepted: ${acceptedFormats}`)
+      stateRef.current.error = `Invalid file type. Accepted: ${acceptedFormats}`
       return
     }
 
@@ -74,7 +109,7 @@ export function ImagePreview({
       // Upload to S3/MinIO
       const formData = new FormData()
       formData.append('file', file)
-      
+
       // Add IDs for namespacing
       if (workflowId) formData.append('workflowId', workflowId)
       if (currentGraphId) formData.append('graphId', currentGraphId)
@@ -93,6 +128,8 @@ export function ImagePreview({
       const data = await response.json()
       setImageData(data.url)
       setError(null)
+      stateRef.current.imageData = data.url
+      stateRef.current.error = null
 
       const meta = {
         name: file.name,
@@ -105,26 +142,36 @@ export function ImagePreview({
       }
       setMetadata(meta)
       setIsGif(file.type === 'image/gif')
+      stateRef.current.metadata = meta
+      stateRef.current.isGif = file.type === 'image/gif'
 
-      onDataChange?.({ url: data.url, metadata: meta })
+      onDataChangeRef.current?.({ url: data.url, metadata: meta })
     } catch (err) {
       setError('Failed to upload image')
+      stateRef.current.error = 'Failed to upload image'
       console.error('Upload error:', err)
     }
   }
 
   const clearImage = () => {
-    // No need to revoke base64 data URLs
     setImageData(null)
     setError(null)
     setMetadata(null)
     setIsGif(false)
     setIsPaused(false)
-    lastUrlRef.current = undefined
+
+    // Update ref state as well
+    stateRef.current.imageData = null
+    stateRef.current.error = null
+    stateRef.current.metadata = null
+    stateRef.current.isGif = false
+    stateRef.current.isPaused = false
+    stateRef.current.lastUrl = undefined
+
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-    onDataChange?.({ url: undefined, metadata: undefined })
+    onDataChangeRef.current?.({ url: undefined, metadata: undefined })
   }
 
   const handleGifPause = () => {
@@ -138,6 +185,7 @@ export function ImagePreview({
         canvasRef.current.height = imageRef.current.naturalHeight
         ctx.drawImage(imageRef.current, 0, 0)
         setIsPaused(true)
+        stateRef.current.isPaused = true
       }
     }
   }
@@ -145,6 +193,7 @@ export function ImagePreview({
   const handleGifResume = () => {
     if (!isGif || !pauseGifOnHover) return
     setIsPaused(false)
+    stateRef.current.isPaused = false
   }
 
   if (displayMode === 'none') {
@@ -190,7 +239,10 @@ export function ImagePreview({
               height: previewHeight,
               objectFit: displayMode === 'fill' ? 'fill' : displayMode,
             }}
-            onError={() => setError('Failed to load image')}
+            onError={() => {
+              setError('Failed to load image')
+              stateRef.current.error = 'Failed to load image'
+            }}
           />
           {isGif && pauseGifOnHover && (
             <canvas

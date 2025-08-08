@@ -363,7 +363,7 @@ export function WorkflowNode({
     // We need to render all media components to maintain consistent hook calls
     // But we can hide them with display:none for non-rectangle shapes
     const shouldShow = shape === 'rectangle'
-    
+
     return (
       <>
         {isImageInput && (
