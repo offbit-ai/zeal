@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import * as Y from 'yjs'
 import { InteractiveCanvas } from '@/components/InteractiveCanvas'
 import { WorkflowSidebar } from '@/components/WorkflowSidebar'
@@ -172,7 +172,7 @@ export default function Home() {
   const [workflowTrigger, setWorkflowTrigger] = useState<any>(null)
   const {
     nodeBounds,
-    updateNodeBounds: updateNodeBoundsHook,
+    updateNodeBounds: originalUpdateNodeBoundsHook,
     removeNodeBounds,
     getNodeBoundsArray,
   } = useNodeBounds()
@@ -243,6 +243,7 @@ export default function Home() {
     createGroup,
     updateGroup,
     updateGroupBounds,
+    recalculateGroupBounds,
     addNodeToGroup,
     removeNodeFromGroup,
     removeGroup,
@@ -274,38 +275,139 @@ export default function Home() {
     connectCRDT,
   } = useWorkflowStore()
 
+  // Enhanced node bounds hook that also recalculates group bounds when nodes change size
+  const updateNodeBoundsHook = useCallback(
+    (nodeId: string, bounds: any) => {
+      originalUpdateNodeBoundsHook(nodeId, bounds)
+
+      // Find any groups containing this node and recalculate their bounds
+      const nodeGroups = groups.filter(group => group.nodeIds.includes(nodeId))
+      nodeGroups.forEach(group => {
+        // Debounce group recalculation to avoid excessive updates
+        setTimeout(() => {
+          recalculateGroupBounds(group.id, groupNodePositions[group.id])
+        }, 50)
+      })
+    },
+    [originalUpdateNodeBoundsHook, groups, recalculateGroupBounds]
+  )
+
   // Local state for node positions within groups (not synced)
   const [groupNodePositions, setGroupNodePositions] = useState<
     Record<string, Record<string, { x: number; y: number }>>
   >({})
   // Structure: { groupId: { nodeId: { x, y } } }
 
+  // Track if localStorage has been loaded to prevent overwriting saved positions
+  const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
+
   // Local state for group collapse (not synced)
   const [localGroupCollapseState, setLocalGroupCollapseState] = useState<Record<string, boolean>>(
     {}
   )
 
+  // Local state to persist expanded group sizes (not synced between users)
+  const [expandedGroupSizes, setExpandedGroupSizes] = useState<
+    Record<string, { width: number; height: number }>
+  >({})
+
+  // Load expanded group sizes from localStorage when workflowId becomes available
+  useEffect(() => {
+    if (workflowId) {
+      const saved = localStorage.getItem(`expandedGroupSizes_${workflowId}`)
+      if (saved) {
+        try {
+          setExpandedGroupSizes(JSON.parse(saved))
+        } catch (e) {
+          console.warn('Failed to parse saved expanded group sizes:', e)
+        }
+      }
+    }
+  }, [workflowId])
+
+  // Save expanded group sizes to localStorage when they change
+  useEffect(() => {
+    if (workflowId && Object.keys(expandedGroupSizes).length > 0) {
+      localStorage.setItem(`expandedGroupSizes_${workflowId}`, JSON.stringify(expandedGroupSizes))
+    }
+  }, [workflowId, expandedGroupSizes])
+
   // Handler for toggling group collapse state locally
-  const handleGroupCollapseToggle = useCallback((groupId: string) => {
-    setLocalGroupCollapseState(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }))
-  }, [])
+  // Handler for updating expanded group sizes when manually resized
+  const handleGroupResize = useCallback(
+    (groupId: string, newSize: { width: number; height: number }) => {
+      setExpandedGroupSizes(prev => ({
+        ...prev,
+        [groupId]: newSize,
+      }))
+    },
+    []
+  )
+
+  const handleGroupCollapseToggle = useCallback(
+    (groupId: string) => {
+      const group = groups.find(g => g.id === groupId)
+      if (!group) return
+
+      setLocalGroupCollapseState(prev => {
+        const wasCollapsed = prev[groupId] || false
+        const willBeExpanded = wasCollapsed
+
+        if (willBeExpanded) {
+          // Expanding: restore the saved inner container bounded rectangle
+          const savedExpandedSize = expandedGroupSizes[groupId]
+          if (savedExpandedSize) {
+            // Immediately restore the exact same bounded rectangle - no recalculation needed
+            updateGroupBounds(groupId, {
+              x: group.position?.x || 0, // Keep current position
+              y: group.position?.y || 0, // Keep current position
+              width: savedExpandedSize.width,
+              height: savedExpandedSize.height,
+            })
+          } else {
+            // No saved bounds - this means it's the first time expanding
+            // Recalculate bounds to ensure all nodes fit properly using bounding rectangle
+            recalculateGroupBounds(groupId, groupNodePositions[groupId])
+          }
+        } else {
+          // Collapsing: save the inner container's bounded rectangle before collapsing
+          // This ensures all nodes remain within the group container when expanded again
+          if (group.size) {
+            setExpandedGroupSizes(prev => ({
+              ...prev,
+              [groupId]: {
+                width: group.size!.width,
+                height: group.size!.height,
+              },
+            }))
+          }
+        }
+
+        return {
+          ...prev,
+          [groupId]: !wasCollapsed,
+        }
+      })
+    },
+    [groups, expandedGroupSizes, updateGroupBounds, recalculateGroupBounds]
+  )
   // Structure: { groupId: isCollapsed }
 
   // Load groupNodePositions from localStorage when workflowId becomes available
   useEffect(() => {
     if (workflowId && typeof window !== 'undefined') {
       const saved = localStorage.getItem(`groupNodePositions-${workflowId}`)
+      let parsedPositions = {}
       if (saved) {
         try {
-          const parsed = JSON.parse(saved)
-          setGroupNodePositions(parsed)
+          parsedPositions = JSON.parse(saved)
+          setGroupNodePositions(parsedPositions)
         } catch (e) {
           console.error('Failed to parse saved group node positions:', e)
         }
       }
+      // Mark localStorage as loaded even if there was no saved data
+      setLocalStorageLoaded(true)
     }
   }, [workflowId])
 
@@ -315,6 +417,40 @@ export default function Home() {
       localStorage.setItem(`groupNodePositions-${workflowId}`, JSON.stringify(groupNodePositions))
     }
   }, [groupNodePositions, workflowId])
+
+  // Recalculate and update node positions when groups and nodes are loaded
+  useEffect(() => {
+    if (!localStorageLoaded || groups.length === 0 || storeNodes.length === 0) return
+
+    // For each group, ensure nodes have correct absolute positions
+    groups.forEach(group => {
+      group.nodeIds.forEach(nodeId => {
+        const node = storeNodes.find(n => n.metadata.id === nodeId)
+        if (!node) return
+
+        const localPosition = groupNodePositions[group.id]?.[nodeId]
+        if (localPosition) {
+          // Calculate expected absolute position based on local position
+          const headerOffset = group.description ? 100 : 32
+          const expectedAbsolutePos = {
+            x: group.position.x + localPosition.x,
+            y: group.position.y + headerOffset + localPosition.y,
+          }
+
+          // Check if current position matches expected
+          const currentPos = node.position
+          if (
+            currentPos &&
+            (Math.abs(currentPos.x - expectedAbsolutePos.x) > 1 ||
+              Math.abs(currentPos.y - expectedAbsolutePos.y) > 1)
+          ) {
+            // Update to correct position
+            updateNodePosition(nodeId, expectedAbsolutePos)
+          }
+        }
+      })
+    })
+  }, [localStorageLoaded, groups, storeNodes, groupNodePositions, updateNodePosition])
 
   // Collaborative features are always enabled with the new store
   const isCollaborative = true
@@ -458,7 +594,7 @@ export default function Home() {
   // Track unsaved changes and warn before page unload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const currentGraph = getCurrentGraph()
+      const currentGraph = graphs.find(g => g.id === currentGraphId)
       if (currentGraph?.isDirty) {
         e.preventDefault()
         e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
@@ -468,11 +604,10 @@ export default function Home() {
 
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [getCurrentGraph])
+  }, [graphs, currentGraphId])
 
   // Update document title with workflow name and unsaved indicator
   useEffect(() => {
-    const currentGraph = getCurrentGraph()
     const hasUnsaved = graphs.some(g => g.isDirty)
 
     if (workflowName) {
@@ -481,7 +616,7 @@ export default function Home() {
     } else {
       document.title = 'Zeal - Workflow Orchestrator'
     }
-  }, [workflowName, graphs, getCurrentGraph])
+  }, [workflowName, graphs])
 
   // Initialize workflow on mount
   useEffect(() => {
@@ -736,6 +871,22 @@ export default function Home() {
     // CRDT: Removed graph state loading - let CRDT observers handle it
     // Port position measurements will be triggered by CRDT observers when nodes load
   }, [currentGraphId, graphs, initialized])
+
+  // Restore canvas state from UserPreferences on initial load
+  useEffect(() => {
+    if (!workflowId || !currentGraphId || !initialized) return
+
+    // Don't restore if canvas state was already loaded from snapshot
+    const currentGraph = graphs.find(g => g.id === currentGraphId)
+    if (currentGraph && currentGraph.canvasState) return
+
+    // Restore canvas state from user preferences
+    const savedCanvasState = UserPreferencesService.getCanvasState(workflowId, currentGraphId)
+    if (savedCanvasState) {
+      setCanvasOffset(savedCanvasState.offset)
+      setCanvasZoom(savedCanvasState.zoom)
+    }
+  }, [workflowId, currentGraphId, initialized, graphs])
 
   // Check for nodes that need configuration and show toast
   useEffect(() => {
@@ -1004,18 +1155,52 @@ export default function Home() {
     }
   }
 
+  // Debounced canvas state persistence to avoid excessive localStorage writes
+  const persistCanvasState = useMemo(() => {
+    let timeoutId: NodeJS.Timeout
+    return (zoom: number, offset: { x: number; y: number }) => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        if (workflowId && currentGraphId) {
+          UserPreferencesService.updateCanvasState(workflowId, currentGraphId, { zoom, offset })
+        }
+      }, 300) // Debounce for 300ms
+    }
+  }, [workflowId, currentGraphId])
+
+  // Enhanced canvas state setters that persist changes
+  const handleCanvasZoomChange = useCallback(
+    (newZoom: number) => {
+      setCanvasZoom(newZoom)
+      persistCanvasState(newZoom, canvasOffset)
+    },
+    [canvasOffset, persistCanvasState]
+  )
+
+  const handleCanvasOffsetChange = useCallback(
+    (newOffset: { x: number; y: number }) => {
+      setCanvasOffset(newOffset)
+      persistCanvasState(canvasZoom, newOffset)
+    },
+    [canvasZoom, persistCanvasState]
+  )
+
   // Zoom control handlers
   const handleZoomIn = () => {
-    setCanvasZoom(prev => Math.min(3, prev * 1.2))
+    const newZoom = Math.min(3, canvasZoom * 1.2)
+    handleCanvasZoomChange(newZoom)
   }
 
   const handleZoomOut = () => {
-    setCanvasZoom(prev => Math.max(0.1, prev / 1.2))
+    const newZoom = Math.max(0.1, canvasZoom / 1.2)
+    handleCanvasZoomChange(newZoom)
   }
 
   const handleZoomReset = () => {
-    setCanvasZoom(1)
-    setCanvasOffset({ x: 0, y: 0 })
+    const newZoom = 1
+    const newOffset = { x: 0, y: 0 }
+    handleCanvasZoomChange(newZoom)
+    handleCanvasOffsetChange(newOffset)
   }
 
   // Handle category click from sidebar
@@ -1787,11 +1972,19 @@ export default function Home() {
 
     // Always save current graph state before switching (in memory, not to storage)
     if (currentGraph) {
-      // Save canvas state
+      // Save canvas state to store
       updateCanvasState(currentGraph.id, {
         offset: canvasOffset,
         zoom: canvasZoom,
       })
+
+      // Save canvas state to user preferences for persistence
+      if (workflowId) {
+        UserPreferencesService.updateCanvasState(workflowId, currentGraph.id, {
+          zoom: canvasZoom,
+          offset: canvasOffset,
+        })
+      }
 
       // Save workflow state
       const workflowState = {
@@ -2488,9 +2681,9 @@ export default function Home() {
         <div className="flex-1 relative overflow-hidden">
           <InteractiveCanvas
             offset={canvasOffset}
-            onOffsetChange={setCanvasOffset}
+            onOffsetChange={handleCanvasOffsetChange}
             zoom={canvasZoom}
-            onZoomChange={setCanvasZoom}
+            onZoomChange={handleCanvasZoomChange}
             onSelectionStart={startSelection}
             onSelectionUpdate={updateSelection}
             onSelectionEnd={() => {
@@ -2571,6 +2764,7 @@ export default function Home() {
                     zoom={canvasZoom}
                     nodePositions={groupNodePositions[group.id] || {}}
                     nodeBounds={nodeBounds}
+                    onGroupResize={handleGroupResize}
                   >
                     {/* Render nodes that belong to this group - only if group is fully loaded */}
                     {groupNodes.length > 0 &&
@@ -2645,7 +2839,8 @@ export default function Home() {
                           })()
 
                         // Store the initial position locally if not already stored
-                        if (!localStoredPosition) {
+                        // Only store if localStorage has been loaded to avoid overwriting saved positions
+                        if (localStorageLoaded && !localStoredPosition) {
                           storeInitialNodePositionInGroup(nodeId, group.id, relativePosition)
                         }
 
@@ -2782,78 +2977,80 @@ export default function Home() {
               //   ungroupedNodes
               // })
 
-              return ungroupedNodes.map((node: any) => {
-                // Skip nodes without metadata
-                if (!node || !node.metadata) {
-                  return null
-                }
+              return ungroupedNodes
+                .map((node: any) => {
+                  // Skip nodes without metadata
+                  if (!node || !node.metadata) {
+                    return null
+                  }
 
-                // Log first node structure for debugging
-                // if (ungroupedNodes.indexOf(node) === 0) {
-                //   // 🔍 First node structure: {
-                //     hasRootId: !!node.id,
-                //     rootId: node.id,
-                //     metadataId: node.metadata?.id,
-                //     position: node.position,
-                //     fullNode: node
-                //   })
-                // }
-                // Debug log for subgraph nodes
-                // if (node.metadata.type === 'subgraph') {
-                //   // 🔍 Rendering subgraph node: {
-                //     id: node.metadata.id,
-                //     type: node.metadata.type,
-                //     title: node.metadata.title,
-                //     graphId: (node.metadata as any).graphId,
-                //     graphNamespace: (node.metadata as any).graphNamespace
-                //   })
-                // }
+                  // Log first node structure for debugging
+                  // if (ungroupedNodes.indexOf(node) === 0) {
+                  //   // 🔍 First node structure: {
+                  //     hasRootId: !!node.id,
+                  //     rootId: node.id,
+                  //     metadataId: node.metadata?.id,
+                  //     position: node.position,
+                  //     fullNode: node
+                  //   })
+                  // }
+                  // Debug log for subgraph nodes
+                  // if (node.metadata.type === 'subgraph') {
+                  //   // 🔍 Rendering subgraph node: {
+                  //     id: node.metadata.id,
+                  //     type: node.metadata.type,
+                  //     title: node.metadata.title,
+                  //     graphId: (node.metadata as any).graphId,
+                  //     graphNamespace: (node.metadata as any).graphNamespace
+                  //   })
+                  // }
 
-                // Check if this is a subgraph node
-                if (node.metadata.type === 'subgraph') {
+                  // Check if this is a subgraph node
+                  if (node.metadata.type === 'subgraph') {
+                    return (
+                      <SubgraphNode
+                        key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
+                        metadata={node.metadata as any}
+                        position={node.position}
+                        onPositionChange={handleNodePositionChange}
+                        onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
+                        onPortPositionUpdate={oldUpdatePortPosition}
+                        onPortDragStart={handlePortDragStart}
+                        onPortDragEnd={handlePortDragEnd}
+                        onClick={() => handleNodeSelect(node.id || node.metadata.id)}
+                        isHighlighted={node.metadata.id === highlightedNodeId}
+                        isNodeSelected={isNodeSelected(node.metadata.id)}
+                        zoom={canvasZoom}
+                      />
+                    )
+                  }
+
                   return (
-                    <SubgraphNode
+                    <DraggableNode
                       key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                      metadata={node.metadata as any}
+                      nodeId={node.id || node.metadata.id}
+                      metadata={node.metadata}
+                      propertyValues={node.propertyValues}
                       position={node.position}
+                      zoom={canvasZoom}
                       onPositionChange={handleNodePositionChange}
                       onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
                       onPortPositionUpdate={oldUpdatePortPosition}
                       onPortDragStart={handlePortDragStart}
                       onPortDragEnd={handlePortDragEnd}
-                      onClick={() => handleNodeSelect(node.id || node.metadata.id)}
+                      onClick={handleNodeSelect}
                       isHighlighted={node.metadata.id === highlightedNodeId}
-                      isNodeSelected={isNodeSelected(node.metadata.id)}
-                      zoom={canvasZoom}
+                      isSelected={isNodeSelected(node.metadata.id)}
+                      onNodeDropIntoGroup={handleNodeDropIntoGroup}
+                      onNodeHoverGroup={handleNodeHoverGroup}
+                      groups={groups}
+                      onPropertyChange={handleNodePropertyChange}
+                      onDragStart={handleNodeDragStart}
+                      onDragEnd={handleNodeDragEnd}
                     />
                   )
-                }
-
-                return (
-                  <DraggableNode
-                    key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                    nodeId={node.id || node.metadata.id}
-                    metadata={node.metadata}
-                    propertyValues={node.propertyValues}
-                    position={node.position}
-                    zoom={canvasZoom}
-                    onPositionChange={handleNodePositionChange}
-                    onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
-                    onPortPositionUpdate={oldUpdatePortPosition}
-                    onPortDragStart={handlePortDragStart}
-                    onPortDragEnd={handlePortDragEnd}
-                    onClick={handleNodeSelect}
-                    isHighlighted={node.metadata.id === highlightedNodeId}
-                    isSelected={isNodeSelected(node.metadata.id)}
-                    onNodeDropIntoGroup={handleNodeDropIntoGroup}
-                    onNodeHoverGroup={handleNodeHoverGroup}
-                    groups={groups}
-                    onPropertyChange={handleNodePropertyChange}
-                    onDragStart={handleNodeDragStart}
-                    onDragEnd={handleNodeDragEnd}
-                  />
-                )
-              }).filter(Boolean)
+                })
+                .filter(Boolean)
             })()}
 
             {/* Selection Rectangle */}

@@ -24,8 +24,20 @@ const calculateNodeDimensions = (
     return { width: rect.width, height: rect.height }
   }
 
-  // Fallback to default dimensions if element not found
-  return { width: 200, height: 100 }
+  // Fallback to reasonable dimensions based on node type if element not found
+  // Use more realistic heights for different node types
+  const nodeType = metadata.type || 'default'
+
+  let fallbackHeight = 120 // Default height
+  if (nodeType.includes('ai') || nodeType.includes('model')) {
+    fallbackHeight = 180 // AI nodes are typically taller
+  } else if (nodeType.includes('input') || nodeType.includes('output')) {
+    fallbackHeight = 100 // I/O nodes are usually shorter
+  } else if (nodeType.includes('process') || nodeType.includes('transform')) {
+    fallbackHeight = 140 // Processing nodes are medium height
+  }
+
+  return { width: 200, height: fallbackHeight }
 }
 
 interface NodeGroupContainerProps {
@@ -39,6 +51,7 @@ interface NodeGroupContainerProps {
   zoom?: number
   nodePositions?: Record<string, { x: number; y: number }> // Local node positions
   nodeBounds?: Map<string, { x: number; y: number; width: number; height: number }> // Node bounds from useNodeBounds hook
+  onGroupResize?: (groupId: string, newSize: { width: number; height: number }) => void // Callback for resize
 }
 
 export function NodeGroupContainer({
@@ -52,6 +65,7 @@ export function NodeGroupContainer({
   zoom = 1,
   nodePositions = {},
   nodeBounds,
+  onGroupResize,
 }: NodeGroupContainerProps) {
   // Memoize group data to prevent unnecessary re-renders
   const groupId = group?.id
@@ -106,6 +120,42 @@ export function NodeGroupContainer({
       lastValidPosition.current = { ...groupPosition }
     }
   }, [groupPosition?.x, groupPosition?.y])
+
+  // Preserve position stability during collapse/expand transitions
+  const stablePositionRef = useRef<{ x: number; y: number } | null>(null)
+
+  // Always keep the most recent valid position
+  useEffect(() => {
+    if (
+      groupPosition &&
+      typeof groupPosition.x === 'number' &&
+      typeof groupPosition.y === 'number'
+    ) {
+      stablePositionRef.current = { ...groupPosition }
+    }
+  }, [groupPosition?.x, groupPosition?.y])
+
+  // During state transitions, ensure we maintain position stability
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const transitionPositionRef = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    // Capture current position BEFORE the collapse state change affects anything
+    const currentPos = groupPosition || lastValidPosition.current || stablePositionRef.current
+    if (currentPos && typeof currentPos.x === 'number' && typeof currentPos.y === 'number') {
+      transitionPositionRef.current = { ...currentPos }
+    }
+
+    // Mark as transitioning briefly to use the captured position
+    setIsTransitioning(true)
+    // Use a very short timeout since we removed CSS transitions
+    const timeout = setTimeout(() => {
+      setIsTransitioning(false)
+      transitionPositionRef.current = null // Clear after transition
+    }, 50) // Short timeout since no CSS animation
+
+    return () => clearTimeout(timeout)
+  }, [isCollapsed, groupId])
 
   // Debug logging to track prop changes
 
@@ -338,8 +388,14 @@ export function NodeGroupContainer({
           }
 
           resizeTimeoutRef.current = setTimeout(() => {
-            updateGroup(groupId, { size: { width: newWidth, height: newHeight } })
+            const newSize = { width: newWidth, height: newHeight }
+            updateGroup(groupId, { size: newSize })
             setGraphDirty(currentGraphId, true)
+
+            // Update the stored expanded size so collapse/expand remembers the new size
+            if (onGroupResize) {
+              onGroupResize(groupId, newSize)
+            }
           }, 16) // ~60fps
         }
       })
@@ -371,12 +427,47 @@ export function NodeGroupContainer({
     groupDescription,
   ])
 
-  // Debug position values before render
-  // Use last valid position as fallback to prevent jumps
-  const fallbackX = lastValidPosition.current?.x ?? 100
-  const fallbackY = lastValidPosition.current?.y ?? 100
-  const xPos = localPosition?.x ?? groupPosition?.x ?? fallbackX
-  const yPos = localPosition?.y ?? groupPosition?.y ?? fallbackY
+  // Calculate position with stability during transitions
+  // During transitions, prioritize stable position over potentially invalid CRDT position
+  let xPos: number
+  let yPos: number
+  let positionSource = ''
+
+  if (isTransitioning && transitionPositionRef.current) {
+    // PRIORITY: During collapse/expand transitions, use the captured position to prevent jumping
+    xPos = transitionPositionRef.current.x
+    yPos = transitionPositionRef.current.y
+    positionSource = 'transitionPosition'
+  } else if (localPosition && isDragging) {
+    // Use local position ONLY during active dragging (not during collapse/expand)
+    xPos = localPosition.x
+    yPos = localPosition.y
+    positionSource = 'localPosition'
+  } else if (
+    groupPosition &&
+    typeof groupPosition.x === 'number' &&
+    typeof groupPosition.y === 'number'
+  ) {
+    // Use CRDT position when available and valid
+    xPos = groupPosition.x
+    yPos = groupPosition.y
+    positionSource = 'groupPosition'
+  } else if (lastValidPosition.current) {
+    // Fallback to last known good position
+    xPos = lastValidPosition.current.x
+    yPos = lastValidPosition.current.y
+    positionSource = 'lastValidPosition'
+  } else if (stablePositionRef.current) {
+    // Fallback to stable position
+    xPos = stablePositionRef.current.x
+    yPos = stablePositionRef.current.y
+    positionSource = 'stablePosition'
+  } else {
+    // Last resort fallback - this should rarely happen
+    xPos = 100
+    yPos = 100
+    positionSource = 'hardcoded_fallback'
+  }
 
   // Log if position is invalid but still render with fallback
   if (
@@ -400,7 +491,7 @@ export function NodeGroupContainer({
   return (
     <div
       ref={containerRef}
-      className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto transition-all duration-200 ${
+      className={`absolute border-2 border-dashed border-gray-400 bg-gray-50/30 rounded-lg pointer-events-auto ${
         isCollapsed ? 'border-gray-600 bg-gray-100/50' : ''
       } ${isDragging ? 'shadow-2xl border-blue-500' : ''} ${
         isDropTarget && !isCollapsed

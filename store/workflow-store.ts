@@ -84,6 +84,9 @@ interface WorkflowStore {
   lastUpdate?: number
   isOptimized: boolean
 
+  // Data snapshot for diffing
+  dataSnapshot?: string
+
   // Core actions
   initialize: (workflowId: string, workflowName?: string) => Promise<void>
   cleanup: () => void
@@ -114,7 +117,11 @@ interface WorkflowStore {
     groupId: string,
     bounds: Partial<{ x: number; y: number; width: number; height: number }>
   ) => void
-  recalculateGroupBounds: (groupId: string) => void
+  recalculateGroupBounds: (
+    groupId: string,
+    localNodePositions?: Record<string, { x: number; y: number }>
+  ) => void
+  recalculateAllGroupBounds: () => void
   addNodeToGroup: (nodeId: string, groupId: string) => void
   removeNodeFromGroup: (nodeId: string, groupId: string) => void
   removeGroup: (groupId: string) => void
@@ -158,6 +165,22 @@ interface WorkflowStore {
 }
 
 // Store implementation
+// Separate selector hooks to prevent unnecessary re-renders
+export const useConnectionStatus = () =>
+  useWorkflowStore(state => ({
+    isConnected: state.isConnected,
+    isSyncing: state.isSyncing,
+  }))
+
+export const useWorkflowData = () =>
+  useWorkflowStore(state => ({
+    nodes: state.nodes,
+    connections: state.connections,
+    groups: state.groups,
+    currentGraphId: state.currentGraphId,
+    graphs: state.graphs,
+  }))
+
 export const useWorkflowStore = create<WorkflowStore>()(
   devtools((set, get) => {
     return {
@@ -183,9 +206,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
       isConnected: false,
       isSyncing: false,
       isOptimized: false,
+      dataSnapshot: undefined,
 
       initialize: async (workflowId: string, workflowName?: string) => {
-
         // Clean up any existing connection
         get().cleanup()
 
@@ -203,7 +226,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const { isCollaborationEnabled, getCRDTServerUrl } = await import('@/lib/config/runtime')
         const enableCRDT = isCollaborationEnabled()
 
-
         let provider: RustSocketIOProvider | null = null
         if (enableCRDT) {
           const serverUrl = getCRDTServerUrl()
@@ -218,10 +240,20 @@ export const useWorkflowStore = create<WorkflowStore>()(
             },
             onStatusChange: status => {
               const currentState = get()
-              set({
-                isConnected: status === 'connected',
-                isSyncing: status === 'connecting',
-              })
+              // Update connection status without triggering re-render of data components
+              // Only update the specific fields without touching data
+              const newConnected = status === 'connected'
+              const newSyncing = status === 'connecting'
+
+              if (
+                currentState.isConnected !== newConnected ||
+                currentState.isSyncing !== newSyncing
+              ) {
+                set({
+                  isConnected: newConnected,
+                  isSyncing: newSyncing,
+                })
+              }
 
               // Reset sync optimizer on reconnection
               if (status === 'connected' && currentState.syncOptimizer) {
@@ -362,7 +394,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Load snapshot data into CRDT
         if (snapshot) {
-
           doc.transact(() => {
             // Set metadata with validation
             if (snapshot.id) metadataMap.set('workflowId', String(snapshot.id))
@@ -527,6 +558,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           presence: new Map(),
           localClientId: undefined,
           isConnected: false,
+          dataSnapshot: undefined,
         })
       },
 
@@ -816,7 +848,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           return
         }
 
-
         try {
           doc.transact(() => {
             const connectionsMap = doc.getMap(`connections-${currentGraphId}`)
@@ -890,7 +921,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const groupNodes = nodes.filter(n => nodeIds.includes((n as any).id || n.metadata.id))
         if (groupNodes.length === 0) return ''
 
-
         // For new groups, assume no description initially (32px header)
         const headerOffset = 32
         const padding = 10
@@ -898,14 +928,24 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const minX = Math.min(...groupNodes.map(n => n.position.x)) - padding
         const minY = Math.min(...groupNodes.map(n => n.position.y)) - headerOffset - padding
 
-        // Calculate actual max bounds using real node dimensions
+        // Calculate actual max bounds using real node dimensions from DOM
         let maxX = minX
         let maxY = minY + headerOffset // Start from after header
+        let hasValidDimensions = false
 
         groupNodes.forEach(node => {
-          const { width, height } = calculateNodeDimensions(node.metadata)
-          maxX = Math.max(maxX, node.position.x + width)
-          maxY = Math.max(maxY, node.position.y + height)
+          const dimensions = calculateNodeDimensions(node.metadata)
+          if (dimensions) {
+            // Use actual DOM measurements
+            maxX = Math.max(maxX, node.position.x + dimensions.width)
+            maxY = Math.max(maxY, node.position.y + dimensions.height)
+            hasValidDimensions = true
+          } else {
+            // If we can't measure, use a minimal fallback that will be corrected later
+            // This happens when nodes are not yet rendered or are off-screen
+            maxX = Math.max(maxX, node.position.x + 200) // Conservative default
+            maxY = Math.max(maxY, node.position.y + 100)
+          }
         })
 
         // Add padding to max bounds
@@ -915,6 +955,15 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const groupId = `group-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
         const now = new Date().toISOString()
 
+        // If we couldn't get DOM measurements, schedule a recalculation after nodes are likely rendered
+        if (!hasValidDimensions) {
+          setTimeout(() => {
+            const state = get()
+            if (state.groups.find(g => g.id === groupId)) {
+              state.recalculateGroupBounds(groupId)
+            }
+          }, 100) // Give nodes time to render
+        }
 
         doc.transact(() => {
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
@@ -933,7 +982,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
             updatedAt: now,
           }
 
-  
           // Store as plain object (not Y.Map) - this will sync properly
           // Use JSON parse/stringify to ensure clean object
           const cleanGroup = JSON.parse(JSON.stringify(plainGroup))
@@ -961,7 +1009,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           groups: [...state.groups, newGroup],
           lastUpdate: Date.now(),
         }))
-
 
         return groupId
       },
@@ -1008,7 +1055,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           // Ensure position is preserved if not being updated
           if (!updates.position && currentGroup.position) {
-              }
+          }
 
           // Create updated group with minimal changes
           // Never let position or size become undefined
@@ -1105,7 +1152,18 @@ export const useWorkflowStore = create<WorkflowStore>()(
         }
       },
 
-      recalculateGroupBounds: (groupId: string) => {
+      // Recalculate bounds for all groups - useful after nodes are rendered/resized
+      recalculateAllGroupBounds: () => {
+        const { groups } = get()
+        groups.forEach(group => {
+          get().recalculateGroupBounds(group.id)
+        })
+      },
+
+      recalculateGroupBounds: (
+        groupId: string,
+        localNodePositions?: Record<string, { x: number; y: number }>
+      ) => {
         const { doc, currentGraphId, nodes, groups } = get()
         if (!doc) return
 
@@ -1117,38 +1175,131 @@ export const useWorkflowStore = create<WorkflowStore>()(
         )
         if (memberNodes.length === 0) return
 
-        
         // Header offset: 32px for header + 68px if description exists
         const headerOffset = group.description ? 100 : 32
-        const padding = 10
 
-        // Calculate bounds including actual node dimensions
-        const minX = Math.min(...memberNodes.map(n => n.position?.x || 0)) - padding
-        const minY = Math.min(...memberNodes.map(n => n.position?.y || 0)) - headerOffset - padding
-        
-        // Calculate actual max bounds using real node dimensions
-        let maxX = minX
-        let maxY = minY + headerOffset // Start from after header
-        
-        memberNodes.forEach(node => {
-          const { width, height } = calculateNodeDimensions(node.metadata)
-          maxX = Math.max(maxX, (node.position?.x || 0) + width)
-          maxY = Math.max(maxY, (node.position?.y || 0) + height)
+        // CRITICAL: Preserve existing group position - NEVER change it
+        const currentPosition = group.position || { x: 0, y: 0 }
+
+        // Calculate the bounding rectangle that encompasses ALL member nodes
+        let minNodeX = Infinity
+        let minNodeY = Infinity
+        let maxNodeX = -Infinity
+        let maxNodeY = -Infinity
+        let hasValidDimensions = false
+
+        // First, collect all node data for analysis
+        const nodeData: Array<{
+          node: any
+          absolutePos: { x: number; y: number }
+          relativePos: { x: number; y: number }
+          dimensions: { width: number; height: number } | null
+          rightEdge: number
+          bottomEdge: number
+        }> = []
+
+        memberNodes.forEach((node, index) => {
+          const nodeId = (node as any).id || node.metadata.id
+          let nodeRelativeX: number
+          let nodeRelativeY: number
+
+          // Use local positions if available (these are the actual visual positions)
+          if (localNodePositions && localNodePositions[nodeId]) {
+            nodeRelativeX = localNodePositions[nodeId].x
+            nodeRelativeY = localNodePositions[nodeId].y
+          } else {
+            // Fallback to converting absolute positions
+            const nodeAbsX = node.position?.x || 0
+            const nodeAbsY = node.position?.y || 0
+            nodeRelativeX = nodeAbsX - currentPosition.x
+            nodeRelativeY = nodeAbsY - currentPosition.y - headerOffset
+          }
+
+          const dimensions = calculateNodeDimensions(node.metadata)
+          const rightEdge = nodeRelativeX + (dimensions?.width || 200)
+          const bottomEdge = nodeRelativeY + (dimensions?.height || 120)
+
+          nodeData.push({
+            node,
+            absolutePos: { x: node.position?.x || 0, y: node.position?.y || 0 },
+            relativePos: { x: nodeRelativeX, y: nodeRelativeY },
+            dimensions,
+            rightEdge,
+            bottomEdge,
+          })
         })
-        
-        // Add padding to max bounds
-        maxX += padding
-        maxY += padding
 
-        const newBounds = {
-          x: minX,
-          y: minY,
-          width: maxX - minX,
-          height: maxY - minY,
+        // Find the nodes that are creating the extreme values
+        const leftmostNode = nodeData.reduce((prev, curr) =>
+          prev.relativePos.x < curr.relativePos.x ? prev : curr
+        )
+        const rightmostNode = nodeData.reduce((prev, curr) =>
+          prev.rightEdge > curr.rightEdge ? prev : curr
+        )
+        const topmostNode = nodeData.reduce((prev, curr) =>
+          prev.relativePos.y < curr.relativePos.y ? prev : curr
+        )
+        const bottommostNode = nodeData.reduce((prev, curr) =>
+          prev.bottomEdge > curr.bottomEdge ? prev : curr
+        )
+
+        // Now process the nodes for bounds calculation
+        nodeData.forEach(({ relativePos: { x: nodeRelativeX, y: nodeRelativeY }, dimensions }) => {
+          if (dimensions) {
+            // Use relative positions to calculate the content area bounds
+            minNodeX = Math.min(minNodeX, nodeRelativeX)
+            minNodeY = Math.min(minNodeY, nodeRelativeY)
+            maxNodeX = Math.max(maxNodeX, nodeRelativeX + dimensions.width)
+            maxNodeY = Math.max(maxNodeY, nodeRelativeY + dimensions.height)
+            hasValidDimensions = true
+          } else {
+            // Fallback with reasonable default dimensions
+            minNodeX = Math.min(minNodeX, nodeRelativeX)
+            minNodeY = Math.min(minNodeY, nodeRelativeY)
+            maxNodeX = Math.max(maxNodeX, nodeRelativeX + 200) // Default width
+            maxNodeY = Math.max(maxNodeY, nodeRelativeY + 120) // Default height
+          }
+        })
+
+        // If no valid dimensions found, preserve current group bounds entirely
+        if (!hasValidDimensions && group.size && group.position) {
+          return // Don't change anything if we can't calculate proper bounds
         }
 
+        // Ensure we have valid bounds
+        if (minNodeX === Infinity || minNodeY === Infinity) {
+          return // Invalid node positions
+        }
 
-        // Update group bounds
+        // Calculate actual bounding rectangle from node positions (using local positions when available)
+        const nodePositions = nodeData.map(nd => ({ x: nd.relativePos.x, y: nd.relativePos.y }))
+        const minNodePosX = Math.min(...nodePositions.map(p => p.x))
+        const maxNodePosX = Math.max(...nodePositions.map(p => p.x))
+        const minNodePosY = Math.min(...nodePositions.map(p => p.y))
+        const maxNodePosY = Math.max(...nodePositions.map(p => p.y))
+
+        // Calculate span between node positions + width/height of a representative node
+        const representativeNodeWidth = nodeData[0]?.dimensions?.width || 240
+        const representativeNodeHeight = Math.max(
+          ...nodeData.map(nd => nd.dimensions?.height || 120)
+        )
+
+        const nodeSpanWidth = maxNodePosX - minNodePosX + representativeNodeWidth
+        const nodeSpanHeight = maxNodePosY - minNodePosY + representativeNodeHeight
+
+        // Add margins: left/top already accounted for by minPos, need right/bottom margins
+        const rightMargin = 140 // Maximum margin for clear visibility
+        const bottomMargin = 140 // Maximum margin for clear visibility
+        const requiredWidth = Math.max(300, nodeSpanWidth + rightMargin)
+        const requiredHeight = Math.max(200, nodeSpanHeight + headerOffset + bottomMargin)
+
+        // Update ONLY the size, preserve position completely
+        const newBounds = {
+          width: requiredWidth,
+          height: requiredHeight,
+        }
+
+        // Update group bounds with only width/height - position unchanged
         get().updateGroupBounds(groupId, newBounds)
       },
 
@@ -1354,11 +1505,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
       updateCursorPosition: (() => {
         let lastUpdate = 0
         const throttleMs = 50 // Throttle cursor updates to max 20fps
-        
+
         return (position: { x: number; y: number }) => {
           const now = Date.now()
           if (now - lastUpdate < throttleMs) return
-          
+
           const { provider, currentGraphId } = get()
           if (!provider) return
 
@@ -1508,7 +1659,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
             } else {
             }
           }, 5000)
-
         } else {
         }
       },
@@ -1527,7 +1677,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
         }
 
         try {
-
           // Call the API to perform the rollback
           const response = await fetch(`/api/workflows/${workflowId}/rollback`, {
             method: 'POST',
@@ -1639,7 +1788,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           // Clear dirty state since we just rolled back
           get().clearAllDirtyState()
-
         } catch (error) {
           console.error('[WorkflowStore] Rollback failed:', error)
           throw error
@@ -1782,7 +1930,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
     nodesMap.forEach((yNode: any, nodeId: string) => {
       const metadata = yNode.get('metadata')
       const position = yNode.get('position')
-      
+
       // Skip nodes without metadata - they are invalid
       if (!metadata) {
         console.error('[Workflow Store] Node without metadata found, skipping:', {
@@ -1792,14 +1940,14 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
         })
         return
       }
-      
+
       const nodeData = {
         id: yNode.get('id') || nodeId,
         metadata,
         position,
         propertyValues: yNode.get('propertyValues') || {},
       }
-      
+
       // Only log if position is missing or invalid
       if (
         !nodeData.position ||
@@ -1874,28 +2022,55 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
     if (groups.length > 0) {
     }
 
-    // Update state with spread to ensure new reference
-    set({
-      nodes: [...nodes],
-      connections: [...connections],
-      groups: [...groups],
+    // Create a snapshot of the current data for comparison
+    const newDataSnapshot = JSON.stringify({
+      nodes: nodes.map(n => ({
+        id: (n as any).id || n.metadata.id,
+        position: n.position,
+        metadata: n.metadata,
+        propertyValues: (n as any).propertyValues || {},
+      })),
+      connections: connections.map(c => ({
+        id: c.id,
+        source: c.source,
+        target: c.target,
+        state: c.state,
+      })),
+      groups: groups.map(g => ({
+        id: g.id,
+        title: g.title,
+        position: g.position,
+        size: g.size,
+        nodeIds: g.nodeIds,
+        isCollapsed: g.isCollapsed,
+      })),
     })
 
-    // Force React to re-render by updating a timestamp
-    set({ lastUpdate: Date.now() })
+    // Only update if data has actually changed
+    const currentSnapshot = get().dataSnapshot
+    if (currentSnapshot !== newDataSnapshot) {
+      set({
+        nodes: [...nodes],
+        connections: [...connections],
+        groups: [...groups],
+        dataSnapshot: newDataSnapshot,
+        lastUpdate: Date.now(),
+      })
+    } else {
+      // Data hasn't changed, don't trigger re-render
+      console.debug('[Workflow Store] Data unchanged, skipping update')
+    }
   }
 
   // Set up observers
   const nodesMap = doc.getMap(`nodes-${graphId}`)
   const nodesObserver = (events: Y.YEvent<any>[]) => {
-
     // Check if changes are from remote client
     let isRemoteChange = false
     let remoteUserInfo: any = null
     let changeActions: Array<{ action: 'add' | 'delete' | 'update'; key: string }> = []
 
     events.forEach(event => {
-
       // Capture changes while we're in the event handler
       if (event instanceof YMapEvent) {
         event.changes.keys.forEach((change, key) => {
@@ -1984,7 +2159,6 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
   const connectionsMap = doc.getMap(`connections-${graphId}`)
   const connectionsObserver = (events: Y.YEvent<any>[]) => {
-
     // Check if changes are from remote client
     let isRemoteChange = false
     let remoteUserInfo: any = null
@@ -2069,7 +2243,6 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
   const groupsMap = doc.getMap(`groups-${graphId}`)
   const groupsObserver = (events: Y.YEvent<any>[]) => {
-
     // Check if changes are from remote client
     let isRemoteChange = false
     let remoteUserInfo: any = null
@@ -2201,14 +2374,17 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
     })
 
     // Only update if presence actually changed
-    const hasChanged = states.size !== currentPresence.size || 
+    const hasChanged =
+      states.size !== currentPresence.size ||
       Array.from(states.entries()).some(([clientId, state]) => {
         const current = currentPresence.get(clientId)
         if (!current) return true
-        return current.userId !== state.userId ||
+        return (
+          current.userId !== state.userId ||
           current.userName !== state.userName ||
           current.userColor !== state.userColor ||
           JSON.stringify(current.cursor) !== JSON.stringify(state.cursor)
+        )
       })
 
     if (hasChanged) {
@@ -2241,7 +2417,6 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
 
         // Check if this is a recent update (within last 5 seconds)
         if (update.timestamp && Date.now() - update.timestamp < 5000) {
-  
           // Manually reload the groups data
           const currentGraphId = get().currentGraphId
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
@@ -2264,12 +2439,11 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
               updatedAt: yGroup.get('updatedAt'),
             }
 
-    
             groups.push(groupData)
           })
 
           // Update the state with the reloaded groups
-            set({ groups, lastUpdate: Date.now() })
+          set({ groups, lastUpdate: Date.now() })
         }
       }
     })
