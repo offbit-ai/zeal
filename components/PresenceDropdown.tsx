@@ -4,11 +4,11 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Share2, Settings, Users, LogOut, ChevronDown } from 'lucide-react'
 import { PresenceIndicator } from './PresenceIndicator'
 import type { CRDTPresence } from '@/lib/crdt/types'
+import { useConnectionStatus } from '@/store/workflow-store'
 
 interface PresenceDropdownProps {
   presence: Map<number, CRDTPresence>
   isCollaborative: boolean
-  isSyncing: boolean
   isOptimized?: boolean
   localClientId?: number
   workflowId: string | null
@@ -20,7 +20,6 @@ interface PresenceDropdownProps {
 export function PresenceDropdown({
   presence,
   isCollaborative,
-  isSyncing,
   isOptimized = false,
   localClientId,
   workflowId,
@@ -28,6 +27,8 @@ export function PresenceDropdown({
   onUserSettings,
   className = '',
 }: PresenceDropdownProps) {
+  // Safe to use hooks here since this component is dynamically imported with ssr: false
+
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -57,9 +58,9 @@ export function PresenceDropdown({
         <PresenceIndicator
           presence={presence}
           isCollaborative={isCollaborative}
-          isSyncing={isSyncing}
           isOptimized={isOptimized}
           localClientId={localClientId}
+          // isSyncing={isSyncing}
         />
         <ChevronDown
           className={` w-3 h-3 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}

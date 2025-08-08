@@ -117,13 +117,15 @@ export class RustSocketIOProvider {
 
       // [Rust CRDT] log removed
 
-      // Check if sync has degraded
+      // Check if sync has degraded - only reconnect if socket is actually having issues
+      // Don't reconnect just because there's no collaborative activity (solo editing is normal)
       if (
         this.connected &&
-        (timeSinceLastSync > this.syncTimeoutThreshold ||
-          timeSinceLastAwareness > this.syncTimeoutThreshold)
+        this.socket &&
+        (!this.socket.connected || this.socket.disconnected) &&
+        (timeSinceLastSync > this.syncTimeoutThreshold || timeSinceLastAwareness > this.syncTimeoutThreshold)
       ) {
-        console.warn('[Rust CRDT] Sync degradation detected, attempting reconnection')
+        console.warn('[Rust CRDT] Socket connection issue detected, attempting reconnection')
         this.reconnect()
       }
     }, this.healthCheckInterval)

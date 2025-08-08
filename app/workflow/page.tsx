@@ -47,7 +47,12 @@ import { GroupCreationModal } from '@/components/GroupCreationModal'
 import { EmptyGroupCreationModal } from '@/components/EmptyGroupCreationModal'
 import { GroupEditModal } from '@/components/GroupEditModal'
 import { GroupDeleteModal } from '@/components/GroupDeleteModal'
-import { useWorkflowStore } from '@/store/workflow-store'
+import {
+  useWorkflowStore,
+  usePresence,
+  useWorkflowData,
+  useConnectionStatus,
+} from '@/store/workflow-store'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
 import { TabBar } from '@/components/TabBar'
@@ -71,13 +76,306 @@ const PresenceDropdown = dynamic(
 )
 import { UserSettingsModal } from '@/components/UserSettingsModal'
 import { CollaborativeCursors } from '@/components/CollaborativeCursors'
-import { CRDTFeatureIndicator } from '@/components/CRDTFeatureIndicator'
+// const CRDTFeatureIndicator = dynamic(
+//   () => import('@/components/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),
+//   {
+//     ssr: false,
+//     loading: () => null,
+//   }
+// )
 // import { GraphDebugPanel } from '@/components/GraphDebugPanel'
 import { UserPreferencesService } from '@/services/userPreferences'
 import { NotificationButton } from '@/components/NotificationButton'
 import { NotificationPanel } from '@/components/NotificationPanel'
 // import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/CollapsedGroupPortHandler'
+
+// Memoized component for rendering nodes within a group
+const GroupNodes = React.memo(
+  ({
+    group,
+    groupNodes,
+    groupNodePositions,
+    readyGroupContainers,
+    newlyCreatedGroups,
+    canvasZoom,
+    handleNodePositionInGroup,
+    updateNodeBoundsHook,
+    oldUpdatePortPosition,
+    handlePortDragStart,
+    handlePortDragEnd,
+    handleNodeSelect,
+    isNodeSelected,
+    handleNodeDropIntoGroup,
+    handleNodeHoverGroup,
+    groups,
+    handleNodePropertyChange,
+    handleNodeDragStart,
+    handleNodeDragEnd,
+    highlightedNodeId,
+    updateGroup,
+    setGraphDirty,
+    currentGraphId,
+    getNodeId,
+  }: any) => {
+    // Render if container is ready or for newly created groups  
+    const canRender = readyGroupContainers.has(group.id) || 
+                     newlyCreatedGroups.has(group.id)
+    
+    if (!canRender) return null
+
+    return (
+      <>
+        {groupNodes.map((node: any) => {
+          if (!node || !node.metadata) return null
+
+          const nodeId = getNodeId(node)
+          if (!nodeId) return null
+
+          // Calculate relative position locally
+          const storedPosition = group.nodePositions?.[nodeId]
+          const localPos = groupNodePositions[group.id]?.[nodeId]
+
+          const relativePosition =
+            localPos ||
+            storedPosition ||
+            (() => {
+              const nodePos = node.position || {
+                x: group.position?.x + 50,
+                y: group.position?.y + 50,
+              }
+              const groupPos = group.position || { x: 100, y: 100 }
+              const headerOffset = group.description ? 100 : 32
+
+              return {
+                x: nodePos.x - groupPos.x,
+                y: nodePos.y - groupPos.y - headerOffset,
+              }
+            })()
+
+          if (node.metadata.type === 'subgraph') {
+            return (
+              <SubgraphNode
+                key={`group-${group.id}-node-${nodeId}`}
+                metadata={node.metadata as any}
+                position={relativePosition}
+                onPositionChange={(nodeId, position) => {
+                  handleNodePositionInGroup(nodeId, group.id, position)
+                }}
+                onBoundsChange={(nodeId, bounds) => {
+                  updateNodeBoundsHook(nodeId, bounds)
+                }}
+                onPortPositionUpdate={oldUpdatePortPosition}
+                onPortDragStart={handlePortDragStart}
+                onPortDragEnd={handlePortDragEnd}
+                onClick={() => handleNodeSelect(nodeId)}
+                isHighlighted={node.metadata.id === highlightedNodeId}
+                isNodeSelected={isNodeSelected(node.metadata.id)}
+                zoom={canvasZoom}
+                isInGroup={true}
+              />
+            )
+          }
+
+          return (
+            <DraggableNode
+              key={`group-${group.id}-node-${nodeId}`}
+              nodeId={nodeId}
+              metadata={node.metadata}
+              propertyValues={node.propertyValues}
+              position={relativePosition}
+              zoom={canvasZoom}
+              onPositionChange={(nodeId, position) => {
+                handleNodePositionInGroup(nodeId, group.id, position)
+              }}
+              onBoundsChange={(nodeId, bounds) => {
+                updateNodeBoundsHook(nodeId, bounds)
+              }}
+              onPortPositionUpdate={oldUpdatePortPosition}
+              onPortDragStart={handlePortDragStart}
+              onPortDragEnd={handlePortDragEnd}
+              onClick={handleNodeSelect}
+              isHighlighted={node.metadata.id === highlightedNodeId}
+              isSelected={isNodeSelected(node.metadata.id)}
+              onNodeDropIntoGroup={handleNodeDropIntoGroup}
+              onNodeHoverGroup={handleNodeHoverGroup}
+              groups={groups}
+              isInGroup={true}
+              currentGroup={group}
+              onPropertyChange={handleNodePropertyChange}
+              onDragStart={handleNodeDragStart}
+              onDragEnd={handleNodeDragEnd}
+              onNodeNearGroupBoundary={(nodeId, groupId, action, value) => {
+                // Group resize should be local-only, don't update CRDT during node drag resize
+                // This prevents flickering during group resize operations
+              }}
+            />
+          )
+        })}
+      </>
+    )
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison to prevent unnecessary re-renders
+    // Only re-render if the group or its nodes actually changed
+    
+    // Check if group identity changed
+    if (prevProps.group?.id !== nextProps.group?.id) return false
+    
+    // Check if group nodes array changed
+    if (prevProps.groupNodes?.length !== nextProps.groupNodes?.length) return false
+    
+    // Check if any node metadata changed (simplified check)
+    const prevNodeIds = prevProps.groupNodes?.map((n: any) => n?.metadata?.id).join(',') || ''
+    const nextNodeIds = nextProps.groupNodes?.map((n: any) => n?.metadata?.id).join(',') || ''
+    if (prevNodeIds !== nextNodeIds) return false
+    
+    // Check if individual node properties changed (check if any node data changed)
+    for (let i = 0; i < prevProps.groupNodes?.length || 0; i++) {
+      const prevNode = prevProps.groupNodes?.[i]
+      const nextNode = nextProps.groupNodes?.[i]
+      
+      // Check if node property values changed
+      if (JSON.stringify(prevNode?.propertyValues) !== JSON.stringify(nextNode?.propertyValues)) return false
+      
+      // Check if node position changed
+      if (prevNode?.position?.x !== nextNode?.position?.x || 
+          prevNode?.position?.y !== nextNode?.position?.y) return false
+    }
+    
+    // Check if group positions changed
+    if (JSON.stringify(prevProps.groupNodePositions?.[prevProps.group?.id]) !== 
+        JSON.stringify(nextProps.groupNodePositions?.[nextProps.group?.id])) return false
+    
+    // Check if container ready state changed
+    if (prevProps.readyGroupContainers?.has(prevProps.group?.id) !== 
+        nextProps.readyGroupContainers?.has(nextProps.group?.id)) return false
+    
+    // Check if newly created state changed
+    if (prevProps.newlyCreatedGroups?.has(prevProps.group?.id) !== 
+        nextProps.newlyCreatedGroups?.has(nextProps.group?.id)) return false
+    
+    // Check if zoom changed
+    if (prevProps.canvasZoom !== nextProps.canvasZoom) return false
+    
+    // Check if highlighted node changed
+    if (prevProps.highlightedNodeId !== nextProps.highlightedNodeId) return false
+    
+    // Check if current graph changed
+    if (prevProps.currentGraphId !== nextProps.currentGraphId) return false
+    
+    // NOTE: We don't check function props (handlers) as they should be memoized with useCallback
+    // If function props cause re-renders, the issue is that they're not properly memoized
+    
+    // All relevant props are the same, skip re-render
+    return true
+  }
+)
+
+GroupNodes.displayName = 'GroupNodes'
+
+// Memoized component for ungrouped nodes
+const UngroupedNodes = React.memo(
+  ({
+    storeNodes,
+    groups,
+    initialized,
+    // ... all other props needed for DraggableNode
+    handlePortDragStart,
+    handlePortDragEnd,
+    handleNodeSelect,
+    isNodeSelected,
+    handleNodeDropIntoGroup,
+    handleNodeHoverGroup,
+    canvasZoom,
+    handleNodePositionChange,
+    handleNodePropertyChange,
+    handleNodeDragStart,
+    handleNodeDragEnd,
+    highlightedNodeId,
+    getNodeId,
+    updateNodeBoundsHook,
+    oldUpdatePortPosition,
+  }: any) => {
+    // Wait for groups to be fully loaded before filtering ungrouped nodes
+    const groupsFullyLoaded =
+      groups.length === 0 ||
+      groups.every((g: any) => {
+        if (!g.nodeIds?.length) return true
+        return g.nodePositions && Object.keys(g.nodePositions).length >= g.nodeIds.length
+      })
+
+    if (!initialized || !groupsFullyLoaded) {
+      return null
+    }
+
+    const ungroupedNodes =
+      storeNodes?.filter((node: any) => {
+        const nodeId = getNodeId(node)
+        const inAnyGroup = groups.some((group: any) => group.nodeIds.includes(nodeId))
+        return !inAnyGroup
+      }) || []
+
+    return (
+      <>
+        {ungroupedNodes.map((node: any) => {
+          if (!node || !node.metadata) return null
+          const nodeId = getNodeId(node)
+
+          // Check if this is a subgraph node
+          if (node.metadata.type === 'subgraph') {
+            return (
+              <SubgraphNode
+                key={nodeId}
+                metadata={node.metadata as any}
+                position={node.position}
+                onPositionChange={handleNodePositionChange}
+                onBoundsChange={updateNodeBoundsHook}
+                onPortPositionUpdate={oldUpdatePortPosition}
+                onPortDragStart={handlePortDragStart}
+                onPortDragEnd={handlePortDragEnd}
+                onClick={() => handleNodeSelect(nodeId)}
+                isHighlighted={nodeId === highlightedNodeId}
+                isNodeSelected={isNodeSelected(nodeId)}
+                zoom={canvasZoom}
+              />
+            )
+          }
+
+          return (
+            <DraggableNode
+              key={nodeId}
+              nodeId={nodeId}
+              metadata={node.metadata}
+              propertyValues={node.propertyValues}
+              position={node.position}
+              zoom={canvasZoom}
+              onPositionChange={handleNodePositionChange}
+              onBoundsChange={updateNodeBoundsHook}
+              onPortPositionUpdate={oldUpdatePortPosition}
+              onPortDragStart={handlePortDragStart}
+              onPortDragEnd={handlePortDragEnd}
+              onClick={handleNodeSelect}
+              isHighlighted={nodeId === highlightedNodeId}
+              isSelected={isNodeSelected(nodeId)}
+              onNodeDropIntoGroup={handleNodeDropIntoGroup}
+              onNodeHoverGroup={handleNodeHoverGroup}
+              groups={groups}
+              onPropertyChange={handleNodePropertyChange}
+              onDragStart={handleNodeDragStart}
+              onDragEnd={handleNodeDragEnd}
+            />
+          )
+        })}
+      </>
+    )
+  },
+  () => false // Temporarily disable memoization to debug issues
+)
+
+UngroupedNodes.displayName = 'UngroupedNodes'
+ // Collaborative features are always enabled with the new store
+  const isCollaborative = true
 
 export default function Home() {
   // Parse URL parameters to get shared workflow ID
@@ -167,6 +465,13 @@ export default function Home() {
     width: 1200,
     height: 800,
   })
+
+ 
+
+  // Track which group containers are ready to prevent node flickering
+  const [readyGroupContainers, setReadyGroupContainers] = useState<Set<string>>(new Set())
+  // Track newly created groups to render their nodes immediately
+  const [newlyCreatedGroups, setNewlyCreatedGroups] = useState<Set<string>>(new Set())
   const [isEditingWorkflowName, setIsEditingWorkflowName] = useState(false)
   const [editedWorkflowName, setEditedWorkflowName] = useState('')
   const [workflowTrigger, setWorkflowTrigger] = useState<any>(null)
@@ -188,6 +493,14 @@ export default function Home() {
   }, [])
 
   // Zustand stores
+  // Separate data fetching to prevent unnecessary re-renders
+  const workflowData = useWorkflowData()
+  const storeNodes = workflowData.nodes
+  const connections = workflowData.connections
+  const groups = workflowData.groups
+  const currentGraphId = workflowData.currentGraphId
+  const graphs = workflowData.graphs
+
   const {
     // Core state
     workflowId,
@@ -198,24 +511,13 @@ export default function Home() {
     doc,
     provider,
 
-    // Current view state
-    currentGraphId,
-    nodes: storeNodes,
-    connections,
-    groups,
-    graphs,
-
     // Canvas state (per graph, local only)
     canvasStates,
 
     // Selection state (local only)
     selectedNodeIds,
 
-    // Presence
-    presence,
-    localClientId,
-    isConnected,
-    isSyncing,
+    // Connection status
     isOptimized,
 
     // Core actions
@@ -233,6 +535,7 @@ export default function Home() {
     updateNodePosition,
     updateNodeProperty,
     removeNode,
+    updateNodePositionInGroup,
 
     // Connection management
     addConnection,
@@ -275,21 +578,37 @@ export default function Home() {
     connectCRDT,
   } = useWorkflowStore()
 
+  // Use separate hook for presence to prevent re-renders
+  const { presence, localClientId } = usePresence()
+  const { isConnected, isSyncing } = useConnectionStatus()
+
+  // Always render nodes when initialized - don't hide during brief sync periods
+  // This prevents nodes from disappearing during temporary connection states
+  const shouldRenderNodes = initialized
+  const shouldAllowGroupRendering = initialized
+
+  // Memoize group nodes calculation to prevent unnecessary re-renders
+  const groupNodesByGroupId = useMemo(() => {
+    const result: Record<string, any[]> = {}
+    groups.forEach((group: any) => {
+      if (group.id) {
+        result[group.id] = storeNodes.filter((node: any) => {
+          const nodeId = getNodeId(node)
+          return nodeId && group.nodeIds.includes(nodeId) && node.metadata
+        })
+      }
+    })
+    return result
+  }, [groups, storeNodes, getNodeId])
+
   // Enhanced node bounds hook that also recalculates group bounds when nodes change size
   const updateNodeBoundsHook = useCallback(
     (nodeId: string, bounds: any) => {
       originalUpdateNodeBoundsHook(nodeId, bounds)
-
-      // Find any groups containing this node and recalculate their bounds
-      const nodeGroups = groups.filter(group => group.nodeIds.includes(nodeId))
-      nodeGroups.forEach(group => {
-        // Debounce group recalculation to avoid excessive updates
-        setTimeout(() => {
-          recalculateGroupBounds(group.id, groupNodePositions[group.id])
-        }, 50)
-      })
+      // Don't recalculate group bounds during resize operations to prevent flickering
+      // Group bounds will be recalculated when nodes are added/removed, not during resize
     },
-    [originalUpdateNodeBoundsHook, groups, recalculateGroupBounds]
+    [originalUpdateNodeBoundsHook]
   )
 
   // Local state for node positions within groups (not synced)
@@ -346,7 +665,7 @@ export default function Home() {
 
   const handleGroupCollapseToggle = useCallback(
     (groupId: string) => {
-      const group = groups.find(g => g.id === groupId)
+      const group = groups.find((g: { id: string }) => g.id === groupId)
       if (!group) return
 
       setLocalGroupCollapseState(prev => {
@@ -393,23 +712,22 @@ export default function Home() {
   )
   // Structure: { groupId: isCollapsed }
 
-  // Load groupNodePositions from localStorage when workflowId becomes available
+  // Load groupNodePositions from localStorage as fallback only (CRDT will override)
   useEffect(() => {
-    if (workflowId && typeof window !== 'undefined') {
+    if (workflowId && typeof window !== 'undefined' && !initialized) {
       const saved = localStorage.getItem(`groupNodePositions-${workflowId}`)
-      let parsedPositions = {}
       if (saved) {
         try {
-          parsedPositions = JSON.parse(saved)
+          const parsedPositions = JSON.parse(saved)
+          // Only use localStorage if CRDT hasn't loaded yet
           setGroupNodePositions(parsedPositions)
         } catch (e) {
           console.error('Failed to parse saved group node positions:', e)
         }
       }
-      // Mark localStorage as loaded even if there was no saved data
       setLocalStorageLoaded(true)
     }
-  }, [workflowId])
+  }, [workflowId, initialized])
 
   // Save groupNodePositions to localStorage when it changes
   useEffect(() => {
@@ -418,42 +736,43 @@ export default function Home() {
     }
   }, [groupNodePositions, workflowId])
 
-  // Recalculate and update node positions when groups and nodes are loaded
+  // Sync localStorage with CRDT data when groups change - CRDT always takes precedence
   useEffect(() => {
-    if (!localStorageLoaded || groups.length === 0 || storeNodes.length === 0) return
+    if (!workflowId || !initialized || groups.length === 0 || isSyncing) return
 
-    // For each group, ensure nodes have correct absolute positions
+    // CRDT positions always override localStorage to prevent flickering
+    const crdtPositions: Record<string, Record<string, { x: number; y: number }>> = {}
+    let hasCrdtData = false
+
     groups.forEach(group => {
-      group.nodeIds.forEach(nodeId => {
-        const node = storeNodes.find(n => n.metadata.id === nodeId)
-        if (!node) return
+      if (group.nodePositions && Object.keys(group.nodePositions).length > 0) {
+        crdtPositions[group.id] = group.nodePositions
+        hasCrdtData = true
+      }
+    })
 
-        const localPosition = groupNodePositions[group.id]?.[nodeId]
-        if (localPosition) {
-          // Calculate expected absolute position based on local position
-          const headerOffset = group.description ? 100 : 32
-          const expectedAbsolutePos = {
-            x: group.position.x + localPosition.x,
-            y: group.position.y + headerOffset + localPosition.y,
-          }
-
-          // Check if current position matches expected
-          const currentPos = node.position
-          if (
-            currentPos &&
-            (Math.abs(currentPos.x - expectedAbsolutePos.x) > 1 ||
-              Math.abs(currentPos.y - expectedAbsolutePos.y) > 1)
-          ) {
-            // Update to correct position
-            updateNodePosition(nodeId, expectedAbsolutePos)
+    // Only update if we have CRDT data and it's actually different
+    if (hasCrdtData) {
+      setGroupNodePositions(prev => {
+        // Check if there are actual changes before updating
+        const hasChanges = Object.keys(crdtPositions).some(groupId => {
+          const prevPositions = prev[groupId]
+          const newPositions = crdtPositions[groupId]
+          return JSON.stringify(prevPositions) !== JSON.stringify(newPositions)
+        })
+        
+        if (hasChanges) {
+          return {
+            ...prev, // Keep positions for groups not in CRDT yet
+            ...crdtPositions, // CRDT positions override everything
           }
         }
+        return prev // No changes, return same reference
       })
-    })
-  }, [localStorageLoaded, groups, storeNodes, groupNodePositions, updateNodePosition])
+    }
+  }, [groups, workflowId, initialized, isSyncing])
 
-  // Collaborative features are always enabled with the new store
-  const isCollaborative = true
+  // This logic has been moved to NodeGroupContainer component for better localization
 
   // Force autosave on when in collaborative mode
   useEffect(() => {
@@ -465,13 +784,13 @@ export default function Home() {
   // Keep selection state synchronized
   useEffect(() => {
     // Sync the selectedNodeIds from the store with our local selection state
-    if (!selection.dragSelecting) {
+    if (!selection.dragSelecting && !isSyncing) {
       setSelection(prev => ({
         ...prev,
         selectedNodeIds: selectedNodeIds,
       }))
     }
-  }, [selectedNodeIds, selection.dragSelecting])
+  }, [selectedNodeIds, selection.dragSelecting, isSyncing])
 
   // Expose debug functions to window for recovery
   useEffect(() => {
@@ -481,10 +800,11 @@ export default function Home() {
     }
   }, [getAllGraphsData])
 
-  // Debug: Log graphs data
+  // Debug: Log graphs data - skip during sync to reduce noise
   useEffect(() => {
+    if (isSyncing) return
     // [Page] Graphs state changed
-  }, [graphs, currentGraphId, initialized])
+  }, [graphs, currentGraphId, initialized, isSyncing])
 
   // Cleanup hover timeout on unmount
   useEffect(() => {
@@ -617,6 +937,9 @@ export default function Home() {
       document.title = 'Zeal - Workflow Orchestrator'
     }
   }, [workflowName, graphs])
+
+  // This logic has been moved to NodeGroupContainer for better localization
+  // Each group component handles its own node position initialization
 
   // Initialize workflow on mount
   useEffect(() => {
@@ -877,7 +1200,7 @@ export default function Home() {
     if (!workflowId || !currentGraphId || !initialized) return
 
     // Don't restore if canvas state was already loaded from snapshot
-    const currentGraph = graphs.find(g => g.id === currentGraphId)
+    const currentGraph = graphs.find((g: { id: any }) => g.id === currentGraphId)
     if (currentGraph && currentGraph.canvasState) return
 
     // Restore canvas state from user preferences
@@ -947,7 +1270,7 @@ export default function Home() {
 
   // Automatic graph state persistence - save current graph state to graph store when changes occur
   useEffect(() => {
-    if (!initialized) return // Don't persist before initialization
+    if (!initialized || isSyncing) return // Don't persist before initialization or during sync
 
     const currentGraph = getCurrentGraph()
     if (currentGraph) {
@@ -967,15 +1290,18 @@ export default function Home() {
         zoom: canvasZoom,
       })
     }
-  }, [storeNodes, connections, groups, workflowTrigger, canvasOffset, canvasZoom, initialized])
+  }, [storeNodes, connections, groups, workflowTrigger, canvasOffset, canvasZoom, initialized, isSyncing])
 
   // Opt-in autosave to storage/server - only when enabled
   useEffect(() => {
-    if (!autosaveEnabled || !initialized || graphs.length === 0 || !doc || storeNodes.length === 0)
+    if (!autosaveEnabled || !initialized || graphs.length === 0 || !doc || storeNodes.length === 0 || isSyncing)
       return
 
     const autosaveDelay = 5000 // 5 seconds delay for actual persistence
     const autosaveTimer = setTimeout(() => {
+      // Skip autosave if still syncing
+      if (isSyncing) return
+      
       // [Page] Triggering autosave...
       try {
         saveWorkflowSilent()
@@ -995,6 +1321,7 @@ export default function Home() {
     autosaveEnabled,
     initialized,
     doc,
+    isSyncing, // Add isSyncing to dependencies
   ])
 
   const handleNodePositionChange = (nodeId: string, position: { x: number; y: number }) => {
@@ -1017,28 +1344,14 @@ export default function Home() {
   }
 
   // Handle node property changes
-  const handleNodePropertyChange = (nodeId: string, propertyName: string, value: any) => {
-    // Handle node property change
-
-    // Get the node to update its property values
-    const node = storeNodes.find((n: any) => (n.id || n.metadata?.id) === nodeId)
-    if (node) {
-      const updatedPropertyValues = {
-        ...(node.metadata.propertyValues || {}),
-        [propertyName]: value,
-      }
-
-      // Update the node properties
-      Object.entries(updatedPropertyValues).forEach(([key, value]) => {
-        updateNodeProperty(nodeId, key, value)
-      })
-
-      setGraphDirty(currentGraphId, true)
-    }
-  }
+  const handleNodePropertyChange = useCallback((nodeId: string, propertyName: string, value: any) => {
+    // Handle node property change - update only the specific property
+    updateNodeProperty(nodeId, propertyName, value)
+    setGraphDirty(currentGraphId, true)
+  }, [updateNodeProperty, setGraphDirty, currentGraphId])
 
   // Handle node selection
-  const handleNodeSelect = (nodeId: string, event?: React.MouseEvent) => {
+  const handleNodeSelect = useCallback((nodeId: string, event?: React.MouseEvent) => {
     const isMac = navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
     const hasModifier = isMac ? event?.metaKey : event?.ctrlKey
 
@@ -1096,7 +1409,7 @@ export default function Home() {
       setIsPropertyPaneVisible(true)
       setIsPropertyPaneClosing(false)
     }
-  }
+  }, [selectedNodeIds, selection.selectedNodeIds, setSelectedNodes, setSelection, setSelectedNodeId, setIsPropertyPaneOpen, setIsPropertyPaneVisible, setIsPropertyPaneClosing])
 
   // Handle property pane close
   const handlePropertyPaneClose = () => {
@@ -1413,7 +1726,7 @@ export default function Home() {
       }
 
       // Mark all graphs as clean after successful save
-      graphs.forEach(graph => {
+      graphs.forEach((graph: { id: string }) => {
         setGraphDirty(graph.id, false)
       })
     } catch (error) {
@@ -1462,7 +1775,7 @@ export default function Home() {
 
   const handleUnsavedChangesDiscard = () => {
     // Mark all graphs as clean since we're discarding changes
-    graphs.forEach(graph => {
+    graphs.forEach((graph: { id: string }) => {
       setGraphDirty(graph.id, false)
     })
 
@@ -1652,8 +1965,20 @@ export default function Home() {
   const handleGroupCreationConfirm = (title: string, description: string) => {
     if (selectedNodeIds.length > 0) {
       const groupId = createGroup(title, selectedNodeIds, '#3b82f6')
-      if (groupId && description) {
-        updateGroup(groupId, { description })
+      if (groupId) {
+        if (description) {
+          updateGroup(groupId, { description })
+        }
+        // Mark as newly created so nodes render immediately
+        setNewlyCreatedGroups(prev => new Set(Array.from(prev).concat(groupId)))
+        // Remove from newly created after a delay
+        setTimeout(() => {
+          setNewlyCreatedGroups(prev => {
+            const updated = new Set(prev)
+            updated.delete(groupId)
+            return updated
+          })
+        }, 2000)
       }
       clearSelection()
     }
@@ -1733,17 +2058,19 @@ export default function Home() {
     setIsEmptyGroupModalOpen(true)
   }
 
-  const handleNodeDropIntoGroup = (nodeId: string, groupId: string) => {
+  const handleNodeDropIntoGroup = useCallback((nodeId: string, groupId: string) => {
     // [PageHandler] Node dropped into group
 
     // Get the target group and node
-    const targetGroup = groups.find(g => g.id === groupId)
-    const node = storeNodes.find(n => n.metadata.id === nodeId)
+    const targetGroup = groups.find((g: { id: string }) => g.id === groupId)
+    const node = storeNodes.find((n: { metadata: { id: string } }) => n.metadata.id === nodeId)
 
     if (!targetGroup || !node) return
 
     // Check if node is already in a different group and remove it first
-    const currentGroup = groups.find(g => g.nodeIds.includes(nodeId))
+    const currentGroup = groups.find((g: { nodeIds: string | string[] }) =>
+      g.nodeIds.includes(nodeId)
+    )
     if (currentGroup && currentGroup.id !== groupId) {
       // [PageHandler] Moving node from group to another group
       removeNodeFromGroup(currentGroup.id, nodeId)
@@ -1765,7 +2092,7 @@ export default function Home() {
     const padding = 20
 
     // Find a good position for the node within the group
-    const existingNodesInGroup = storeNodes.filter(n =>
+    const existingNodesInGroup = storeNodes.filter((n: { metadata: { id: any } }) =>
       targetGroup.nodeIds.includes(n.metadata.id || n.metadata.id)
     )
 
@@ -1784,6 +2111,15 @@ export default function Home() {
     // Update node position in CRDT so other clients see it correctly
     updateNodePosition(nodeId, newAbsolutePosition)
 
+    // Calculate and store the relative position within the group
+    const relativePosition = {
+      x: padding + col * GRID_SPACING,
+      y: padding + row * GRID_SPACING,
+    }
+
+    // Store the node's position within the group (synced via CRDT)
+    updateNodePositionInGroup(groupId, nodeId, relativePosition)
+
     // Add node to the target group
     addNodeToGroup(groupId, nodeId)
     setGraphDirty(currentGraphId, true)
@@ -1794,7 +2130,7 @@ export default function Home() {
       clearTimeout(hoverTimeoutRef.current)
       hoverTimeoutRef.current = null
     }
-  }
+  }, [groups, storeNodes, removeNodeFromGroup, setGroupNodePositions, updateNodePosition, updateNodePositionInGroup, addNodeToGroup, setGraphDirty, currentGraphId, setNodeHoveringGroupId])
 
   // Store initial node position in group (local only, no CRDT update)
   const storeInitialNodePositionInGroup = (
@@ -1815,47 +2151,40 @@ export default function Home() {
   }
 
   // Handle node position change within a group (during drag)
-  const handleNodePositionInGroup = (
-    nodeId: string,
-    groupId: string,
-    position: { x: number; y: number }
-  ) => {
-    // 🔥 [Page] Node position changed within group (v2 approach)
+  const handleNodePositionInGroup = useCallback(
+    (nodeId: string, groupId: string, position: { x: number; y: number }) => {
+      // 🔥 [Page] Node position changed within group (v2 approach)
 
-    // Update local group position state for immediate UI feedback
-    setGroupNodePositions(prev => {
-      const newPositions = {
+      // Update local state first for immediate visual feedback
+      setGroupNodePositions(prev => ({
         ...prev,
         [groupId]: {
           ...prev[groupId],
           [nodeId]: position,
         },
+      }))
+
+      // Update the node position in the group through CRDT (this will sync to other clients)
+      updateNodePositionInGroup(groupId, nodeId, position)
+
+      // Calculate and update absolute position in CRDT for proper sync
+      const group = groups.find((g: { id: string }) => g.id === groupId)
+      if (group && group.position) {
+        const headerOffset = group.description ? 100 : 32
+        const absolutePosition = {
+          x: group.position.x + position.x,
+          y: group.position.y + headerOffset + position.y,
+        }
+
+        // Update node position in CRDT so other clients see it correctly
+        updateNodePosition(nodeId, absolutePosition)
+        setGraphDirty(currentGraphId, true)
       }
+    },
+    [groups, updateNodePositionInGroup, updateNodePosition, setGraphDirty, currentGraphId]
+  )
 
-      // Also save to localStorage immediately for persistence
-      if (workflowId) {
-        localStorage.setItem(`groupNodePositions-${workflowId}`, JSON.stringify(newPositions))
-      }
-
-      return newPositions
-    })
-
-    // Calculate and update absolute position in CRDT for proper sync
-    const group = groups.find(g => g.id === groupId)
-    if (group && group.position) {
-      const headerOffset = group.description ? 100 : 32
-      const absolutePosition = {
-        x: group.position.x + position.x,
-        y: group.position.y + headerOffset + position.y,
-      }
-
-      // Update node position in CRDT so other clients see it correctly
-      updateNodePosition(nodeId, absolutePosition)
-      setGraphDirty(currentGraphId, true)
-    }
-  }
-
-  const handleNodeHoverGroup = (groupId: string | null) => {
+  const handleNodeHoverGroup = useCallback((groupId: string | null) => {
     // Clear any existing timeout
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
@@ -1871,10 +2200,10 @@ export default function Home() {
         hoverTimeoutRef.current = null
       }, 5000) // Clear after 5 seconds
     }
-  }
+  }, [setNodeHoveringGroupId])
 
   // Clear node hovering state when drag starts on a new node
-  const handleNodeDragStart = (nodeId: string) => {
+  const handleNodeDragStart = useCallback((nodeId: string) => {
     // [DEBUG] Drag start
     // Clear any existing hover state when starting a new drag
     setNodeHoveringGroupId(null)
@@ -1882,10 +2211,10 @@ export default function Home() {
     draggingNodeIdsRef.current.add(nodeId)
     // Drag state is handled locally
     // [DEBUG] Dragging node IDs updated
-  }
+  }, [setNodeHoveringGroupId])
 
   // Clear node hovering state when drag ends
-  const handleNodeDragEnd = (nodeId: string, finalPosition?: { x: number; y: number }) => {
+  const handleNodeDragEnd = useCallback((nodeId: string, finalPosition?: { x: number; y: number }) => {
     // Clear any existing timeout
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
@@ -1907,11 +2236,11 @@ export default function Home() {
       // Drag state is handled locally
       // [DEBUG] Removed from dragging
     }, 0)
-  }
+  }, [setNodeHoveringGroupId, updateNodePosition, setGraphDirty, currentGraphId])
 
-  const handleGroupEditClick = (groupId: string) => {
+  const handleGroupEditClick = useCallback((groupId: string) => {
     setEditingGroupId(groupId)
-  }
+  }, [])
 
   const handleGroupEditConfirm = (groupId: string, title: string, description: string) => {
     updateGroup(groupId, { title, description })
@@ -1922,9 +2251,17 @@ export default function Home() {
     setEditingGroupId(null)
   }
 
-  const handleGroupDeleteClick = (groupId: string) => {
+  const handleGroupDeleteClick = useCallback((groupId: string) => {
     setDeletingGroupId(groupId)
-  }
+  }, [])
+
+  const handleContainerReady = useCallback((groupId: string) => {
+    setReadyGroupContainers(prev => new Set(Array.from(prev).concat(groupId)))
+    // Recalculate bounds after container and nodes are rendered
+    setTimeout(() => {
+      recalculateGroupBounds(groupId, groupNodePositions[groupId])
+    }, 100)
+  }, [setReadyGroupContainers, recalculateGroupBounds, groupNodePositions])
 
   const handleGroupDeleteConfirm = (groupId: string, preserveNodes: boolean) => {
     if (preserveNodes) {
@@ -2028,7 +2365,7 @@ export default function Home() {
   }
 
   const handleTabClose = (graphId: string) => {
-    const graph = graphs.find(g => g.id === graphId)
+    const graph = graphs.find((g: { id: string }) => g.id === graphId)
     if (graph?.isMain) {
       // Can't close main graph
       return
@@ -2080,7 +2417,7 @@ export default function Home() {
     setMainGraph(graphId)
   }
 
-  const handlePortDragStart = (nodeId: string, portId: string, portType: 'input' | 'output') => {
+  const handlePortDragStart = useCallback((nodeId: string, portId: string, portType: 'input' | 'output') => {
     // TODO: Re-implement port positions in V2
     const portPosition = getStoredPortPosition(nodeId, portId) // Using old store method temporarily
 
@@ -2101,9 +2438,9 @@ export default function Home() {
         }
       }, 100)
     }
-  }
+  }, [getStoredPortPosition, startDrag])
 
-  const handlePortDragEnd = (nodeId: string, portId: string, portType: 'input' | 'output') => {
+  const handlePortDragEnd = useCallback((nodeId: string, portId: string, portType: 'input' | 'output') => {
     // Only process if we're currently dragging
     if (dragState.isDragging) {
       const newConnection = endDrag(nodeId, portId, portType)
@@ -2114,7 +2451,7 @@ export default function Home() {
         setGraphDirty(currentGraphId, true)
       }
     }
-  }
+  }, [dragState.isDragging, endDrag, addConnection, setGraphDirty, currentGraphId])
 
   // Selection handlers
   const startSelection = (point: { x: number; y: number }) => {
@@ -2140,12 +2477,12 @@ export default function Home() {
       const maxY = Math.max(selectionBounds.start.y, point.y)
 
       const selectedIds = storeNodes
-        .filter(node => {
+        .filter((node: { position: { x: any; y: any } }) => {
           const nodeX = node.position.x
           const nodeY = node.position.y
           return nodeX >= minX && nodeX <= maxX && nodeY >= minY && nodeY <= maxY
         })
-        .map(node => node.metadata.id)
+        .map((node: { metadata: { id: any } }) => node.metadata.id)
 
       setSelectedNodes(selectedIds)
       setSelection(prev => ({
@@ -2181,9 +2518,12 @@ export default function Home() {
     })
   }
 
-  const isNodeSelected = (nodeId: string) => {
-    return selectedNodeIds.includes(nodeId) || selection.selectedNodeIds.includes(nodeId)
-  }
+  const isNodeSelected = useCallback(
+    (nodeId: string) => {
+      return selectedNodeIds.includes(nodeId) || selection.selectedNodeIds.includes(nodeId)
+    },
+    [selectedNodeIds, selection.selectedNodeIds]
+  )
 
   // Handle connection click for deletion
   const handleConnectionClick = (connectionId: string) => {
@@ -2279,7 +2619,7 @@ export default function Home() {
         // Select All (Cmd+A / Ctrl+A)
         if (e.key === 'a' && !e.shiftKey) {
           e.preventDefault()
-          const allNodeIds = storeNodes.map(node => node.metadata.id)
+          const allNodeIds = storeNodes.map((node: { metadata: { id: any } }) => node.metadata.id)
           setSelectedNodes(allNodeIds)
           setSelection(prev => ({
             ...prev,
@@ -2353,7 +2693,7 @@ export default function Home() {
         // Cmd+Shift+D to clear dirty state on all graphs (for debugging)
         if (e.key === 'd') {
           e.preventDefault()
-          graphs.forEach(graph => {
+          graphs.forEach((graph: { id: string }) => {
             setGraphDirty(graph.id, false)
           })
           ToastManager.info('Cleared dirty state on all graphs')
@@ -2621,7 +2961,6 @@ export default function Home() {
             <PresenceDropdown
               presence={presence}
               isCollaborative={isCollaborative}
-              isSyncing={isSyncing}
               isOptimized={isOptimized}
               localClientId={localClientId}
               workflowId={workflowId}
@@ -2736,219 +3075,95 @@ export default function Home() {
                 ) : null
               })()}
 
-            {/* Node Groups - render before nodes so they appear behind */}
-            {groups.map((group: any) => {
-              // Debug log group rendering
-              // 🔷GROUPOPS PAGE-RENDER: Rendering group
+            {/* Node Groups - render before nodes so they appear behind - Only render when CRDT is in stable state */}
+            {shouldRenderNodes &&
+              groups.map((group: any) => {
+                // Debug log group rendering
+                // 🔷GROUPOPS PAGE-RENDER: Rendering group
 
-              // Ensure group has required properties before rendering
-              if (!group.id) {
-                return null
-              }
+                // Ensure group has required properties before rendering
+                if (!group.id) {
+                  return null
+                }
 
-              // Get nodes that belong to this group - be more permissive for debugging
-              const groupNodes = storeNodes.filter((node: any) => {
-                const nodeId = getNodeId(node)
-                return nodeId && group.nodeIds.includes(nodeId) && node.metadata
-              })
+                // Get nodes that belong to this group from memoized calculation
+                const groupNodes = groupNodesByGroupId[group.id] || []
 
-              return (
-                <React.Fragment key={group.id}>
-                  <NodeGroupContainer
-                    group={group}
-                    isCollapsed={localGroupCollapseState[group.id] || false}
-                    onCollapseToggle={handleGroupCollapseToggle}
-                    isDropTarget={nodeHoveringGroupId === group.id}
-                    onEditClick={handleGroupEditClick}
-                    onDeleteClick={handleGroupDeleteClick}
-                    zoom={canvasZoom}
-                    nodePositions={groupNodePositions[group.id] || {}}
-                    nodeBounds={nodeBounds}
-                    onGroupResize={handleGroupResize}
-                  >
-                    {/* Render nodes that belong to this group - only if group is fully loaded */}
-                    {groupNodes.length > 0 &&
-                      groupNodes.map((node: any, index: number) => {
-                        // Ensure node has required properties and group is stable
-                        if (!node || !node.metadata) {
-                          return null
-                        }
+                // Use local size if available, otherwise use CRDT size
+                const localSize = expandedGroupSizes[group.id]
 
-                        const nodeId = node.id || node.metadata.id
-                        if (!nodeId) {
-                          return null
-                        }
+                // Create a plain object with the group data
+                const groupToRender = {
+                  id: group.id,
+                  title: group.title,
+                  description: group.description,
+                  position: group.position,
+                  size: localSize || group.size,
+                  color: group.color,
+                  nodeIds: group.nodeIds,
+                  nodePositions: group.nodePositions,
+                  isCollapsed: group.isCollapsed,
+                  createdAt: group.createdAt,
+                  updatedAt: group.updatedAt,
+                }
 
-                        // Check if we have a stored local position for this node in this group
-                        const localStoredPosition = groupNodePositions[group.id]?.[nodeId]
+                return (
+                  <React.Fragment key={group.id}>
+                    <NodeGroupContainer
+                      group={groupToRender}
+                      isCollapsed={localGroupCollapseState[group.id] || false}
+                      onCollapseToggle={handleGroupCollapseToggle}
+                      isDropTarget={nodeHoveringGroupId === group.id}
+                      onEditClick={handleGroupEditClick}
+                      onDeleteClick={handleGroupDeleteClick}
+                      zoom={canvasZoom}
+                      nodePositions={groupNodePositions[group.id] || {}}
+                      nodeBounds={nodeBounds}
+                      onGroupResize={handleGroupResize}
+                      onContainerReady={handleContainerReady}
+                    >
+                      {/* Render nodes that belong to this group - only if group is fully loaded */}
+                      <GroupNodes
+                        group={group}
+                        groupNodes={groupNodes}
+                        groupNodePositions={groupNodePositions}
+                        readyGroupContainers={readyGroupContainers}
+                        newlyCreatedGroups={newlyCreatedGroups}
+                        canvasZoom={canvasZoom}
+                        handleNodePositionInGroup={handleNodePositionInGroup}
+                        updateNodeBoundsHook={updateNodeBoundsHook}
+                        oldUpdatePortPosition={oldUpdatePortPosition}
+                        handlePortDragStart={handlePortDragStart}
+                        handlePortDragEnd={handlePortDragEnd}
+                        handleNodeSelect={handleNodeSelect}
+                        isNodeSelected={isNodeSelected}
+                        handleNodeDropIntoGroup={handleNodeDropIntoGroup}
+                        handleNodeHoverGroup={handleNodeHoverGroup}
+                        groups={groups}
+                        handleNodePropertyChange={handleNodePropertyChange}
+                        handleNodeDragStart={handleNodeDragStart}
+                        handleNodeDragEnd={handleNodeDragEnd}
+                        highlightedNodeId={highlightedNodeId}
+                        updateGroup={updateGroup}
+                        setGraphDirty={setGraphDirty}
+                        currentGraphId={currentGraphId}
+                        getNodeId={getNodeId}
+                      />
+                    </NodeGroupContainer>
 
-                        // Calculate relative position from absolute positions (v2 approach)
-                        const relativePosition =
-                          localStoredPosition ||
-                          (() => {
-                            const nodePos = node.position || {
-                              x: group.position?.x + 50,
-                              y: group.position?.y + 50,
-                            } // Default position inside group
-                            const groupPos = group.position || { x: 100, y: 100 }
-                            const headerOffset = group.description ? 100 : 32
-
-                            // Convert absolute position to relative - don't clamp to minimum
-                            const relativePos = {
-                              x: nodePos.x - groupPos.x,
-                              y: nodePos.y - groupPos.y - headerOffset,
-                            }
-
-                            // Only clamp if the node would be completely outside the group
-                            // Use more sensible bounds to prevent nodes jumping to top-left
-                            let wasClamped = false
-                            if (relativePos.x < 0) {
-                              relativePos.x = 20
-                              wasClamped = true
-                            }
-                            if (relativePos.y < 0) {
-                              relativePos.y = 20
-                              wasClamped = true
-                            }
-
-                            // Also clamp to prevent nodes being too far outside
-                            const maxX = (group.size?.width || 200) - 50
-                            const maxY = (group.size?.height || 150) - 50
-                            if (relativePos.x > maxX) {
-                              relativePos.x = maxX - 20
-                              wasClamped = true
-                            }
-                            if (relativePos.y > maxY) {
-                              relativePos.y = maxY - 20
-                              wasClamped = true
-                            }
-
-                            // If position was clamped, update the absolute position to match
-                            if (wasClamped && !localStoredPosition) {
-                              const newAbsolutePos = {
-                                x: groupPos.x + relativePos.x,
-                                y: groupPos.y + relativePos.y + headerOffset,
-                              }
-                              // Defer the update to avoid immediate re-render
-                              setTimeout(() => {
-                                updateNodePosition(nodeId, newAbsolutePos)
-                              }, 0)
-                            }
-
-                            return relativePos
-                          })()
-
-                        // Store the initial position locally if not already stored
-                        // Only store if localStorage has been loaded to avoid overwriting saved positions
-                        if (localStorageLoaded && !localStoredPosition) {
-                          storeInitialNodePositionInGroup(nodeId, group.id, relativePosition)
-                        }
-
-                        // Check if this is a subgraph node
-                        if (node.metadata.type === 'subgraph') {
-                          return (
-                            <SubgraphNode
-                              key={`group-${group.id}-node-${node.metadata.id}`}
-                              metadata={node.metadata as any}
-                              position={relativePosition}
-                              onPositionChange={(nodeId, position) => {
-                                // Update local position
-                                handleNodePositionInGroup(nodeId, group.id, position)
-                              }}
-                              onBoundsChange={(nodeId, bounds) => {
-                                // Update node bounds in the bounds hook
-                                updateNodeBoundsHook(nodeId, bounds)
-                              }}
-                              onPortPositionUpdate={oldUpdatePortPosition}
-                              onPortDragStart={handlePortDragStart}
-                              onPortDragEnd={handlePortDragEnd}
-                              onClick={() => handleNodeSelect(getNodeId(node))}
-                              isHighlighted={node.metadata.id === highlightedNodeId}
-                              isNodeSelected={isNodeSelected(node.metadata.id)}
-                              zoom={canvasZoom}
-                              isInGroup={true}
-                              // onDragStart={handleNodeDragStart}
-                              // onDragEnd={handleNodeDragEnd}
-                            />
-                          )
-                        }
-
-                        return (
-                          <DraggableNode
-                            key={`group-${group.id}-node-${node.metadata.id}`}
-                            nodeId={node.id}
-                            metadata={node.metadata}
-                            propertyValues={node.propertyValues}
-                            position={relativePosition}
-                            zoom={canvasZoom}
-                            onPositionChange={(nodeId, position) => {
-                              // Update local position
-                              handleNodePositionInGroup(nodeId, group.id, position)
-                            }}
-                            onBoundsChange={(nodeId, bounds) => {
-                              // Update node bounds in the bounds hook
-                              updateNodeBoundsHook(nodeId, bounds)
-                            }}
-                            onPortPositionUpdate={oldUpdatePortPosition}
-                            onPortDragStart={handlePortDragStart}
-                            onPortDragEnd={handlePortDragEnd}
-                            onClick={handleNodeSelect}
-                            isHighlighted={node.metadata.id === highlightedNodeId}
-                            isSelected={isNodeSelected(node.metadata.id)}
-                            onNodeDropIntoGroup={handleNodeDropIntoGroup}
-                            onNodeHoverGroup={handleNodeHoverGroup}
-                            groups={groups}
-                            isInGroup={true}
-                            currentGroup={group}
-                            onPropertyChange={handleNodePropertyChange}
-                            onDragStart={handleNodeDragStart}
-                            onDragEnd={handleNodeDragEnd}
-                            onNodeNearGroupBoundary={(nodeId, groupId, action, value) => {
-                              const targetGroup = groups.find(g => g.id === groupId)
-                              if (!targetGroup) return
-
-                              switch (action) {
-                                case 'resize-right':
-                                  // Resize group wider
-                                  updateGroup(groupId, {
-                                    size: {
-                                      ...targetGroup.size,
-                                      width: value || targetGroup.size.width,
-                                    },
-                                  })
-                                  setGraphDirty(currentGraphId, true)
-                                  break
-
-                                case 'resize-down':
-                                  // Resize group taller
-                                  updateGroup(groupId, {
-                                    size: {
-                                      ...targetGroup.size,
-                                      height: value || targetGroup.size.height,
-                                    },
-                                  })
-                                  setGraphDirty(currentGraphId, true)
-                                  break
-                              }
-                            }}
-                          />
-                        )
-                      })}
-                  </NodeGroupContainer>
-
-                  {/* Register port positions for collapsed groups */}
-                  {localGroupCollapseState[group.id] && (
-                    <CollapsedGroupPortHandler
-                      groupId={group.id}
-                      groupPosition={group.position}
-                      groupSize={group.size}
-                      groupNodeIds={group.nodeIds}
-                      onPortPositionUpdate={oldUpdatePortPosition}
-                    />
-                  )}
-                </React.Fragment>
-              )
-            })}
+                    {/* Register port positions for collapsed groups */}
+                    {localGroupCollapseState[group.id] && (
+                      <CollapsedGroupPortHandler
+                        groupId={group.id}
+                        groupPosition={group.position}
+                        groupSize={group.size}
+                        groupNodeIds={group.nodeIds}
+                        onPortPositionUpdate={oldUpdatePortPosition}
+                      />
+                    )}
+                  </React.Fragment>
+                )
+              })}
 
             {/* Selection Rectangle */}
             {selection.isSelecting && selection.selectionStart && selection.selectionEnd && (
@@ -2959,99 +3174,29 @@ export default function Home() {
               />
             )}
 
-            {/* Ungrouped Workflow Nodes */}
-            {(() => {
-              // Debug logging for node rendering
-              const ungroupedNodes =
-                storeNodes?.filter((node: any) => {
-                  const nodeId = getNodeId(node)
-                  const inAnyGroup = groups.some((group: any) => group.nodeIds.includes(nodeId))
-
-                  // Only render nodes that are not in ANY group (collapsed or expanded)
-                  return !inAnyGroup
-                }) || []
-              // 🎨 Rendering nodes: {
-              //   totalNodes: storeNodes?.length || 0,
-              //   nodes: storeNodes,
-              //   groupCount: groups?.length || 0,
-              //   ungroupedNodes
-              // })
-
-              return ungroupedNodes
-                .map((node: any) => {
-                  // Skip nodes without metadata
-                  if (!node || !node.metadata) {
-                    return null
-                  }
-
-                  // Log first node structure for debugging
-                  // if (ungroupedNodes.indexOf(node) === 0) {
-                  //   // 🔍 First node structure: {
-                  //     hasRootId: !!node.id,
-                  //     rootId: node.id,
-                  //     metadataId: node.metadata?.id,
-                  //     position: node.position,
-                  //     fullNode: node
-                  //   })
-                  // }
-                  // Debug log for subgraph nodes
-                  // if (node.metadata.type === 'subgraph') {
-                  //   // 🔍 Rendering subgraph node: {
-                  //     id: node.metadata.id,
-                  //     type: node.metadata.type,
-                  //     title: node.metadata.title,
-                  //     graphId: (node.metadata as any).graphId,
-                  //     graphNamespace: (node.metadata as any).graphNamespace
-                  //   })
-                  // }
-
-                  // Check if this is a subgraph node
-                  if (node.metadata.type === 'subgraph') {
-                    return (
-                      <SubgraphNode
-                        key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                        metadata={node.metadata as any}
-                        position={node.position}
-                        onPositionChange={handleNodePositionChange}
-                        onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
-                        onPortPositionUpdate={oldUpdatePortPosition}
-                        onPortDragStart={handlePortDragStart}
-                        onPortDragEnd={handlePortDragEnd}
-                        onClick={() => handleNodeSelect(node.id || node.metadata.id)}
-                        isHighlighted={node.metadata.id === highlightedNodeId}
-                        isNodeSelected={isNodeSelected(node.metadata.id)}
-                        zoom={canvasZoom}
-                      />
-                    )
-                  }
-
-                  return (
-                    <DraggableNode
-                      key={`${node.metadata.id}-${node.metadata.title}-${node.metadata.icon}-${node.metadata.variant}`}
-                      nodeId={node.id || node.metadata.id}
-                      metadata={node.metadata}
-                      propertyValues={node.propertyValues}
-                      position={node.position}
-                      zoom={canvasZoom}
-                      onPositionChange={handleNodePositionChange}
-                      onBoundsChange={(nodeId, bounds) => updateNodeBoundsHook(nodeId, bounds)}
-                      onPortPositionUpdate={oldUpdatePortPosition}
-                      onPortDragStart={handlePortDragStart}
-                      onPortDragEnd={handlePortDragEnd}
-                      onClick={handleNodeSelect}
-                      isHighlighted={node.metadata.id === highlightedNodeId}
-                      isSelected={isNodeSelected(node.metadata.id)}
-                      onNodeDropIntoGroup={handleNodeDropIntoGroup}
-                      onNodeHoverGroup={handleNodeHoverGroup}
-                      groups={groups}
-                      onPropertyChange={handleNodePropertyChange}
-                      onDragStart={handleNodeDragStart}
-                      onDragEnd={handleNodeDragEnd}
-                    />
-                  )
-                })
-                .filter(Boolean)
-            })()}
+            {/* Ungrouped Workflow Nodes - Only render when CRDT is in stable state */}
+            {shouldRenderNodes && (
+              <UngroupedNodes
+                storeNodes={storeNodes}
+                groups={groups}
+                initialized={initialized}
+                handlePortDragStart={handlePortDragStart}
+                handlePortDragEnd={handlePortDragEnd}
+                handleNodeSelect={handleNodeSelect}
+                isNodeSelected={isNodeSelected}
+                handleNodeDropIntoGroup={handleNodeDropIntoGroup}
+                handleNodeHoverGroup={handleNodeHoverGroup}
+                canvasZoom={canvasZoom}
+                handleNodePositionChange={handleNodePositionChange}
+                handleNodePropertyChange={handleNodePropertyChange}
+                handleNodeDragStart={handleNodeDragStart}
+                handleNodeDragEnd={handleNodeDragEnd}
+                highlightedNodeId={highlightedNodeId}
+                getNodeId={getNodeId}
+                updateNodeBoundsHook={updateNodeBoundsHook}
+                oldUpdatePortPosition={oldUpdatePortPosition}
+              />
+            )}
 
             {/* Selection Rectangle */}
             {selection.isSelecting && selection.selectionStart && selection.selectionEnd && (
@@ -3102,7 +3247,9 @@ export default function Home() {
                 const nodeId = getNodeId(node)
 
                 // Check if node is in a group
-                const parentGroup = groups.find(g => g.nodeIds?.includes(nodeId))
+                const parentGroup = groups.find((g: { nodeIds: string | string[] }) =>
+                  g.nodeIds?.includes(nodeId)
+                )
 
                 let visualPosition = node.position || { x: 0, y: 0 }
 
@@ -3154,7 +3301,7 @@ export default function Home() {
           />
 
           {/* CRDT Feature Indicator */}
-          <CRDTFeatureIndicator isCollaborative={isCollaborative} />
+          {/* <CRDTFeatureIndicator isCollaborative={isCollaborative} /> */}
         </div>
 
         {/* Node Browser Panel */}

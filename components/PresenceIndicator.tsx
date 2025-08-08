@@ -3,38 +3,26 @@
 import React, { useEffect } from 'react'
 import { Users, Circle } from 'lucide-react'
 import type { CRDTPresence } from '@/lib/crdt/types'
+import { useConnectionStatus } from '@/store/workflow-store'
 
 interface PresenceIndicatorProps {
   presence: Map<number, CRDTPresence>
   isCollaborative: boolean
-  isSyncing: boolean
   isOptimized?: boolean
   localClientId?: number
   className?: string
+  isSyncing?: boolean
 }
 
 export function PresenceIndicator({
   presence,
   isCollaborative,
-  isSyncing,
   isOptimized = false,
   localClientId,
   className = '',
+  // isSyncing = false,
 }: PresenceIndicatorProps) {
-  // Debug presence data (only on client)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    console.log('[PresenceIndicator] Presence data:', {
-      presenceSize: presence.size,
-      localClientId,
-      entries: Array.from(presence.entries()).map(([id, user]) => ({
-        clientId: id,
-        userId: user.userId,
-        userName: user.userName,
-      })),
-    })
-  }, [presence, localClientId])
+  const { isSyncing } = useConnectionStatus()
   // Add pulsate animation styles
   useEffect(() => {
     const styleId = 'presence-pulsate-styles'

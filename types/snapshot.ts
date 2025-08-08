@@ -104,4 +104,5 @@ export interface SerializedGroup {
   isCollapsed?: boolean
   createdAt: string
   updatedAt: string
+  nodePositions?: Record<string, { x: number; y: number }> // Relative positions of nodes within the group
 }

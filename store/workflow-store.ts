@@ -10,6 +10,7 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { shallow } from 'zustand/shallow'
 import * as Y from 'yjs'
 import { YMapEvent } from 'yjs'
 import { RustSocketIOProvider } from '@/lib/crdt/rust-socketio-provider'
@@ -113,6 +114,11 @@ interface WorkflowStore {
   // Group management
   createGroup: (title: string, nodeIds: string[], color?: string) => string
   updateGroup: (groupId: string, updates: Partial<NodeGroup>) => void
+  updateNodePositionInGroup: (
+    groupId: string,
+    nodeId: string,
+    position: { x: number; y: number }
+  ) => void
   updateGroupBounds: (
     groupId: string,
     bounds: Partial<{ x: number; y: number; width: number; height: number }>
@@ -166,20 +172,27 @@ interface WorkflowStore {
 
 // Store implementation
 // Separate selector hooks to prevent unnecessary re-renders
-export const useConnectionStatus = () =>
-  useWorkflowStore(state => ({
-    isConnected: state.isConnected,
-    isSyncing: state.isSyncing,
-  }))
+export const useConnectionStatus = () => {
+  const isConnected = useWorkflowStore(state => state.isConnected)
+  const isSyncing = useWorkflowStore(state => state.isSyncing)
+  return { isConnected, isSyncing }
+}
 
-export const useWorkflowData = () =>
-  useWorkflowStore(state => ({
-    nodes: state.nodes,
-    connections: state.connections,
-    groups: state.groups,
-    currentGraphId: state.currentGraphId,
-    graphs: state.graphs,
-  }))
+export const usePresence = () => {
+  const presence = useWorkflowStore(state => state.presence)
+  const localClientId = useWorkflowStore(state => state.localClientId)
+  return { presence, localClientId }
+}
+
+export const useWorkflowData = () => {
+  const nodes = useWorkflowStore(state => state.nodes)
+  const connections = useWorkflowStore(state => state.connections)
+  const groups = useWorkflowStore(state => state.groups)
+  const currentGraphId = useWorkflowStore(state => state.currentGraphId)
+  const graphs = useWorkflowStore(state => state.graphs)
+
+  return { nodes, connections, groups, currentGraphId, graphs }
+}
 
 export const useWorkflowStore = create<WorkflowStore>()(
   devtools((set, get) => {
@@ -965,6 +978,16 @@ export const useWorkflowStore = create<WorkflowStore>()(
           }, 100) // Give nodes time to render
         }
 
+        // Calculate initial relative positions for nodes
+        const nodePositions: Record<string, { x: number; y: number }> = {}
+        groupNodes.forEach(node => {
+          const nodeId = (node as any).id || node.metadata.id
+          nodePositions[nodeId] = {
+            x: node.position.x - minX,
+            y: node.position.y - minY - headerOffset,
+          }
+        })
+
         doc.transact(() => {
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
 
@@ -980,6 +1003,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             isCollapsed: false,
             createdAt: now,
             updatedAt: now,
+            nodePositions: nodePositions,
           }
 
           // Store as plain object (not Y.Map) - this will sync properly
@@ -1003,11 +1027,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
           isCollapsed: false,
           createdAt: now,
           updatedAt: now,
+          nodePositions: nodePositions,
         }
 
         set(state => ({
           groups: [...state.groups, newGroup],
-          lastUpdate: Date.now(),
         }))
 
         return groupId
@@ -1081,6 +1105,66 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Don't update local state immediately - let the CRDT observer handle it
         // This prevents race conditions and ensures consistency
+      },
+
+      updateNodePositionInGroup: (
+        groupId: string,
+        nodeId: string,
+        position: { x: number; y: number }
+      ) => {
+        const { doc, currentGraphId, groups } = get()
+        if (!doc) return
+
+        const group = groups.find(g => g.id === groupId)
+        if (!group) return
+
+        doc.transact(() => {
+          const groupsMap = doc.getMap(`groups-${currentGraphId}`)
+          const storedGroup = groupsMap.get(groupId)
+          if (!storedGroup) return
+
+          // Get current group data
+          const currentGroup =
+            storedGroup instanceof Y.Map
+              ? {
+                  id: storedGroup.get('id'),
+                  title: storedGroup.get('title'),
+                  description: storedGroup.get('description'),
+                  color: storedGroup.get('color'),
+                  position: storedGroup.get('position') || { x: 100, y: 100 },
+                  size: storedGroup.get('size') || { width: 200, height: 150 },
+                  nodeIds: storedGroup.get('nodeIds') || [],
+                  isCollapsed: storedGroup.get('isCollapsed') ?? false,
+                  createdAt: storedGroup.get('createdAt'),
+                  updatedAt: storedGroup.get('updatedAt'),
+                  nodePositions: storedGroup.get('nodePositions') || {},
+                }
+              : {
+                  ...storedGroup,
+                  nodePositions: (storedGroup as any).nodePositions || {},
+                }
+
+          // Update node position
+          const updatedNodePositions = {
+            ...currentGroup.nodePositions,
+            [nodeId]: position,
+          }
+
+          // Update the group with new node positions
+          const updatedGroup = {
+            ...currentGroup,
+            nodePositions: updatedNodePositions,
+            updatedAt: new Date().toISOString(),
+          }
+
+          // Store the updated group
+          const cleanGroup = JSON.parse(JSON.stringify(updatedGroup))
+          groupsMap.delete(groupId)
+          groupsMap.set(groupId, cleanGroup)
+        }, 'local')
+
+        // Don't mark graph as dirty here - this was causing infinite loops
+        // The graph will be marked dirty when nodes are actually moved by user action
       },
 
       updateGroupBounds: (
@@ -1287,11 +1371,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const nodeSpanWidth = maxNodePosX - minNodePosX + representativeNodeWidth
         const nodeSpanHeight = maxNodePosY - minNodePosY + representativeNodeHeight
 
-        // Add margins: left/top already accounted for by minPos, need right/bottom margins
-        const rightMargin = 140 // Maximum margin for clear visibility
-        const bottomMargin = 140 // Maximum margin for clear visibility
-        const requiredWidth = Math.max(300, nodeSpanWidth + rightMargin)
-        const requiredHeight = Math.max(200, nodeSpanHeight + headerOffset + bottomMargin)
+        // Add padding: account for both left and right padding in total width
+        const leftPadding = 20 // Initial left padding when nodes are placed
+        const rightPadding = 220 // Right padding for expand state - increased by 60
+        const bottomPadding = 140 // Bottom padding for expand state
+        // Include left padding in total width calculation
+        const requiredWidth = Math.max(300, nodeSpanWidth + leftPadding + rightPadding)
+        const requiredHeight = Math.max(200, nodeSpanHeight + headerOffset + bottomPadding)
 
         // Update ONLY the size, preserve position completely
         const newBounds = {
@@ -1327,6 +1413,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
               isCollapsed: storedGroup.get('isCollapsed'),
               createdAt: storedGroup.get('createdAt'),
               updatedAt: storedGroup.get('updatedAt'),
+              nodePositions: storedGroup.get('nodePositions') || {},
             }
           } else {
             plainGroup = { ...storedGroup }
@@ -1373,18 +1460,30 @@ export const useWorkflowStore = create<WorkflowStore>()(
               isCollapsed: storedGroup.get('isCollapsed'),
               createdAt: storedGroup.get('createdAt'),
               updatedAt: storedGroup.get('updatedAt'),
+              nodePositions: storedGroup.get('nodePositions') || {},
             }
           } else {
             plainGroup = { ...storedGroup }
           }
 
           plainGroup.nodeIds = plainGroup.nodeIds.filter((id: string) => id !== nodeId)
+
+          // Also remove the node position from nodePositions
+          if (plainGroup.nodePositions && plainGroup.nodePositions[nodeId]) {
+            const newPositions = { ...plainGroup.nodePositions }
+            delete newPositions[nodeId]
+            plainGroup.nodePositions = newPositions
+          }
+
           plainGroup.updatedAt = new Date().toISOString()
 
           // Delete and re-add to trigger observers
           groupsMap.delete(groupId)
           groupsMap.set(groupId, plainGroup)
         }, 'local')
+
+        // Recalculate group bounds after removing node
+        get().recalculateGroupBounds(groupId)
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
@@ -1474,6 +1573,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
                 isCollapsed: groupValue.get('isCollapsed'),
                 createdAt: groupValue.get('createdAt'),
                 updatedAt: groupValue.get('updatedAt'),
+                nodePositions: groupValue.get('nodePositions'),
               }
             } else if (typeof groupValue === 'object' && groupValue !== null) {
               // Plain object format
@@ -1590,6 +1690,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
               collapsed: group.isCollapsed || false,
               createdAt: group.createdAt || new Date().toISOString(),
               updatedAt: group.updatedAt || new Date().toISOString(),
+              nodePositions: group.nodePositions,
             })) as SerializedGroup[],
             canvasState: get().canvasStates[graph.id] || { offset: { x: 0, y: 0 }, zoom: 1 },
           }
@@ -1996,6 +2097,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
           isCollapsed: groupValue.get('isCollapsed') ?? false,
           createdAt: groupValue.get('createdAt'),
           updatedAt: groupValue.get('updatedAt'),
+          nodePositions: groupValue.get('nodePositions') || {},
         }
       } else if (typeof groupValue === 'object' && groupValue !== null) {
         // Plain object format - ensure required fields exist but preserve existing values
@@ -2010,6 +2112,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
           isCollapsed: groupValue.isCollapsed ?? false,
           createdAt: groupValue.createdAt,
           updatedAt: groupValue.updatedAt,
+          nodePositions: groupValue.nodePositions || {},
         }
       } else {
         console.warn('🔷GROUPOPS LOAD-WARNING: Unknown group format:', typeof groupValue)
@@ -2043,6 +2146,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
         size: g.size,
         nodeIds: g.nodeIds,
         isCollapsed: g.isCollapsed,
+        nodePositions: g.nodePositions,
       })),
     })
 

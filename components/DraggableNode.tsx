@@ -75,7 +75,6 @@ export function DraggableNode({
 
   // Guard against undefined position (can happen during remote updates)
   if (!position) {
-    console.warn('DraggableNode: position is undefined for node', metadata.id)
     return null
   }
 
@@ -125,18 +124,19 @@ export function DraggableNode({
       const timer = setTimeout(() => {
         if (nodeRef.current && position) {
           const rect = nodeRef.current.getBoundingClientRect()
+          // Convert screen dimensions to logical dimensions
           onBoundsChange(metadata.id, {
             x: position.x,
             y: position.y,
-            width: rect.width,
-            height: rect.height,
+            width: rect.width / zoom,
+            height: rect.height / zoom,
           })
         }
       }, 50)
 
       return () => clearTimeout(timer)
     }
-  }, [metadata.id]) // Only update when node id changes (essentially on mount)
+  }, [metadata.id, zoom]) // Update when node id changes or zoom changes
 
   // Trigger port position updates when node moves
   useEffect(() => {
@@ -429,11 +429,12 @@ export function DraggableNode({
           // Update bounds when size changes (only called when resize ends)
           if (nodeRef.current && onBoundsChange) {
             const rect = nodeRef.current.getBoundingClientRect()
+            // Convert screen dimensions to logical dimensions
             onBoundsChange(effectiveNodeId, {
               x: position.x,
               y: position.y,
-              width: rect.width,
-              height: rect.height,
+              width: rect.width / zoom,
+              height: rect.height / zoom,
             })
           }
         }}

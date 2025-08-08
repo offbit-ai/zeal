@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Info, Check, X, AlertCircle } from 'lucide-react'
-import { useWorkflowStore } from '@/store/workflow-store'
+import { useWorkflowStore, useConnectionStatus } from '@/store/workflow-store'
 import { getRuntimeConfig, getCRDTServerUrl, isCollaborationEnabled } from '@/lib/config/runtime'
 
 interface CRDTFeatureIndicatorProps {
@@ -12,7 +12,8 @@ interface CRDTFeatureIndicatorProps {
 export function CRDTFeatureIndicator({ isCollaborative }: CRDTFeatureIndicatorProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showDiagnostics, setShowDiagnostics] = useState(false)
-  const { isConnected, isSyncing, provider } = useWorkflowStore()
+  const provider = useWorkflowStore(state => state.provider)
+  const { isConnected, isSyncing } = useConnectionStatus()
 
   // Collect diagnostic information
   const [diagnostics, setDiagnostics] = useState<Record<string, any>>({})
