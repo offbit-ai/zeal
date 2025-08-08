@@ -58,8 +58,6 @@ const NotificationTypeColor = (type: string): string => {
 export function NotificationPanel() {
   const { notifications, isOpen, setOpen, clearNotifications } = useNotificationStore()
 
-
-
   if (!isOpen) return null
 
   return (

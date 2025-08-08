@@ -43,8 +43,8 @@ const CATEGORY_ICONS: Record<string, any> = {
   'storage-memory': Cpu,
   'cloud-services': Cloud,
   'graph-io': ArrowRightLeft,
-  'inputs': TextCursorInput,
-  'media': ClapperboardIcon
+  inputs: TextCursorInput,
+  media: ClapperboardIcon,
 }
 
 export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: WorkflowSidebarProps) {

@@ -13,10 +13,10 @@ window.__ZEAL_CONFIG__ = {
   // Default to localhost:8080 for local development, or use the same host for production
   CRDT_SERVER_URL:
     window.location.hostname === 'localhost'
-      ? 'ws://localhost:8080'  // Local CRDT server on different port
+      ? 'ws://localhost:8080' // Local CRDT server on different port
       : window.location.protocol === 'https:'
-      ? `wss://${window.location.host}`
-      : `ws://${window.location.host}`,
+        ? `wss://${window.location.host}`
+        : `ws://${window.location.host}`,
 
   // Enable real-time collaboration
   ENABLE_COLLABORATION: true,

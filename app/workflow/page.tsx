@@ -79,8 +79,6 @@ import { NotificationPanel } from '@/components/NotificationPanel'
 // import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/CollapsedGroupPortHandler'
 
-
-
 export default function Home() {
   // Parse URL parameters to get shared workflow ID
   const [urlWorkflowId, setUrlWorkflowId] = useState<string | null>(null)
@@ -2785,6 +2783,11 @@ export default function Home() {
               // })
 
               return ungroupedNodes.map((node: any) => {
+                // Skip nodes without metadata
+                if (!node || !node.metadata) {
+                  return null
+                }
+
                 // Log first node structure for debugging
                 // if (ungroupedNodes.indexOf(node) === 0) {
                 //   // 🔍 First node structure: {
@@ -2850,7 +2853,7 @@ export default function Home() {
                     onDragEnd={handleNodeDragEnd}
                   />
                 )
-              })
+              }).filter(Boolean)
             })()}
 
             {/* Selection Rectangle */}

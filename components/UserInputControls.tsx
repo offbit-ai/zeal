@@ -156,12 +156,12 @@ export function NumberInputControl({
   const parseFormattedValue = (formattedValue: string): number | null => {
     // Remove currency symbols and percentage signs
     const cleanValue = formattedValue.replace(/[$%]/g, '').trim()
-    
+
     if (format === 'percentage') {
       const parsed = parseFloat(cleanValue)
       return isNaN(parsed) ? null : parsed / 100
     }
-    
+
     const parsed = parseFloat(cleanValue)
     return isNaN(parsed) ? null : parsed
   }
@@ -169,7 +169,7 @@ export function NumberInputControl({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputVal = e.target.value
     setInputValue(inputVal)
-    
+
     const parsedValue = parseFormattedValue(inputVal)
     if (parsedValue !== null) {
       const clampedValue = Math.max(min ?? -Infinity, Math.min(max ?? Infinity, parsedValue))

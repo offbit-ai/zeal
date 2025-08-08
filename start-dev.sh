@@ -11,6 +11,7 @@ NC='\033[0m' # No Color
 POSTGRES_CONTAINER="zeal-postgres"
 REDIS_CONTAINER="zeal-redis"
 CRDT_CONTAINER="zeal-crdt-server"
+MINIO_CONTAINER="zeal-minio"
 DOCKER_NETWORK="zeal-network"
 DB_NAME="zeal_db"
 DB_USER="zeal_user"
@@ -19,6 +20,11 @@ DB_PORT="5432"
 REDIS_PORT="6379"
 REDIS_PASSWORD="redispass123"
 CRDT_PORT="8080"
+MINIO_PORT="9000"
+MINIO_CONSOLE_PORT="9001"
+MINIO_ROOT_USER="minioadmin"
+MINIO_ROOT_PASSWORD="minioadmin123"
+MINIO_BUCKET="zeal-uploads"
 
 echo -e "${BLUE}🚀 Starting Zeal Development Environment${NC}"
 echo ""
@@ -133,6 +139,56 @@ start_redis() {
     exit 1
 }
 
+# Function to start MinIO
+start_minio() {
+    echo -e "${BLUE}📦 Starting MinIO (S3-compatible storage)...${NC}"
+    
+    # Check if container exists
+    if [ "$(docker ps -aq -f name=^${MINIO_CONTAINER}$)" ]; then
+        if [ "$(docker ps -q -f name=^${MINIO_CONTAINER}$)" ]; then
+            echo -e "${YELLOW}MinIO is already running${NC}"
+            return
+        else
+            echo -e "Starting existing MinIO container..."
+            docker start $MINIO_CONTAINER > /dev/null
+        fi
+    else
+        echo -e "Creating new MinIO container..."
+        docker run -d \
+            --name $MINIO_CONTAINER \
+            --network $DOCKER_NETWORK \
+            -p $MINIO_PORT:9000 \
+            -p $MINIO_CONSOLE_PORT:9001 \
+            -e MINIO_ROOT_USER=$MINIO_ROOT_USER \
+            -e MINIO_ROOT_PASSWORD=$MINIO_ROOT_PASSWORD \
+            -v zeal-minio-data:/data \
+            minio/minio:latest \
+            server /data --console-address ":9001" > /dev/null
+    fi
+    
+    # Wait for MinIO to be ready
+    echo -e "Waiting for MinIO..."
+    for i in {1..30}; do
+        if curl -s http://localhost:$MINIO_PORT/minio/health/live > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ MinIO is ready${NC}"
+            
+            # Create default bucket if it doesn't exist
+            echo -e "Creating default bucket..."
+            docker exec $MINIO_CONTAINER mkdir -p /data/$MINIO_BUCKET > /dev/null 2>&1
+            
+            # Set up MinIO client alias and set bucket policy
+            echo -e "Setting up bucket policy..."
+            docker exec $MINIO_CONTAINER mc alias set myminio http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD > /dev/null 2>&1
+            docker exec $MINIO_CONTAINER mc anonymous set download myminio/$MINIO_BUCKET > /dev/null 2>&1
+            
+            return
+        fi
+        sleep 1
+    done
+    echo -e "${RED}❌ MinIO failed to start${NC}"
+    exit 1
+}
+
 # Function to start CRDT server
 start_crdt_server() {
     echo -e "${BLUE}🦀 Starting CRDT server...${NC}"
@@ -232,6 +288,14 @@ NEXT_PUBLIC_ENABLE_FLOW_TRACING=true
 NEXT_PUBLIC_ENABLE_VERSION_HISTORY=true
 NEXT_PUBLIC_DEBUG_CRDT=false
 NEXT_PUBLIC_VERBOSE_LOGGING=false
+
+# MinIO Configuration
+MINIO_ENDPOINT="localhost:${MINIO_PORT}"
+MINIO_ACCESS_KEY="${MINIO_ROOT_USER}"
+MINIO_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
+MINIO_BUCKET="${MINIO_BUCKET}"
+MINIO_USE_SSL=false
+NEXT_PUBLIC_MINIO_URL="http://localhost:${MINIO_PORT}"
 EOF
 
     echo -e "${GREEN}✅ .env.local file created${NC}"
@@ -247,9 +311,11 @@ start_nextjs() {
     echo -e "${BLUE}   http://localhost:3000${NC}"
     echo ""
     echo -e "${YELLOW}💡 Connection details:${NC}"
-    echo -e "   PostgreSQL:  localhost:${DB_PORT} (user: ${DB_USER}, pass: ${DB_PASSWORD})"
-    echo -e "   Redis:       localhost:${REDIS_PORT} (pass: ${REDIS_PASSWORD})"
-    echo -e "   CRDT Server: ws://localhost:${CRDT_PORT}"
+    echo -e "   PostgreSQL:     localhost:${DB_PORT} (user: ${DB_USER}, pass: ${DB_PASSWORD})"
+    echo -e "   Redis:          localhost:${REDIS_PORT} (pass: ${REDIS_PASSWORD})"
+    echo -e "   CRDT Server:    ws://localhost:${CRDT_PORT}"
+    echo -e "   MinIO S3:       http://localhost:${MINIO_PORT}"
+    echo -e "   MinIO Console:  http://localhost:${MINIO_CONSOLE_PORT} (user: ${MINIO_ROOT_USER}, pass: ${MINIO_ROOT_PASSWORD})"
     echo ""
     echo -e "${GREEN}🎯 Press Ctrl+C to stop all services${NC}"
     echo ""
@@ -293,6 +359,9 @@ main() {
     
     # Start Redis
     start_redis
+    
+    # Start MinIO
+    start_minio
     
     # Start CRDT server
     start_crdt_server

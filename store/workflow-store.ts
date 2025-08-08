@@ -15,6 +15,7 @@ import { YMapEvent } from 'yjs'
 import { RustSocketIOProvider } from '@/lib/crdt/rust-socketio-provider'
 import { SyncOptimizerV2 } from '@/lib/crdt/sync-optimizer'
 import { WorkflowStorageService } from '@/services/workflowStorage'
+import { calculateNodeDimensions } from '@/utils/nodeUtils'
 import type { Connection as WorkflowConnection, NodeMetadata, NodeGroup } from '@/types/workflow'
 import type { CRDTPresence } from '@/lib/crdt/types'
 import type {
@@ -159,7 +160,6 @@ interface WorkflowStore {
 // Store implementation
 export const useWorkflowStore = create<WorkflowStore>()(
   devtools((set, get) => {
-    // [WorkflowStore] log removed
     return {
       // Initial state
       workflowId: '',
@@ -185,7 +185,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
       isOptimized: false,
 
       initialize: async (workflowId: string, workflowName?: string) => {
-        // [WorkflowStore] log removed
 
         // Clean up any existing connection
         get().cleanup()
@@ -204,17 +203,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const { isCollaborationEnabled, getCRDTServerUrl } = await import('@/lib/config/runtime')
         const enableCRDT = isCollaborationEnabled()
 
-        console.log(
-          '[WorkflowStore] Initializing CRDT - enabled:',
-          enableCRDT,
-          'workflowId:',
-          workflowId
-        )
 
         let provider: RustSocketIOProvider | null = null
         if (enableCRDT) {
           const serverUrl = getCRDTServerUrl()
-          console.log('[WorkflowStore] Creating RustSocketIOProvider with server:', serverUrl)
 
           provider = new RustSocketIOProvider(doc, {
             roomName: workflowId,
@@ -225,7 +217,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
               userName: sessionStorage.getItem('userName') || undefined,
             },
             onStatusChange: status => {
-              // [WorkflowStore] log removed
               const currentState = get()
               set({
                 isConnected: status === 'connected',
@@ -234,17 +225,14 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
               // Reset sync optimizer on reconnection
               if (status === 'connected' && currentState.syncOptimizer) {
-                console.log('[WorkflowStore] Resetting sync optimizer after reconnection')
                 currentState.syncOptimizer.reset()
               }
 
               // Auto-reconnect on disconnect
               if (status === 'disconnected') {
-                // [WorkflowStore] log removed
                 setTimeout(() => {
                   if (provider && !provider.connected) {
                     try {
-                      // [WorkflowStore] log removed
                       provider.connect()
                     } catch (error) {
                       console.error('[WorkflowStore] Reconnection failed:', error)
@@ -261,7 +249,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
             },
             onSyncComplete: () => {
               set({ isSyncing: false })
-              // [WorkflowStore] log removed
             },
           })
 
@@ -271,7 +258,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           // Create sync optimizer
           const syncOptimizer = new SyncOptimizerV2({
             onOptimizationChange: isOptimized => {
-              // [WorkflowStore] log removed
               set({ isOptimized })
             },
             minUsersForFullSync: 2,
@@ -372,12 +358,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           // Save to API
           await WorkflowStorageService.saveWorkflow(snapshot)
-          // [WorkflowStore] log removed
         }
 
         // Load snapshot data into CRDT
         if (snapshot) {
-          // [WorkflowStore] log removed
 
           doc.transact(() => {
             // Set metadata with validation
@@ -400,7 +384,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
                   namespace: String(graph.namespace || `${snapshot.id}/${graph.id}`),
                   isMain: graph.isMain || graph.id === 'main',
                 }
-                // [WorkflowStore] log removed
                 graphsMap.set(String(graph.id), graphInfo)
 
                 // Load nodes
@@ -489,7 +472,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
               })
             } else {
               // Ensure at least main graph exists
-              // [WorkflowStore] log removed
               graphsMap.set('main', {
                 id: 'main',
                 name: 'Main',
@@ -534,7 +516,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           doc.destroy()
         }
 
-        // [WorkflowStore] log removed
         set({
           doc: null,
           provider: null,
@@ -620,7 +601,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
       // Node management
       addNode: (metadata: NodeMetadata, position: { x: number; y: number }) => {
         const { doc, currentGraphId, initialized } = get()
-        // [WorkflowStore] log removed
 
         if (!doc) {
           console.error('[WorkflowStore] Cannot add node - no doc', {
@@ -636,7 +616,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         const nodeId = metadata.id
 
-        // [WorkflowStore] log removed
         doc.transact(() => {
           const nodesMap = doc.getMap(`nodes-${currentGraphId}`)
           const yNode = new Y.Map()
@@ -647,7 +626,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           yNode.set('propertyValues', metadata.propertyValues || {})
 
           nodesMap.set(nodeId, yNode)
-          // [WorkflowStore] log removed
         }, 'local')
 
         // Mark graph as dirty
@@ -656,7 +634,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
         // Force sync after adding node
         const provider = get().provider
         if (provider && provider.socket && provider.socket.connected) {
-          // [WorkflowStore] log removed
           // Don't update awareness here - it interferes with presence tracking
         }
 
@@ -839,7 +816,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           return
         }
 
-        // [WorkflowStore] log removed
 
         try {
           doc.transact(() => {
@@ -914,18 +890,31 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const groupNodes = nodes.filter(n => nodeIds.includes((n as any).id || n.metadata.id))
         if (groupNodes.length === 0) return ''
 
+
         // For new groups, assume no description initially (32px header)
         const headerOffset = 32
+        const padding = 10
 
-        const minX = Math.min(...groupNodes.map(n => n.position.x)) - 10
-        const minY = Math.min(...groupNodes.map(n => n.position.y)) - headerOffset - 10
-        const maxX = Math.max(...groupNodes.map(n => n.position.x)) + 210 // node width (200) + padding (10)
-        const maxY = Math.max(...groupNodes.map(n => n.position.y)) + 110 // node height (100) + padding (10)
+        const minX = Math.min(...groupNodes.map(n => n.position.x)) - padding
+        const minY = Math.min(...groupNodes.map(n => n.position.y)) - headerOffset - padding
+
+        // Calculate actual max bounds using real node dimensions
+        let maxX = minX
+        let maxY = minY + headerOffset // Start from after header
+
+        groupNodes.forEach(node => {
+          const { width, height } = calculateNodeDimensions(node.metadata)
+          maxX = Math.max(maxX, node.position.x + width)
+          maxY = Math.max(maxY, node.position.y + height)
+        })
+
+        // Add padding to max bounds
+        maxX += padding
+        maxY += padding
 
         const groupId = `group-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
         const now = new Date().toISOString()
 
-        // console.log removed
 
         doc.transact(() => {
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
@@ -944,8 +933,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             updatedAt: now,
           }
 
-          // console.log removed
-
+  
           // Store as plain object (not Y.Map) - this will sync properly
           // Use JSON parse/stringify to ensure clean object
           const cleanGroup = JSON.parse(JSON.stringify(plainGroup))
@@ -974,14 +962,12 @@ export const useWorkflowStore = create<WorkflowStore>()(
           lastUpdate: Date.now(),
         }))
 
-        // console.log removed
 
         return groupId
       },
 
       updateGroup: (groupId: string, updates: Partial<NodeGroup>) => {
         const { doc, currentGraphId } = get()
-        // console.log removed
 
         if (!doc) {
           console.error('🔷GROUPOPS STORE-002: updateGroup: doc is null')
@@ -1022,8 +1008,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           // Ensure position is preserved if not being updated
           if (!updates.position && currentGroup.position) {
-            // console.log removed
-          }
+              }
 
           // Create updated group with minimal changes
           // Never let position or size become undefined
@@ -1132,14 +1117,28 @@ export const useWorkflowStore = create<WorkflowStore>()(
         )
         if (memberNodes.length === 0) return
 
+        
         // Header offset: 32px for header + 68px if description exists
         const headerOffset = group.description ? 100 : 32
+        const padding = 10
 
-        // Calculate bounds including node dimensions with minimal padding
-        const minX = Math.min(...memberNodes.map(n => n.position?.x || 0)) - 10 // Reduced from 20
-        const minY = Math.min(...memberNodes.map(n => n.position?.y || 0)) - headerOffset - 10 // Reduced from 20
-        const maxX = Math.max(...memberNodes.map(n => (n.position?.x || 0) + 200)) + 10 // Reduced from 20
-        const maxY = Math.max(...memberNodes.map(n => (n.position?.y || 0) + 100)) + 10 // Reduced from 20
+        // Calculate bounds including actual node dimensions
+        const minX = Math.min(...memberNodes.map(n => n.position?.x || 0)) - padding
+        const minY = Math.min(...memberNodes.map(n => n.position?.y || 0)) - headerOffset - padding
+        
+        // Calculate actual max bounds using real node dimensions
+        let maxX = minX
+        let maxY = minY + headerOffset // Start from after header
+        
+        memberNodes.forEach(node => {
+          const { width, height } = calculateNodeDimensions(node.metadata)
+          maxX = Math.max(maxX, (node.position?.x || 0) + width)
+          maxY = Math.max(maxY, (node.position?.y || 0) + height)
+        })
+        
+        // Add padding to max bounds
+        maxX += padding
+        maxY += padding
 
         const newBounds = {
           x: minX,
@@ -1148,7 +1147,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           height: maxY - minY,
         }
 
-        // [Workflow Store] log removed
 
         // Update group bounds
         get().updateGroupBounds(groupId, newBounds)
@@ -1353,23 +1351,32 @@ export const useWorkflowStore = create<WorkflowStore>()(
       },
 
       // Presence
-      updateCursorPosition: (position: { x: number; y: number }) => {
-        const { provider, currentGraphId } = get()
-        if (!provider) return
+      updateCursorPosition: (() => {
+        let lastUpdate = 0
+        const throttleMs = 50 // Throttle cursor updates to max 20fps
+        
+        return (position: { x: number; y: number }) => {
+          const now = Date.now()
+          if (now - lastUpdate < throttleMs) return
+          
+          const { provider, currentGraphId } = get()
+          if (!provider) return
 
-        const awareness = provider.getAwareness()
-        if (awareness) {
-          const localState = awareness.getLocalState() || {}
-          awareness.setLocalState({
-            ...localState,
-            cursor: {
-              ...position,
-              graphId: currentGraphId,
-            },
-            lastSeen: Date.now(),
-          })
+          const awareness = provider.getAwareness()
+          if (awareness) {
+            const localState = awareness.getLocalState() || {}
+            awareness.setLocalState({
+              ...localState,
+              cursor: {
+                ...position,
+                graphId: currentGraphId,
+              },
+              lastSeen: Date.now(),
+            })
+            lastUpdate = now
+          }
         }
-      },
+      })(),
 
       // Persistence
       saveToAPI: async () => {
@@ -1461,9 +1468,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
         }
 
         try {
-          // [WorkflowStore] log removed
           await WorkflowStorageService.saveWorkflow(snapshot)
-          // [WorkflowStore] log removed
 
           // Clear dirty state for all graphs after successful save
           get().clearAllDirtyState()
@@ -1501,13 +1506,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
                 console.error('[WorkflowStore] Autosave failed:', error)
               })
             } else {
-              // [WorkflowStore] log removed
             }
           }, 5000)
 
-          // [WorkflowStore] log removed
         } else {
-          // [WorkflowStore] log removed
         }
       },
 
@@ -1525,7 +1527,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
         }
 
         try {
-          // [WorkflowStore] log removed
 
           // Call the API to perform the rollback
           const response = await fetch(`/api/workflows/${workflowId}/rollback`, {
@@ -1542,7 +1543,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           }
 
           const result = await response.json()
-          // [WorkflowStore] log removed
 
           // The rollback creates a new version with the old data
           // We need to update the CRDT to reflect this change
@@ -1640,7 +1640,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
           // Clear dirty state since we just rolled back
           get().clearAllDirtyState()
 
-          // [WorkflowStore] log removed
         } catch (error) {
           console.error('[WorkflowStore] Rollback failed:', error)
           throw error
@@ -1699,7 +1698,6 @@ export const useWorkflowStore = create<WorkflowStore>()(
       connectCRDT: () => {
         const { provider } = get()
         if (provider && !provider.connected) {
-          console.log('[WorkflowStore] Manually connecting CRDT provider')
           provider.connect()
         }
       },
@@ -1730,9 +1728,7 @@ function setupObservers(doc: Y.Doc, set: any, get: any) {
       return 0
     })
 
-    // [WorkflowStore] log removed
     set({ graphs })
-    // [WorkflowStore] log removed.graphs)
   }
   graphsMap.observe(graphsObserver)
   observers.push(() => graphsMap.unobserve(graphsObserver))
@@ -1783,13 +1779,27 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
     // Load nodes
     const nodesMap = doc.getMap(`nodes-${graphId}`)
-    nodesMap.forEach((yNode: any) => {
+    nodesMap.forEach((yNode: any, nodeId: string) => {
+      const metadata = yNode.get('metadata')
+      const position = yNode.get('position')
+      
+      // Skip nodes without metadata - they are invalid
+      if (!metadata) {
+        console.error('[Workflow Store] Node without metadata found, skipping:', {
+          nodeId,
+          hasPosition: !!position,
+          propertyValues: yNode.get('propertyValues'),
+        })
+        return
+      }
+      
       const nodeData = {
-        id: yNode.get('id'),
-        metadata: yNode.get('metadata'),
-        position: yNode.get('position'),
+        id: yNode.get('id') || nodeId,
+        metadata,
+        position,
         propertyValues: yNode.get('propertyValues') || {},
       }
+      
       // Only log if position is missing or invalid
       if (
         !nodeData.position ||
@@ -1861,9 +1871,7 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
       groups.push(groupData)
     })
 
-    // console.log removed
     if (groups.length > 0) {
-      // [0] log removed
     }
 
     // Update state with spread to ensure new reference
@@ -1880,7 +1888,6 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
   // Set up observers
   const nodesMap = doc.getMap(`nodes-${graphId}`)
   const nodesObserver = (events: Y.YEvent<any>[]) => {
-    console.log('[WorkflowStore] nodesObserver triggered with', events.length, 'events')
 
     // Check if changes are from remote client
     let isRemoteChange = false
@@ -1888,17 +1895,11 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
     let changeActions: Array<{ action: 'add' | 'delete' | 'update'; key: string }> = []
 
     events.forEach(event => {
-      console.log('[WorkflowStore] Event transaction:', {
-        hasTransaction: !!event.transaction,
-        origin: event.transaction?.origin,
-        local: event.transaction?.local,
-      })
 
       // Capture changes while we're in the event handler
       if (event instanceof YMapEvent) {
         event.changes.keys.forEach((change, key) => {
           changeActions.push({ action: change.action as any, key })
-          console.log('[WorkflowStore] Captured change:', change.action, 'for key:', key)
         })
       }
 
@@ -1909,26 +1910,19 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
       if (event.transaction) {
         // If origin is 'local', it's definitely a local change
         if (event.transaction.origin === 'local') {
-          console.log('[WorkflowStore] Local transaction detected')
           return // Skip local changes
         }
 
         // If origin is the provider, it's a remote change
         if (provider && event.transaction.origin === provider) {
           isRemoteChange = true
-          console.log('[WorkflowStore] Remote transaction detected via provider')
         }
         // If origin is not 'local' and exists, it might be remote
         else if (event.transaction.origin) {
           isRemoteChange = true
-          console.log(
-            '[WorkflowStore] Remote transaction detected, origin:',
-            event.transaction.origin
-          )
         }
         // If no origin, check if we're in a sync context
         else {
-          console.log('[WorkflowStore] Transaction has no origin - checking context')
           // During initial sync, transactions might not have origins
           // We'll skip these to avoid false notifications during initial load
         }
@@ -1936,15 +1930,11 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
       if (isRemoteChange) {
         const presence = state.presence
-        console.log('[WorkflowStore] Presence map size:', presence.size)
-        console.log('[WorkflowStore] Local client ID:', state.localClientId)
 
         // Find a remote user from presence
         presence.forEach((userPresence: any, clientId: any) => {
-          console.log('[WorkflowStore] Checking presence client:', clientId, userPresence)
           if (clientId !== state.localClientId && !remoteUserInfo) {
             remoteUserInfo = userPresence
-            console.log('[WorkflowStore] Found remote user:', remoteUserInfo)
           }
         })
 
@@ -1954,26 +1944,18 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
             userName: 'Another User',
             userId: 'remote-user',
           }
-          console.log('[WorkflowStore] Using generic remote user info')
         }
       }
     })
 
     // Import notification store if we have remote changes
     if (isRemoteChange && remoteUserInfo && changeActions.length > 0) {
-      console.log(
-        '[WorkflowStore] Remote change detected in nodes, triggering notification for',
-        changeActions.length,
-        'changes'
-      )
       import('@/store/notificationStore').then(module => {
         const useNotificationStore = module.useNotificationStore
-        console.log('[WorkflowStore] NotificationStore imported successfully')
 
         // Process the captured changes
         changeActions.forEach(change => {
           if (change.action === 'add') {
-            console.log('[WorkflowStore] Triggering node-added notification')
             useNotificationStore.getState().addNotification({
               type: 'node-added',
               message: 'added a node',
@@ -1981,7 +1963,6 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
               userId: remoteUserInfo.userId || 'unknown',
             })
           } else if (change.action === 'delete') {
-            console.log('[WorkflowStore] Triggering node-deleted notification')
             useNotificationStore.getState().addNotification({
               type: 'node-deleted',
               message: 'deleted a node',
@@ -2003,7 +1984,6 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
   const connectionsMap = doc.getMap(`connections-${graphId}`)
   const connectionsObserver = (events: Y.YEvent<any>[]) => {
-    console.log('[WorkflowStore] connectionsObserver triggered with', events.length, 'events')
 
     // Check if changes are from remote client
     let isRemoteChange = false
@@ -2089,7 +2069,6 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
   const groupsMap = doc.getMap(`groups-${graphId}`)
   const groupsObserver = (events: Y.YEvent<any>[]) => {
-    console.log('[WorkflowStore] groupsObserver triggered with', events.length, 'events')
 
     // Check if changes are from remote client
     let isRemoteChange = false
@@ -2206,6 +2185,7 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
   }
 
   const updatePresence = () => {
+    const currentPresence = get().presence
     const states = new Map<number, CRDTPresence>()
     awareness.getStates().forEach((state, clientId) => {
       // Only process if we have user data
@@ -2220,18 +2200,20 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
       }
     })
 
-    // Debug: log presence updates
-    if (states.size > 0) {
-      console.log('[WorkflowStore] Presence updated:', {
-        totalUsers: states.size,
-        users: Array.from(states.values()).map(u => ({
-          userId: u.userId,
-          userName: u.userName,
-        })),
+    // Only update if presence actually changed
+    const hasChanged = states.size !== currentPresence.size || 
+      Array.from(states.entries()).some(([clientId, state]) => {
+        const current = currentPresence.get(clientId)
+        if (!current) return true
+        return current.userId !== state.userId ||
+          current.userName !== state.userName ||
+          current.userColor !== state.userColor ||
+          JSON.stringify(current.cursor) !== JSON.stringify(state.cursor)
       })
-    }
 
-    set({ presence: states })
+    if (hasChanged) {
+      set({ presence: states })
+    }
   }
 
   // Initial presence update
@@ -2250,19 +2232,16 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
     })
 
     if (hasGroupUpdate) {
-      // console.log removed
     }
 
     // Check for group updates from other clients
     awareness.getStates().forEach((state, clientId) => {
       if (clientId !== awareness.clientID && state.groupUpdate) {
         const update = state.groupUpdate
-        // console.log removed
 
         // Check if this is a recent update (within last 5 seconds)
         if (update.timestamp && Date.now() - update.timestamp < 5000) {
-          // console.log removed
-
+  
           // Manually reload the groups data
           const currentGraphId = get().currentGraphId
           const groupsMap = doc.getMap(`groups-${currentGraphId}`)
@@ -2285,14 +2264,12 @@ function setupPresence(provider: RustSocketIOProvider, set: any, get: any, doc: 
               updatedAt: yGroup.get('updatedAt'),
             }
 
-            // console.log removed
-
+    
             groups.push(groupData)
           })
 
           // Update the state with the reloaded groups
-          // console.log removed
-          set({ groups, lastUpdate: Date.now() })
+            set({ groups, lastUpdate: Date.now() })
         }
       }
     })

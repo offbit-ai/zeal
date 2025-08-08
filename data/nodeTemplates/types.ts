@@ -22,6 +22,7 @@ export interface PropertyDefinition {
     | 'code-editor'
     | 'rules'
     | 'dataOperations'
+    | 'file'
   label?: string
   required?: boolean
   placeholder?: any

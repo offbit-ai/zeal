@@ -84,6 +84,20 @@ kubectl apply -f k8s/deployment.yaml
 | `ZEAL_SUPABASE_ANON_KEY`         | Supabase anonymous key    |
 | `ZEAL_SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 
+### MinIO/S3 Storage Variables
+
+| Variable                   | Description                          | Default               |
+| -------------------------- | ------------------------------------ | --------------------- |
+| `ZEAL_MINIO_ENABLED`       | Deploy MinIO in cluster              | `true`                |
+| `ZEAL_MINIO_IMAGE`         | MinIO container image                | `minio/minio:latest`  |
+| `ZEAL_MINIO_REPLICAS`      | Number of MinIO pods                 | `1`                   |
+| `ZEAL_MINIO_ACCESS_KEY`    | MinIO access key                     | `minioadmin`          |
+| `ZEAL_MINIO_SECRET_KEY`    | MinIO secret key                     | `minioadmin123`       |
+| `ZEAL_MINIO_BUCKET`        | Default bucket name                  | `zeal-uploads`        |
+| `ZEAL_MINIO_STORAGE_SIZE`  | PVC size for MinIO                   | `10Gi`                |
+| `ZEAL_MINIO_USE_SSL`       | Enable SSL for MinIO                 | `true` (production)   |
+| `ZEAL_MINIO_PUBLIC_URL`    | Public URL for MinIO/S3              | `https://s3.example.com` |
+
 ## Prerequisites
 
 1. **Kubernetes Cluster**: Version 1.24+
@@ -116,19 +130,25 @@ docker push myregistry/zeal-crdt:v1.0.0
    kubectl create namespace zeal
    ```
 
-3. **Apply the deployment**:
+3. **Deploy MinIO** (if using built-in MinIO):
+
+   ```bash
+   kubectl apply -f k8s/minio.yaml
+   ```
+
+4. **Apply the main deployment**:
 
    ```bash
    kubectl apply -f k8s/deployment-generated.yaml
    ```
 
-4. **Check deployment status**:
+5. **Check deployment status**:
 
    ```bash
    kubectl get all -n zeal
    ```
 
-5. **View logs**:
+6. **View logs**:
 
    ```bash
    # Next.js logs
@@ -136,6 +156,9 @@ docker push myregistry/zeal-crdt:v1.0.0
 
    # CRDT server logs
    kubectl logs -f deployment/crdt-deployment -n zeal
+   
+   # MinIO logs (if deployed)
+   kubectl logs -f deployment/minio -n zeal
    ```
 
 ## Post-Deployment
@@ -233,7 +256,14 @@ Regular backup considerations:
 
 - PostgreSQL database (if not using Supabase)
 - Redis data (CRDT state)
+- MinIO data (uploaded files)
 - Kubernetes secrets and configmaps
+
+For MinIO backup:
+```bash
+# Backup MinIO data using mc (MinIO Client)
+mc mirror minio/zeal-uploads /backup/minio/
+```
 
 ## Support
 

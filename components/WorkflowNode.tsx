@@ -315,6 +315,163 @@ export function WorkflowNode({
 
   const currentSize = sizeStyles[size]
 
+  // Check if this is a script node (has type 'script' and a code editor property)
+  const isScriptNode = metadata.type === 'script'
+
+  // Check if this is a user input node
+  const isTextInput = metadata.type === 'text-input'
+  const isNumberInput = metadata.type === 'number-input'
+  const isRangeInput = metadata.type === 'range-input'
+  const isImageInput = metadata.type === 'image-input'
+  const isAudioInput = metadata.type === 'audio-input'
+  const isVideoInput = metadata.type === 'video-input'
+  const isMediaNode = isImageInput || isAudioInput || isVideoInput
+  const isInputNode = isTextInput || isNumberInput || isRangeInput || isMediaNode
+
+  // Handle both object and array formats for properties
+  // Find the code-editor property (could be 'script', 'query', etc.)
+  let codeEditorProperty: PropertyDefinition | undefined
+  let codeEditorPropertyName: string | undefined
+
+  if (metadata.properties) {
+    if (Array.isArray(metadata.properties)) {
+      // Array format: find the code-editor property
+      codeEditorProperty = metadata.properties.find(prop => prop.type === 'code-editor')
+      codeEditorPropertyName = codeEditorProperty?.id
+    } else {
+      // Object format: find the code-editor property
+      const entries = Object.entries(metadata.properties)
+      const codeEditorEntry = entries.find(
+        ([_, prop]: [string, any]) => prop.type === 'code-editor'
+      )
+      if (codeEditorEntry) {
+        codeEditorPropertyName = codeEditorEntry[0]
+        codeEditorProperty = codeEditorEntry[1]
+      }
+    }
+  }
+
+  const hasCodeEditor = codeEditorProperty?.type === 'code-editor'
+  // Use metadata.propertyValues like PropertyPane does, with fallback to propertyValues prop
+  const actualPropertyValues = metadata.propertyValues || propertyValues || {}
+  const codeValue = codeEditorPropertyName
+    ? actualPropertyValues?.[codeEditorPropertyName] || ''
+    : ''
+
+  // Render media components - must be rendered regardless of shape to maintain hook consistency
+  const renderMediaComponents = () => {
+    // We need to render all media components to maintain consistent hook calls
+    // But we can hide them with display:none for non-rectangle shapes
+    const shouldShow = shape === 'rectangle'
+    
+    return (
+      <>
+        {isImageInput && (
+          <div
+            className="w-full mt-3"
+            style={{ display: shouldShow ? 'block' : 'none' }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <ImagePreview
+              source={actualPropertyValues.source || 'upload'}
+              url={
+                actualPropertyValues.source === 'upload'
+                  ? actualPropertyValues.imageFile
+                  : actualPropertyValues.url
+              }
+              displayMode={actualPropertyValues.displayMode || 'contain'}
+              previewHeight={actualPropertyValues.previewHeight || 200}
+              acceptedFormats={
+                actualPropertyValues.acceptedFormats || 'image/jpeg,image/png,image/gif,image/webp'
+              }
+              maxFileSize={actualPropertyValues.maxFileSize || 10}
+              pauseGifOnHover={actualPropertyValues.pauseGifOnHover}
+              nodeId={metadata.id}
+              onDataChange={data => {
+                if (actualPropertyValues.source === 'upload') {
+                  onPropertyChange?.('imageFile', data.url) // Update the file property
+                }
+                onPropertyChange?.('imageData', data.url) // Output port data
+                onPropertyChange?.('metadata', data.metadata)
+              }}
+            />
+          </div>
+        )}
+
+        {isAudioInput && (
+          <div
+            className="w-full mt-3"
+            style={{ display: shouldShow ? 'block' : 'none' }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <AudioPlayer
+              source={actualPropertyValues.source || 'upload'}
+              url={
+                actualPropertyValues.source === 'upload'
+                  ? actualPropertyValues.audioFile
+                  : actualPropertyValues.url
+              }
+              acceptedFormats={
+                actualPropertyValues.acceptedFormats || 'audio/mpeg,audio/wav,audio/ogg,audio/webm'
+              }
+              maxFileSize={actualPropertyValues.maxFileSize || 50}
+              showWaveform={actualPropertyValues.showWaveform !== false}
+              autoplay={actualPropertyValues.autoplay || false}
+              loop={actualPropertyValues.loop || false}
+              nodeId={metadata.id}
+              onDataChange={data => {
+                if (actualPropertyValues.source === 'upload') {
+                  onPropertyChange?.('audioFile', data.url) // Update the file property
+                }
+                onPropertyChange?.('audioData', data.url) // Output port data
+                onPropertyChange?.('metadata', data.metadata)
+              }}
+            />
+          </div>
+        )}
+
+        {isVideoInput && (
+          <div
+            className="w-full mt-3"
+            style={{ display: shouldShow ? 'block' : 'none' }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <VideoPlayer
+              source={actualPropertyValues.source || 'upload'}
+              url={
+                actualPropertyValues.source === 'upload'
+                  ? actualPropertyValues.videoFile
+                  : actualPropertyValues.url
+              }
+              acceptedFormats={
+                actualPropertyValues.acceptedFormats || 'video/mp4,video/webm,video/ogg'
+              }
+              maxFileSize={actualPropertyValues.maxFileSize || 100}
+              previewHeight={actualPropertyValues.previewHeight || 300}
+              showControls={actualPropertyValues.showControls !== false}
+              autoplay={actualPropertyValues.autoplay || false}
+              loop={actualPropertyValues.loop || false}
+              muted={actualPropertyValues.muted || false}
+              streamType={actualPropertyValues.streamType}
+              buffering={actualPropertyValues.buffering}
+              nodeId={metadata.id}
+              onDataChange={data => {
+                if (actualPropertyValues.source === 'upload') {
+                  onPropertyChange?.('videoFile', data.url) // Update the file property
+                }
+                onPropertyChange?.('videoData', data.url) // Output port data
+                onPropertyChange?.('metadata', data.metadata)
+              }}
+            />
+          </div>
+        )}
+      </>
+    )
+  }
+
   // Handle circle shape differently
   if (shape === 'circle') {
     return (
@@ -375,6 +532,7 @@ export function WorkflowNode({
             </div>
           )}
         </div>
+        {renderMediaComponents()}
       </div>
     )
   }
@@ -439,52 +597,10 @@ export function WorkflowNode({
             </div>
           )}
         </div>
+        {renderMediaComponents()}
       </div>
     )
   }
-
-  // Check if this is a script node (has type 'script' and a code editor property)
-  const isScriptNode = metadata.type === 'script'
-
-  // Check if this is a user input node
-  const isTextInput = metadata.type === 'text-input'
-  const isNumberInput = metadata.type === 'number-input'
-  const isRangeInput = metadata.type === 'range-input'
-  const isImageInput = metadata.type === 'image-input'
-  const isAudioInput = metadata.type === 'audio-input'
-  const isVideoInput = metadata.type === 'video-input'
-  const isMediaNode = isImageInput || isAudioInput || isVideoInput
-  const isInputNode = isTextInput || isNumberInput || isRangeInput || isMediaNode
-
-  // Handle both object and array formats for properties
-  // Find the code-editor property (could be 'script', 'query', etc.)
-  let codeEditorProperty: PropertyDefinition | undefined
-  let codeEditorPropertyName: string | undefined
-
-  if (metadata.properties) {
-    if (Array.isArray(metadata.properties)) {
-      // Array format: find the code-editor property
-      codeEditorProperty = metadata.properties.find(prop => prop.type === 'code-editor')
-      codeEditorPropertyName = codeEditorProperty?.id
-    } else {
-      // Object format: find the code-editor property
-      const entries = Object.entries(metadata.properties)
-      const codeEditorEntry = entries.find(
-        ([_, prop]: [string, any]) => prop.type === 'code-editor'
-      )
-      if (codeEditorEntry) {
-        codeEditorPropertyName = codeEditorEntry[0]
-        codeEditorProperty = codeEditorEntry[1]
-      }
-    }
-  }
-
-  const hasCodeEditor = codeEditorProperty?.type === 'code-editor'
-  // Use metadata.propertyValues like PropertyPane does, with fallback to propertyValues prop
-  const actualPropertyValues = metadata.propertyValues || propertyValues || {}
-  const codeValue = codeEditorPropertyName
-    ? actualPropertyValues?.[codeEditorPropertyName] || ''
-    : ''
 
   // Default rectangle shape
   return (
@@ -571,8 +687,8 @@ export function WorkflowNode({
 
       {/* Text Input Control */}
       {isTextInput && (
-        <div 
-          className="w-full mt-3" 
+        <div
+          className="w-full mt-3"
           onClick={e => e.stopPropagation()}
           onMouseDown={e => e.stopPropagation()}
         >
@@ -590,8 +706,8 @@ export function WorkflowNode({
 
       {/* Number Input Control */}
       {isNumberInput && (
-        <div 
-          className="w-full mt-3" 
+        <div
+          className="w-full mt-3"
           onClick={e => e.stopPropagation()}
           onMouseDown={e => e.stopPropagation()}
         >
@@ -609,8 +725,8 @@ export function WorkflowNode({
 
       {/* Range Input Control */}
       {isRangeInput && (
-        <div 
-          className="w-full mt-3" 
+        <div
+          className="w-full mt-3"
           onClick={e => e.stopPropagation()}
           onMouseDown={e => e.stopPropagation()}
         >
@@ -627,81 +743,8 @@ export function WorkflowNode({
         </div>
       )}
 
-      {/* Image Preview */}
-      {isImageInput && (
-        <div 
-          className="w-full mt-3" 
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <ImagePreview
-            source={actualPropertyValues.source || 'upload'}
-            url={actualPropertyValues.url}
-            displayMode={actualPropertyValues.displayMode || 'contain'}
-            previewHeight={actualPropertyValues.previewHeight || 200}
-            acceptedFormats={
-              actualPropertyValues.acceptedFormats || 'image/jpeg,image/png,image/gif,image/webp'
-            }
-            maxFileSize={actualPropertyValues.maxFileSize || 10}
-            onDataChange={data => {
-              onPropertyChange?.('imageData', data.url) // Only store URL reference
-              onPropertyChange?.('metadata', data.metadata)
-            }}
-          />
-        </div>
-      )}
-
-      {/* Audio Player */}
-      {isAudioInput && (
-        <div 
-          className="w-full mt-3" 
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <AudioPlayer
-            source={actualPropertyValues.source || 'upload'}
-            url={actualPropertyValues.url}
-            acceptedFormats={
-              actualPropertyValues.acceptedFormats || 'audio/mpeg,audio/wav,audio/ogg,audio/webm'
-            }
-            maxFileSize={actualPropertyValues.maxFileSize || 50}
-            showWaveform={actualPropertyValues.showWaveform !== false}
-            autoplay={actualPropertyValues.autoplay || false}
-            loop={actualPropertyValues.loop || false}
-            onDataChange={data => {
-              onPropertyChange?.('audioData', data.url) // Only store URL reference
-              onPropertyChange?.('metadata', data.metadata)
-            }}
-          />
-        </div>
-      )}
-
-      {/* Video Player */}
-      {isVideoInput && (
-        <div 
-          className="w-full mt-3" 
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <VideoPlayer
-            source={actualPropertyValues.source || 'upload'}
-            url={actualPropertyValues.url}
-            acceptedFormats={
-              actualPropertyValues.acceptedFormats || 'video/mp4,video/webm,video/ogg'
-            }
-            maxFileSize={actualPropertyValues.maxFileSize || 100}
-            previewHeight={actualPropertyValues.previewHeight || 300}
-            showControls={actualPropertyValues.showControls !== false}
-            autoplay={actualPropertyValues.autoplay || false}
-            loop={actualPropertyValues.loop || false}
-            muted={actualPropertyValues.muted || false}
-            onDataChange={data => {
-              onPropertyChange?.('videoData', data.url) // Only store URL reference
-              onPropertyChange?.('metadata', data.metadata)
-            }}
-          />
-        </div>
-      )}
+      {/* Render media components */}
+      {renderMediaComponents()}
 
       {/* Render ports */}
       {ports.map(port => {

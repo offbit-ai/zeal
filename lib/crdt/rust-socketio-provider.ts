@@ -55,7 +55,7 @@ export class RustSocketIOProvider {
   private healthCheckTimer: NodeJS.Timeout | null = null
   private heartbeatTimer: NodeJS.Timeout | null = null
   private reconnectionAttempts: number = 0
-  private maxReconnectionAttempts: number = 3
+  private maxReconnectionAttempts: number = 100
   private healthCheckInterval: number = 30000 // 30 seconds
   private heartbeatInterval: number = 20000 // 20 seconds - send heartbeat before server timeout
   private syncTimeoutThreshold: number = 60000 // 1 minute
@@ -238,7 +238,7 @@ export class RustSocketIOProvider {
       const httpUrl = this.config.serverUrl
         .replace('ws://', 'http://')
         .replace('wss://', 'https://')
-      
+
       console.log('[Rust CRDT] Creating socket with options:', {
         serverUrl: this.config.serverUrl,
         httpUrl: httpUrl,

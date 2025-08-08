@@ -41,6 +41,7 @@ export type PropertyType =
   | 'rules'
   | 'dataOperations'
   | 'code-editor'
+  | 'file'
 
 export type RuleOperator =
   | 'is'

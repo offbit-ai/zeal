@@ -11,6 +11,7 @@ NC='\033[0m' # No Color
 POSTGRES_CONTAINER="zeal-postgres"
 REDIS_CONTAINER="zeal-redis"
 CRDT_CONTAINER="zeal-crdt-server"
+MINIO_CONTAINER="zeal-minio"
 
 echo -e "${BLUE}🛑 Stopping Zeal Development Environment${NC}"
 echo ""
@@ -42,6 +43,15 @@ else
     echo -e "${YELLOW}ℹ️  CRDT server container is not running${NC}"
 fi
 
+# Stop MinIO container
+if [ "$(docker ps -q -f name=^${MINIO_CONTAINER}$)" ]; then
+    echo -e "${YELLOW}📦 Stopping MinIO server...${NC}"
+    docker stop $MINIO_CONTAINER > /dev/null
+    echo -e "${GREEN}✅ MinIO stopped${NC}"
+else
+    echo -e "${YELLOW}ℹ️  MinIO container is not running${NC}"
+fi
+
 # Ask if user wants to remove the containers
 echo ""
 read -p "Do you want to remove the containers? (y/N) " -n 1 -r
@@ -50,6 +60,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     docker rm $POSTGRES_CONTAINER > /dev/null 2>&1
     docker rm $REDIS_CONTAINER > /dev/null 2>&1
     docker rm $CRDT_CONTAINER > /dev/null 2>&1
+    docker rm $MINIO_CONTAINER > /dev/null 2>&1
     echo -e "${GREEN}✅ Containers removed${NC}"
 fi
 
@@ -60,6 +71,7 @@ echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     docker volume rm zeal-postgres-data > /dev/null 2>&1
     docker volume rm zeal-redis-data > /dev/null 2>&1
+    docker volume rm zeal-minio-data > /dev/null 2>&1
     echo -e "${GREEN}✅ Data volumes removed${NC}"
 else
     echo -e "${BLUE}💾 Data preserved in Docker volumes${NC}"

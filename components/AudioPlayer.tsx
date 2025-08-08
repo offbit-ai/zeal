@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Play, Pause, Upload, Mic, Link, AlertCircle, X } from 'lucide-react'
+import { useWorkflowStore } from '@/store/workflow-store'
 
 interface AudioPlayerProps {
   source: 'upload' | 'url' | 'record'
@@ -9,6 +10,7 @@ interface AudioPlayerProps {
   showWaveform: boolean
   autoplay: boolean
   loop: boolean
+  nodeId?: string
   onDataChange?: (data: { url?: string; metadata?: any }) => void
 }
 
@@ -20,8 +22,10 @@ export function AudioPlayer({
   showWaveform,
   autoplay,
   loop,
+  nodeId,
   onDataChange,
 }: AudioPlayerProps) {
+  const { workflowId, currentGraphId } = useWorkflowStore()
   const [audioData, setAudioData] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -38,6 +42,11 @@ export function AudioPlayer({
       setAudioData(url)
       setError(null)
       onDataChange?.({ url, metadata: { source: 'url' } })
+    } else if (source === 'upload' && url) {
+      // Handle pre-uploaded file from property panel
+      setAudioData(url)
+      setError(null)
+      // Don't call onDataChange here as the data is already saved
     }
   }, [source, url, onDataChange])
 
@@ -70,22 +79,27 @@ export function AudioPlayer({
     setError(null)
 
     try {
-      // TODO: In production, implement S3 multipart upload here
-      // const formData = new FormData()
-      // formData.append('file', file)
-      // const response = await fetch('/api/upload/audio', {
-      //   method: 'POST',
-      //   body: formData,
-      // })
-      // const { url: s3Url } = await response.json()
-      // setAudioData(s3Url)
+      // Upload to S3/MinIO
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      // Add IDs for namespacing
+      if (workflowId) formData.append('workflowId', workflowId)
+      if (currentGraphId) formData.append('graphId', currentGraphId)
+      if (nodeId) formData.append('nodeId', nodeId)
 
-      // For now, use local blob URL as placeholder
-      if (audioData && audioData.startsWith('blob:')) {
-        URL.revokeObjectURL(audioData)
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
       }
-      const objectUrl = URL.createObjectURL(file)
-      setAudioData(objectUrl)
+
+      const data = await response.json()
+      setAudioData(data.url)
 
       const meta = {
         name: file.name,
@@ -93,16 +107,16 @@ export function AudioPlayer({
         type: file.type,
         lastModified: file.lastModified,
         source: 'upload',
-        path: file.name, // In production, this would be the S3 key
+        key: data.key,
+        url: data.url,
       }
       setMetadata(meta)
-      
-      // In production, this would pass the S3 URL
-      onDataChange?.({ url: objectUrl, metadata: meta })
+
+      onDataChange?.({ url: data.url, metadata: meta })
+      setIsLoading(false)
     } catch (err) {
       setError('Failed to upload audio')
       console.error('Upload error:', err)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -150,12 +164,9 @@ export function AudioPlayer({
       audioRef.current.pause()
       audioRef.current.src = ''
     }
-    
-    // Revoke object URL to free memory
-    if (audioData && audioData.startsWith('blob:')) {
-      URL.revokeObjectURL(audioData)
-    }
-    
+
+    // No need to revoke base64 data URLs
+
     // Clear all states immediately
     setAudioData(null)
     setIsPlaying(false)
@@ -163,11 +174,11 @@ export function AudioPlayer({
     setDuration(0)
     setError(null)
     setMetadata(null)
-    
+
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-    
+
     onDataChange?.({ url: undefined, metadata: undefined })
   }
 

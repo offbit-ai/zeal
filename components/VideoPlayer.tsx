@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Upload, Link, Video, Youtube, AlertCircle, X } from 'lucide-react'
+import { useWorkflowStore } from '@/store/workflow-store'
 
 interface VideoPlayerProps {
   source: 'upload' | 'url' | 'stream' | 'youtube' | 'vimeo'
@@ -13,6 +14,7 @@ interface VideoPlayerProps {
   muted: boolean
   streamType?: 'auto' | 'hls' | 'dash'
   buffering?: boolean
+  nodeId?: string
   onDataChange?: (data: { url?: string; metadata?: any }) => void
 }
 
@@ -28,8 +30,10 @@ export function VideoPlayer({
   muted,
   streamType = 'auto',
   buffering = true,
+  nodeId,
   onDataChange,
 }: VideoPlayerProps) {
+  const { workflowId, currentGraphId } = useWorkflowStore()
   const [videoData, setVideoData] = useState<string | null>(null)
   const [embedUrl, setEmbedUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +49,11 @@ export function VideoPlayer({
       setVideoData(url)
       setError(null)
       onDataChange?.({ url, metadata: { source: 'url' } })
+    } else if (source === 'upload' && url) {
+      // Handle pre-uploaded file from property panel
+      setVideoData(url)
+      setError(null)
+      // Don't call onDataChange here as the data is already saved
     } else if (source === 'stream' && url) {
       setVideoData(url)
       setError(null)
@@ -100,22 +109,27 @@ export function VideoPlayer({
     setError(null)
 
     try {
-      // TODO: In production, implement S3 multipart upload here
-      // const formData = new FormData()
-      // formData.append('file', file)
-      // const response = await fetch('/api/upload/video', {
-      //   method: 'POST',
-      //   body: formData,
-      // })
-      // const { url: s3Url, streamingUrl } = await response.json()
-      // setVideoData(streamingUrl || s3Url) // Use CDN/streaming URL if available
+      // Upload to S3/MinIO
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      // Add IDs for namespacing
+      if (workflowId) formData.append('workflowId', workflowId)
+      if (currentGraphId) formData.append('graphId', currentGraphId)
+      if (nodeId) formData.append('nodeId', nodeId)
 
-      // For now, use local blob URL as placeholder
-      if (videoData && videoData.startsWith('blob:')) {
-        URL.revokeObjectURL(videoData)
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
       }
-      const objectUrl = URL.createObjectURL(file)
-      setVideoData(objectUrl)
+
+      const data = await response.json()
+      setVideoData(data.url)
 
       const meta = {
         name: file.name,
@@ -123,16 +137,16 @@ export function VideoPlayer({
         type: file.type,
         lastModified: file.lastModified,
         source: 'upload',
-        path: file.name, // In production, this would be the S3 key
+        key: data.key,
+        url: data.url,
       }
       setMetadata(meta)
-      
-      // In production, this would pass the S3 URL or streaming URL
-      onDataChange?.({ url: objectUrl, metadata: meta })
+
+      onDataChange?.({ url: data.url, metadata: meta })
+      setIsLoading(false)
     } catch (err) {
       setError('Failed to upload video')
       console.error('Upload error:', err)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -143,23 +157,20 @@ export function VideoPlayer({
       videoRef.current.pause()
       videoRef.current.src = ''
     }
-    
-    // Revoke object URL to free memory
-    if (videoData && videoData.startsWith('blob:')) {
-      URL.revokeObjectURL(videoData)
-    }
-    
+
+    // No need to revoke base64 data URLs
+
     // Clear all states immediately
     setVideoData(null)
     setEmbedUrl(null)
     setError(null)
     setMetadata(null)
     setIsBuffering(false)
-    
+
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-    
+
     onDataChange?.({ url: undefined, metadata: undefined })
   }
 
@@ -209,7 +220,7 @@ export function VideoPlayer({
       )}
 
       {isLoading && (
-        <div 
+        <div
           className="w-full bg-black rounded-lg flex flex-col items-center justify-center"
           style={{ height: previewHeight }}
         >

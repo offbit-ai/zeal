@@ -14,6 +14,7 @@ import { RuleEditorModal } from './RuleEditorModal'
 import { DataOperationModal } from './DataOperationModal'
 import { ModalPortal } from './ModalPortal'
 import { CodeEditor } from './CodeEditor'
+import { FileUploadField } from './FileUploadField'
 import { updateDynamicNodeMetadata, shouldUpdateDynamicMetadata } from '@/utils/dynamicNodeMetadata'
 
 interface PropertyPaneProps {
@@ -29,12 +30,14 @@ function PropertyField({
   onChange,
   onOpenRuleEditor,
   onOpenDataOpEditor,
+  nodeId,
 }: {
   property: PropertyDefinition
   value: any
   onChange: (value: any) => void
   onOpenRuleEditor?: (property: PropertyDefinition) => void
   onOpenDataOpEditor?: (property: PropertyDefinition) => void
+  nodeId?: string
 }) {
   const handleChange = (newValue: any) => {
     onChange(newValue)
@@ -177,6 +180,22 @@ function PropertyField({
         />
       )
 
+    case 'file':
+      return (
+        <FileUploadField
+          value={value}
+          onChange={(fileUrl, metadata) => {
+            handleChange(fileUrl)
+          }}
+          acceptedFormats={property.acceptedFormats}
+          maxFileSize={property.maxFileSize}
+          fileType={property.fileType}
+          label={property.label}
+          description={property.description}
+          nodeId={nodeId}
+        />
+      )
+
     default:
       return <div className="text-sm text-gray-500">Unsupported property type: {property.type}</div>
   }
@@ -226,11 +245,26 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
     }
   }, [isInitialRender])
 
+  // Convert properties from object format to array format for rendering
+  const properties = selectedNode?.metadata.properties
+    ? Object.entries(selectedNode.metadata.properties).map(([id, prop]: [string, any]) => ({
+        id,
+        ...prop,
+      }))
+    : []
+
   // Handle property value changes (local only, no auto-save)
   const handlePropertyChange = async (propertyId: string, value: any) => {
     if (!selectedNode) return
 
     const updatedValues = { ...localPropertyValues, [propertyId]: value }
+
+    // Handle linked properties (e.g., imageFile -> imageData)
+    const property = properties.find(p => p.id === propertyId)
+    if (property?.linkedProperty) {
+      updatedValues[property.linkedProperty] = value
+    }
+
     setLocalPropertyValues(updatedValues)
 
     // Apply dynamic metadata updates in real-time for visual feedback
@@ -348,14 +382,6 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
 
   const { metadata } = selectedNode
 
-  // Convert properties from object format to array format for rendering
-  const properties = metadata.properties
-    ? Object.entries(metadata.properties).map(([id, prop]: [string, any]) => ({
-        id,
-        ...prop,
-      }))
-    : []
-
   return (
     <div
       className={`w-80 h-full bg-white border-l border-gray-200 flex flex-col transform transition-all duration-300 ease-out ${
@@ -417,18 +443,36 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
               // Check visibility condition using current local values
               if (property.visibleWhen) {
                 try {
-                  // Use current local property values for immediate visibility feedback
+                  // Create a safe evaluation context with all properties
                   const evalContext = { ...localPropertyValues }
 
-                  // Use Function constructor for safe evaluation
-                  const condition = new Function(
-                    ...Object.keys(evalContext),
-                    `return ${property.visibleWhen}`
-                  )
-                  const isVisible = condition(...Object.values(evalContext))
+                  // Extract all variable names from the condition
+                  const variableNames = property.visibleWhen.match(/\b\w+\b/g) || []
+
+                  // Ensure all referenced variables exist in context
+                  variableNames.forEach((varName: string) => {
+                    if (!(varName in evalContext) && properties.find(p => p.id === varName)) {
+                      evalContext[varName] = undefined
+                    }
+                  })
+
+                  // Create function body that declares all variables
+                  const varDeclarations = Object.entries(evalContext)
+                    .map(([key, value]) => `const ${key} = ${JSON.stringify(value)};`)
+                    .join('\n')
+
+                  const functionBody = `
+                    ${varDeclarations}
+                    return ${property.visibleWhen};
+                  `
+
+                  const condition = new Function(functionBody)
+                  const isVisible = condition()
                   if (!isVisible) return null
                 } catch (error) {
                   console.error(`Error evaluating visibility condition for ${property.id}:`, error)
+                  // Default to showing the property if evaluation fails
+                  return null
                 }
               }
 
@@ -447,6 +491,7 @@ export function PropertyPane({ selectedNodeId, onClose, isClosing = false }: Pro
                     onChange={value => handlePropertyChange(property.id, value)}
                     onOpenRuleEditor={handleOpenRuleEditor}
                     onOpenDataOpEditor={handleOpenDataOpEditor}
+                    nodeId={selectedNodeId || undefined}
                   />
 
                   {property.description && (

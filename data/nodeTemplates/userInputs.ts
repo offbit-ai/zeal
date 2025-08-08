@@ -246,7 +246,7 @@ const imageInputNode: NodeTemplate = {
   id: 'tpl_image_input',
   type: 'image-input',
   title: 'Image',
-  subtitle: 'Image Upload/Display',
+  subtitle: '',
   category: 'media',
   subcategory: 'images',
   description: 'Upload or link to images with inline preview (supports GIF animations)',
@@ -282,12 +282,23 @@ const imageInputNode: NodeTemplate = {
       options: ['upload', 'url', 'base64'],
       defaultValue: 'url',
     },
+    imageFile: {
+      type: 'file',
+      label: 'Upload Image',
+      description: 'Select an image file to upload',
+      acceptedFormats: 'image/jpeg,image/png,image/gif,image/webp',
+      maxFileSize: 10,
+      fileType: 'image',
+      visibleWhen: 'source === "upload"',
+      linkedProperty: 'imageData', // Link to output data property
+    },
     url: {
       type: 'text',
       label: 'Image URL',
       placeholder: 'https://example.com/image.jpg',
-      description: 'Used when source is "url"',
+      description: 'Enter the URL of the image',
       defaultValue: 'https://placehold.co/400x300',
+      visibleWhen: 'source === "url"',
     },
     acceptedFormats: {
       type: 'text',
@@ -301,6 +312,7 @@ const imageInputNode: NodeTemplate = {
       defaultValue: 10,
       min: 1,
       max: 100,
+      description: 'Maximum file size for uploads',
     },
     displayMode: {
       type: 'select',
@@ -333,14 +345,14 @@ const imageInputNode: NodeTemplate = {
       {
         when: '$.source == "upload"',
         updates: {
-          subtitle: 'Image Upload',
+          // subtitle: 'Image Upload',
           icon: 'image-up',
         },
       },
       {
         when: '$.source == "url"',
         updates: {
-          subtitle: 'Image from URL',
+          // subtitle: 'Image from URL',
           icon: 'link',
         },
       },
@@ -353,7 +365,7 @@ const audioInputNode: NodeTemplate = {
   id: 'tpl_audio_input',
   type: 'audio-input',
   title: 'Audio',
-  subtitle: 'Audio Upload/Player',
+  subtitle: '',
   category: 'media',
   subcategory: 'audio',
   description: 'Upload or link to audio files with inline player',
@@ -389,11 +401,22 @@ const audioInputNode: NodeTemplate = {
       options: ['upload', 'url', 'record'],
       defaultValue: 'upload',
     },
+    audioFile: {
+      type: 'file',
+      label: 'Upload Audio',
+      description: 'Select an audio file to upload',
+      acceptedFormats: 'audio/mpeg,audio/wav,audio/ogg,audio/webm',
+      maxFileSize: 50,
+      fileType: 'audio',
+      visibleWhen: 'source === "upload"',
+      linkedProperty: 'audioData', // Link to output data property
+    },
     url: {
       type: 'text',
       label: 'Audio URL',
       placeholder: 'https://example.com/audio.mp3',
-      description: 'Used when source is "url"',
+      description: 'Enter the URL of the audio file',
+      visibleWhen: 'source === "url"',
     },
     acceptedFormats: {
       type: 'text',
@@ -407,6 +430,7 @@ const audioInputNode: NodeTemplate = {
       defaultValue: 50,
       min: 1,
       max: 500,
+      description: 'Maximum file size for uploads',
     },
     showWaveform: {
       type: 'boolean',
@@ -448,7 +472,7 @@ const videoInputNode: NodeTemplate = {
   id: 'tpl_video_input',
   type: 'video-input',
   title: 'Video',
-  subtitle: 'Video Upload/Player',
+  subtitle: 'Video',
   category: 'media',
   subcategory: 'video',
   description: 'Upload or link to video files with inline player (supports streaming)',
@@ -484,11 +508,23 @@ const videoInputNode: NodeTemplate = {
       options: ['upload', 'url', 'stream', 'youtube', 'vimeo'],
       defaultValue: 'upload',
     },
+    videoFile: {
+      type: 'file',
+      label: 'Upload Video',
+      description: 'Select a video file to upload',
+      acceptedFormats: 'video/mp4,video/webm,video/ogg',
+      maxFileSize: 100,
+      fileType: 'video',
+      visibleWhen: 'source === "upload"',
+      linkedProperty: 'videoData', // Link to output data property
+    },
     url: {
       type: 'text',
       label: 'Video URL',
       placeholder: 'https://example.com/video.mp4',
       description: 'Video URL, stream URL (HLS/DASH), or embed link',
+      visibleWhen:
+        'source === "url" || source === "stream" || source === "youtube" || source === "vimeo"',
     },
     acceptedFormats: {
       type: 'text',
@@ -502,6 +538,7 @@ const videoInputNode: NodeTemplate = {
       defaultValue: 100,
       min: 1,
       max: 1000,
+      description: 'Maximum file size for uploads',
     },
     previewHeight: {
       type: 'number',

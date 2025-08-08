@@ -61,6 +61,8 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.863.0",
+    "@aws-sdk/s3-request-presigner": "^3.863.0",
     "@supabase/supabase-js": "^2.53.0",
     "@types/highlight.js": "^9.12.4",
     "@types/pg": "^8.15.5",

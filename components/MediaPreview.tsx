@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Upload, Link, Image as ImageIcon, AlertCircle, X } from 'lucide-react'
+import { useWorkflowStore } from '@/store/workflow-store'
 
 interface ImagePreviewProps {
   source: 'upload' | 'url' | 'base64'
@@ -9,6 +10,7 @@ interface ImagePreviewProps {
   acceptedFormats: string
   maxFileSize: number
   pauseGifOnHover?: boolean
+  nodeId?: string
   onDataChange?: (data: { url?: string; metadata?: any }) => void
 }
 
@@ -20,8 +22,10 @@ export function ImagePreview({
   acceptedFormats,
   maxFileSize,
   pauseGifOnHover = false,
+  nodeId,
   onDataChange,
 }: ImagePreviewProps) {
+  const { workflowId, currentGraphId } = useWorkflowStore()
   const [imageData, setImageData] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [metadata, setMetadata] = useState<any>(null)
@@ -30,7 +34,7 @@ export function ImagePreview({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const lastUrlRef = useRef<string | undefined>()
+  const lastUrlRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     if (source === 'url' && url && url !== lastUrlRef.current) {
@@ -39,6 +43,13 @@ export function ImagePreview({
       setIsGif(url.toLowerCase().endsWith('.gif'))
       lastUrlRef.current = url
       onDataChange?.({ url, metadata: { source: 'url' } })
+    } else if (source === 'upload' && url && url !== lastUrlRef.current) {
+      // Handle pre-uploaded file from property panel
+      setImageData(url)
+      setError(null)
+      setIsGif(url.toLowerCase().includes('.gif'))
+      lastUrlRef.current = url
+      // Don't call onDataChange here as the data is already saved
     }
   }, [source, url, onDataChange])
 
@@ -60,22 +71,27 @@ export function ImagePreview({
     }
 
     try {
-      // TODO: In production, implement S3 upload here
-      // const formData = new FormData()
-      // formData.append('file', file)
-      // const response = await fetch('/api/upload/image', {
-      //   method: 'POST',
-      //   body: formData,
-      // })
-      // const { url: s3Url, thumbnailUrl } = await response.json()
-      // setImageData(thumbnailUrl || s3Url) // Use optimized version if available
+      // Upload to S3/MinIO
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      // Add IDs for namespacing
+      if (workflowId) formData.append('workflowId', workflowId)
+      if (currentGraphId) formData.append('graphId', currentGraphId)
+      if (nodeId) formData.append('nodeId', nodeId)
 
-      // For now, use local blob URL as placeholder
-      if (imageData && imageData.startsWith('blob:')) {
-        URL.revokeObjectURL(imageData)
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
       }
-      const objectUrl = URL.createObjectURL(file)
-      setImageData(objectUrl)
+
+      const data = await response.json()
+      setImageData(data.url)
       setError(null)
 
       const meta = {
@@ -84,13 +100,13 @@ export function ImagePreview({
         type: file.type,
         lastModified: file.lastModified,
         source: 'upload',
-        path: file.name, // In production, this would be the S3 key
+        key: data.key,
+        url: data.url,
       }
       setMetadata(meta)
       setIsGif(file.type === 'image/gif')
-      
-      // In production, this would pass the S3 URL
-      onDataChange?.({ url: objectUrl, metadata: meta })
+
+      onDataChange?.({ url: data.url, metadata: meta })
     } catch (err) {
       setError('Failed to upload image')
       console.error('Upload error:', err)
@@ -98,11 +114,7 @@ export function ImagePreview({
   }
 
   const clearImage = () => {
-    // Revoke object URL to free memory
-    if (imageData && imageData.startsWith('blob:')) {
-      URL.revokeObjectURL(imageData)
-    }
-    
+    // No need to revoke base64 data URLs
     setImageData(null)
     setError(null)
     setMetadata(null)
