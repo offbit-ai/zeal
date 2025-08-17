@@ -34,6 +34,7 @@ export interface RustSocketIOProviderConfig {
     userName?: string
   }
   autoConnect?: boolean // Default: true
+  skipPresence?: boolean // Skip setting initial presence (for embed mode)
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected') => void
   onSyncComplete?: () => void
   onError?: (error: Error) => void
@@ -80,18 +81,20 @@ export class RustSocketIOProvider {
       throw error
     }
 
-    // Set initial user state
-    const userId = config.auth?.userId || this.getOrCreateUserId()
-    const userName = config.auth?.userName || this.getOrCreateUserName()
-    const userColor = this.getOrCreateUserColor(userId)
+    // Set initial user state only if not skipping presence
+    if (!config.skipPresence) {
+      const userId = config.auth?.userId || this.getOrCreateUserId()
+      const userName = config.auth?.userName || this.getOrCreateUserName()
+      const userColor = this.getOrCreateUserColor(userId)
 
-    // [Rust CRDT] log removed
+      // [Rust CRDT] log removed
 
-    this.setUserState({
-      userId: userId,
-      userName: userName,
-      userColor: userColor,
-    })
+      this.setUserState({
+        userId: userId,
+        userName: userName,
+        userColor: userColor,
+      })
+    }
 
     // Connect to Socket.IO if autoConnect is true (default)
     if (config.autoConnect !== false) {
@@ -123,7 +126,8 @@ export class RustSocketIOProvider {
         this.connected &&
         this.socket &&
         (!this.socket.connected || this.socket.disconnected) &&
-        (timeSinceLastSync > this.syncTimeoutThreshold || timeSinceLastAwareness > this.syncTimeoutThreshold)
+        (timeSinceLastSync > this.syncTimeoutThreshold ||
+          timeSinceLastAwareness > this.syncTimeoutThreshold)
       ) {
         console.warn('[Rust CRDT] Socket connection issue detected, attempting reconnection')
         this.reconnect()
@@ -817,55 +821,57 @@ export class RustSocketIOProvider {
       }
     })
 
-    // Set up awareness update observer with throttling
-    this.awareness.on('update', ({ added, updated, removed }: any) => {
-      try {
-        const changedClients = added.concat(updated, removed)
-        if (changedClients.length > 0 && this.connected) {
-          // Clear existing timer
-          if (this.awarenessUpdateTimer) {
-            clearTimeout(this.awarenessUpdateTimer)
-          }
-
-          // Throttle awareness updates
-          this.awarenessUpdateTimer = setTimeout(() => {
-            try {
-              // Only send updates for our local client, not for remote clients
-              const myClientId = this.awareness.clientID
-              const shouldSendUpdate = changedClients.includes(myClientId)
-
-              if (shouldSendUpdate) {
-                const localState = this.awareness.getLocalState()
-
-                if (localState && typeof localState === 'object') {
-                  try {
-                    // Only encode awareness update for our local client
-                    const update = awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-                      myClientId,
-                    ])
-
-                    if (update && update.length > 0) {
-                      if (update.length < 10000) {
-                        // Only send if reasonably sized
-                        this.send(MessageType.AWARENESS, update)
-                      }
-                    }
-                  } catch (encodeError) {
-                    console.error('[Rust CRDT] Error encoding awareness update:', encodeError)
-                  }
-                }
-              }
-            } catch (timerError) {
-              console.error('[Rust CRDT] Error in awareness update timer:', timerError)
+    // Set up awareness update observer with throttling (skip in embed mode)
+    if (!this.config.skipPresence) {
+      this.awareness.on('update', ({ added, updated, removed }: any) => {
+        try {
+          const changedClients = added.concat(updated, removed)
+          if (changedClients.length > 0 && this.connected) {
+            // Clear existing timer
+            if (this.awarenessUpdateTimer) {
+              clearTimeout(this.awarenessUpdateTimer)
             }
 
-            this.awarenessUpdateTimer = null
-          }, 100) // 100ms throttle
+            // Throttle awareness updates
+            this.awarenessUpdateTimer = setTimeout(() => {
+              try {
+                // Only send updates for our local client, not for remote clients
+                const myClientId = this.awareness.clientID
+                const shouldSendUpdate = changedClients.includes(myClientId)
+
+                if (shouldSendUpdate) {
+                  const localState = this.awareness.getLocalState()
+
+                  if (localState && typeof localState === 'object') {
+                    try {
+                      // Only encode awareness update for our local client
+                      const update = awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
+                        myClientId,
+                      ])
+
+                      if (update && update.length > 0) {
+                        if (update.length < 10000) {
+                          // Only send if reasonably sized
+                          this.send(MessageType.AWARENESS, update)
+                        }
+                      }
+                    } catch (encodeError) {
+                      console.error('[Rust CRDT] Error encoding awareness update:', encodeError)
+                    }
+                  }
+                }
+              } catch (timerError) {
+                console.error('[Rust CRDT] Error in awareness update timer:', timerError)
+              }
+
+              this.awarenessUpdateTimer = null
+            }, 100) // 100ms throttle
+          }
+        } catch (error) {
+          console.error('[Rust CRDT] Error in awareness update observer:', error)
         }
-      } catch (error) {
-        console.error('[Rust CRDT] Error in awareness update observer:', error)
-      }
-    })
+      })
+    }
   }
 
   /**

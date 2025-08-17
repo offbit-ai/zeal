@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useNodeRepository, NodeRepositoryItem } from '@/hooks/useNodeRepository'
+import { useTemplateSearch } from '@/hooks/useTemplateSearch'
 import { useWorkflowStore } from '@/store/workflow-store'
 import { useNodeRepositoryStore } from '@/store/nodeRepositoryStore'
 import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
@@ -72,18 +73,28 @@ export function SearchModal({
     subgraphName: string
   }>({ isOpen: false, subgraphId: '', subgraphName: '' })
 
-  const nodeRepository = useNodeRepository()
-  const { categories: apiCategories, fetchAll: fetchApiData } = useNodeRepositoryStore()
+  const nodeRepository = useNodeRepository() // Keep for fallback/custom nodes
+  const { categories: apiCategories, fetchCategories } = useNodeRepositoryStore()
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    selectedSubcategory,
+    setSelectedSubcategory,
+    filteredResults,
+    autocompleteResults,
+    isLoading: isSearching,
+    error: searchError,
+    clearSearch,
+  } = useTemplateSearch()
 
-  // Fetch API data on mount if not already loaded
+  // Fetch API categories on mount if not already loaded
   useEffect(() => {
     if (apiCategories.length === 0) {
-      fetchApiData()
+      fetchCategories()
     }
   }, [])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null)
 
   const {
     addNode,
@@ -96,34 +107,50 @@ export function SearchModal({
     setGraphDirty,
   } = useWorkflowStore()
 
-  // Filter nodes based on search and category
-  const filteredNodes = nodeRepository.filter(node => {
-    // Search filter
-    if (
-      searchQuery &&
-      !node.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !node.description.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !node.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-    ) {
-      return false
+  // Use search results from template search for repository tab
+  // For custom nodes tab, filter from the customNodes array
+  const getFilteredNodes = () => {
+    if (activeTab === 'repository') {
+      return filteredResults
+    } else if (activeTab === 'custom') {
+      return customNodes.filter(node => {
+        // Search filter
+        if (
+          searchQuery &&
+          !node.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !node.description.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !node.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        ) {
+          return false
+        }
+        // Category filter
+        if (selectedCategory && node.category !== selectedCategory) {
+          return false
+        }
+        // Subcategory filter
+        if (selectedSubcategory && node.subcategory !== selectedSubcategory) {
+          return false
+        }
+        return true
+      })
     }
+    return []
+  }
 
-    // Category filter
-    if (selectedCategory && node.category !== selectedCategory) {
-      return false
-    }
+  const filteredNodes = getFilteredNodes()
 
-    // Subcategory filter
-    if (selectedSubcategory && node.subcategory !== selectedSubcategory) {
-      return false
-    }
-
-    return true
-  })
-
-  // Extract unique categories with structure
+  // Extract unique categories with structure from both search results and API categories
   const categoriesMap = new Map<string, { subcategories: Set<string> }>()
-  nodeRepository.forEach(node => {
+  
+  // Use API categories as the primary source
+  apiCategories.forEach(cat => {
+    categoriesMap.set(cat.name, { 
+      subcategories: new Set(cat.subcategories?.map(sub => sub.name) || []) 
+    })
+  })
+  
+  // Add any additional categories from current search results
+  filteredResults.forEach(node => {
     if (!categoriesMap.has(node.category)) {
       categoriesMap.set(node.category, { subcategories: new Set() })
     }
@@ -158,7 +185,7 @@ export function SearchModal({
       name: displayName,
       icon: CATEGORY_ICONS[name] || Folder,
       subcategories: Array.from(data.subcategories).map(sub => ({
-        id: sub.toLowerCase().replace(/\s+/g, '-'),
+        id: sub, // Use the actual subcategory value
         name: sub
           .split(/[-_]/)
           .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -541,7 +568,10 @@ export function SearchModal({
               <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto">
                 <div className="space-y-1">
                   <button
-                    onClick={() => setSelectedCategory(null)}
+                    onClick={() => {
+                      setSelectedCategory(null)
+                      setSelectedSubcategory(null)
+                    }}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       selectedCategory === null
                         ? 'bg-black text-white'
@@ -554,7 +584,10 @@ export function SearchModal({
                   {categories.map(category => (
                     <div key={category.id}>
                       <button
-                        onClick={() => setSelectedCategory(category.id)}
+                        onClick={() => {
+                          setSelectedCategory(category.id)
+                          setSelectedSubcategory(null) // Clear subcategory when selecting a new category
+                        }}
                         className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
                           selectedCategory === category.id
                             ? 'bg-black text-white'
@@ -571,7 +604,9 @@ export function SearchModal({
                           {category.subcategories.map(sub => (
                             <button
                               key={sub.id}
-                              onClick={() => setSelectedSubcategory(sub.id)}
+                              onClick={() => {
+                                setSelectedSubcategory(sub.id)
+                              }}
                               className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors ${
                                 selectedSubcategory === sub.id
                                   ? 'bg-gray-200 text-gray-900'
@@ -607,7 +642,19 @@ export function SearchModal({
 
                 {/* Results */}
                 <div className="flex-1 overflow-y-auto p-4">
-                  {filteredNodes.length === 0 ? (
+                  {isSearching ? (
+                    <div className="text-center py-12">
+                      <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Searching templates...</h3>
+                      <p className="text-gray-500">Please wait while we search the repository</p>
+                    </div>
+                  ) : searchError ? (
+                    <div className="text-center py-12">
+                      <X className="w-12 h-12 text-red-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Search failed</h3>
+                      <p className="text-gray-500">{searchError}</p>
+                    </div>
+                  ) : filteredNodes.length === 0 ? (
                     <div className="text-center py-12">
                       <Filter className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No nodes found</h3>

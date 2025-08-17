@@ -172,6 +172,9 @@ npm run dev
 - **Auto-save**: Changes are automatically persisted every 30 seconds
 - **Export/Import**: Share workflows as JSON files
 - **Snapshot Management**: Create named checkpoints at milestones
+- **Embeddable Editor**: Integrate the workflow editor into your own applications
+- **API & WebSocket Support**: Programmatic control via REST API and real-time WebSocket
+- **AI Agent Integration**: MCP server for AI-powered workflow orchestration
 
 \*Note: History browsing and flow tracing features depend on workflow execution data being recorded by your runtime engine implementation.
 
@@ -259,10 +262,46 @@ The production deployment script (`docker-compose-prod.sh`) automatically:
 - [Workflow Editor Guide](docs/WORKFLOW_EDITOR.md)
 - [Node Template Reference](docs/NODE_TEMPLATES_REFERENCE.md)
 - [API Documentation](docs/API.md)
+- [Embedding Guide](docs/EMBEDDING_GUIDE.md) - **New!** Integrate Zeal into your applications
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Kubernetes Deployment](k8s/README.md)
 - [Minikube Local Setup](docs/MINIKUBE_SETUP.md)
 - [Microservices Guide](docs/MICROSERVICES_DEPLOYMENT.md)
+
+## 🔌 Integration Options
+
+### Embedding the Workflow Editor
+
+Zeal can be embedded into your applications using:
+
+- **iframe Integration**: Simple embedding with customizable options
+- **API Key Authentication**: Secure access with granular permissions
+- **WebSocket Real-time Updates**: Programmatic control and event handling
+- **Drag & Drop Support**: Allow users to drag custom nodes into workflows
+
+Quick example:
+
+```html
+<iframe
+  src="https://your-zeal-instance.com/embed/WORKFLOW_ID?apiKey=YOUR_KEY"
+  width="100%"
+  height="600"
+>
+</iframe>
+```
+
+See the [Embedding Guide](docs/EMBEDDING_GUIDE.md) for complete documentation.
+
+### AI Agent Integration (MCP)
+
+Zeal includes a Model Context Protocol (MCP) server for AI-powered orchestration:
+
+- **Programmatic Workflow Creation**: AI agents can create and modify workflows
+- **Semantic Node Search**: Find appropriate nodes using natural language
+- **Subgraph Management**: Create reusable components programmatically
+- **Full API Access**: Complete control over workflow operations
+
+The MCP server is located in `/mcp/embed-orchestrator` with full documentation.
 
 ## 🤝 Contributing
 

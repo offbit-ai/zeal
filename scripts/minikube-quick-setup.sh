@@ -37,6 +37,20 @@ export ZEAL_SUPABASE_URL="http://supabase-gateway:8000"
 export ZEAL_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjIwNjk3OTA1OTgsImlhdCI6MTc1NDQzMDU5OH0.L6odhxPbMcLeEqiFXIIZbC0cNGQjcc8n9vnZNXLSiRo"
 export ZEAL_SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MjA2OTc5MDU5OCwiaWF0IjoxNzU0NDMwNTk4fQ.Zpmigdx8mkloUQhtD-ZtwKWp9LmmbgSbHXU45KSqOHA"
 
+# Node Template Repository Configuration
+export ZEAL_USE_TEMPLATE_REPOSITORY="true"
+export ZEAL_AUTO_INGEST_TEMPLATES="true"
+
+# AI Embedding Configuration (use mock for development)
+export ZEAL_EMBEDDING_VENDOR="mock"
+export ZEAL_EMBEDDING_DIMENSIONS="1536"
+export ZEAL_EMBEDDING_BATCH_SIZE="100"
+
+# Embed API Configuration
+export ZEAL_EMBED_ENABLED="true"
+export ZEAL_EMBED_MAX_API_KEYS_PER_WORKFLOW="10"
+export ZEAL_EMBED_DEFAULT_RATE_LIMIT="1000"
+
 echo -e "${GREEN}🚀 Zeal Minikube Quick Setup${NC}"
 echo -e "${GREEN}===========================${NC}"
 echo

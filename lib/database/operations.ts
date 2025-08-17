@@ -226,6 +226,50 @@ export interface WorkflowOperations {
     }
   ): Promise<{ traces: any[]; total: number }>
 
+  // Embed API Key CRUD
+  createEmbedApiKey(data: {
+    id: string
+    key: string
+    name: string
+    description?: string
+    workflowId: string
+    permissions: any
+    createdAt: string
+    updatedAt: string
+    expiresAt?: string
+    isActive: boolean
+    usageCount: number
+    rateLimits?: any
+  }): Promise<any>
+
+  getEmbedApiKey(id: string): Promise<any | null>
+
+  getEmbedApiKeys(workflowId?: string): Promise<any[]>
+
+  updateEmbedApiKey(
+    id: string,
+    data: {
+      lastUsedAt?: string
+      usageCount?: number
+      isActive?: boolean
+      updatedAt?: string
+      permissions?: any
+    }
+  ): Promise<any>
+
+  deleteEmbedApiKey(id: string): Promise<void>
+
+  // Embed Session tracking
+  createEmbedSession(data: {
+    id: string
+    apiKeyId: string
+    startedAt: string
+    endedAt?: string
+    actions: any[]
+  }): Promise<any>
+
+  getEmbedSessions(apiKeyId: string): Promise<any[]>
+
   // Transaction support
   beginTransaction(): Promise<TransactionOperations>
 }

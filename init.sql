@@ -1,7 +1,25 @@
 -- Initialize Zeal Database Schema
 
--- Enable UUID extension (optional, we use custom IDs)
+-- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Try to enable pgvector extension for semantic search (optional)
+-- This is only needed for real AI embeddings, not for mock embeddings
+DO $$
+BEGIN
+  -- Check if vector extension is available before trying to create it
+  IF EXISTS (
+    SELECT 1 FROM pg_available_extensions WHERE name = 'vector'
+  ) THEN
+    CREATE EXTENSION IF NOT EXISTS vector;
+    RAISE NOTICE 'pgvector extension installed successfully';
+  ELSE
+    RAISE NOTICE 'pgvector extension not available - semantic search will use fallback methods';
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Could not install pgvector extension - continuing without it';
+END $$;
 
 -- Workflows table - stores workflow metadata
 CREATE TABLE IF NOT EXISTS workflows (
@@ -157,6 +175,34 @@ CREATE TABLE IF NOT EXISTS flow_traces (
   FOREIGN KEY ("parentTraceId") REFERENCES flow_traces(id) ON DELETE CASCADE
 );
 
+-- Embed API keys table
+CREATE TABLE IF NOT EXISTS embed_api_keys (
+  id TEXT PRIMARY KEY,
+  key TEXT NOT NULL, -- Hashed API key
+  name TEXT NOT NULL,
+  description TEXT,
+  "workflowId" TEXT NOT NULL,
+  permissions TEXT NOT NULL, -- JSON string of permissions
+  "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  "lastUsedAt" TIMESTAMP,
+  "expiresAt" TIMESTAMP,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "usageCount" INTEGER DEFAULT 0,
+  "rateLimits" TEXT, -- JSON string of rate limits
+  FOREIGN KEY ("workflowId") REFERENCES workflows(id) ON DELETE CASCADE
+);
+
+-- Embed sessions table for tracking API key usage
+CREATE TABLE IF NOT EXISTS embed_sessions (
+  id TEXT PRIMARY KEY,
+  "apiKeyId" TEXT NOT NULL,
+  "startedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  "endedAt" TIMESTAMP,
+  actions TEXT NOT NULL DEFAULT '[]', -- JSON array of actions
+  FOREIGN KEY ("apiKeyId") REFERENCES embed_api_keys(id) ON DELETE CASCADE
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow_id ON workflow_versions("workflowId");
 CREATE INDEX IF NOT EXISTS idx_workflow_versions_published ON workflow_versions("isPublished");
@@ -173,6 +219,10 @@ CREATE INDEX IF NOT EXISTS idx_flow_traces_timestamp ON flow_traces(timestamp);
 CREATE INDEX IF NOT EXISTS idx_flow_traces_status ON flow_traces(status);
 CREATE INDEX IF NOT EXISTS idx_flow_traces_parent_trace_id ON flow_traces("parentTraceId");
 CREATE INDEX IF NOT EXISTS idx_flow_traces_graph_id ON flow_traces("graphId");
+CREATE INDEX IF NOT EXISTS idx_embed_api_keys_workflow_id ON embed_api_keys("workflowId");
+CREATE INDEX IF NOT EXISTS idx_embed_api_keys_is_active ON embed_api_keys("isActive");
+CREATE INDEX IF NOT EXISTS idx_embed_sessions_api_key_id ON embed_sessions("apiKeyId");
+CREATE INDEX IF NOT EXISTS idx_embed_sessions_started_at ON embed_sessions("startedAt");
 
 -- Create update timestamp trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -183,7 +233,16 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply update trigger to tables with updatedAt column
+-- Create update timestamp trigger for snake_case columns
+CREATE OR REPLACE FUNCTION update_updated_at_column_snake()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply update trigger to tables with updatedAt column (camelCase)
 CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -192,3 +251,296 @@ CREATE TRIGGER update_workflow_snapshots_updated_at BEFORE UPDATE ON workflow_sn
 
 CREATE TRIGGER update_env_vars_updated_at BEFORE UPDATE ON env_vars
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_embed_api_keys_updated_at BEFORE UPDATE ON embed_api_keys
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- NODE TEMPLATE REPOSITORY TABLES
+-- ============================================================================
+
+-- Node Categories table for organizing templates
+CREATE TABLE IF NOT EXISTS node_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) UNIQUE NOT NULL,
+  display_name VARCHAR(200) NOT NULL,
+  description TEXT,
+  icon VARCHAR(100) NOT NULL DEFAULT 'box',
+  is_active BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_by VARCHAR(255) DEFAULT 'system',
+  updated_by VARCHAR(255) DEFAULT 'system'
+);
+
+-- Node Subcategories table
+CREATE TABLE IF NOT EXISTS node_subcategories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id UUID NOT NULL REFERENCES node_categories(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  display_name VARCHAR(200) NOT NULL,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(category_id, name)
+);
+
+-- Main template storage
+CREATE TABLE IF NOT EXISTS node_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id TEXT UNIQUE NOT NULL,
+  version TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  template_data JSONB NOT NULL,
+  source_type TEXT NOT NULL,
+  source_location TEXT,
+  
+  -- Denormalized fields for queries
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subcategory TEXT,
+  tags TEXT[],
+  
+  -- Foreign key references
+  category_id UUID REFERENCES node_categories(id),
+  subcategory_id UUID REFERENCES node_subcategories(id),
+  
+  -- Metadata
+  created_by TEXT NOT NULL,
+  updated_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Indexes
+  UNIQUE(template_id, version)
+);
+
+-- Template repository with embeddings and metadata
+CREATE TABLE IF NOT EXISTS template_repository (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id TEXT UNIQUE NOT NULL REFERENCES node_templates(template_id),
+  
+  -- Embeddings will be added conditionally after table creation
+  
+  -- Extracted metadata
+  capabilities TEXT[],
+  input_types JSONB,
+  output_types JSONB,
+  use_cases TEXT[],
+  
+  -- Relationships
+  commonly_used_with TEXT[],
+  alternatives TEXT[],
+  required_templates TEXT[],
+  
+  -- Statistics
+  usage_count INTEGER DEFAULT 0,
+  average_rating DECIMAL(3,2),
+  last_used TIMESTAMPTZ,
+  error_rate DECIMAL(5,4) DEFAULT 0,
+  
+  -- Search optimization
+  search_text TSVECTOR,
+  keywords TEXT[],
+  
+  -- Timestamps
+  indexed_at TIMESTAMPTZ DEFAULT NOW(),
+  last_validated TIMESTAMPTZ,
+  
+  -- Foreign key
+  FOREIGN KEY (template_id) REFERENCES node_templates(template_id) ON DELETE CASCADE
+);
+
+-- Template versions
+CREATE TABLE IF NOT EXISTS template_versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id TEXT NOT NULL,
+  version TEXT NOT NULL,
+  changes JSONB,
+  release_notes TEXT,
+  is_breaking BOOLEAN DEFAULT FALSE,
+  is_deprecated BOOLEAN DEFAULT FALSE,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  FOREIGN KEY (template_id) REFERENCES node_templates(template_id) ON DELETE CASCADE,
+  UNIQUE(template_id, version)
+);
+
+-- Template relationships
+CREATE TABLE IF NOT EXISTS template_relationships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_template_id TEXT NOT NULL,
+  target_template_id TEXT NOT NULL,
+  relationship_type TEXT NOT NULL, -- 'compatible', 'alternative', 'upgrade', 'requires'
+  confidence DECIMAL(3,2),
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  FOREIGN KEY (source_template_id) REFERENCES node_templates(template_id),
+  FOREIGN KEY (target_template_id) REFERENCES node_templates(template_id),
+  UNIQUE(source_template_id, target_template_id, relationship_type)
+);
+
+-- Template usage analytics
+CREATE TABLE IF NOT EXISTS template_usage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id TEXT NOT NULL,
+  workflow_id TEXT,
+  user_id TEXT,
+  action TEXT NOT NULL, -- 'search', 'view', 'add', 'execute'
+  success BOOLEAN,
+  error_message TEXT,
+  execution_time_ms INTEGER,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  FOREIGN KEY (template_id) REFERENCES node_templates(template_id)
+);
+
+-- Dynamic templates (for AI-generated templates)
+CREATE TABLE IF NOT EXISTS dynamic_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  source_config JSONB NOT NULL,
+  generation_rules JSONB NOT NULL,
+  generated_template_id TEXT,
+  generated_at TIMESTAMPTZ,
+  validation_status TEXT,
+  validation_errors JSONB,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  FOREIGN KEY (generated_template_id) REFERENCES node_templates(template_id)
+);
+
+-- Add embedding columns based on extension availability
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+    -- Add vector columns if pgvector is available
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS title_embedding vector(1536);
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS description_embedding vector(1536);
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS combined_embedding vector(1536);
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS capability_embedding vector(1536);
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS use_case_embedding vector(1536);
+  ELSE
+    -- Add JSONB columns as fallback for storing embeddings
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS title_embedding JSONB;
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS description_embedding JSONB;
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS combined_embedding JSONB;
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS capability_embedding JSONB;
+    ALTER TABLE template_repository ADD COLUMN IF NOT EXISTS use_case_embedding JSONB;
+  END IF;
+END $$;
+
+-- ============================================================================
+-- INDEXES FOR NODE TEMPLATE REPOSITORY
+-- ============================================================================
+
+-- Category indexes
+CREATE INDEX IF NOT EXISTS idx_node_categories_name ON node_categories(name);
+CREATE INDEX IF NOT EXISTS idx_node_categories_active ON node_categories(is_active);
+CREATE INDEX IF NOT EXISTS idx_node_subcategories_category ON node_subcategories(category_id);
+CREATE INDEX IF NOT EXISTS idx_node_subcategories_name ON node_subcategories(name);
+
+-- Template indexes
+CREATE INDEX IF NOT EXISTS idx_templates_category ON node_templates(category);
+CREATE INDEX IF NOT EXISTS idx_templates_tags ON node_templates USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_templates_status ON node_templates(status);
+CREATE INDEX IF NOT EXISTS idx_templates_created_at ON node_templates(created_at DESC);
+
+-- Repository indexes (only if vector extension is available)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+    -- Vector indexes for similarity search
+    CREATE INDEX IF NOT EXISTS idx_title_embedding ON template_repository 
+      USING ivfflat (title_embedding vector_cosine_ops)
+      WITH (lists = 100);
+      
+    CREATE INDEX IF NOT EXISTS idx_combined_embedding ON template_repository 
+      USING ivfflat (combined_embedding vector_cosine_ops)
+      WITH (lists = 100);
+      
+    CREATE INDEX IF NOT EXISTS idx_capability_embedding ON template_repository 
+      USING ivfflat (capability_embedding vector_cosine_ops)
+      WITH (lists = 100);
+  END IF;
+END $$;
+
+-- Full-text search index
+CREATE INDEX IF NOT EXISTS idx_search_text ON template_repository USING GIN(search_text);
+
+-- Analytics indexes
+CREATE INDEX IF NOT EXISTS idx_usage_template_id ON template_usage(template_id);
+CREATE INDEX IF NOT EXISTS idx_usage_created_at ON template_usage(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_action ON template_usage(action);
+
+-- Relationship indexes
+CREATE INDEX IF NOT EXISTS idx_template_relationships_source ON template_relationships(source_template_id);
+CREATE INDEX IF NOT EXISTS idx_template_relationships_target ON template_relationships(target_template_id);
+
+-- ============================================================================
+-- VIEWS FOR NODE TEMPLATE REPOSITORY
+-- ============================================================================
+
+-- View to get categories with counts
+CREATE OR REPLACE VIEW node_categories_with_counts AS
+SELECT 
+  c.id,
+  c.name,
+  c.display_name,
+  c.description,
+  c.icon,
+  c.is_active,
+  c.sort_order,
+  c.created_at,
+  c.updated_at,
+  (
+    SELECT COUNT(DISTINCT t.id) 
+    FROM node_templates t 
+    WHERE t.category = c.name 
+    AND t.status = 'active'
+  ) as total_nodes,
+  (
+    SELECT json_agg(
+      json_build_object(
+        'name', sc.name,
+        'displayName', sc.display_name,
+        'description', sc.description,
+        'nodeCount', (
+          SELECT COUNT(*) 
+          FROM node_templates t2 
+          WHERE t2.category = c.name 
+          AND t2.subcategory = sc.name 
+          AND t2.status = 'active'
+        )
+      ) ORDER BY sc.sort_order, sc.name
+    )
+    FROM node_subcategories sc
+    WHERE sc.category_id = c.id
+  ) as subcategories
+FROM node_categories c
+ORDER BY c.sort_order, c.name;
+
+-- ============================================================================
+-- TRIGGERS FOR NODE TEMPLATE REPOSITORY
+-- ============================================================================
+
+-- Update triggers for timestamp fields
+CREATE TRIGGER update_node_categories_updated_at BEFORE UPDATE
+  ON node_categories FOR EACH ROW EXECUTE FUNCTION update_updated_at_column_snake();
+
+CREATE TRIGGER update_node_subcategories_updated_at BEFORE UPDATE
+  ON node_subcategories FOR EACH ROW EXECUTE FUNCTION update_updated_at_column_snake();
+
+CREATE TRIGGER update_node_templates_updated_at BEFORE UPDATE
+  ON node_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column_snake();
+
+CREATE TRIGGER update_dynamic_templates_updated_at BEFORE UPDATE
+  ON dynamic_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column_snake();

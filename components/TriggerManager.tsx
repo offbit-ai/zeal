@@ -76,7 +76,7 @@ export function TriggerManager() {
   return (
     <>
       {/* Floating Button */}
-      <div className="fixed left-4 top-65 z-20">
+      <div className="absolute left-4 top-28 z-20">
         <div className="relative group">
           <button
             onClick={() => isMainGraph && setIsModalOpen(true)}

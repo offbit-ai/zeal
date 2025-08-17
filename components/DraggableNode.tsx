@@ -67,16 +67,16 @@ export function DraggableNode({
   onDragEnd,
   onPropertyChange,
 }: DraggableNodeProps) {
+  // Guard against undefined position BEFORE any hooks (Rules of Hooks)
+  if (!position) {
+    return null
+  }
+
   const [hoveringGroupId, setHoveringGroupId] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const nodeRef = useRef<HTMLDivElement>(null)
   const lastResizeTime = useRef<{ right: number; down: number }>({ right: 0, down: 0 })
   const throttleDelay = 100 // ms
-
-  // Guard against undefined position (can happen during remote updates)
-  if (!position) {
-    return null
-  }
 
   // Helper function to check if node center is inside a group
   const findGroupUnderNode = (nodePosition: { x: number; y: number }): string | null => {

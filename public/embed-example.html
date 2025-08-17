@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeal Workflow Embed Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .embed-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: 600px;
+            margin-bottom: 20px;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .controls {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .node-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .node-item {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: move;
+            background: white;
+            transition: all 0.2s;
+        }
+        
+        .node-item:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .node-item.dragging {
+            opacity: 0.5;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            Zeal Workflow Embed Example
+            <span id="connection-status" class="status disconnected">Disconnected</span>
+        </h1>
+        
+        <div class="controls">
+            <h3>Embed Options</h3>
+            <div class="button-group">
+                <input type="text" id="workflow-id" placeholder="Workflow ID" value="test-workflow-123">
+                <input type="text" id="api-key" placeholder="API Key" value="test-api-key">
+                <button onclick="loadWorkflow()">Load Workflow</button>
+            </div>
+            
+            <div class="button-group">
+                <label>
+                    <input type="checkbox" id="show-minimap" checked> Show Minimap
+                </label>
+                <label>
+                    <input type="checkbox" id="show-zoom" checked> Show Zoom Controls
+                </label>
+                <label>
+                    <input type="checkbox" id="show-tabs" checked> Show Subgraph Tabs
+                </label>
+                <label>
+                    <input type="checkbox" id="allow-create" checked> Allow Node Creation
+                </label>
+            </div>
+        </div>
+        
+        <div class="embed-container">
+            <iframe id="workflow-embed" src=""></iframe>
+        </div>
+        
+        <div class="controls">
+            <h3>Drag & Drop Nodes</h3>
+            <p>Drag these nodes onto the canvas to add them to the workflow:</p>
+            
+            <div class="node-palette">
+                <div class="node-item" draggable="true" data-node-type="input" data-node-title="Input Node">
+                    <strong>📥 Input Node</strong>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">Receives data from external sources</p>
+                </div>
+                
+                <div class="node-item" draggable="true" data-node-type="process" data-node-title="Process Node">
+                    <strong>⚙️ Process Node</strong>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">Transforms or processes data</p>
+                </div>
+                
+                <div class="node-item" draggable="true" data-node-type="output" data-node-title="Output Node">
+                    <strong>📤 Output Node</strong>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">Sends data to external destinations</p>
+                </div>
+                
+                <div class="node-item" draggable="true" data-node-type="ai" data-node-title="AI Model">
+                    <strong>🤖 AI Model</strong>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">Runs AI/ML inference</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <h3>WebSocket API Example</h3>
+            <div class="button-group">
+                <button onclick="connectWebSocket()">Connect WebSocket</button>
+                <button onclick="addNodeViaAPI()">Add Node via API</button>
+                <button onclick="executeWorkflow()">Execute Workflow</button>
+            </div>
+            
+            <h4>Event Log:</h4>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the WebSocket client (in a real app, you'd bundle this)
+        // For demo purposes, we'll implement a simplified version inline
+        
+        let wsClient = null;
+        let socket = null;
+        
+        window.loadWorkflow = function() {
+            const workflowId = document.getElementById('workflow-id').value;
+            const apiKey = document.getElementById('api-key').value;
+            const showMinimap = document.getElementById('show-minimap').checked;
+            const showZoom = document.getElementById('show-zoom').checked;
+            const showTabs = document.getElementById('show-tabs').checked;
+            const allowCreate = document.getElementById('allow-create').checked;
+            
+            const params = new URLSearchParams({
+                minimap: showMinimap,
+                zoom: showZoom,
+                tabs: showTabs,
+                allowCreate: allowCreate
+            });
+            
+            const embedUrl = `/embed/${workflowId}?${params.toString()}`;
+            document.getElementById('workflow-embed').src = embedUrl;
+            
+            log(`Loading workflow: ${workflowId}`);
+        }
+        
+        window.connectWebSocket = function() {
+            const workflowId = document.getElementById('workflow-id').value;
+            const apiKey = document.getElementById('api-key').value;
+            
+            if (socket && socket.connected) {
+                log('Already connected');
+                return;
+            }
+            
+            // Connect to the embed WebSocket endpoint
+            socket = io('/embed-ws', {
+                path: '/embed-ws',
+                transports: ['websocket']
+            });
+            
+            socket.on('connect', () => {
+                log('WebSocket connected');
+                updateConnectionStatus(true);
+                
+                // Join the workflow
+                socket.emit('embed:join_workflow', {
+                    workflowId: workflowId,
+                    apiKey: apiKey
+                });
+            });
+            
+            socket.on('disconnect', () => {
+                log('WebSocket disconnected');
+                updateConnectionStatus(false);
+            });
+            
+            socket.on('embed:workflow_state', (data) => {
+                log('Received workflow state:', data);
+            });
+            
+            socket.on('embed:node_added', (data) => {
+                log('Node added:', data);
+            });
+            
+            socket.on('embed:execution_status', (data) => {
+                log('Execution status:', data);
+            });
+            
+            socket.on('embed:error', (data) => {
+                log('Error: ' + data.message, 'error');
+            });
+        }
+        
+        window.addNodeViaAPI = function() {
+            if (!socket || !socket.connected) {
+                log('Not connected to WebSocket', 'error');
+                return;
+            }
+            
+            const nodeId = 'node-' + Date.now();
+            const node = {
+                id: nodeId,
+                metadata: {
+                    type: 'process',
+                    title: 'API Added Node',
+                    description: 'Node added via WebSocket API'
+                },
+                position: {
+                    x: 100 + Math.random() * 400,
+                    y: 100 + Math.random() * 300
+                }
+            };
+            
+            socket.emit('embed:add_node', {
+                node: node,
+                graphId: 'main'
+            });
+            
+            log(`Adding node: ${nodeId}`);
+        }
+        
+        window.executeWorkflow = function() {
+            if (!socket || !socket.connected) {
+                log('Not connected to WebSocket', 'error');
+                return;
+            }
+            
+            socket.emit('embed:execute_workflow', {
+                graphId: 'main',
+                inputs: {
+                    testInput: 'Hello from embed!'
+                }
+            });
+            
+            log('Executing workflow...');
+        }
+        
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+            logElement.innerHTML += entry + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(entry);
+        }
+        
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connection-status');
+            statusElement.textContent = connected ? 'Connected' : 'Disconnected';
+            statusElement.className = 'status ' + (connected ? 'connected' : 'disconnected');
+        }
+        
+        // Set up drag and drop
+        document.querySelectorAll('.node-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'copy';
+                const nodeData = {
+                    type: item.dataset.nodeType,
+                    title: item.dataset.nodeTitle
+                };
+                e.dataTransfer.setData('application/json', JSON.stringify(nodeData));
+                item.classList.add('dragging');
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                item.classList.remove('dragging');
+            });
+        });
+        
+        // Handle messages from the embedded iframe
+        window.addEventListener('message', (event) => {
+            // Validate origin in production
+            if (event.data.type === 'workflow-ready') {
+                log('Workflow ready in iframe');
+            } else if (event.data.type === 'node-dropped') {
+                log('Node dropped in workflow: ' + JSON.stringify(event.data.node));
+            }
+        });
+        
+        // Load Socket.IO client library
+        const script = document.createElement('script');
+        script.src = '/socket.io/socket.io.js';
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

@@ -22,6 +22,9 @@ interface InteractiveCanvasProps {
   onMouseMove?: (point: { x: number; y: number }) => void
   // Context menu
   onContextMenu?: (e: MouseEvent) => void
+  // Drag and drop
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void
 }
 
 export function InteractiveCanvas({
@@ -41,6 +44,8 @@ export function InteractiveCanvas({
   onSelectionClear,
   onMouseMove,
   onContextMenu,
+  onDrop,
+  onDragOver,
 }: InteractiveCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isPanning, setIsPanning] = useState(false)
@@ -247,6 +252,8 @@ export function InteractiveCanvas({
       onMouseUp={handleMouseUp}
       onWheel={handleWheel}
       onContextMenu={onContextMenu}
+      onDrop={onDrop}
+      onDragOver={onDragOver}
       style={{
         cursor: isPanning ? 'grabbing' : isSelecting ? 'crosshair' : 'default',
       }}

@@ -56,6 +56,7 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
     fetchAll()
   }, [])
 
+
   // Filter active nodes
   const activeNodes = nodeTemplates.filter(node => node.isActive)
 

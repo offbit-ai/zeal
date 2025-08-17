@@ -88,8 +88,15 @@ interface WorkflowStore {
   // Data snapshot for diffing
   dataSnapshot?: string
 
+  // Track embed mode
+  embedMode: boolean
+
   // Core actions
-  initialize: (workflowId: string, workflowName?: string) => Promise<void>
+  initialize: (
+    workflowId: string,
+    workflowName?: string,
+    options?: { embedMode?: boolean; collaborative?: boolean }
+  ) => Promise<void>
   cleanup: () => void
 
   // Graph management
@@ -220,13 +227,22 @@ export const useWorkflowStore = create<WorkflowStore>()(
       isSyncing: false,
       isOptimized: false,
       dataSnapshot: undefined,
+      embedMode: false,
 
-      initialize: async (workflowId: string, workflowName?: string) => {
+      initialize: async (
+        workflowId: string,
+        workflowName?: string,
+        options?: { embedMode?: boolean; collaborative?: boolean }
+      ) => {
         // Clean up any existing connection
         get().cleanup()
 
         // Create Y.Doc
-        const doc = new Y.Doc({ guid: workflowId })
+        // In embed mode without collaboration, use a unique doc ID to avoid any cached data
+        const docId = options?.embedMode && !options?.collaborative 
+          ? `${workflowId}-embed-${Date.now()}` 
+          : workflowId
+        const doc = new Y.Doc({ guid: docId })
 
         // Initialize structure
         const metadataMap = doc.getMap('metadata')
@@ -237,7 +253,17 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Create provider and connect
         const { isCollaborationEnabled, getCRDTServerUrl } = await import('@/lib/config/runtime')
-        const enableCRDT = isCollaborationEnabled()
+
+        // Check if CRDT should be enabled based on options and runtime config
+        let enableCRDT = isCollaborationEnabled()
+
+        // If in embed mode, respect the collaborative setting from options
+        if (options?.embedMode) {
+          enableCRDT = options.collaborative ?? false
+        }
+
+        // Store embed mode in state
+        set({ embedMode: options?.embedMode ?? false })
 
         let provider: RustSocketIOProvider | null = null
         if (enableCRDT) {
@@ -247,6 +273,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             roomName: workflowId,
             serverUrl: serverUrl,
             autoConnect: false, // Don't connect immediately
+            skipPresence: options?.embedMode, // Skip presence in embed mode
             auth: {
               userId: sessionStorage.getItem('userId') || undefined,
               userName: sessionStorage.getItem('userName') || undefined,
@@ -297,8 +324,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
             },
           })
 
-          // Set up presence
-          setupPresence(provider, set, get, doc)
+          // Set up presence only if not in embed mode
+          if (!options?.embedMode) {
+            setupPresence(provider, set, get, doc)
+          }
 
           // Create sync optimizer
           const syncOptimizer = new SyncOptimizerV2({
@@ -343,15 +372,12 @@ export const useWorkflowStore = create<WorkflowStore>()(
         })
         set({ graphs })
 
-        // Check if CRDT already has data (from other clients)
-        const hasData = graphsMap.size > 0 || doc.getMap('nodes-main').size > 0
+        // ALWAYS load from API/Database first - it's the source of truth
+        // This ensures deleted nodes and changes are reflected everywhere
+        // In embed mode without collaboration, we NEVER use CRDT data
+        // Always start fresh to ensure we see the latest state
 
-        if (enableCRDT && hasData) {
-          // Data will be loaded by observers from CRDT
-          return
-        }
-
-        // Load from storage if no CRDT data
+        // Load from API/Database
         let snapshot: WorkflowSnapshot | null = null
         let isNewWorkflow = false
 
@@ -411,6 +437,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
             // Set metadata with validation
             if (snapshot.id) metadataMap.set('workflowId', String(snapshot.id))
             if (snapshot.name) metadataMap.set('name', String(snapshot.name))
+            
+            // Set last modified timestamp from database
+            const dbTimestamp = new Date(snapshot.updatedAt || snapshot.lastSavedAt).getTime()
+            metadataMap.set('lastModified', dbTimestamp)
 
             // Load graphs
             if (snapshot.graphs && snapshot.graphs.length > 0) {
@@ -662,6 +692,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
         const nodeId = metadata.id
 
         doc.transact(() => {
+          // Update lastModified timestamp
+          const metadataMap = doc.getMap('metadata')
+          metadataMap.set('lastModified', Date.now())
+
           const nodesMap = doc.getMap(`nodes-${currentGraphId}`)
           const yNode = new Y.Map()
 
@@ -676,11 +710,12 @@ export const useWorkflowStore = create<WorkflowStore>()(
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
 
-        // Force sync after adding node
-        const provider = get().provider
-        if (provider && provider.socket && provider.socket.connected) {
-          // Don't update awareness here - it interferes with presence tracking
-        }
+        // Save to API immediately to ensure changes are persisted
+        get()
+          .saveToAPI()
+          .catch(error => {
+            console.error('[WorkflowStore] Failed to save after adding node:', error)
+          })
 
         return nodeId
       },
@@ -756,6 +791,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
         if (!doc) return
 
         doc.transact(() => {
+          // Update lastModified timestamp to ensure CRDT deletions are preserved
+          const metadataMap = doc.getMap('metadata')
+          metadataMap.set('lastModified', Date.now())
+
           // Remove node
           const nodesMap = doc.getMap(`nodes-${currentGraphId}`)
           nodesMap.delete(nodeId)
@@ -805,6 +844,23 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
+
+        // Wait a tick to ensure CRDT transaction is complete before saving
+        setTimeout(() => {
+          // Save to API to ensure deletion is persisted
+          get()
+            .saveToAPI()
+            .then(() => {
+              // Successfully saved
+            })
+            .catch(error => {
+              console.error('[WorkflowStore] CRITICAL: Failed to save after node deletion:', error)
+              // Show user-facing error
+              if (typeof window !== 'undefined' && window.alert) {
+                window.alert('Failed to save node deletion. Please refresh the page.')
+              }
+            })
+        }, 10)
       },
 
       getNodesForGraph: (graphId: string) => {
@@ -824,7 +880,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
               ...metadata,
               propertyValues: yNode.get('propertyValues') || metadata.propertyValues || {},
             },
-            position: position || { x: 100, y: 100 }, // Only use default if position is completely missing
+            position: position, // No default - preserve exact position
           }
           nodes.push(node)
         })
@@ -863,6 +919,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         try {
           doc.transact(() => {
+            // Update lastModified timestamp
+            const metadataMap = doc.getMap('metadata')
+            metadataMap.set('lastModified', Date.now())
+
             const connectionsMap = doc.getMap(`connections-${currentGraphId}`)
             const yConn = new Y.Map()
 
@@ -917,12 +977,23 @@ export const useWorkflowStore = create<WorkflowStore>()(
         if (!doc) return
 
         doc.transact(() => {
+          // Update lastModified timestamp
+          const metadataMap = doc.getMap('metadata')
+          metadataMap.set('lastModified', Date.now())
+
           const connectionsMap = doc.getMap(`connections-${currentGraphId}`)
           connectionsMap.delete(connectionId)
         }, 'local')
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
+        
+        // Save to API immediately to ensure changes are persisted
+        get()
+          .saveToAPI()
+          .catch(error => {
+            console.error('[WorkflowStore] Failed to save after removing connection:', error)
+          })
       },
 
       // Group management
@@ -1063,8 +1134,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
                   title: storedGroup.get('title'),
                   description: storedGroup.get('description'),
                   color: storedGroup.get('color'),
-                  position: storedGroup.get('position') || { x: 100, y: 100 },
-                  size: storedGroup.get('size') || { width: 200, height: 150 },
+                  position: storedGroup.get('position'),
+                  size: storedGroup.get('size'),
                   nodeIds: storedGroup.get('nodeIds') || [],
                   isCollapsed: storedGroup.get('isCollapsed') ?? false,
                   createdAt: storedGroup.get('createdAt'),
@@ -1072,9 +1143,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
                 }
               : {
                   ...storedGroup,
-                  // Ensure stored group has required fields
-                  position: (storedGroup as any).position || { x: 100, y: 100 },
-                  size: (storedGroup as any).size || { width: 200, height: 150 },
+                  // Preserve exact position and size
+                  position: (storedGroup as any).position,
+                  size: (storedGroup as any).size,
                 }
 
           // Ensure position is preserved if not being updated
@@ -1131,8 +1202,8 @@ export const useWorkflowStore = create<WorkflowStore>()(
                   title: storedGroup.get('title'),
                   description: storedGroup.get('description'),
                   color: storedGroup.get('color'),
-                  position: storedGroup.get('position') || { x: 100, y: 100 },
-                  size: storedGroup.get('size') || { width: 200, height: 150 },
+                  position: storedGroup.get('position'),
+                  size: storedGroup.get('size'),
                   nodeIds: storedGroup.get('nodeIds') || [],
                   isCollapsed: storedGroup.get('isCollapsed') ?? false,
                   createdAt: storedGroup.get('createdAt'),
@@ -1610,8 +1681,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
           const now = Date.now()
           if (now - lastUpdate < throttleMs) return
 
-          const { provider, currentGraphId } = get()
+          const { provider, currentGraphId, embedMode } = get()
           if (!provider) return
+
+          // Skip cursor updates in embed mode
+          if (embedMode) return
 
           const awareness = provider.getAwareness()
           if (awareness) {
@@ -1647,6 +1721,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
           })
           return
         }
+
 
         // Calculate metadata
         let totalNodeCount = 0
@@ -1721,6 +1796,15 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         try {
           await WorkflowStorageService.saveWorkflow(snapshot)
+
+          // Update CRDT metadata with last modified timestamp
+          const { doc } = get()
+          if (doc) {
+            doc.transact(() => {
+              const metadataMap = doc.getMap('metadata')
+              metadataMap.set('lastModified', Date.now())
+            })
+          }
 
           // Clear dirty state for all graphs after successful save
           get().clearAllDirtyState()
@@ -2038,7 +2122,15 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
           nodeId,
           hasPosition: !!position,
           propertyValues: yNode.get('propertyValues'),
+          yNodeKeys: yNode ? Array.from(yNode.keys()) : 'yNode is null',
+          rawYNode: yNode,
         })
+
+        // Try to recover the node ID at least
+        const storedId = yNode.get('id')
+        if (storedId) {
+          console.error('[Workflow Store] Node has ID but no metadata:', storedId)
+        }
         return
       }
 
@@ -2076,6 +2168,12 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
     // Load groups
     const groupsMap = doc.getMap(`groups-${graphId}`)
+    console.log(
+      '[WorkflowStore] Loading groups for graph:',
+      graphId,
+      'Groups map size:',
+      groupsMap.size
+    )
     groupsMap.forEach((groupValue: any, key: string) => {
       // Skip internal keys
       if (key.startsWith('_')) return
@@ -2086,13 +2184,19 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
       if (groupValue instanceof Y.Map) {
         const position = groupValue.get('position')
         const size = groupValue.get('size')
+        console.log('[WorkflowStore] Loading group:', {
+          id: groupValue.get('id'),
+          position: position,
+          size: size,
+          nodeIds: groupValue.get('nodeIds'),
+        })
         groupData = {
           id: groupValue.get('id'),
           title: groupValue.get('title'),
           description: groupValue.get('description'),
           color: groupValue.get('color'),
-          position: position || { x: 100, y: 100 },
-          size: size || { width: 200, height: 150 },
+          position: position,
+          size: size,
           nodeIds: groupValue.get('nodeIds') || [],
           isCollapsed: groupValue.get('isCollapsed') ?? false,
           createdAt: groupValue.get('createdAt'),
@@ -2106,8 +2210,8 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
           title: groupValue.title,
           description: groupValue.description,
           color: groupValue.color,
-          position: groupValue.position || { x: 100, y: 100 },
-          size: groupValue.size || { width: 200, height: 150 },
+          position: groupValue.position,
+          size: groupValue.size,
           nodeIds: groupValue.nodeIds || [],
           isCollapsed: groupValue.isCollapsed ?? false,
           createdAt: groupValue.createdAt,

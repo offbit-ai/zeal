@@ -13,7 +13,7 @@ export function NodeBrowserButton({ onClick, isActive = false }: NodeBrowserButt
     <Tooltip content="Browse Nodes" position="left">
       <button
         onClick={onClick}
-        className={`absolute left-4 top-24 w-12 h-10 rounded-lg shadow-sm border border-gray-200 flex items-center justify-center transition-colors z-20 ${
+        className={`absolute left-4 top-16 w-12 h-10 rounded-lg shadow-sm border border-gray-200 flex items-center justify-center transition-colors z-20 ${
           isActive ? 'bg-black text-white' : 'bg-white hover:bg-gray-50 text-gray-600'
         }`}
       >

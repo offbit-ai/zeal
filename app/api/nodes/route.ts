@@ -7,36 +7,9 @@ import {
   extractUserId,
   mockDelay,
 } from '@/lib/api-utils'
-import { ApiError, NodeTemplateResponse } from '@/types/api'
-import { allNodeTemplates } from '@/data/nodeTemplates'
+import { ApiError } from '@/types/api'
 import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
-
-// Initialize node templates from modules with proper timestamps
-const nodeTemplatesStore: NodeTemplateResponse[] = allNodeTemplates.map(
-  (template: any, index: number) => ({
-    // Map JSON structure to API structure
-    id: template.id,
-    type: template.type,
-    title: template.title,
-    subtitle: template.subtitle,
-    category: template.category,
-    subcategory: template.subcategory,
-    description: template.description,
-    icon: template.icon,
-    variant: template.variant,
-    shape: template.shape,
-    size: template.size,
-    ports: template.ports,
-    properties: template.properties,
-    requiredEnvVars: template.requiredEnvVars,
-    tags: template.tags,
-    version: template.version || '1.0.0',
-    isActive: template.isActive !== false, // Default to true unless explicitly false
-    createdAt: template.createdAt || new Date(Date.now() - 86400000 * (30 - index)).toISOString(),
-    updatedAt: template.updatedAt || new Date().toISOString(),
-    ...(template.propertyRules ? { propertyRules: template.propertyRules } : {}),
-  })
-)
+import { nodeTemplateService } from '@/services/nodeTemplateService'
 
 // GET /api/nodes - List node templates
 export const GET = withErrorHandling(async (req: NextRequest) => {
@@ -46,7 +19,6 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // Check cache first
   const cachedResponse = apiCache.get(cacheKey)
   if (cachedResponse) {
-    // Cache hit for nodes
     return NextResponse.json(cachedResponse)
   }
 
@@ -57,35 +29,17 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
 
-  // Get all node templates from JSON data (no isActive filter)
-  let filteredNodes = [...nodeTemplatesStore]
+  // Use the new template service
+  const searchResult = await nodeTemplateService.searchTemplates({
+    query: filters.search,
+    category: filters.category,
+    subcategory: filters.subcategory,
+    tags: filters.tags ? (Array.isArray(filters.tags) ? filters.tags : [filters.tags]) : undefined,
+    useRepository: searchParams.get('useRepository') === 'true',
+    limit: 1000, // Get all for client-side pagination
+  })
 
-  if (filters.category) {
-    filteredNodes = filteredNodes.filter(
-      node => node.category.toLowerCase() === filters.category?.toLowerCase()
-    )
-  }
-
-  if (filters.subcategory) {
-    filteredNodes = filteredNodes.filter(
-      node => node.subcategory?.toLowerCase() === filters.subcategory?.toLowerCase()
-    )
-  }
-
-  if (filters.search) {
-    const searchLower = filters.search.toLowerCase()
-    filteredNodes = filteredNodes.filter(
-      node =>
-        node.title.toLowerCase().includes(searchLower) ||
-        node.description.toLowerCase().includes(searchLower) ||
-        node.tags.some(tag => tag.toLowerCase().includes(searchLower))
-    )
-  }
-
-  if (filters.tags) {
-    const filterTags = Array.isArray(filters.tags) ? filters.tags : [filters.tags]
-    filteredNodes = filteredNodes.filter(node => filterTags.some(tag => node.tags.includes(tag)))
-  }
+  let filteredNodes = searchResult.templates
 
   // Sort nodes
   filteredNodes.sort((a, b) => {
@@ -118,6 +72,14 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       total,
       totalPages,
     },
+    ...(searchResult.isSemanticSearch
+      ? {
+          searchMetadata: {
+            provider: 'template-repository',
+            query: filters.search,
+          },
+        }
+      : {}),
     timestamp: new Date().toISOString(),
     requestId: `req_${Date.now()}`,
   })
@@ -128,37 +90,31 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   return NextResponse.json(response)
 })
 
-// POST /api/nodes - Create custom node template (admin only)
+// POST /api/nodes - Create custom node template
 export const POST = withErrorHandling(async (req: NextRequest) => {
   await mockDelay(200)
 
   const userId = extractUserId(req)
   const body = await req.json()
 
-  // In real implementation, check if user has admin permissions
-  // For now, simulate admin check
-  if (!userId.startsWith('admin_')) {
-    throw new ApiError('FORBIDDEN', 'Only administrators can create node templates', 403)
-  }
-
   // Validate required fields
   if (!body.type || !body.title || !body.category) {
     throw new ApiError('VALIDATION_ERROR', 'type, title, and category are required', 400)
   }
 
-  // Check for duplicate type
-  const existingNode = nodeTemplatesStore.find(node => node.type === body.type)
+  // Check for duplicate ID
+  const existingNode = await nodeTemplateService.getTemplateById(body.id || body.type)
   if (existingNode) {
     throw new ApiError(
       'DUPLICATE_NODE_TYPE',
-      `Node template with type '${body.type}' already exists`,
+      `Node template with id '${body.id || body.type}' already exists`,
       409
     )
   }
 
-  // Create new node template
-  const newNodeTemplate: NodeTemplateResponse = {
-    id: `tpl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  // Save the template to the database
+  const createdTemplate = await nodeTemplateService.createTemplate({
+    id: body.id || `tpl_custom_${Date.now()}`,
     type: body.type,
     title: body.title,
     subtitle: body.subtitle || '',
@@ -170,19 +126,18 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     requiredEnvVars: body.requiredEnvVars || [],
     tags: body.tags || [],
     version: body.version || '1.0.0',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     variant: body.variant,
-    shape: body.shape,
-    size: body.size,
-    ports: body.ports,
-  }
-
-  nodeTemplatesStore.push(newNodeTemplate)
+    shape: body.shape || 'rectangle',
+    size: body.size || 'medium',
+    ports: body.ports || [],
+    propertyRules: body.propertyRules,
+    createdBy: userId,
+    // Mark as pending approval for non-admin users
+    status: userId.startsWith('admin_') ? 'active' : 'draft',
+  })
 
   // Invalidate all nodes cache since this affects all users
   invalidateCache('/api/nodes')
 
-  return NextResponse.json(createSuccessResponse(newNodeTemplate), { status: 201 })
+  return NextResponse.json(createSuccessResponse(createdTemplate), { status: 201 })
 })

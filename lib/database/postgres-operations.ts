@@ -963,6 +963,166 @@ export class PostgresOperations implements WorkflowOperations {
     return { traces: result.rows, total }
   }
 
+  // Embed API Key CRUD
+  async createEmbedApiKey(data: {
+    id: string
+    key: string
+    name: string
+    description?: string
+    workflowId: string
+    permissions: any
+    createdAt: string
+    updatedAt: string
+    expiresAt?: string
+    isActive: boolean
+    usageCount: number
+    rateLimits?: any
+  }) {
+    const result = await this.pool.query(
+      `INSERT INTO embed_api_keys (
+        id, key, name, description, "workflowId", permissions,
+        "createdAt", "updatedAt", "expiresAt", "isActive", "usageCount", "rateLimits"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *`,
+      [
+        data.id,
+        data.key,
+        data.name,
+        data.description || null,
+        data.workflowId,
+        JSON.stringify(data.permissions),
+        data.createdAt,
+        data.updatedAt,
+        data.expiresAt || null,
+        data.isActive,
+        data.usageCount,
+        data.rateLimits ? JSON.stringify(data.rateLimits) : null,
+      ]
+    )
+    const row = result.rows[0]
+    return {
+      ...row,
+      permissions: JSON.parse(row.permissions),
+      rateLimits: row.rateLimits ? JSON.parse(row.rateLimits) : null,
+    }
+  }
+
+  async getEmbedApiKey(id: string) {
+    const result = await this.pool.query('SELECT * FROM embed_api_keys WHERE id = $1', [id])
+    if (result.rows.length === 0) return null
+    const row = result.rows[0]
+    return {
+      ...row,
+      permissions: JSON.parse(row.permissions),
+      rateLimits: row.rateLimits ? JSON.parse(row.rateLimits) : null,
+    }
+  }
+
+  async getEmbedApiKeys(workflowId?: string) {
+    let query = 'SELECT * FROM embed_api_keys'
+    const params: any[] = []
+
+    if (workflowId) {
+      query += ' WHERE "workflowId" = $1'
+      params.push(workflowId)
+    }
+
+    query += ' ORDER BY "createdAt" DESC'
+
+    const result = await this.pool.query(query, params)
+    return result.rows.map(row => ({
+      ...row,
+      permissions: JSON.parse(row.permissions),
+      rateLimits: row.rateLimits ? JSON.parse(row.rateLimits) : null,
+    }))
+  }
+
+  async updateEmbedApiKey(
+    id: string,
+    data: {
+      lastUsedAt?: string
+      usageCount?: number
+      isActive?: boolean
+      updatedAt?: string
+      permissions?: any
+    }
+  ) {
+    const updates: string[] = []
+    const values: any[] = []
+    let paramCount = 0
+
+    if (data.lastUsedAt !== undefined) {
+      values.push(data.lastUsedAt)
+      updates.push(`"lastUsedAt" = $${++paramCount}`)
+    }
+    if (data.usageCount !== undefined) {
+      values.push(data.usageCount)
+      updates.push(`"usageCount" = $${++paramCount}`)
+    }
+    if (data.isActive !== undefined) {
+      values.push(data.isActive)
+      updates.push(`"isActive" = $${++paramCount}`)
+    }
+    if (data.updatedAt !== undefined) {
+      values.push(data.updatedAt)
+      updates.push(`"updatedAt" = $${++paramCount}`)
+    }
+    if (data.permissions !== undefined) {
+      values.push(JSON.stringify(data.permissions))
+      updates.push(`permissions = $${++paramCount}`)
+    }
+
+    values.push(id)
+
+    const result = await this.pool.query(
+      `UPDATE embed_api_keys SET ${updates.join(', ')} WHERE id = $${++paramCount} RETURNING *`,
+      values
+    )
+    const row = result.rows[0]
+    return {
+      ...row,
+      permissions: JSON.parse(row.permissions),
+      rateLimits: row.rateLimits ? JSON.parse(row.rateLimits) : null,
+    }
+  }
+
+  async deleteEmbedApiKey(id: string) {
+    await this.pool.query('DELETE FROM embed_api_keys WHERE id = $1', [id])
+  }
+
+  // Embed Session tracking
+  async createEmbedSession(data: {
+    id: string
+    apiKeyId: string
+    startedAt: string
+    endedAt?: string
+    actions: any[]
+  }) {
+    const result = await this.pool.query(
+      `INSERT INTO embed_sessions (
+        id, "apiKeyId", "startedAt", "endedAt", actions
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING *`,
+      [data.id, data.apiKeyId, data.startedAt, data.endedAt || null, JSON.stringify(data.actions)]
+    )
+    const row = result.rows[0]
+    return {
+      ...row,
+      actions: JSON.parse(row.actions),
+    }
+  }
+
+  async getEmbedSessions(apiKeyId: string) {
+    const result = await this.pool.query(
+      'SELECT * FROM embed_sessions WHERE "apiKeyId" = $1 ORDER BY "startedAt" DESC',
+      [apiKeyId]
+    )
+    return result.rows.map(row => ({
+      ...row,
+      actions: JSON.parse(row.actions),
+    }))
+  }
+
   // Transaction support
   async beginTransaction(): Promise<TransactionOperations> {
     const client = await this.pool.connect()

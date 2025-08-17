@@ -86,7 +86,8 @@ start_postgres() {
             -e POSTGRES_PASSWORD=$DB_PASSWORD \
             -p $DB_PORT:5432 \
             -v zeal-postgres-data:/var/lib/postgresql/data \
-            postgres:15-alpine > /dev/null
+            -v "$(pwd)/init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+            pgvector/pgvector:pg15 > /dev/null
     fi
     
     # Wait for PostgreSQL to be ready
@@ -94,6 +95,22 @@ start_postgres() {
     for i in {1..30}; do
         if docker exec $POSTGRES_CONTAINER pg_isready -U $DB_USER > /dev/null 2>&1; then
             echo -e "${GREEN}✅ PostgreSQL is ready${NC}"
+            
+            # Check if database needs initialization
+            echo -e "${BLUE}Checking database schema...${NC}"
+            if ! docker exec $POSTGRES_CONTAINER psql -U $DB_USER -d $DB_NAME -c "SELECT 1 FROM workflows LIMIT 1;" > /dev/null 2>&1; then
+                echo -e "${YELLOW}Initializing database schema...${NC}"
+                # Copy init.sql into container and run it
+                docker cp init.sql $POSTGRES_CONTAINER:/tmp/init.sql
+                if docker exec $POSTGRES_CONTAINER psql -U $DB_USER -d $DB_NAME -f /tmp/init.sql > /dev/null 2>&1; then
+                    echo -e "${GREEN}✅ Database schema initialized${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  Database initialization had warnings (this is normal for IF NOT EXISTS statements)${NC}"
+                fi
+            else
+                echo -e "${GREEN}✅ Database schema already exists${NC}"
+            fi
+            
             return
         fi
         sleep 1
@@ -296,6 +313,30 @@ MINIO_SECRET_KEY="${MINIO_ROOT_PASSWORD}"
 MINIO_BUCKET="${MINIO_BUCKET}"
 MINIO_USE_SSL=false
 NEXT_PUBLIC_MINIO_URL="http://localhost:${MINIO_PORT}"
+
+# Node Template Repository Configuration
+USE_TEMPLATE_REPOSITORY=true
+AUTO_INGEST_TEMPLATES=true
+
+# AI Embedding Configuration (for semantic search)
+# Use mock embeddings for development (no API key required)
+EMBEDDING_VENDOR=mock
+EMBEDDING_DIMENSIONS=1536
+EMBEDDING_BATCH_SIZE=100
+
+# Uncomment and configure for production AI embeddings:
+# EMBEDDING_VENDOR=openai
+# EMBEDDING_MODEL=text-embedding-3-small
+# EMBEDDING_API_KEY=sk-your-openai-api-key
+
+# Embed API Configuration (for workflow embedding)
+NEXT_PUBLIC_EMBED_ENABLED=true
+EMBED_MAX_API_KEYS_PER_WORKFLOW=10
+EMBED_DEFAULT_RATE_LIMIT=1000
+
+# Development URLs
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+NEXT_PUBLIC_EMBED_URL="http://localhost:3000/embed"
 EOF
 
     echo -e "${GREEN}✅ .env.local file created${NC}"

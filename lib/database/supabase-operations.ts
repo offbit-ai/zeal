@@ -866,6 +866,140 @@ export class SupabaseOperations implements WorkflowOperations {
     return { traces: data || [], total: count || 0 }
   }
 
+  // Embed API Key CRUD
+  async createEmbedApiKey(data: {
+    id: string
+    key: string
+    name: string
+    description?: string
+    workflowId: string
+    permissions: any
+    createdAt: string
+    updatedAt: string
+    expiresAt?: string
+    isActive: boolean
+    usageCount: number
+    rateLimits?: any
+  }) {
+    const { data: result, error } = await this.supabase
+      .from('embed_api_keys')
+      .insert({
+        id: data.id,
+        key: data.key,
+        name: data.name,
+        description: data.description || null,
+        workflowId: data.workflowId,
+        permissions: data.permissions,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        expiresAt: data.expiresAt || null,
+        isActive: data.isActive,
+        usageCount: data.usageCount,
+        rateLimits: data.rateLimits || null,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return result
+  }
+
+  async getEmbedApiKey(id: string) {
+    const { data, error } = await this.supabase
+      .from('embed_api_keys')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error
+    return data || null
+  }
+
+  async getEmbedApiKeys(workflowId?: string) {
+    let query = this.supabase.from('embed_api_keys').select('*')
+
+    if (workflowId) {
+      query = query.eq('workflowId', workflowId)
+    }
+
+    query = query.order('createdAt', { ascending: false })
+
+    const { data, error } = await query
+
+    if (error) throw error
+    return data || []
+  }
+
+  async updateEmbedApiKey(
+    id: string,
+    data: {
+      lastUsedAt?: string
+      usageCount?: number
+      isActive?: boolean
+      updatedAt?: string
+      permissions?: any
+    }
+  ) {
+    const updateData: any = {}
+
+    if (data.lastUsedAt !== undefined) updateData.lastUsedAt = data.lastUsedAt
+    if (data.usageCount !== undefined) updateData.usageCount = data.usageCount
+    if (data.isActive !== undefined) updateData.isActive = data.isActive
+    if (data.updatedAt !== undefined) updateData.updatedAt = data.updatedAt
+    if (data.permissions !== undefined) updateData.permissions = data.permissions
+
+    const { data: result, error } = await this.supabase
+      .from('embed_api_keys')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return result
+  }
+
+  async deleteEmbedApiKey(id: string) {
+    const { error } = await this.supabase.from('embed_api_keys').delete().eq('id', id)
+
+    if (error) throw error
+  }
+
+  // Embed Session tracking
+  async createEmbedSession(data: {
+    id: string
+    apiKeyId: string
+    startedAt: string
+    endedAt?: string
+    actions: any[]
+  }) {
+    const { data: result, error } = await this.supabase
+      .from('embed_sessions')
+      .insert({
+        id: data.id,
+        apiKeyId: data.apiKeyId,
+        startedAt: data.startedAt,
+        endedAt: data.endedAt || null,
+        actions: data.actions,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return result
+  }
+
+  async getEmbedSessions(apiKeyId: string) {
+    const { data, error } = await this.supabase
+      .from('embed_sessions')
+      .select('*')
+      .eq('apiKeyId', apiKeyId)
+      .order('startedAt', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  }
+
   // Transaction support - Supabase doesn't have real transactions
   async beginTransaction(): Promise<TransactionOperations> {
     // Return a wrapper that queues operations

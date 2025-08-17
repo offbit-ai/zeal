@@ -1,0 +1,40 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "../../",
+    "module": "ES2022",
+    "target": "ES2022",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "baseUrl": "../../",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "index.ts",
+    "workflow-operations.ts",
+    "../../lib/database.ts",
+    "../../lib/database/**/*.ts",
+    "../../lib/database-template-operations.ts",
+    "../../lib/supabase/client.ts",
+    "../../services/embedApiKeyService.ts",
+    "../../services/workflowDatabase.ts",
+    "../../services/workflowService.ts",
+    "../../services/node-template-repository/**/*.ts",
+    "../../types/api.ts",
+    "../../types/workflow.ts",
+    "../../types/embed.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

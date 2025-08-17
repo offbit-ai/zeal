@@ -1,154 +1,72 @@
 import type { WorkflowSnapshot } from '@/types/snapshot'
 import { WorkflowService } from './workflowService'
 
-const STORAGE_KEY = 'zeal_workflows'
-const CURRENT_WORKFLOW_KEY = 'zeal_current_workflow_id'
+// No more localStorage - API/Database is the single source of truth
 
 export class WorkflowStorageService {
-  // Get all workflows from API/Database (with localStorage fallback)
+  // Get all workflows from API/Database
   static async getAllWorkflows(): Promise<WorkflowSnapshot[]> {
     try {
       // Use API to get workflows
       const response = await WorkflowService.getWorkflows({ limit: 100 })
       return response.workflows
     } catch (error) {
-      console.error(
-        'Error loading workflows from API/Database, falling back to localStorage:',
-        error
-      )
-      // Fallback to localStorage
-      try {
-        const data = localStorage.getItem(STORAGE_KEY)
-        return data ? JSON.parse(data) : []
-      } catch (localError) {
-        console.error('Error loading workflows from localStorage:', localError)
-        return []
-      }
+      console.error('Error loading workflows from API/Database:', error)
+      // No localStorage fallback - throw error to handle upstream
+      throw error
     }
   }
 
-  // Get a specific workflow by ID from API/Database (with localStorage fallback)
+  // Get a specific workflow by ID from API/Database
   static async getWorkflow(id: string): Promise<WorkflowSnapshot | null> {
     try {
       // Use API to get workflow
       return await WorkflowService.getWorkflow(id)
     } catch (error) {
-      console.error(
-        'Error loading workflow from API/Database, falling back to localStorage:',
-        error
-      )
-      // Fallback to localStorage
-      try {
-        const data = localStorage.getItem(STORAGE_KEY)
-        const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
-        return workflows.find(w => w.id === id) || null
-      } catch (localError) {
-        console.error('Error loading workflow from localStorage:', localError)
-        return null
-      }
+      console.error('Error loading workflow from API/Database:', error)
+      // No localStorage fallback - throw error to handle upstream
+      throw error
     }
   }
 
-  // Save or update a workflow via API/Database (with localStorage fallback)
+  // Save or update a workflow via API/Database
   static async saveWorkflow(workflow: WorkflowSnapshot): Promise<WorkflowSnapshot> {
     try {
       // Use API to save workflow
+      let result: WorkflowSnapshot
       if (workflow.id) {
         // Update existing workflow
-        return await WorkflowService.updateWorkflow(workflow.id, workflow)
+        result = await WorkflowService.updateWorkflow(workflow.id, workflow)
       } else {
         // Create new workflow
-        return await WorkflowService.createWorkflow(workflow)
+        result = await WorkflowService.createWorkflow(workflow)
       }
+
+      // No need to set current workflow in localStorage anymore
+
+      return result
     } catch (error) {
-      console.error('Error saving workflow to API, falling back to localStorage:', error)
-      // Fallback to localStorage
-      try {
-        const data = localStorage.getItem(STORAGE_KEY)
-        const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
-
-        // When saving a published workflow, we keep both the draft and published versions
-        if (workflow.isPublished) {
-          // Add as a new published version (keep the same ID)
-          workflows.push(workflow)
-        } else {
-          // For drafts, update the existing draft or add new
-          const existingDraftIndex = workflows.findIndex(
-            w => w.id === workflow.id && w.isDraft && !w.isPublished
-          )
-
-          if (existingDraftIndex >= 0) {
-            // Update existing draft
-            workflows[existingDraftIndex] = {
-              ...workflow,
-              updatedAt: new Date().toISOString(),
-            }
-          } else {
-            // Add new draft - generate ID if needed
-            if (!workflow.id) {
-              workflow.id = `wf_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-            }
-            workflows.push(workflow)
-          }
-        }
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows))
-
-        // Set as current workflow
-        this.setCurrentWorkflowId(workflow.id)
-
-        // Return the workflow
-        return workflow
-      } catch (localError) {
-        console.error('Error saving workflow to localStorage:', localError)
-        throw new Error('Failed to save workflow')
-      }
+      console.error('Error saving workflow to API:', error)
+      // No localStorage fallback - throw error to handle upstream
+      throw error
     }
   }
 
-  // Delete a workflow via API (with localStorage fallback)
+  // Delete a workflow via API
   static async deleteWorkflow(id: string): Promise<void> {
     try {
       await WorkflowService.deleteWorkflow(id)
 
-      // Clear current workflow if it was deleted
-      if (this.getCurrentWorkflowId() === id) {
-        this.clearCurrentWorkflowId()
-      }
+      // No need to clear localStorage anymore
     } catch (error) {
-      console.error('Error deleting workflow from API, falling back to localStorage:', error)
-      // Fallback to localStorage
-      try {
-        const data = localStorage.getItem(STORAGE_KEY)
-        const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
-        const filtered = workflows.filter(w => w.id !== id)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
-
-        // Clear current workflow if it was deleted
-        if (this.getCurrentWorkflowId() === id) {
-          this.clearCurrentWorkflowId()
-        }
-      } catch (localError) {
-        console.error('Error deleting workflow from localStorage:', localError)
-        throw new Error('Failed to delete workflow')
-      }
+      console.error('Error deleting workflow from API:', error)
+      // No localStorage fallback - throw error to handle upstream
+      throw error
     }
   }
 
-  // Get the current workflow ID
-  static getCurrentWorkflowId(): string | null {
-    return localStorage.getItem(CURRENT_WORKFLOW_KEY)
-  }
-
-  // Set the current workflow ID
-  static setCurrentWorkflowId(id: string): void {
-    localStorage.setItem(CURRENT_WORKFLOW_KEY, id)
-  }
-
-  // Clear the current workflow ID
-  static clearCurrentWorkflowId(): void {
-    localStorage.removeItem(CURRENT_WORKFLOW_KEY)
-  }
+  // Removed localStorage methods - no longer storing workflow ID locally
+  // API/Database is the single source of truth
 
   // Create a new draft workflow
   static async createDraftWorkflow(name: string = 'Untitled Workflow'): Promise<WorkflowSnapshot> {
@@ -198,13 +116,9 @@ export class WorkflowStorageService {
       })
       return response.workflows
     } catch (error) {
-      console.error('Error loading workflow history from API, falling back to localStorage:', error)
-      // Fallback to localStorage
-      const data = localStorage.getItem(STORAGE_KEY)
-      const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
-      return workflows
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, limit)
+      console.error('Error loading workflow history from API:', error)
+      // No localStorage fallback - throw error to handle upstream
+      throw error
     }
   }
 
@@ -215,17 +129,9 @@ export class WorkflowStorageService {
       const response = await WorkflowService.getWorkflows({ search: query, limit: 50 })
       return response.workflows
     } catch (error) {
-      console.error('Error searching workflows from API, falling back to localStorage:', error)
-      // Fallback to localStorage
-      const data = localStorage.getItem(STORAGE_KEY)
-      const workflows: WorkflowSnapshot[] = data ? JSON.parse(data) : []
-      const lowerQuery = query.toLowerCase()
-
-      return workflows.filter(
-        w =>
-          w.name.toLowerCase().includes(lowerQuery) ||
-          (w.description && w.description.toLowerCase().includes(lowerQuery))
-      )
+      console.error('Error searching workflows from API:', error)
+      // No localStorage fallback - throw error to handle upstream
+      throw error
     }
   }
 
@@ -333,14 +239,8 @@ export class WorkflowStorageService {
 
     // Remove any existing draft for this workflow ID
     const workflows = await this.getAllWorkflows()
-    const filteredWorkflows = workflows.filter(
-      w => !(w.id === workflowId && w.isDraft && !w.isPublished)
-    )
-    filteredWorkflows.push(rolledBackWorkflow)
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredWorkflows))
-    this.setCurrentWorkflowId(workflowId)
-
-    return rolledBackWorkflow
+    // Save the rolled back workflow via API
+    const saved = await this.saveWorkflow(rolledBackWorkflow)
+    return saved
   }
 }

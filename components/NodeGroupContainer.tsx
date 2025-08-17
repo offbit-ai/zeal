@@ -243,13 +243,17 @@ export const NodeGroupContainer = React.memo(
 
     // Ensure group has required properties before rendering
     if (!groupId) {
-      // Group has no ID, not rendering
+      console.warn('[NodeGroupContainer] Group has no ID, not rendering', group)
       return null
     }
 
     // Additional validation with warnings instead of returning null
     if (!groupPosition || !groupSize) {
-      // Group missing position or size, using defaults
+      console.warn('[NodeGroupContainer] Group missing position or size', {
+        groupId,
+        position: groupPosition,
+        size: groupSize,
+      })
     }
 
     // Extra validation for position values
@@ -260,26 +264,18 @@ export const NodeGroupContainer = React.memo(
       // Group position has invalid values, using defaults
     }
 
-    // Container ready logic - run once per group
+    // Container ready logic - simpler approach
     useEffect(() => {
-      // Reset state for new group
-      hasNotifiedReady.current = false
-      setIsContainerReady(false)
-      
-      // Set ready after a minimal delay to ensure DOM is updated
-      const timer = setTimeout(() => {
-        if (!hasNotifiedReady.current) {
-          hasNotifiedReady.current = true
-          setIsContainerReady(true)
-          
-          // Notify parent that container is ready
-          if (onContainerReady) {
-            onContainerReady(groupId)
-          }
+      // Only notify once per group mount
+      if (!hasNotifiedReady.current) {
+        hasNotifiedReady.current = true
+        setIsContainerReady(true)
+
+        // Notify parent immediately
+        if (onContainerReady) {
+          onContainerReady(groupId)
         }
-      }, 10) // Very small delay just for DOM update
-      
-      return () => clearTimeout(timer)
+      }
     }, [groupId, onContainerReady])
 
     // Clear local position when group props change from CRDT, but only if not actively dragging

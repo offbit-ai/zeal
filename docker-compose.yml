@@ -156,6 +156,30 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       NEXT_PUBLIC_ENABLE_COLLABORATION: ${NEXT_PUBLIC_ENABLE_COLLABORATION:-true}
+      
+      # Node Template Repository Configuration
+      USE_TEMPLATE_REPOSITORY: ${USE_TEMPLATE_REPOSITORY:-true}
+      AUTO_INGEST_TEMPLATES: ${AUTO_INGEST_TEMPLATES:-true}
+      
+      # AI Embedding Configuration (for semantic search)
+      # Use mock embeddings for development (no API key required)
+      EMBEDDING_VENDOR: ${EMBEDDING_VENDOR:-mock}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-100}
+      
+      # Production AI embedding configuration (uncomment as needed):
+      # EMBEDDING_VENDOR: ${EMBEDDING_VENDOR:-openai}
+      # EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      # EMBEDDING_API_KEY: ${EMBEDDING_API_KEY}
+      
+      # Embed API Configuration (for workflow embedding)
+      NEXT_PUBLIC_EMBED_ENABLED: ${NEXT_PUBLIC_EMBED_ENABLED:-true}
+      EMBED_MAX_API_KEYS_PER_WORKFLOW: ${EMBED_MAX_API_KEYS_PER_WORKFLOW:-10}
+      EMBED_DEFAULT_RATE_LIMIT: ${EMBED_DEFAULT_RATE_LIMIT:-1000}
+      
+      # Development URLs
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_EMBED_URL: ${NEXT_PUBLIC_EMBED_URL:-http://localhost:3000/embed}
     ports:
       - "3000:3000"
     networks:

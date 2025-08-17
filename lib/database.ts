@@ -8,6 +8,11 @@ let operations: WorkflowOperations | null = null
 // Legacy pool for schema initialization
 let pool: Pool | null = null
 
+// Get database type
+export function getDatabaseType(): 'postgres' | 'supabase' {
+  return process.env.USE_SUPABASE === 'true' ? 'supabase' : 'postgres'
+}
+
 // Initialize database operations
 export async function getDatabaseOperations(): Promise<WorkflowOperations> {
   if (operations) {
@@ -252,6 +257,38 @@ async function initializeSchema() {
       );
     `)
 
+    // Embed API keys table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS embed_api_keys (
+        id TEXT PRIMARY KEY,
+        key TEXT NOT NULL, -- Hashed API key
+        name TEXT NOT NULL,
+        description TEXT,
+        "workflowId" TEXT NOT NULL,
+        permissions TEXT NOT NULL, -- JSON string of permissions
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "lastUsedAt" TIMESTAMP,
+        "expiresAt" TIMESTAMP,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "usageCount" INTEGER DEFAULT 0,
+        "rateLimits" TEXT, -- JSON string of rate limits
+        FOREIGN KEY ("workflowId") REFERENCES workflows(id) ON DELETE CASCADE
+      );
+    `)
+
+    // Embed sessions table for tracking API key usage
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS embed_sessions (
+        id TEXT PRIMARY KEY,
+        "apiKeyId" TEXT NOT NULL,
+        "startedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "endedAt" TIMESTAMP,
+        actions TEXT NOT NULL DEFAULT '[]', -- JSON array of actions
+        FOREIGN KEY ("apiKeyId") REFERENCES embed_api_keys(id) ON DELETE CASCADE
+      );
+    `)
+
     // Create indexes for better performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow_id ON workflow_versions("workflowId");
@@ -269,6 +306,10 @@ async function initializeSchema() {
       CREATE INDEX IF NOT EXISTS idx_flow_traces_status ON flow_traces(status);
       CREATE INDEX IF NOT EXISTS idx_flow_traces_parent_trace_id ON flow_traces("parentTraceId");
       CREATE INDEX IF NOT EXISTS idx_flow_traces_graph_id ON flow_traces("graphId");
+      CREATE INDEX IF NOT EXISTS idx_embed_api_keys_workflow_id ON embed_api_keys("workflowId");
+      CREATE INDEX IF NOT EXISTS idx_embed_api_keys_is_active ON embed_api_keys("isActive");
+      CREATE INDEX IF NOT EXISTS idx_embed_sessions_api_key_id ON embed_sessions("apiKeyId");
+      CREATE INDEX IF NOT EXISTS idx_embed_sessions_started_at ON embed_sessions("startedAt");
     `)
 
     // Commit the transaction
