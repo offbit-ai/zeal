@@ -91,7 +91,7 @@ class NodeTemplateService {
   }> {
     // Always get templates from database if repository is enabled
     if (USE_REPOSITORY) {
-      await this.ensureIngested()
+      // await this.ensureIngested()
       const templateOps = await getTemplateOperations()
 
       // If query is provided, use semantic search
@@ -260,7 +260,7 @@ class NodeTemplateService {
       id: templateData.id,
       version: templateData.version || '1.0.0',
       status: templateData.status || 'active',
-
+      type: templateData.type || 'unknown',
       title: templateData.title,
       subtitle: templateData.subtitle || '',
       description: templateData.description || '',

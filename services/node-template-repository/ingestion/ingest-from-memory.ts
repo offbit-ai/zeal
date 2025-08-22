@@ -69,7 +69,7 @@ export class InMemoryIngestionService {
       id: dataTemplate.id,
       version: dataTemplate.version || '1.0.0',
       status: dataTemplate.isActive !== false ? TemplateStatus.ACTIVE : TemplateStatus.DEPRECATED,
-
+      type: dataTemplate.type || 'unknown',
       title: dataTemplate.title,
       subtitle: dataTemplate.subtitle,
       description: dataTemplate.description,
@@ -95,7 +95,7 @@ export class InMemoryIngestionService {
       ),
       propertyRules: dataTemplate.propertyRules,
 
-      requiredEnvVars: dataTemplate.requiredEnvVars,
+      requiredEnvVars: dataTemplate.requiredEnvVars || [],
       dependencies: [],
 
       source: {

@@ -1,0 +1,28 @@
+{
+  "name": "@zeal/workflow-manager-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Zeal workflow management - create, list, update, and delete workflows",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node --loader tsx index.ts",
+    "dev": "tsx index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "zeal",
+    "workflow",
+    "orchestration",
+    "ai"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.7.3",
+    "typescript": "^5.4.5"
+  }
+}

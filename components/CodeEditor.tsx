@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/atom-one-dark.css' // Dark theme with better contrast
 
@@ -31,7 +31,9 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const codeRef = useRef<HTMLElement>(null)
-  const [displayValue, setDisplayValue] = useState(value || placeholder)
+  // Ensure value is always a string
+  const stringValue = typeof value === 'string' ? value : value ? String(value) : ''
+  const [displayValue, setDisplayValue] = useState(stringValue || placeholder)
 
   // Handle text changes
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -63,11 +65,12 @@ export function CodeEditor({
 
   // Update display value when value prop changes
   useEffect(() => {
-    setDisplayValue(value || placeholder)
+    const stringValue = typeof value === 'string' ? value : value ? String(value) : ''
+    setDisplayValue(stringValue || placeholder)
   }, [value, placeholder])
 
   // Generate line numbers
-  const lineCount = displayValue.split('\n').length
+  const lineCount = useMemo(() => (displayValue || '').split('\n').length, [displayValue])
   const lineNumbersArray = Array.from({ length: lineCount }, (_, i) => i + 1)
 
   return (

@@ -607,12 +607,32 @@ export class PostgresTemplateOperations implements TemplateOperations {
 
   // Helper methods
   private parseTemplateRow(row: any): NodeTemplate {
-    const templateData =
-      typeof row.template_data === 'string' ? JSON.parse(row.template_data) : row.template_data
+    let templateData
+    
+    try {
+      templateData = typeof row.template_data === 'string' 
+        ? JSON.parse(row.template_data) 
+        : row.template_data
+    } catch (error) {
+      console.error('Failed to parse template_data:', row.template_data, error)
+      // Return a minimal template if parsing fails
+      return {
+        id: row.template_id || 'unknown',
+        title: 'Error Loading Template',
+        description: 'Failed to parse template data',
+        type: 'error',
+        category: 'error',
+        icon: 'alert-circle',
+        ports: [],
+        properties: {},
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      } as unknown as NodeTemplate
+    }
 
     return {
       ...templateData,
-      id: row.template_id,
+      id: row.template_id || templateData.id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -630,10 +650,10 @@ export class PostgresTemplateOperations implements TemplateOperations {
         capabilities: this.vectorToArray(row.capability_embedding),
         useCase: this.vectorToArray(row.use_case_embedding),
       },
-      capabilities: row.capabilities,
-      inputTypes: JSON.parse(row.input_types || '[]'),
-      outputTypes: JSON.parse(row.output_types || '[]'),
-      useCases: row.use_cases,
+      capabilities: row.capabilities || [],
+      inputTypes: this.safeJsonParse(row.input_types, []),
+      outputTypes: this.safeJsonParse(row.output_types, []),
+      useCases: row.use_cases || [],
       relationships: {
         commonlyUsedWith: row.commonly_used_with || [],
         alternatives: row.alternatives || [],
@@ -697,13 +717,58 @@ export class PostgresTemplateOperations implements TemplateOperations {
     return `[${Array.from(arr).join(',')}]`
   }
 
-  private vectorToArray(vector: string): Float32Array {
+  private safeJsonParse(value: any, defaultValue: any = null): any {
+    if (!value) return defaultValue
+    if (typeof value !== 'string') return value
+    
+    try {
+      return JSON.parse(value)
+    } catch (error) {
+      console.warn('Failed to parse JSON:', value, error)
+      return defaultValue
+    }
+  }
+
+  private vectorToArray(vector: string | any): Float32Array {
     if (!vector) return new Float32Array()
-    const values = vector
-      .slice(1, -1)
-      .split(',')
-      .map(v => parseFloat(v))
-    return new Float32Array(values)
+    
+    // Handle already parsed arrays
+    if (Array.isArray(vector)) {
+      return new Float32Array(vector)
+    }
+    
+    // Handle string vectors
+    if (typeof vector === 'string') {
+      try {
+        // First try to parse as JSON (for JSONB columns)
+        const parsed = JSON.parse(vector)
+        if (Array.isArray(parsed)) {
+          return new Float32Array(parsed)
+        }
+        // If it's not an array, return empty vector
+        console.warn('Vector data is not an array:', vector)
+        return new Float32Array()
+      } catch {
+        // Try parsing as PostgreSQL vector format [1,2,3]
+        try {
+          const values = vector
+            .slice(1, -1)
+            .split(',')
+            .map(v => parseFloat(v.trim()))
+          // Check if all values are valid numbers
+          if (values.some(isNaN)) {
+            console.warn('Invalid vector data:', vector)
+            return new Float32Array()
+          }
+          return new Float32Array(values)
+        } catch (error) {
+          console.error('Failed to parse vector:', vector, error)
+          return new Float32Array()
+        }
+      }
+    }
+    
+    return new Float32Array()
   }
 
   private generateSearchText(template: NodeTemplate, metadata: any): string {

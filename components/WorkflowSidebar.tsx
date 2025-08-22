@@ -56,7 +56,6 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
     fetchAll()
   }, [])
 
-
   // Filter active nodes
   const activeNodes = nodeTemplates.filter(node => node.isActive)
 
@@ -131,7 +130,7 @@ export function WorkflowSidebar({ isCollapsed = false, onCategoryClick }: Workfl
     return (
       <div className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 bg-white rounded-lg shadow-sm border border-gray-200 z-10">
         <div className="p-2 text-center">
-          <div className="text-xs text-gray-500">Loading...</div>
+          <div className="text-xs text-gray-500">...</div>
         </div>
       </div>
     )

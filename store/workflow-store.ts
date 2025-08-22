@@ -90,12 +90,14 @@ interface WorkflowStore {
 
   // Track embed mode
   embedMode: boolean
+  // Track follow mode (auto-scroll to changes)
+  followMode: boolean
 
   // Core actions
   initialize: (
     workflowId: string,
     workflowName?: string,
-    options?: { embedMode?: boolean; collaborative?: boolean }
+    options?: { embedMode?: boolean; collaborative?: boolean; followMode?: boolean }
   ) => Promise<void>
   cleanup: () => void
 
@@ -141,6 +143,7 @@ interface WorkflowStore {
 
   // Canvas state (local only)
   updateCanvasState: (graphId: string, state: Partial<CanvasState>) => void
+  scrollToElement: (position: { x: number; y: number }, zoom?: number) => void
 
   // Selection (local only)
   setSelectedNodes: (nodeIds: string[]) => void
@@ -228,20 +231,24 @@ export const useWorkflowStore = create<WorkflowStore>()(
       isOptimized: false,
       dataSnapshot: undefined,
       embedMode: false,
+      followMode: false,
 
       initialize: async (
         workflowId: string,
         workflowName?: string,
-        options?: { embedMode?: boolean; collaborative?: boolean }
+        options?: { embedMode?: boolean; collaborative?: boolean; followMode?: boolean }
       ) => {
         // Clean up any existing connection
         get().cleanup()
 
         // Create Y.Doc
         // In embed mode without collaboration, use a unique doc ID to avoid any cached data
-        const docId = options?.embedMode && !options?.collaborative 
-          ? `${workflowId}-embed-${Date.now()}` 
-          : workflowId
+        // In embed mode WITH collaboration, use the same workflowId for real-time updates
+        // (presence will still be disabled via skipPresence flag)
+        const docId =
+          options?.embedMode && !options?.collaborative
+            ? `${workflowId}-embed-${Date.now()}`
+            : workflowId
         const doc = new Y.Doc({ guid: docId })
 
         // Initialize structure
@@ -262,8 +269,11 @@ export const useWorkflowStore = create<WorkflowStore>()(
           enableCRDT = options.collaborative ?? false
         }
 
-        // Store embed mode in state
-        set({ embedMode: options?.embedMode ?? false })
+        // Store embed mode and follow mode in state
+        set({
+          embedMode: options?.embedMode ?? false,
+          followMode: options?.followMode ?? false,
+        })
 
         let provider: RustSocketIOProvider | null = null
         if (enableCRDT) {
@@ -437,7 +447,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
             // Set metadata with validation
             if (snapshot.id) metadataMap.set('workflowId', String(snapshot.id))
             if (snapshot.name) metadataMap.set('name', String(snapshot.name))
-            
+
             // Set last modified timestamp from database
             const dbTimestamp = new Date(snapshot.updatedAt || snapshot.lastSavedAt).getTime()
             metadataMap.set('lastModified', dbTimestamp)
@@ -717,6 +727,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
             console.error('[WorkflowStore] Failed to save after adding node:', error)
           })
 
+        // Auto-scroll to new node if follow mode is enabled
+        get().scrollToElement(position)
+
         return nodeId
       },
 
@@ -745,8 +758,20 @@ export const useWorkflowStore = create<WorkflowStore>()(
           const nodesMap = doc.getMap(`nodes-${currentGraphId}`)
           const yNode = nodesMap.get(nodeId) as Y.Map<any>
           if (yNode) {
+            // Update propertyValues at the node level
             const properties = yNode.get('propertyValues') || {}
             yNode.set('propertyValues', { ...properties, [property]: value })
+            
+            // Also update metadata.propertyValues to ensure UI reflects the change
+            const metadata = yNode.get('metadata') || {}
+            const updatedMetadata = {
+              ...metadata,
+              propertyValues: {
+                ...(metadata.propertyValues || {}),
+                [property]: value
+              }
+            }
+            yNode.set('metadata', updatedMetadata)
           }
         }, 'local')
 
@@ -939,6 +964,16 @@ export const useWorkflowStore = create<WorkflowStore>()(
             yConn.set('state', String(connection.state || 'pending'))
 
             connectionsMap.set(connection.id, yConn)
+
+            // Debug logging
+            console.log('[DEBUG] Connection added to CRDT:', {
+              graphId: currentGraphId,
+              connectionId: connection.id,
+              source: connection.source,
+              target: connection.target,
+              state: connection.state,
+              connectionsMapSize: connectionsMap.size,
+            })
           }, 'local')
         } catch (error) {
           console.error('[WorkflowStore] Error adding connection to CRDT:', error, {
@@ -954,6 +989,24 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Force sync after adding connection
         // Don't update awareness here - it interferes with presence tracking
+
+        // Auto-scroll to connection midpoint if follow mode is enabled
+        const nodes = get().nodes
+        const sourceNode = nodes.find(
+          n => ((n as any).id || n.metadata.id) === connection.source.nodeId
+        )
+        const targetNode = nodes.find(
+          n => ((n as any).id || n.metadata.id) === connection.target.nodeId
+        )
+
+        if (sourceNode && targetNode) {
+          // Calculate midpoint between source and target nodes
+          const midpoint = {
+            x: (sourceNode.position.x + targetNode.position.x) / 2,
+            y: (sourceNode.position.y + targetNode.position.y) / 2,
+          }
+          get().scrollToElement(midpoint)
+        }
       },
 
       updateConnectionState: (connectionId: string, state: string) => {
@@ -987,7 +1040,7 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
         // Mark graph as dirty
         get().setGraphDirty(currentGraphId, true)
-        
+
         // Save to API immediately to ensure changes are persisted
         get()
           .saveToAPI()
@@ -1104,6 +1157,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
         set(state => ({
           groups: [...state.groups, newGroup],
         }))
+
+        // Auto-scroll to group center if follow mode is enabled
+        const groupCenter = {
+          x: minX + (maxX - minX) / 2,
+          y: minY + (maxY - minY) / 2,
+        }
+        get().scrollToElement(groupCenter)
 
         return groupId
       },
@@ -1586,6 +1646,23 @@ export const useWorkflowStore = create<WorkflowStore>()(
         }))
       },
 
+      // Auto-scroll to element if follow mode is enabled
+      scrollToElement: (position: { x: number; y: number }, zoom?: number) => {
+        const { followMode } = get()
+        console.log('[WorkflowStore] scrollToElement called', { followMode, position, zoom })
+        if (!followMode) return
+
+        // Emit a custom event that the workflow page can listen to
+        // This allows the page to handle the scrolling with its local state
+        const event = new CustomEvent('workflow-follow-scroll', {
+          detail: { position, zoom },
+        })
+        console.log('[WorkflowStore] Dispatching workflow-follow-scroll event', event.detail)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(event)
+        }
+      },
+
       // Selection
       setSelectedNodes: (nodeIds: string[]) => {
         set({ selectedNodeIds: nodeIds })
@@ -1614,13 +1691,20 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
           // Load connections
           const connectionsMap = doc.getMap(`connections-${graph.id}`)
+
+          // Debug logging
+          console.log(`[DEBUG] Graph ${graph.id} connections map size:`, connectionsMap.size)
+
           connectionsMap.forEach((yConn: any) => {
-            connections.push({
+            const conn = {
               id: yConn.get('id'),
               source: yConn.get('source'),
               target: yConn.get('target'),
               state: yConn.get('state'),
-            } as Connection)
+            } as Connection
+
+            console.log(`[DEBUG] Connection from CRDT:`, conn)
+            connections.push(conn)
           })
 
           // Load groups
@@ -1722,6 +1806,17 @@ export const useWorkflowStore = create<WorkflowStore>()(
           return
         }
 
+        // Debug logging
+        console.log('[DEBUG] saveToAPI - data to save:', {
+          workflowId,
+          graphsCount: allGraphsData.length,
+          graphs: allGraphsData.map(g => ({
+            id: g.id,
+            nodesCount: g.nodes.length,
+            connectionsCount: g.connections.length,
+            connections: g.connections,
+          })),
+        })
 
         // Calculate metadata
         let totalNodeCount = 0
@@ -2134,11 +2229,15 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
         return
       }
 
+      // Merge propertyValues into metadata for proper rendering
+      const propertyValues = yNode.get('propertyValues') || {}
       const nodeData = {
         id: yNode.get('id') || nodeId,
-        metadata,
+        metadata: {
+          ...metadata,
+          propertyValues: propertyValues, // Ensure propertyValues are in metadata
+        },
         position,
-        propertyValues: yNode.get('propertyValues') || {},
       }
 
       // Only log if position is missing or invalid
@@ -2359,6 +2458,22 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
     // Simply reload on any change
     loadAll()
+
+    // Handle follow mode for added nodes
+    if (isRemoteChange && get().followMode) {
+      changeActions.forEach(change => {
+        if (change.action === 'add') {
+          const addedNode: any = nodesMap.get(change.key)
+          if (addedNode) {
+            const position = addedNode.get ? addedNode.get('position') : addedNode.position
+            if (position) {
+              console.log('[WorkflowStore] Remote node added, scrolling to:', position)
+              get().scrollToElement(position)
+            }
+          }
+        }
+      })
+    }
   }
   nodesMap.observeDeep(nodesObserver)
   if (Array.isArray(newObservers)) {
@@ -2443,6 +2558,45 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
     }
 
     loadAll()
+
+    // Handle follow mode for added connections
+    if (isRemoteChange && get().followMode) {
+      changeActions.forEach(change => {
+        if (change.action === 'add') {
+          const addedConnection: any = connectionsMap.get(change.key)
+          if (addedConnection) {
+            const source = addedConnection.get
+              ? addedConnection.get('source')
+              : addedConnection.source
+            const target = addedConnection.get
+              ? addedConnection.get('target')
+              : addedConnection.target
+            if (source && target) {
+              // Find nodes to calculate midpoint
+              const nodes = get().nodes
+              const sourceNode = nodes.find(
+                (n: any) => ((n as any).id || n.metadata.id) === source.nodeId
+              )
+              const targetNode = nodes.find(
+                (n: any) => ((n as any).id || n.metadata.id) === target.nodeId
+              )
+
+              if (sourceNode && targetNode) {
+                const midpoint = {
+                  x: (sourceNode.position.x + targetNode.position.x) / 2,
+                  y: (sourceNode.position.y + targetNode.position.y) / 2,
+                }
+                console.log(
+                  '[WorkflowStore] Remote connection added, scrolling to midpoint:',
+                  midpoint
+                )
+                get().scrollToElement(midpoint)
+              }
+            }
+          }
+        }
+      })
+    }
   }
   connectionsMap.observeDeep(connectionsObserver)
   if (Array.isArray(newObservers)) {
@@ -2528,6 +2682,28 @@ function loadGraphData(doc: Y.Doc, graphId: string, get: any, set: any) {
 
     // Simply reload on any change
     loadAll()
+
+    // Handle follow mode for added groups
+    if (isRemoteChange && get().followMode) {
+      changeActions.forEach(change => {
+        if (change.action === 'add') {
+          const addedGroup: any = groupsMap.get(change.key)
+          if (addedGroup) {
+            const position = addedGroup.position || (addedGroup.get && addedGroup.get('position'))
+            const size = addedGroup.size || (addedGroup.get && addedGroup.get('size'))
+            if (position && size) {
+              // Calculate group center
+              const groupCenter = {
+                x: position.x + size.width / 2,
+                y: position.y + size.height / 2,
+              }
+              console.log('[WorkflowStore] Remote group added, scrolling to center:', groupCenter)
+              get().scrollToElement(groupCenter)
+            }
+          }
+        }
+      })
+    }
   }
   // Use observeDeep to catch changes to properties within individual groups
   groupsMap.observeDeep(groupsObserver)

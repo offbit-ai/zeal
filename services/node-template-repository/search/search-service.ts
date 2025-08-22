@@ -37,24 +37,24 @@ export class SearchService {
   ) {}
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
-    // If no search query but have filters, get all templates then filter
-    if (!query.query && (query.category || query.subcategory || query.tags?.length)) {
+    // If no search query, get all templates (with optional filters)
+    if (!query.query || query.query.trim() === '') {
       // Get all templates
-      const allTemplates = await this.repository.listTemplates({ 
+      const allTemplates = await this.repository.listTemplates({
         status: 'active',
-        limit: 1000 // Get more templates when filtering
+        limit: 1000, // Get more templates when filtering
       })
-      
+
       // Convert to search results
       const allResults: SearchResult[] = allTemplates.map(template => ({
         template,
         score: 1.0, // Default score for browsing
         highlights: {},
       }))
-      
+
       // Apply filters
       const filteredResults = this.applyFilters(allResults, query)
-      
+
       // Sort and limit
       return filteredResults
         .sort((a, b) => {
@@ -63,7 +63,7 @@ export class SearchService {
         })
         .slice(0, query.limit || this.config.maxResults)
     }
-    
+
     // Normal search flow with query text
     const [keywordResults, semanticResults] = await Promise.all([
       this.keywordSearch(query),

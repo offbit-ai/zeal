@@ -69,6 +69,11 @@ export const GET = withErrorHandling(
       lastModifiedBy: latestVersion.userId,
     }
 
+    console.log(
+      '[WorkflowRoute] Returning workflow with graphs:',
+      JSON.stringify(response.graphs, null, 2)
+    )
+
     return NextResponse.json(createSuccessResponse(response))
   }
 )

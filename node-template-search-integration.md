@@ -7,6 +7,7 @@ Successfully integrated the node templates repository search endpoints with the 
 ## Changes Made
 
 ### 1. Updated nodeRepositoryStore (`/store/nodeRepositoryStore.ts`)
+
 - Added search functionality:
   - `searchTemplates()` - Search templates with query and filters
   - `fetchAutocomplete()` - Get autocomplete suggestions
@@ -16,6 +17,7 @@ Successfully integrated the node templates repository search endpoints with the 
   - Changed from `/api/nodes/categories` to `/api/templates/categories`
 
 ### 2. Created useTemplateSearch hook (`/hooks/useTemplateSearch.ts`)
+
 - Provides search functionality with:
   - Debounced search (300ms delay)
   - Debounced autocomplete (150ms delay)
@@ -24,6 +26,7 @@ Successfully integrated the node templates repository search endpoints with the 
   - Converts API response to NodeRepositoryItem format
 
 ### 3. Updated SearchModal (`/components/SearchModal.tsx`)
+
 - Integrated with `useTemplateSearch` hook
 - Added loading state while searching
 - Added error state handling
@@ -31,6 +34,7 @@ Successfully integrated the node templates repository search endpoints with the 
 - Categories now come from API instead of static data
 
 ### 4. Enhanced Categories Endpoint (`/app/api/templates/categories/route.ts`)
+
 - Transforms category tree to UI-expected format
 - Adds display names and metadata
 - Includes subcategory information with counts
@@ -69,6 +73,7 @@ Successfully integrated the node templates repository search endpoints with the 
 ## Testing
 
 To test the search functionality:
+
 1. Open the workflow editor
 2. Click the search/add node button
 3. Type in the search box - should see results update

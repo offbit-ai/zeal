@@ -10,15 +10,19 @@ export interface WorkflowNode {
   id: string
   metadata: any
   position: { x: number; y: number }
-  propertyValues?: Record<string, any>
 }
 
 export interface WorkflowConnection {
   id: string
-  sourceNodeId: string
-  sourcePortId: string
-  targetNodeId: string
-  targetPortId: string
+  source: {
+    nodeId: string
+    portId: string
+  }
+  target: {
+    nodeId: string
+    portId: string
+  }
+  state?: 'pending' | 'warning' | 'error' | 'success' | 'running'
 }
 
 export interface WorkflowGroup {
@@ -298,8 +302,8 @@ export class WorkflowOperations {
     }
 
     // Verify nodes exist
-    const sourceNode = graph.nodes.find((n: WorkflowNode) => n.id === connection.sourceNodeId)
-    const targetNode = graph.nodes.find((n: WorkflowNode) => n.id === connection.targetNodeId)
+    const sourceNode = graph.nodes.find((n: WorkflowNode) => n.id === connection.source.nodeId)
+    const targetNode = graph.nodes.find((n: WorkflowNode) => n.id === connection.target.nodeId)
 
     if (!sourceNode || !targetNode) {
       throw new Error('Source or target node not found')
@@ -353,5 +357,174 @@ export class WorkflowOperations {
     }
 
     return graph.nodes || []
+  }
+
+  /**
+   * Update property values of an existing node
+   */
+  static async updateNodeProperties(
+    workflowId: string,
+    graphId: string,
+    nodeId: string,
+    propertyValues: Record<string, any>
+  ): Promise<WorkflowNode> {
+    const db = await getDatabaseOperations()
+
+    // Get the latest snapshot for this workflow
+    const snapshots = await db.listWorkflowSnapshots(workflowId)
+    const latestSnapshot = snapshots.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )[0]
+
+    if (!latestSnapshot) {
+      throw new Error('No snapshot found for workflow')
+    }
+
+    // Parse graphs if stored as JSON string
+    const graphs =
+      typeof latestSnapshot.graphs === 'string'
+        ? JSON.parse(latestSnapshot.graphs)
+        : latestSnapshot.graphs || []
+
+    // Find the target graph
+    const graph = graphs.find((g: WorkflowGraph) => g.id === graphId)
+    if (!graph) {
+      throw new Error(`Graph ${graphId} not found`)
+    }
+
+    // Find the node
+    const nodeIndex = graph.nodes.findIndex((n: WorkflowNode) => n.id === nodeId)
+    if (nodeIndex === -1) {
+      throw new Error(`Node ${nodeId} not found`)
+    }
+
+    // Update the node's propertyValues (merge with existing)
+    const node = graph.nodes[nodeIndex]
+    node.metadata = {
+      ...node.metadata,
+      propertyValues: {
+        ...(node.metadata.propertyValues || {}),
+        ...propertyValues,
+      },
+    }
+
+    // Update the snapshot
+    await db.updateWorkflowSnapshot(latestSnapshot.id, {
+      graphs: JSON.stringify(graphs),
+      updatedAt: new Date().toISOString(),
+    })
+
+    return node
+  }
+
+  /**
+   * Update position of an existing node
+   */
+  static async updateNodePosition(
+    workflowId: string,
+    graphId: string,
+    nodeId: string,
+    position: { x: number; y: number }
+  ): Promise<WorkflowNode> {
+    const db = await getDatabaseOperations()
+
+    // Get the latest snapshot for this workflow
+    const snapshots = await db.listWorkflowSnapshots(workflowId)
+    const latestSnapshot = snapshots.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )[0]
+
+    if (!latestSnapshot) {
+      throw new Error('No snapshot found for workflow')
+    }
+
+    // Parse graphs if stored as JSON string
+    const graphs =
+      typeof latestSnapshot.graphs === 'string'
+        ? JSON.parse(latestSnapshot.graphs)
+        : latestSnapshot.graphs || []
+
+    // Find the target graph
+    const graph = graphs.find((g: WorkflowGraph) => g.id === graphId)
+    if (!graph) {
+      throw new Error(`Graph ${graphId} not found`)
+    }
+
+    // Find the node
+    const nodeIndex = graph.nodes.findIndex((n: WorkflowNode) => n.id === nodeId)
+    if (nodeIndex === -1) {
+      throw new Error(`Node ${nodeId} not found`)
+    }
+
+    // Update the node's position
+    graph.nodes[nodeIndex].position = position
+
+    // Update the snapshot
+    await db.updateWorkflowSnapshot(latestSnapshot.id, {
+      graphs: JSON.stringify(graphs),
+      updatedAt: new Date().toISOString(),
+    })
+
+    return graph.nodes[nodeIndex]
+  }
+
+  /**
+   * Update properties of an existing group
+   */
+  static async updateGroupProperties(
+    workflowId: string,
+    graphId: string,
+    groupId: string,
+    updates: Partial<WorkflowGroup>
+  ): Promise<WorkflowGroup> {
+    const db = await getDatabaseOperations()
+
+    // Get the latest snapshot for this workflow
+    const snapshots = await db.listWorkflowSnapshots(workflowId)
+    const latestSnapshot = snapshots.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )[0]
+
+    if (!latestSnapshot) {
+      throw new Error('No snapshot found for workflow')
+    }
+
+    // Parse graphs if stored as JSON string
+    const graphs =
+      typeof latestSnapshot.graphs === 'string'
+        ? JSON.parse(latestSnapshot.graphs)
+        : latestSnapshot.graphs || []
+
+    // Find the target graph
+    const graph = graphs.find((g: WorkflowGraph) => g.id === graphId)
+    if (!graph) {
+      throw new Error(`Graph ${graphId} not found`)
+    }
+
+    // Initialize groups array if it doesn't exist
+    if (!graph.groups) {
+      graph.groups = []
+    }
+
+    // Find the group
+    const groupIndex = graph.groups.findIndex((g: WorkflowGroup) => g.id === groupId)
+    if (groupIndex === -1) {
+      throw new Error(`Group ${groupId} not found`)
+    }
+
+    // Update the group properties
+    graph.groups[groupIndex] = {
+      ...graph.groups[groupIndex],
+      ...updates,
+      id: groupId, // Ensure ID doesn't change
+    }
+
+    // Update the snapshot
+    await db.updateWorkflowSnapshot(latestSnapshot.id, {
+      graphs: JSON.stringify(graphs),
+      updatedAt: new Date().toISOString(),
+    })
+
+    return graph.groups[groupIndex]
   }
 }

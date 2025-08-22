@@ -75,17 +75,28 @@ export class OpenAIEmbeddingVendor extends EmbeddingVendor {
 
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
+      // Validate input
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        throw new Error('Invalid text provided for embedding generation')
+      }
+
+      const requestBody = {
+        input: text.trim(),
+        model: this.config.model,
+      }
+
+      // Only add dimensions if specified and model supports it
+      if (this.config.dimensions && this.config.model.includes('text-embedding-3')) {
+        ;(requestBody as any).dimensions = this.config.dimensions
+      }
+
       const response = await fetch(`${this.baseUrl}/embeddings`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          input: text,
-          model: this.config.model,
-          dimensions: this.config.dimensions,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -115,22 +126,44 @@ export class OpenAIEmbeddingVendor extends EmbeddingVendor {
     const embeddings: Float32Array[] = []
     let totalTokens = 0
 
-    for (let i = 0; i < texts.length; i += batchSize) {
-      const batch = texts.slice(i, i + batchSize)
+    // Validate and filter texts
+    const validTexts = texts.filter(
+      text => text && typeof text === 'string' && text.trim().length > 0
+    )
+    if (validTexts.length === 0) {
+      throw new Error('No valid texts provided for embedding generation')
+    }
+
+    for (let i = 0; i < validTexts.length; i += batchSize) {
+      const batch = validTexts.slice(i, i + batchSize)
+
+      // Ensure batch is not empty
+      if (batch.length === 0) continue
+
+      const requestBody = {
+        input: batch,
+        model: this.config.model,
+      }
+
+      // Only add dimensions if specified and model supports it
+      if (this.config.dimensions && this.config.model.includes('text-embedding-3')) {
+        ;(requestBody as any).dimensions = this.config.dimensions
+      }
 
       try {
+        // Add timeout to prevent hanging on connection issues
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+
         const response = await fetch(`${this.baseUrl}/embeddings`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${this.config.apiKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            input: batch,
-            model: this.config.model,
-            dimensions: this.config.dimensions,
-          }),
-        })
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId))
 
         if (!response.ok) {
           const error = await response.text()
@@ -154,6 +187,50 @@ export class OpenAIEmbeddingVendor extends EmbeddingVendor {
         }
       } catch (error) {
         console.error(`OpenAI batch embedding failed for batch ${i / batchSize + 1}:`, error)
+
+        // Retry logic for transient errors
+        if (error instanceof Error && error.message.includes('503')) {
+          console.warn('OpenAI API returned 503, retrying after delay...')
+          await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
+
+          // Retry once
+          try {
+            const retryController = new AbortController()
+            const retryTimeoutId = setTimeout(() => retryController.abort(), 15000) // 15 second timeout
+
+            const retryResponse = await fetch(`${this.baseUrl}/embeddings`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${this.config.apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(requestBody),
+              signal: retryController.signal,
+            }).finally(() => clearTimeout(retryTimeoutId))
+
+            if (!retryResponse.ok) {
+              throw new Error(`OpenAI API retry failed: ${retryResponse.status}`)
+            }
+
+            const retryData = (await retryResponse.json()) as {
+              data: Array<{ embedding: number[] }>
+              usage?: { total_tokens: number }
+            }
+
+            for (const item of retryData.data) {
+              embeddings.push(new Float32Array(item.embedding))
+            }
+
+            totalTokens += retryData.usage?.total_tokens || 0
+
+            // Continue to next batch after successful retry
+            continue
+          } catch (retryError) {
+            console.error('OpenAI retry also failed:', retryError)
+            // Fall through to original error
+          }
+        }
+
         throw error
       }
     }

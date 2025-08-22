@@ -30,7 +30,10 @@ interface NodeRepositoryStore {
   // Actions
   fetchCategories: () => Promise<void>
   fetchNodeTemplates: (options?: { category?: string; limit?: number }) => Promise<void>
-  searchTemplates: (query: string, options?: { category?: string; subcategory?: string; tags?: string[]; limit?: number }) => Promise<void>
+  searchTemplates: (
+    query: string,
+    options?: { category?: string; subcategory?: string; tags?: string[]; limit?: number }
+  ) => Promise<void>
   fetchAutocomplete: (query: string) => Promise<void>
   fetchAll: () => Promise<void>
   getCategoryByName: (name: string) => Category | undefined

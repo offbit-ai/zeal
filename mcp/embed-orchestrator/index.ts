@@ -19,6 +19,8 @@ import { getDatabaseOperations } from '../../lib/database'
 import { EmbedApiKeyService } from '../../services/embedApiKeyService'
 import { generateId } from '../../lib/database'
 import { WorkflowOperations } from './workflow-operations'
+import { WorkflowOperationsCRDT } from './workflow-operations-crdt'
+import { ServerCRDTOperations } from '../../lib/crdt/server-operations'
 import { getTemplateOperations } from '../../lib/database-template-operations'
 import { SearchService } from '../../services/node-template-repository/search/search-service'
 import { EmbeddingService } from '../../services/node-template-repository/search/embedding-service'
@@ -129,31 +131,56 @@ const tools: Tool[] = [
           description: 'ID of the graph (default: main)',
           default: 'main',
         },
-        metadata: {
+        nodeData: {
           type: 'object',
-          description: 'Node metadata including type, title, etc',
+          description: 'Complete node data structure including metadata and position',
           properties: {
-            type: { type: 'string' },
-            title: { type: 'string' },
-            description: { type: 'string' },
-            icon: { type: 'string' },
-            category: { type: 'string' },
-            variant: { type: 'string' },
-            shape: { type: 'string' },
-            propertyValues: { type: 'object' },
+            metadata: {
+              type: 'object',
+              description: 'Node metadata with all template fields',
+              properties: {
+                id: { type: 'string' },
+                templateId: { type: 'string' },
+                type: { type: 'string' },
+                title: { type: 'string' },
+                subtitle: { type: 'string' },
+                description: { type: 'string' },
+                icon: { type: 'string' },
+                variant: { type: 'string' },
+                shape: { type: 'string' },
+                size: { type: 'string', enum: ['small', 'medium', 'large'] },
+                category: { type: 'string' },
+                subcategory: { type: 'string' },
+                inputs: { type: 'array' },
+                outputs: { type: 'array' },
+                properties: { type: 'object' },
+                propertyValues: { type: 'object' },
+                requiredEnvVars: { type: 'array', items: { type: 'string' } },
+                propertyRules: { type: 'object' },
+                tags: { type: 'array', items: { type: 'string' } },
+                version: { type: 'string' },
+              },
+              required: ['type', 'title'],
+              additionalProperties: true,
+            },
+            position: {
+              type: 'object',
+              properties: {
+                x: { type: 'number' },
+                y: { type: 'number' },
+              },
+              required: ['x', 'y'],
+            },
           },
-          required: ['type', 'title'],
+          required: ['metadata', 'position'],
         },
-        position: {
-          type: 'object',
-          properties: {
-            x: { type: 'number' },
-            y: { type: 'number' },
-          },
-          required: ['x', 'y'],
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
         },
       },
-      required: ['apiKey', 'workflowId', 'metadata', 'position'],
+      required: ['apiKey', 'workflowId', 'nodeData'],
     },
   },
   {
@@ -188,6 +215,11 @@ const tools: Tool[] = [
             collapsed: { type: 'boolean' },
           },
           required: ['title', 'nodeIds'],
+        },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
         },
       },
       required: ['apiKey', 'workflowId', 'group'],
@@ -239,6 +271,11 @@ const tools: Tool[] = [
           },
           required: ['name'],
         },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
+        },
       },
       required: ['apiKey', 'workflowId', 'subgraph'],
     },
@@ -282,6 +319,11 @@ const tools: Tool[] = [
         title: {
           type: 'string',
           description: 'Title for the proxy node',
+        },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
         },
       },
       required: ['apiKey', 'workflowId', 'proxyType', 'referenceId', 'position'],
@@ -354,6 +396,11 @@ const tools: Tool[] = [
           type: 'object',
           description: 'Property values to set on the node (optional)',
         },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
+        },
       },
       required: ['apiKey', 'workflowId', 'templateQuery', 'position'],
     },
@@ -416,6 +463,11 @@ const tools: Tool[] = [
           type: 'string',
           description: 'ID of the target port',
         },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
+        },
       },
       required: [
         'apiKey',
@@ -425,6 +477,134 @@ const tools: Tool[] = [
         'targetNodeId',
         'targetPortId',
       ],
+    },
+  },
+  {
+    name: 'update_node_properties',
+    description: 'Update the property values of an existing node',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        apiKey: {
+          type: 'string',
+          description: 'Embed API key for authentication',
+        },
+        workflowId: {
+          type: 'string',
+          description: 'ID of the workflow to modify',
+        },
+        graphId: {
+          type: 'string',
+          description: 'ID of the graph (default: main)',
+          default: 'main',
+        },
+        nodeId: {
+          type: 'string',
+          description: 'ID of the node to update',
+        },
+        propertyValues: {
+          type: 'object',
+          description: 'Property values to update on the node',
+        },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
+        },
+      },
+      required: ['apiKey', 'workflowId', 'nodeId', 'propertyValues'],
+    },
+  },
+  {
+    name: 'update_node_position',
+    description: 'Update the position of an existing node',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        apiKey: {
+          type: 'string',
+          description: 'Embed API key for authentication',
+        },
+        workflowId: {
+          type: 'string',
+          description: 'ID of the workflow to modify',
+        },
+        graphId: {
+          type: 'string',
+          description: 'ID of the graph (default: main)',
+          default: 'main',
+        },
+        nodeId: {
+          type: 'string',
+          description: 'ID of the node to update',
+        },
+        position: {
+          type: 'object',
+          properties: {
+            x: { type: 'number' },
+            y: { type: 'number' },
+          },
+          required: ['x', 'y'],
+        },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
+        },
+      },
+      required: ['apiKey', 'workflowId', 'nodeId', 'position'],
+    },
+  },
+  {
+    name: 'update_group_properties',
+    description: 'Update the properties of an existing group',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        apiKey: {
+          type: 'string',
+          description: 'Embed API key for authentication',
+        },
+        workflowId: {
+          type: 'string',
+          description: 'ID of the workflow to modify',
+        },
+        graphId: {
+          type: 'string',
+          description: 'ID of the graph (default: main)',
+          default: 'main',
+        },
+        groupId: {
+          type: 'string',
+          description: 'ID of the group to update',
+        },
+        updates: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            description: { type: 'string' },
+            color: { type: 'string' },
+            collapsed: { type: 'boolean' },
+            nodeIds: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            position: {
+              type: 'object',
+              properties: {
+                x: { type: 'number' },
+                y: { type: 'number' },
+              },
+            },
+          },
+        },
+        useCRDT: {
+          type: 'boolean',
+          description: 'Use CRDT for real-time sync (when embed view is in same browser tab)',
+          default: false,
+        },
+      },
+      required: ['apiKey', 'workflowId', 'groupId', 'updates'],
     },
   },
 ]
@@ -440,7 +620,13 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
   try {
     switch (name) {
       case 'add_node': {
-        const { apiKey, workflowId, graphId = 'main', metadata, position } = args as any
+        const {
+          apiKey,
+          workflowId,
+          graphId = 'main',
+          nodeData,
+          useCRDT = false,
+        } = args as any
 
         // Validate API key
         const validKey = await validateApiKey(apiKey, workflowId)
@@ -448,12 +634,10 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
           throw new Error('API key does not have permission to add nodes')
         }
 
-        // Add node using WorkflowOperations
-        const node = await WorkflowOperations.addNode(workflowId, graphId, {
-          metadata,
-          position,
-          propertyValues: metadata.propertyValues,
-        })
+        // Add node using appropriate operations
+        const node = useCRDT
+          ? await WorkflowOperationsCRDT.addNode(workflowId, graphId, nodeData)
+          : await WorkflowOperations.addNode(workflowId, graphId, nodeData)
 
         return {
           content: [
@@ -464,6 +648,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
                 nodeId: node.id,
                 message: 'Node added successfully',
                 node,
+                usedCRDT: useCRDT,
               }),
             },
           ],
@@ -471,7 +656,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
       }
 
       case 'create_node_group': {
-        const { apiKey, workflowId, graphId = 'main', group } = args as any
+        const { apiKey, workflowId, graphId = 'main', group, useCRDT = false } = args as any
 
         // Validate API key
         const validKey = await validateApiKey(apiKey, workflowId)
@@ -479,8 +664,10 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
           throw new Error('API key does not have permission to create groups')
         }
 
-        // Create group using WorkflowOperations
-        const createdGroup = await WorkflowOperations.createNodeGroup(workflowId, graphId, group)
+        // Create group using appropriate operations
+        const createdGroup = useCRDT
+          ? await WorkflowOperationsCRDT.createNodeGroup(workflowId, graphId, group)
+          : await WorkflowOperations.createNodeGroup(workflowId, graphId, group)
 
         return {
           content: [
@@ -491,6 +678,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
                 groupId: createdGroup.id,
                 message: 'Node group created successfully',
                 group: createdGroup,
+                usedCRDT: useCRDT,
               }),
             },
           ],
@@ -498,7 +686,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
       }
 
       case 'create_subgraph': {
-        const { apiKey, workflowId, subgraph } = args as any
+        const { apiKey, workflowId, subgraph, useCRDT = false } = args as any
 
         // Validate API key
         const validKey = await validateApiKey(apiKey, workflowId)
@@ -506,8 +694,10 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
           throw new Error('API key does not have permission to create subgraphs')
         }
 
-        // Create subgraph using WorkflowOperations
-        const subgraphId = await WorkflowOperations.createSubgraph(workflowId, subgraph)
+        // Create subgraph using appropriate operations
+        const subgraphId = useCRDT
+          ? await WorkflowOperationsCRDT.createSubgraph(workflowId, subgraph)
+          : await WorkflowOperations.createSubgraph(workflowId, subgraph)
 
         return {
           content: [
@@ -517,6 +707,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
                 success: true,
                 subgraphId,
                 message: 'Subgraph created successfully',
+                usedCRDT: useCRDT,
               }),
             },
           ],
@@ -647,6 +838,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
           position,
           customTitle,
           propertyValues,
+          useCRDT = false,
         } = args as any
 
         try {
@@ -669,6 +861,25 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
 
           const template = searchResults[0].template
 
+          // Extract default property values from template
+          const defaultPropertyValues: Record<string, any> = {}
+          if (template.properties) {
+            Object.entries(template.properties).forEach(([propId, prop]: [string, any]) => {
+              if (prop.defaultValue !== undefined) {
+                defaultPropertyValues[propId] = prop.defaultValue
+              } else if (prop.type === 'code-editor') {
+                // Initialize code-editor properties with empty string
+                defaultPropertyValues[propId] = ''
+              }
+            })
+          }
+
+          // Merge default values with provided values (provided values take precedence)
+          const finalPropertyValues = {
+            ...defaultPropertyValues,
+            ...(propertyValues || {}),
+          }
+
           // Create node metadata from template
           const nodeMetadata = {
             type: template.id,
@@ -681,20 +892,20 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
             shape: template.shape,
             ports: template.ports,
             properties: template.properties,
-            propertyValues: {
-              ...template.properties,
-              ...propertyValues,
-            },
             requiredEnvVars: template.requiredEnvVars,
             tags: template.tags,
           }
 
-          // Add node using WorkflowOperations
-          const node = await WorkflowOperations.addNode(workflowId, graphId, {
-            metadata: nodeMetadata,
-            position,
-            propertyValues: nodeMetadata.propertyValues,
-          })
+          // Add node using appropriate operations
+          const node = useCRDT
+            ? await WorkflowOperationsCRDT.addNode(workflowId, graphId, {
+                metadata: { ...nodeMetadata, propertyValues: finalPropertyValues },
+                position,
+              })
+            : await WorkflowOperations.addNode(workflowId, graphId, {
+                metadata: { ...nodeMetadata, propertyValues: finalPropertyValues },
+                position,
+              })
 
           return {
             content: [
@@ -708,6 +919,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
                   relevanceScore: searchResults[0].score,
                   message: `Added node "${nodeMetadata.title}" from template "${template.title}"`,
                   node,
+                  usedCRDT: useCRDT,
                 }),
               },
             ],
@@ -763,6 +975,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
           sourcePortId,
           targetNodeId,
           targetPortId,
+          useCRDT = false,
         } = args as any
 
         // Validate API key
@@ -771,13 +984,22 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
           throw new Error('API key does not have permission to create connections')
         }
 
-        // Create connection using WorkflowOperations
-        const connection = await WorkflowOperations.connectNodes(workflowId, graphId, {
-          sourceNodeId,
-          sourcePortId,
-          targetNodeId,
-          targetPortId,
-        })
+        // Create connection using appropriate operations
+        const connection = useCRDT
+          ? await WorkflowOperationsCRDT.connectNodes(workflowId, graphId, {
+              source: { nodeId: sourceNodeId, portId: sourcePortId },
+              target: { nodeId: targetNodeId, portId: targetPortId },
+            })
+          : await WorkflowOperations.connectNodes(workflowId, graphId, {
+              source: {
+                nodeId: sourceNodeId,
+                portId: sourcePortId,
+              },
+              target: {
+                nodeId: targetNodeId,
+                portId: targetPortId,
+              },
+            })
 
         return {
           content: [
@@ -788,6 +1010,118 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
                 connectionId: connection.id,
                 message: 'Connection created successfully',
                 connection,
+                usedCRDT: useCRDT,
+              }),
+            },
+          ],
+        }
+      }
+
+      case 'update_node_properties': {
+        const {
+          apiKey,
+          workflowId,
+          graphId = 'main',
+          nodeId,
+          propertyValues,
+          useCRDT = false,
+        } = args as any
+
+        // Validate API key
+        const validKey = await validateApiKey(apiKey, workflowId)
+        if (!validKey.permissions.canEditNodes) {
+          throw new Error('API key does not have permission to edit nodes')
+        }
+
+        // Update node properties using appropriate operations
+        const updatedNode = useCRDT
+          ? await WorkflowOperationsCRDT.updateNodeProperties(workflowId, graphId, nodeId, propertyValues)
+          : await WorkflowOperations.updateNodeProperties(workflowId, graphId, nodeId, propertyValues)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                nodeId,
+                message: 'Node properties updated successfully',
+                node: updatedNode,
+                usedCRDT: useCRDT,
+              }),
+            },
+          ],
+        }
+      }
+
+      case 'update_node_position': {
+        const {
+          apiKey,
+          workflowId,
+          graphId = 'main',
+          nodeId,
+          position,
+          useCRDT = false,
+        } = args as any
+
+        // Validate API key
+        const validKey = await validateApiKey(apiKey, workflowId)
+        if (!validKey.permissions.canEditNodes) {
+          throw new Error('API key does not have permission to edit nodes')
+        }
+
+        // Update node position using appropriate operations
+        const updatedNode = useCRDT
+          ? await WorkflowOperationsCRDT.updateNodePosition(workflowId, graphId, nodeId, position)
+          : await WorkflowOperations.updateNodePosition(workflowId, graphId, nodeId, position)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                nodeId,
+                message: 'Node position updated successfully',
+                node: updatedNode,
+                usedCRDT: useCRDT,
+              }),
+            },
+          ],
+        }
+      }
+
+      case 'update_group_properties': {
+        const {
+          apiKey,
+          workflowId,
+          graphId = 'main',
+          groupId,
+          updates,
+          useCRDT = false,
+        } = args as any
+
+        // Validate API key
+        const validKey = await validateApiKey(apiKey, workflowId)
+        if (!validKey.permissions.canAddGroups) {
+          throw new Error('API key does not have permission to edit groups')
+        }
+
+        // Update group properties using appropriate operations
+        const updatedGroup = useCRDT
+          ? await WorkflowOperationsCRDT.updateGroupProperties(workflowId, graphId, groupId, updates)
+          : await WorkflowOperations.updateGroupProperties(workflowId, graphId, groupId, updates)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                success: true,
+                groupId,
+                message: 'Group properties updated successfully',
+                group: updatedGroup,
+                usedCRDT: useCRDT,
               }),
             },
           ],

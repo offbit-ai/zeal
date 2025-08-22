@@ -30,6 +30,7 @@ export interface Port {
   label: string
   type: 'input' | 'output'
   position: 'top' | 'right' | 'bottom' | 'left'
+  description?: string // Semantic description for LLM inference
 }
 
 export type PropertyType =

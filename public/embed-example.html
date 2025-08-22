@@ -155,6 +155,9 @@
                 <label>
                     <input type="checkbox" id="allow-create" checked> Allow Node Creation
                 </label>
+                <label>
+                    <input type="checkbox" id="collaborative" checked> Enable Real-time Sync
+                </label>
             </div>
         </div>
         
@@ -216,12 +219,14 @@
             const showZoom = document.getElementById('show-zoom').checked;
             const showTabs = document.getElementById('show-tabs').checked;
             const allowCreate = document.getElementById('allow-create').checked;
+            const collaborative = document.getElementById('collaborative').checked;
             
             const params = new URLSearchParams({
                 minimap: showMinimap,
                 zoom: showZoom,
                 tabs: showTabs,
-                allowCreate: allowCreate
+                allowCreate: allowCreate,
+                collaborative: collaborative  // Control CRDT sync
             });
             
             const embedUrl = `/embed/${workflowId}?${params.toString()}`;

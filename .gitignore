@@ -106,4 +106,7 @@ CLAUDE.md
 .minikube-ingress.pid
 
 
+graphrag-snapshot.json
+compiled-templates.json
+
 

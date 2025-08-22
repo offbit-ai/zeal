@@ -8,7 +8,10 @@ import { SearchService } from '@/services/node-template-repository/search/search
 import { EmbeddingService } from '@/services/node-template-repository/search/embedding-service'
 
 // Category metadata
-const CATEGORY_METADATA: Record<string, { displayName: string; description: string; icon: string }> = {
+const CATEGORY_METADATA: Record<
+  string,
+  { displayName: string; description: string; icon: string }
+> = {
   'data-sources': {
     displayName: 'Data Sources',
     description: 'Connect to databases, APIs, and external data sources',
@@ -77,10 +80,10 @@ export async function GET(request: NextRequest) {
     // Import the category operations to get from database
     const { getCategoryOperations } = await import('@/lib/database-category-operations')
     const categoryOps = await getCategoryOperations()
-    
+
     // Get categories with counts from database
     const categoriesWithCounts = await categoryOps.getCategoriesWithCounts()
-    
+
     // Format for API response
     const categories = categoriesWithCounts.map(cat => ({
       name: cat.name,

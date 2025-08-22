@@ -24,6 +24,7 @@ export const graphIOTemplates: NodeTemplate[] = [
         label: 'Data',
         type: 'output',
         position: 'right',
+        description: 'Output data after processing',
       },
     ],
     properties: {
@@ -74,6 +75,7 @@ export const graphIOTemplates: NodeTemplate[] = [
         label: 'Data',
         type: 'input',
         position: 'left',
+        description: 'Input data for processing',
       },
     ],
     properties: {
@@ -124,6 +126,7 @@ export const graphIOTemplates: NodeTemplate[] = [
         label: 'Proxy',
         type: 'output',
         position: 'right',
+        description: 'Output proxy from Direct port connection operation',
       },
     ],
     properties: {
@@ -179,6 +182,7 @@ export const graphIOTemplates: NodeTemplate[] = [
         label: 'Proxy',
         type: 'input',
         position: 'left',
+        description: 'Input proxy for Expose internal port operation',
       },
     ],
     properties: {

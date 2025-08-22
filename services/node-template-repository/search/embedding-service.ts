@@ -88,11 +88,14 @@ export class EmbeddingService {
       }
     } catch (error) {
       console.error(`Failed to generate embeddings using ${this.vendor.vendor}:`, error)
-      // Fallback to mock embeddings on error
+      // Always fallback to mock embeddings on error instead of throwing
       if (this.config.vendor !== 'mock') {
-        console.warn('Falling back to mock embeddings due to vendor error')
+        console.warn(
+          'Falling back to mock embeddings due to vendor error. Search results may be less accurate.'
+        )
         return this.generateMockEmbeddings()
       }
+      // Only throw if we're already using mock and it still fails
       throw error
     }
   }
@@ -103,11 +106,14 @@ export class EmbeddingService {
       return result.embedding
     } catch (error) {
       console.error(`Failed to generate query embedding using ${this.vendor.vendor}:`, error)
-      // Fallback to mock embedding on error
+      // Always fallback to mock embedding on error instead of throwing
       if (this.config.vendor !== 'mock') {
-        console.warn('Falling back to mock embedding due to vendor error')
+        console.warn(
+          'Falling back to mock embedding for query due to vendor error. Search results may be less accurate.'
+        )
         return this.generateMockEmbedding(query)
       }
+      // Only throw if we're already using mock and it still fails
       throw error
     }
   }
@@ -203,11 +209,12 @@ export class EmbeddingService {
   }
 
   private generateTitleText(template: NodeTemplate): string {
-    return `${template.title} ${template.subtitle || ''}`.trim()
+    const text = `${template.title} ${template.subtitle || ''}`.trim()
+    return text || 'Untitled Node'
   }
 
   private generateDescriptionText(template: NodeTemplate): string {
-    return template.description || ''
+    return template.description || template.title || 'No description'
   }
 
   private generateCombinedText(template: NodeTemplate): string {
@@ -217,11 +224,11 @@ export class EmbeddingService {
       template.description,
       template.category,
       template.subcategory,
-      ...template.tags,
+      ...(template.tags || []),
     ].filter(Boolean)
 
     // Add port information with types
-    const inputPorts = template.ports
+    const inputPorts = (template.ports || [])
       .filter(p => p.type === 'input')
       .map(
         p =>
@@ -229,7 +236,7 @@ export class EmbeddingService {
       )
       .join(' ')
 
-    const outputPorts = template.ports
+    const outputPorts = (template.ports || [])
       .filter(p => p.type === 'output')
       .map(
         p =>
@@ -277,23 +284,25 @@ export class EmbeddingService {
     if (template.subcategory) capabilities.push(template.subcategory)
 
     // From ports with detailed type information
-    template.ports.forEach(port => {
-      if (port.type === 'input') {
-        capabilities.push(`accepts ${port.label}`)
-        if (port.schema) {
-          capabilities.push(
-            `input type ${typeof port.schema === 'string' ? port.schema : 'structured data'}`
-          )
+    if (template.ports && Array.isArray(template.ports)) {
+      template.ports.forEach(port => {
+        if (port.type === 'input') {
+          capabilities.push(`accepts ${port.label}`)
+          if (port.schema) {
+            capabilities.push(
+              `input type ${typeof port.schema === 'string' ? port.schema : 'structured data'}`
+            )
+          }
+        } else {
+          capabilities.push(`produces ${port.label}`)
+          if (port.schema) {
+            capabilities.push(
+              `output type ${typeof port.schema === 'string' ? port.schema : 'structured data'}`
+            )
+          }
         }
-      } else {
-        capabilities.push(`produces ${port.label}`)
-        if (port.schema) {
-          capabilities.push(
-            `output type ${typeof port.schema === 'string' ? port.schema : 'structured data'}`
-          )
-        }
-      }
-    })
+      })
+    }
 
     // From properties - extract all meaningful configuration options
     Object.entries(template.properties).forEach(([key, prop]) => {
@@ -302,7 +311,9 @@ export class EmbeddingService {
 
       // Add specific capabilities based on property types
       if (prop.type === 'select' && prop.options) {
-        capabilities.push(`${key} options: ${prop.options.join(' ')}`)
+        if (Array.isArray(prop.options)) {
+          capabilities.push(`${key} options: ${prop.options.join(' ')}`)
+        }
       }
 
       if (prop.type === 'code-editor' && prop.language) {
@@ -344,6 +355,8 @@ export class EmbeddingService {
       scripting: ['custom automation', 'code execution', 'dynamic logic'],
       'tools-utilities': ['data conversion', 'utility functions', 'helper tools'],
       'user-inputs': ['user interaction', 'form handling', 'data collection'],
+      inputs: ['user interaction', 'form handling', 'data collection'], // Add 'inputs' category
+      media: ['media handling', 'file upload', 'multimedia processing'], // Add 'media' category
       'graph-io': ['modular workflows', 'subgraph composition', 'workflow reuse'],
     }
 

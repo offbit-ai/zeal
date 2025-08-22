@@ -20,11 +20,12 @@ const textInputNode: NodeTemplate = {
   size: 'medium',
   ports: [
     {
-      id: 'output',
-      label: 'Text',
-      type: 'output',
-      position: 'right',
-    },
+        id: 'output',
+        label: 'Text',
+        type: 'output',
+        position: 'right',
+        description: 'General output data from the node operation',
+      },
   ],
   properties: {
     defaultValue: {
@@ -101,11 +102,12 @@ const numberInputNode: NodeTemplate = {
   size: 'small',
   ports: [
     {
-      id: 'output',
-      label: 'Number',
-      type: 'output',
-      position: 'right',
-    },
+        id: 'output',
+        label: 'Number',
+        type: 'output',
+        position: 'right',
+        description: 'General output data from the node operation',
+      },
   ],
   properties: {
     defaultValue: {
@@ -190,11 +192,12 @@ const rangeInputNode: NodeTemplate = {
   size: 'medium',
   ports: [
     {
-      id: 'output',
-      label: 'Value',
-      type: 'output',
-      position: 'right',
-    },
+        id: 'output',
+        label: 'Value',
+        type: 'output',
+        position: 'right',
+        description: 'General output data from the node operation',
+      },
   ],
   properties: {
     defaultValue: {
@@ -263,17 +266,19 @@ const imageInputNode: NodeTemplate = {
       description: 'Image URL or data to display',
     },
     {
-      id: 'imageData',
-      label: 'Image Data',
-      type: 'output',
-      position: 'right',
-    },
+        id: 'imageData',
+        label: 'Image Data',
+        type: 'output',
+        position: 'right',
+        description: 'Output imageData from Image operation',
+      },
     {
-      id: 'metadata',
-      label: 'Metadata',
-      type: 'output',
-      position: 'bottom',
-    },
+        id: 'metadata',
+        label: 'Metadata',
+        type: 'output',
+        position: 'bottom',
+        description: 'Output metadata from Image operation',
+      },
   ],
   properties: {
     source: {
@@ -382,17 +387,19 @@ const audioInputNode: NodeTemplate = {
       description: 'Audio URL or data to play',
     },
     {
-      id: 'audioData',
-      label: 'Audio Data',
-      type: 'output',
-      position: 'right',
-    },
+        id: 'audioData',
+        label: 'Audio Data',
+        type: 'output',
+        position: 'right',
+        description: 'Output audioData from Audio operation',
+      },
     {
-      id: 'metadata',
-      label: 'Metadata',
-      type: 'output',
-      position: 'bottom',
-    },
+        id: 'metadata',
+        label: 'Metadata',
+        type: 'output',
+        position: 'bottom',
+        description: 'Output metadata from Audio operation',
+      },
   ],
   properties: {
     source: {
@@ -489,17 +496,19 @@ const videoInputNode: NodeTemplate = {
       description: 'Video URL, stream URL, or data to play',
     },
     {
-      id: 'videoData',
-      label: 'Video Data',
-      type: 'output',
-      position: 'right',
-    },
+        id: 'videoData',
+        label: 'Video Data',
+        type: 'output',
+        position: 'right',
+        description: 'Output videoData from Video operation',
+      },
     {
-      id: 'metadata',
-      label: 'Metadata',
-      type: 'output',
-      position: 'bottom',
-    },
+        id: 'metadata',
+        label: 'Metadata',
+        type: 'output',
+        position: 'bottom',
+        description: 'Output metadata from Video operation',
+      },
   ],
   properties: {
     source: {

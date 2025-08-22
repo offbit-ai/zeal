@@ -75,7 +75,7 @@ export interface NodeTemplate {
   id: string
   version: string
   status: TemplateStatus
-
+  type: string
   // Metadata
   title: string
   subtitle?: string

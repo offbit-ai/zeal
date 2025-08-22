@@ -4,22 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateOperations } from '@/lib/database-template-operations'
-import { SearchService } from '@/services/node-template-repository/search/search-service'
+import { nodeTemplateService } from '@/services/nodeTemplateService'
 import { EmbeddingService } from '@/services/node-template-repository/search/embedding-service'
-import type { SearchQuery } from '@/services/node-template-repository/core/models'
-
-// Initialize services
-let searchService: SearchService | null = null
-
-async function getSearchService() {
-  if (!searchService) {
-    const templateOps = await getTemplateOperations()
-    const embeddingService = EmbeddingService.fromEnvironment()
-
-    searchService = new SearchService(templateOps, embeddingService)
-  }
-  return searchService
-}
 
 // GET /api/templates - Search templates
 export async function GET(request: NextRequest) {
@@ -29,39 +15,29 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const subcategory = searchParams.get('subcategory')
     const tags = searchParams.get('tags')?.split(',').filter(Boolean)
-    const capabilities = searchParams.get('capabilities')?.split(',').filter(Boolean)
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
-    const includeDeprecated = searchParams.get('includeDeprecated') === 'true'
 
-    const service = await getSearchService()
-
-    // Build search query
-    const searchQuery: SearchQuery = {
-      query,
+    // Use nodeTemplateService which handles ingestion automatically
+    const result = await nodeTemplateService.searchTemplates({
+      query: query || undefined,
       category: category || undefined,
       subcategory: subcategory || undefined,
       tags,
-      capabilities,
       limit,
       offset,
-      includeDeprecated,
-    }
-
-    // Perform search
-    const results = await service.search(searchQuery)
-
-    // Extract templates from search results
-    const templates = results.map(result => result.template)
+      useRepository: true,
+    })
 
     return NextResponse.json({
       success: true,
-      data: templates,
+      data: result.templates,
       pagination: {
         limit,
         offset,
-        total: templates.length,
+        total: result.totalCount,
       },
+      isSemanticSearch: result.isSemanticSearch,
     })
   } catch (error) {
     console.error('Template search error:', error)
@@ -83,6 +59,7 @@ export async function POST(request: NextRequest) {
     // Create template with defaults
     const template = {
       id: body.id || `tpl_custom_${Date.now()}`,
+      type: body.type || 'unknown',
       version: body.version || '1.0.0',
       status: body.status || 'active',
       title: body.title,

@@ -90,8 +90,7 @@ export default function LandingPage() {
       // Create a new workflow
       const workflow = await WorkflowStorageService.createDraftWorkflow('My Workflow')
 
-      // Set as current workflow
-      WorkflowStorageService.setCurrentWorkflowId(workflow.id)
+      // No need to set current workflow in localStorage anymore
 
       // Generate the URL
       const url = `/workflow?id=${workflow.id}`

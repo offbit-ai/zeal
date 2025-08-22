@@ -24,9 +24,11 @@ import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } f
 import { ToastManager } from '@/components/Toast'
 import dynamic from 'next/dynamic'
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
+import { calculatePanToCenter, animateCanvasPan } from '@/utils/findEmptyArea'
 import type { NodeMetadata, Connection } from '@/types/workflow'
 import { Database, Code, Bot, Cloud, Zap, GitBranch, Shuffle } from 'lucide-react'
 import { useNodeBounds } from '@/hooks/useNodeBounds'
+import { useCRDTPolling } from '@/hooks/useCRDTPolling'
 import { usePortPositions } from '@/hooks/usePortPositions'
 import { useConnectionDrag } from '@/hooks/useConnectionDrag'
 import { ConnectionLines } from '@/components/ConnectionLines'
@@ -400,6 +402,7 @@ interface HomeProps {
     showSubgraphTabs?: boolean
     allowNodeCreation?: boolean
     collaborative?: boolean
+    follow?: boolean
   }
 }
 
@@ -618,6 +621,10 @@ export default function Home({
   // Use separate hook for presence to prevent re-renders
   const { presence, localClientId } = usePresence()
   const { isConnected, isSyncing } = useConnectionStatus()
+
+  // Enable CRDT polling in embed mode when collaborative is enabled
+  const enableCRDTPolling = embedMode && isCollaborative
+  useCRDTPolling(workflowId, enableCRDTPolling)
 
   // Always render nodes when initialized - don't hide during brief sync periods
   // This prevents nodes from disappearing during temporary connection states
@@ -942,6 +949,11 @@ export default function Home({
 
   // Initialize workflow on mount
   useEffect(() => {
+    // In embed mode, wait for urlWorkflowId to be set
+    if (embedMode && !urlWorkflowId) {
+      return
+    }
+
     if (!initialized && isLoading) {
       const initializeWorkflow = async () => {
         try {
@@ -951,7 +963,7 @@ export default function Home({
 
           // Check if there's a shared workflow ID in the URL first
           const params = new URLSearchParams(window.location.search)
-          const sharedId = params.get('id')
+          const sharedId = embedMode ? urlWorkflowId : params.get('id')
 
           if (sharedId) {
             // If there's a shared ID, don't create a new workflow or load from storage
@@ -974,85 +986,85 @@ export default function Home({
 
           // No more loading from localStorage
           // The store's initialize function will load from API
-          if (false) { // Disabled - remove after testing
-            const snapshot = recentWorkflows[0]
-            savedSnapshot = snapshot
+          // if (false) { // Disabled - remove after testing
+          //   const snapshot = recentWorkflows[0]
+          //   savedSnapshot = snapshot
 
-            // Check if it's a multi-graph snapshot
-            const restored = restoreWorkflowFromSnapshot(snapshot)
-            // [Init] Local workflow history found
-            if (restored.graphs) {
-              // Multi-graph workflow - convert to GraphInfo format and save for CRDT loading
-              const graphInfos = restored.graphs.map(graph => {
-                const graphState = restoreGraphFromSerialized(graph)
-                return {
-                  id: graph.id,
-                  name: graph.name,
-                  namespace: graph.namespace,
-                  isMain: graph.isMain,
-                  isDirty: false,
-                  canvasState: graph.canvasState || {
-                    offset: { x: 0, y: 0 },
-                    zoom: 1,
-                  },
-                  workflowState: {
-                    nodes: graphState.nodes,
-                    connections: graphState.connections,
-                    groups: graphState.groups,
-                    triggerConfig: graph.isMain ? snapshot.trigger : null,
-                    portPositions: graphState.portPositions,
-                  },
-                }
-              })
+          //   // Check if it's a multi-graph snapshot
+          //   const restored = restoreWorkflowFromSnapshot(snapshot)
+          //   // [Init] Local workflow history found
+          //   if (restored.graphs) {
+          //     // Multi-graph workflow - convert to GraphInfo format and save for CRDT loading
+          //     const graphInfos = restored.graphs.map(graph => {
+          //       const graphState = restoreGraphFromSerialized(graph)
+          //       return {
+          //         id: graph.id,
+          //         name: graph.name,
+          //         namespace: graph.namespace,
+          //         isMain: graph.isMain,
+          //         isDirty: false,
+          //         canvasState: graph.canvasState || {
+          //           offset: { x: 0, y: 0 },
+          //           zoom: 1,
+          //         },
+          //         workflowState: {
+          //           nodes: graphState.nodes,
+          //           connections: graphState.connections,
+          //           groups: graphState.groups,
+          //           triggerConfig: graph.isMain ? snapshot.trigger : null,
+          //           portPositions: graphState.portPositions,
+          //         },
+          //       }
+          //     })
 
-              // Restore canvas states to local state
-              const canvasStates: Record<
-                string,
-                { offset: { x: number; y: number }; zoom: number }
-              > = {}
-              graphInfos.forEach(graphInfo => {
-                if (graphInfo.canvasState) {
-                  canvasStates[graphInfo.id] = graphInfo.canvasState
-                }
-              })
-              setGraphCanvasStates(canvasStates)
+          //     // Restore canvas states to local state
+          //     const canvasStates: Record<
+          //       string,
+          //       { offset: { x: number; y: number }; zoom: number }
+          //     > = {}
+          //     graphInfos.forEach(graphInfo => {
+          //       if (graphInfo.canvasState) {
+          //         canvasStates[graphInfo.id] = graphInfo.canvasState
+          //       }
+          //     })
+          //     setGraphCanvasStates(canvasStates)
 
-              // Save for CRDT loading
-              savedGraphInfos = graphInfos
-              savedCanvasStates = canvasStates
-            } else if (restored.nodes) {
-              // Legacy single-graph workflow
-              const mainGraphInfo = {
-                id: 'main',
-                name: 'Main',
-                namespace: 'main',
-                isMain: true,
-                isDirty: false,
-                canvasState: restored.canvasState || {
-                  offset: { x: 0, y: 0 },
-                  zoom: 1,
-                },
-                workflowState: {
-                  nodes: restored.nodes,
-                  connections: restored.connections || [],
-                  groups: restored.groups || [],
-                  triggerConfig: snapshot.triggerConfig,
-                  portPositions: undefined, // Legacy workflows don't have saved port positions
-                },
-              }
+          //     // Save for CRDT loading
+          //     savedGraphInfos = graphInfos
+          //     savedCanvasStates = canvasStates
+          //   } else if (restored.nodes) {
+          //     // Legacy single-graph workflow
+          //     const mainGraphInfo = {
+          //       id: 'main',
+          //       name: 'Main',
+          //       namespace: 'main',
+          //       isMain: true,
+          //       isDirty: false,
+          //       canvasState: restored.canvasState || {
+          //         offset: { x: 0, y: 0 },
+          //         zoom: 1,
+          //       },
+          //       workflowState: {
+          //         nodes: restored.nodes,
+          //         connections: restored.connections || [],
+          //         groups: restored.groups || [],
+          //         triggerConfig: snapshot.triggerConfig,
+          //         portPositions: undefined, // Legacy workflows don't have saved port positions
+          //       },
+          //     }
 
-              // CRDT handles graph loading
-              if (currentGraphId !== 'main') {
-                switchGraph('main')
-              }
-            }
+          //     // CRDT handles graph loading
+          //     if (currentGraphId !== 'main') {
+          //       switchGraph('main')
+          //     }
+          //   }
 
-            // Set workflow metadata
-            setWorkflowName(snapshot.name)
+          //   // Set workflow metadata
+          //   setWorkflowName(snapshot.name)
 
-            // Set workflow ID in store
-            useWorkflowStore.setState({ workflowId: snapshot.id })
-          }
+          //   // Set workflow ID in store
+          //   useWorkflowStore.setState({ workflowId: snapshot.id })
+          // }
 
           // Initialization is handled by the store
 
@@ -1072,24 +1084,25 @@ export default function Home({
           // Initialize CRDT for collaborative features
           // Re-read params since we might have updated the URL above
           const currentParams = new URLSearchParams(window.location.search)
-          const currentSharedId = currentParams.get('id')
+          const currentSharedId = embedMode ? urlWorkflowId : currentParams.get('id')
 
           // [Init] Workflow ID determination
-          // Always create new workflow if no shared ID
-          const effectiveWorkflowId =
-            currentSharedId || workflowId || `workflow-${Date.now()}`
+          // In embed mode, use urlWorkflowId (which comes from embedWorkflowId prop)
+          // In normal mode, use URL parameter or existing workflowId
+          const effectiveWorkflowId = currentSharedId || workflowId || `workflow-${Date.now()}`
 
           // [Init] Using effective workflow ID
           await initialize(effectiveWorkflowId, 'Untitled Workflow', {
             embedMode,
             collaborative: embedSettings.collaborative,
+            followMode: embedSettings.follow,
           })
 
           // No need to save workflow ID to localStorage anymore
 
-          // Enable autosave only if not in embed mode
-          // Embed mode should be read-only
-          if (!embedMode) {
+          // Enable autosave in normal mode, or in embed mode if node creation is allowed
+          // When the orchestrator agent is running in embed mode, it needs autosave for persistence
+          if (!embedMode || embedSettings.allowNodeCreation) {
             enableAutosave(true)
           }
 
@@ -1097,7 +1110,7 @@ export default function Home({
           // [Init] Initialization complete
 
           // Update URL if needed
-          if (!currentSharedId && effectiveWorkflowId) {
+          if (!embedMode && !currentSharedId && effectiveWorkflowId) {
             const url = new URL(window.location.href)
             url.searchParams.set('id', effectiveWorkflowId)
             window.history.replaceState({}, '', url)
@@ -1127,6 +1140,7 @@ export default function Home({
     switchGraph,
     embedMode,
     embedSettings.collaborative,
+    urlWorkflowId, // Re-run when urlWorkflowId changes
   ])
 
   // Show env var warning when there are missing vars
@@ -1671,6 +1685,7 @@ export default function Home({
         await initialize(snapshot.id, workflowName, {
           embedMode,
           collaborative: embedSettings.collaborative,
+          followMode: embedSettings.follow,
         })
 
         // Save the full snapshot
@@ -2678,6 +2693,38 @@ export default function Home({
       window.removeEventListener('mouseup', handleMouseUp)
     }
   }, [dragState.isDragging, canvasOffset, canvasZoom, updateDrag, endDrag])
+
+  // Handle follow mode scrolling
+  useEffect(() => {
+    const handleFollowScroll = (event: CustomEvent) => {
+      console.log('[WorkflowPage] Received workflow-follow-scroll event', event.detail)
+      const { position, zoom } = event.detail
+      const targetOffset = calculatePanToCenter(
+        position,
+        viewportSize,
+        canvasOffset,
+        zoom || canvasZoom
+      )
+      console.log('[WorkflowPage] Calculated target offset', {
+        targetOffset,
+        viewportSize,
+        canvasOffset,
+        canvasZoom,
+      })
+
+      animateCanvasPan(
+        canvasOffset,
+        targetOffset,
+        500, // 500ms animation
+        offset => setCanvasOffset(offset)
+      )
+    }
+
+    window.addEventListener('workflow-follow-scroll', handleFollowScroll as EventListener)
+    return () => {
+      window.removeEventListener('workflow-follow-scroll', handleFollowScroll as EventListener)
+    }
+  }, [canvasOffset, canvasZoom, viewportSize, setCanvasOffset])
 
   // Keyboard shortcuts for testing connection states and undo/redo
   useEffect(() => {

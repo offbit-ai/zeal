@@ -129,6 +129,6 @@ export function useTemplateSearch() {
     clearSearch: () => {
       setSearchQuery('')
       clearSearchResults()
-    }
+    },
   }
 }

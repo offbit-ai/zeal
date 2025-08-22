@@ -242,7 +242,7 @@ export class FileIngestionService {
       id,
       version: template.version || '1.0.0',
       status: template.status || TemplateStatus.ACTIVE,
-
+      type: template.type || 'unknown',
       title: template.title || template.name || 'Untitled',
       subtitle: template.subtitle,
       description: template.description || '',

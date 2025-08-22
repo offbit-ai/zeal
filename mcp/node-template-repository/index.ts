@@ -19,6 +19,7 @@ import { getTemplateOperations } from '../../lib/database-template-operations'
 import { SearchService } from '../../services/node-template-repository/search/search-service'
 import { EmbeddingService } from '../../services/node-template-repository/search/embedding-service'
 import { FileIngestionService } from '../../services/node-template-repository/ingestion/file-ingestion-service'
+import { InMemoryIngestionService } from '../../services/node-template-repository/ingestion/ingest-from-memory'
 import { MetadataExtractor } from '../../services/node-template-repository/ingestion/metadata-extractor'
 import type { TemplateOperations } from '../../services/node-template-repository/core/database-operations'
 
@@ -29,10 +30,17 @@ let templateOps: TemplateOperations | null = null
 async function initializeServices() {
   if (!searchService || !templateOps) {
     templateOps = await getTemplateOperations()
-
     const embeddingService = EmbeddingService.fromEnvironment()
-
     searchService = new SearchService(templateOps, embeddingService)
+
+    // Log template count for debugging
+    try {
+      const results = await templateOps.searchTemplates({ query: '' })
+      const templateCount = Array.isArray(results) ? results.length : 0
+      console.log(`[MCP] Node template repository initialized with ${templateCount} templates`)
+    } catch (error) {
+      console.error('[MCP] Failed to get template count:', error)
+    }
   }
 
   return { searchService, templateOps }

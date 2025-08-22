@@ -13,7 +13,28 @@ The MCP servers enable AI agents to:
 
 ## MCP Servers
 
-### 1. Node Template Repository (`node-template-repository/`)
+### 1. Workflow Manager (`workflow-manager/`)
+
+Provides AI agents with high-level workflow management capabilities.
+
+**Tools:**
+
+- `create_workflow` - Create new workflows with names and descriptions
+- `list_workflows` - List all workflows with filtering options
+- `get_workflow` - Get detailed information about a specific workflow
+- `update_workflow` - Update workflow metadata (name, description)
+- `delete_workflow` - Delete workflows from the system
+- `publish_workflow` - Publish draft workflows
+- `get_workflow_url` - Get URLs for accessing workflows in UI or embed mode
+
+**Features:**
+
+- Complete workflow lifecycle management
+- No API key required for basic operations
+- Integration with WorkflowService and WorkflowStorageService
+- Support for both UI and embed mode URLs
+
+### 2. Node Template Repository (`node-template-repository/`)
 
 Provides AI agents with semantic search capabilities over node templates.
 
@@ -33,7 +54,7 @@ Provides AI agents with semantic search capabilities over node templates.
 - Template versioning and metadata extraction
 - Support for both PostgreSQL and Supabase databases
 
-### 2. Embed Orchestrator (`embed-orchestrator/`)
+### 3. Embed Orchestrator (`embed-orchestrator/`)
 
 Provides AI agents with workflow orchestration capabilities through the embed API.
 
@@ -118,6 +139,13 @@ Add to your MCP configuration:
 ```json
 {
   "mcpServers": {
+    "zeal-workflow-manager": {
+      "command": "node",
+      "args": ["--loader", "tsx", "/path/to/zeal/mcp/workflow-manager/index.ts"],
+      "env": {
+        "DATABASE_URL": "your-database-url"
+      }
+    },
     "zeal-templates": {
       "command": "node",
       "args": ["/path/to/zeal/mcp/node-template-repository/index.ts"]
@@ -131,6 +159,18 @@ Add to your MCP configuration:
 ```
 
 ### Example AI Interactions
+
+**Workflow Management:**
+
+```
+AI: "Create a new workflow for data processing"
+→ Uses create_workflow("Data Processing Pipeline", "ETL workflow for customer data")
+→ Returns workflow ID and URL
+
+AI: "List all my draft workflows"
+→ Uses list_workflows(status: "draft")
+→ Returns list of draft workflows with IDs and names
+```
 
 **Template Search:**
 
@@ -155,6 +195,23 @@ AI: "Create a data processing workflow with an API source and database sink"
 AI: "What templates are available for machine learning?"
 → Uses search_templates("machine learning", category: "ai-models")
 → Returns OpenAI, Hugging Face, and other ML templates
+```
+
+**Complete Workflow Example:**
+
+```
+User: "Create a workflow that fetches data from an API and saves it to a database"
+
+AI: I'll help you create that workflow. Let me start by creating a new workflow.
+→ Uses create_workflow("API to Database Pipeline", "Fetch data from API and store in database")
+→ Gets workflow ID: "workflow-123"
+
+AI: Now I'll add the necessary nodes to your workflow.
+→ Uses add_node_from_template("HTTP Request", workflowId: "workflow-123", position: {x: 100, y: 100})
+→ Uses add_node_from_template("Database Insert", workflowId: "workflow-123", position: {x: 400, y: 100})
+→ Uses connect_nodes(httpNode.id, "response", dbNode.id, "data")
+
+AI: Your workflow is ready! You can access it at: /workflow?id=workflow-123
 ```
 
 ## Development

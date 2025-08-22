@@ -27,21 +27,49 @@ MINIO_ROOT_PASSWORD="minioadmin123"
 MINIO_BUCKET="zeal-uploads"
 
 echo -e "${BLUE}🚀 Starting Zeal Development Environment${NC}"
+echo -e "${YELLOW}Tip: Use --skip-prompts to skip configuration questions${NC}"
 echo ""
 
-# Check for force rebuild flag
+# Check for flags
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo -e "${GREEN}Usage:${NC}"
     echo -e "  ./start-dev.sh                    # Start normally"
     echo -e "  ./start-dev.sh --rebuild-crdt     # Force rebuild CRDT server"
+    echo -e "  ./start-dev.sh --reingest         # Force re-ingest templates"
+    echo -e "  ./start-dev.sh --skip-prompts     # Skip AI configuration prompts, use existing values"
     echo -e "  FORCE_REBUILD_CRDT=true ./start-dev.sh  # Alternative way to force rebuild"
+    echo ""
+    echo -e "${BLUE}What it does:${NC}"
+    echo -e "  - Loads existing .env.local configuration if present"
+    echo -e "  - Starts PostgreSQL, Redis, MinIO, and CRDT server in Docker"
+    echo -e "  - Creates/updates .env.local with proper configuration"
+    echo -e "  - Ingests node templates into the database"
+    echo -e "  - Starts the Next.js development server"
+    echo ""
+    echo -e "${BLUE}Environment Variables:${NC}"
+    echo -e "  - If .env.local exists, its values are loaded as defaults"
+    echo -e "  - AI service keys (OpenAI, OpenRouter) are preserved"
+    echo -e "  - Use --skip-prompts to skip configuration questions"
     echo ""
     exit 0
 fi
 
-if [ "$1" = "--rebuild-crdt" ]; then
-    export FORCE_REBUILD_CRDT=true
-fi
+# Parse command line arguments
+FORCE_REINGEST=false
+SKIP_PROMPTS=false
+for arg in "$@"; do
+    case $arg in
+        --rebuild-crdt)
+            export FORCE_REBUILD_CRDT=true
+            ;;
+        --reingest)
+            FORCE_REINGEST=true
+            ;;
+        --skip-prompts)
+            SKIP_PROMPTS=true
+            ;;
+    esac
+done
 
 # Function to check if Docker is running
 check_docker() {
@@ -273,6 +301,131 @@ start_crdt_server() {
     echo -e "${YELLOW}⚠️  CRDT server may not be fully ready${NC}"
 }
 
+# Function to load existing .env.local values
+load_existing_env() {
+    if [ -f .env.local ]; then
+        echo -e "${BLUE}📂 Loading existing .env.local configuration...${NC}"
+        
+        # Use a more robust method to load environment variables
+        # This handles quotes, spaces, and special characters properly
+        set -a  # Mark variables for export
+        source .env.local 2>/dev/null || {
+            # Fallback to manual parsing if source fails
+            while IFS='=' read -r key value; do
+                # Skip comments and empty lines
+                if [[ ! "$key" =~ ^[[:space:]]*# ]] && [[ ! -z "${key// }" ]]; then
+                    # Remove leading/trailing whitespace from key
+                    key="${key#"${key%%[![:space:]]*}"}"
+                    key="${key%"${key##*[![:space:]]}"}" 
+                    
+                    # Handle quoted values
+                    if [[ "$value" =~ ^\".*\"$ ]]; then
+                        value="${value:1:-1}"
+                    elif [[ "$value" =~ ^\'.*\'$ ]]; then
+                        value="${value:1:-1}"
+                    fi
+                    
+                    # Export the variable if key is valid
+                    if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+                        export "$key=$value"
+                    fi
+                fi
+            done < .env.local
+        }
+        set +a  # Stop marking variables for export
+        
+        # Show what was loaded (for important variables)
+        echo -e "${GREEN}✅ Loaded configuration from existing .env.local${NC}"
+        
+        # Report on key configurations
+        if [ ! -z "$EMBEDDING_API_KEY" ]; then
+            echo -e "   ${GREEN}✓${NC} OpenAI API key loaded"
+        fi
+        if [ ! -z "$OPENROUTER_API_KEY" ]; then
+            echo -e "   ${GREEN}✓${NC} OpenRouter API key loaded"
+        fi
+        if [ ! -z "$DATABASE_URL" ] && [[ "$DATABASE_URL" != *"localhost"* ]]; then
+            echo -e "   ${GREEN}✓${NC} Custom database URL loaded"
+        fi
+        
+        echo ""
+    fi
+}
+
+# Function to prompt for AI configuration
+configure_ai_services() {
+    if [ "$SKIP_PROMPTS" = "true" ]; then
+        echo -e "${BLUE}🤖 AI Services Configuration${NC}"
+        echo -e "${YELLOW}Skipping prompts, using existing configuration...${NC}"
+        
+        # Set defaults for embedding if not already set
+        if [ ! -z "$EMBEDDING_API_KEY" ]; then
+            echo -e "   ${GREEN}✓ OpenAI Embeddings: Using existing configuration${NC}"
+            EMBEDDING_VENDOR="${EMBEDDING_VENDOR:-openai}"
+            EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
+        else
+            echo -e "   ${YELLOW}○ OpenAI Embeddings: Using mock (no API key found)${NC}"
+            EMBEDDING_VENDOR="${EMBEDDING_VENDOR:-mock}"
+            EMBEDDING_DIMENSIONS="${EMBEDDING_DIMENSIONS:-1536}"
+            EMBEDDING_BATCH_SIZE="${EMBEDDING_BATCH_SIZE:-100}"
+        fi
+        
+        if [ ! -z "$OPENROUTER_API_KEY" ]; then
+            echo -e "   ${GREEN}✓ OpenRouter: Using existing configuration${NC}"
+            OPENROUTER_MODEL="${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}"
+        else
+            echo -e "   ${YELLOW}○ OpenRouter: Not configured${NC}"
+        fi
+        echo ""
+        return
+    fi
+    
+    echo -e "${BLUE}🤖 AI Services Configuration${NC}"
+    echo -e "${YELLOW}These are optional but enable advanced features like semantic search and orchestration${NC}"
+    echo ""
+    
+    # OpenAI Configuration for Embeddings
+    echo -e "${GREEN}1. OpenAI Embeddings (for semantic search)${NC}"
+    if [ -z "$EMBEDDING_API_KEY" ]; then
+        read -p "   Enter OpenAI API key (or press Enter to skip): " openai_key
+        if [ ! -z "$openai_key" ]; then
+            EMBEDDING_API_KEY="$openai_key"
+            EMBEDDING_VENDOR="openai"
+            EMBEDDING_MODEL="text-embedding-3-small"
+        else
+            echo -e "   ${YELLOW}Using mock embeddings (no API key required)${NC}"
+            EMBEDDING_VENDOR="mock"
+            EMBEDDING_DIMENSIONS="1536"
+            EMBEDDING_BATCH_SIZE="100"
+        fi
+    else
+        echo -e "   ${GREEN}✓ Using existing EMBEDDING_API_KEY${NC}"
+        # Set vendor and model if not already set
+        EMBEDDING_VENDOR="${EMBEDDING_VENDOR:-openai}"
+        EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
+    fi
+    
+    echo ""
+    
+    # OpenRouter Configuration for Orchestration
+    echo -e "${GREEN}2. OpenRouter (for AI orchestration)${NC}"
+    if [ -z "$OPENROUTER_API_KEY" ]; then
+        read -p "   Enter OpenRouter API key (or press Enter to skip): " openrouter_key
+        if [ ! -z "$openrouter_key" ]; then
+            OPENROUTER_API_KEY="$openrouter_key"
+            OPENROUTER_MODEL="${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}"
+        else
+            echo -e "   ${YELLOW}Orchestration features will be disabled${NC}"
+            OPENROUTER_API_KEY=""
+        fi
+    else
+        echo -e "   ${GREEN}✓ Using existing OPENROUTER_API_KEY${NC}"
+        OPENROUTER_MODEL="${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}"
+    fi
+    
+    echo ""
+}
+
 # Function to create .env.local file
 create_env_file() {
     echo -e "${BLUE}📝 Creating .env.local file...${NC}"
@@ -283,13 +436,40 @@ create_env_file() {
         cp .env.local .env.local.backup.$(date +%Y%m%d_%H%M%S)
     fi
     
+    # Also preserve certain values from existing .env.local if they weren't set via prompts
+    # This handles database URLs, ports, and other infrastructure settings
+    if [ -f .env.local.backup.* ]; then
+        # Get the most recent backup
+        LATEST_BACKUP=$(ls -t .env.local.backup.* | head -n1)
+        
+        # Extract DATABASE_URL if not overridden
+        if [ -z "$DATABASE_URL_OVERRIDE" ]; then
+            OLD_DATABASE_URL=$(grep "^DATABASE_URL=" "$LATEST_BACKUP" 2>/dev/null | cut -d'=' -f2-)
+            if [ ! -z "$OLD_DATABASE_URL" ] && [[ "$OLD_DATABASE_URL" != *"localhost:5432"* ]]; then
+                # User has a custom database URL (not localhost), preserve it
+                DATABASE_URL="$OLD_DATABASE_URL"
+                echo -e "${GREEN}✓ Preserving custom DATABASE_URL from existing config${NC}"
+            fi
+        fi
+        
+        # Extract Redis URL if not overridden
+        if [ -z "$REDIS_URL_OVERRIDE" ]; then
+            OLD_REDIS_URL=$(grep "^REDIS_URL=" "$LATEST_BACKUP" 2>/dev/null | cut -d'=' -f2-)
+            if [ ! -z "$OLD_REDIS_URL" ] && [[ "$OLD_REDIS_URL" != *"localhost:6379"* ]]; then
+                # User has a custom Redis URL (not localhost), preserve it
+                REDIS_URL="$OLD_REDIS_URL"
+                echo -e "${GREEN}✓ Preserving custom REDIS_URL from existing config${NC}"
+            fi
+        fi
+    fi
+    
     # Create .env.local with database and Redis configuration
     cat > .env.local << EOF
 # Database Configuration
-DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?schema=public"
+DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?schema=public}"
 
 # Redis Configuration
-REDIS_URL="redis://:${REDIS_PASSWORD}@localhost:${REDIS_PORT}"
+REDIS_URL="${REDIS_URL:-redis://:${REDIS_PASSWORD}@localhost:${REDIS_PORT}}"
 REDIS_PASSWORD="${REDIS_PASSWORD}"
 
 # Next.js Configuration
@@ -319,15 +499,15 @@ USE_TEMPLATE_REPOSITORY=true
 AUTO_INGEST_TEMPLATES=true
 
 # AI Embedding Configuration (for semantic search)
-# Use mock embeddings for development (no API key required)
-EMBEDDING_VENDOR=mock
-EMBEDDING_DIMENSIONS=1536
-EMBEDDING_BATCH_SIZE=100
+EMBEDDING_VENDOR=${EMBEDDING_VENDOR}
+${EMBEDDING_API_KEY:+EMBEDDING_API_KEY=${EMBEDDING_API_KEY}}
+${EMBEDDING_MODEL:+EMBEDDING_MODEL=${EMBEDDING_MODEL}}
+${EMBEDDING_DIMENSIONS:+EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS}}
+${EMBEDDING_BATCH_SIZE:+EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE}}
 
-# Uncomment and configure for production AI embeddings:
-# EMBEDDING_VENDOR=openai
-# EMBEDDING_MODEL=text-embedding-3-small
-# EMBEDDING_API_KEY=sk-your-openai-api-key
+# OpenRouter Configuration (for orchestration)
+${OPENROUTER_API_KEY:+OPENROUTER_API_KEY=${OPENROUTER_API_KEY}}
+${OPENROUTER_MODEL:+OPENROUTER_MODEL=${OPENROUTER_MODEL}}
 
 # Embed API Configuration (for workflow embedding)
 NEXT_PUBLIC_EMBED_ENABLED=true
@@ -341,7 +521,22 @@ EOF
 
     echo -e "${GREEN}✅ .env.local file created${NC}"
     rm -f .env.local.backup.*  # Clean up backups to avoid clutter
-    echo -e "${BLUE}   Remember to update the .env.local file with your actual"
+    
+    # Show configuration summary
+    echo ""
+    echo -e "${BLUE}📋 AI Services Configuration Summary:${NC}"
+    if [ "$EMBEDDING_VENDOR" = "openai" ]; then
+        echo -e "   ${GREEN}✓${NC} OpenAI Embeddings: Configured (semantic search enabled)"
+    else
+        echo -e "   ${YELLOW}○${NC} OpenAI Embeddings: Using mock (basic search only)"
+    fi
+    
+    if [ ! -z "$OPENROUTER_API_KEY" ]; then
+        echo -e "   ${GREEN}✓${NC} OpenRouter: Configured (AI orchestration enabled)"
+    else
+        echo -e "   ${YELLOW}○${NC} OpenRouter: Not configured (orchestration disabled)"
+    fi
+    echo ""
 }
 
 # Function to start the Next.js dev server
@@ -389,6 +584,9 @@ main() {
         exit 1
     fi
     
+    # Load existing .env.local if it exists
+    load_existing_env
+    
     # Check Docker
     check_docker
     
@@ -407,6 +605,9 @@ main() {
     # Start CRDT server
     start_crdt_server
     
+    # Configure AI services (optional)
+    configure_ai_services
+    
     # Create environment file
     create_env_file
     
@@ -414,6 +615,54 @@ main() {
     if [ ! -d "node_modules" ]; then
         echo -e "${BLUE}📦 Installing npm dependencies...${NC}"
         npm install
+    fi
+    
+    # Ingest node templates
+    echo -e "${BLUE}📥 Ensuring node templates are ingested...${NC}"
+    if [ "$FORCE_REINGEST" = "true" ]; then
+        echo -e "${YELLOW}Force re-ingesting templates...${NC}"
+        if npm run templates:ingest:force; then
+            echo -e "${GREEN}✅ Node templates re-ingested${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Template ingestion had warnings (this is usually fine)${NC}"
+        fi
+    else
+        if npm run templates:ingest; then
+            echo -e "${GREEN}✅ Node templates ready${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Template ingestion had warnings (this is usually fine)${NC}"
+        fi
+    fi
+    
+    # Build GraphRAG snapshot if needed
+    echo -e "${BLUE}🧠 Checking GraphRAG snapshot...${NC}"
+    
+    # If force reingest, delete existing snapshots first
+    if [ "$FORCE_REINGEST" = "true" ]; then
+        echo -e "${YELLOW}Force reingest enabled - removing existing GraphRAG snapshots...${NC}"
+        
+        # Delete snapshot from data directory
+        if [ -f "data/graphrag-snapshot.json" ]; then
+            rm -f "data/graphrag-snapshot.json"
+            echo -e "${GREEN}✅ Removed data/graphrag-snapshot.json${NC}"
+        fi
+        
+        # Delete snapshot from public directory
+        if [ -f "public/graphrag-snapshot.json" ]; then
+            rm -f "public/graphrag-snapshot.json"
+            echo -e "${GREEN}✅ Removed public/graphrag-snapshot.json${NC}"
+        fi
+    fi
+    
+    if [ ! -f "data/graphrag-snapshot.json" ] || [ "$FORCE_REINGEST" = "true" ]; then
+        echo -e "${YELLOW}Building GraphRAG snapshot...${NC}"
+        if npm run graphrag:build; then
+            echo -e "${GREEN}✅ GraphRAG snapshot built${NC}"
+        else
+            echo -e "${YELLOW}⚠️  GraphRAG build had warnings (using fallback mode)${NC}"
+        fi
+    else
+        echo -e "${GREEN}✅ GraphRAG snapshot exists${NC}"
     fi
     
     echo ""
