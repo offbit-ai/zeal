@@ -3,6 +3,7 @@
 A modern, real-time collaborative workflow editor with node-based visual programming, built with Next.js, TypeScript, and CRDT synchronization.
 
 ![Zeal Screenshot](zeal-screenshot.png)
+![reflective_property_propagation (2)](https://github.com/user-attachments/assets/13ea3c48-c98f-4df7-974d-4df1ddf81640)
 
 ## 🚀 Quick Start
 
