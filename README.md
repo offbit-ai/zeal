@@ -301,11 +301,15 @@ While the editor supports multi-user collaboration, user management is not inclu
 
 ### 3. **Production Deployment Considerations**
 
-- Scaling strategy for the CRDT server
-- Database backup and recovery procedures
+For production deployments, see our [comprehensive deployment guide](deployments/README.md) which covers:
+
+- **K3s**: Self-hosted Kubernetes deployment
+- **AWS EKS**: Scalable cloud deployment with AWS services
+- **Azure AKS**: Enterprise deployment with Azure services  
+- **GCP GKE**: Google Cloud deployment with GKE
 - Security hardening and SSL/TLS configuration
-- Monitoring and alerting infrastructure
-- Rate limiting and abuse prevention
+- Monitoring, alerting, and backup strategies
+- Cost optimization and scaling considerations
 
 ## 🔧 Configuration
 
@@ -333,12 +337,21 @@ See `.env.example` and `.env.supabase.example` for all configuration options.
 
 ### Production Deployment
 
-The production deployment script (`docker-compose-prod.sh`) automatically:
+For enterprise production deployments, see our [Production Deployment Guide](deployments/README.md) with comprehensive solutions for:
 
-- Builds optimized production images
-- Enables console log suppression
-- Configures proper health checks
-- Sets production environment variables
+- **Cloud Platforms**: AWS EKS, Azure AKS, GCP GKE
+- **Self-Hosted**: K3s deployment with automated setup
+- **Infrastructure as Code**: Complete Terraform configurations
+- **High Availability**: Multi-zone deployments with auto-scaling
+- **Security**: Private networks, encryption, secrets management
+- **Monitoring**: Comprehensive observability and alerting
+
+For simple Docker-based production deployment:
+
+```bash
+# Quick production Docker setup
+./docker-compose-prod.sh up
+```
 
 ## 📚 Documentation
 
@@ -347,7 +360,8 @@ The production deployment script (`docker-compose-prod.sh`) automatically:
 - [Node Template Reference](docs/NODE_TEMPLATES_REFERENCE.md)
 - [API Documentation](docs/API.md)
 - [Embedding Guide](docs/EMBEDDING_GUIDE.md) - **New!** Integrate Zeal into your applications
-- [Deployment Guide](docs/DEPLOYMENT.md)
+- [Production Deployment Guide](deployments/README.md) - **Comprehensive cloud and self-hosted solutions**
+- [Docker Deployment Guide](docs/DEPLOYMENT.md)
 - [Kubernetes Deployment](k8s/README.md)
 - [Minikube Local Setup](docs/MINIKUBE_SETUP.md)
 - [Microservices Guide](docs/MICROSERVICES_DEPLOYMENT.md)

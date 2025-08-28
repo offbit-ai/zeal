@@ -1,0 +1,418 @@
+# Default values for Zeal Helm Chart
+
+# Global configuration
+global:
+  # Domain name for the application
+  domain: zeal.local
+  # Storage class for persistent volumes
+  storageClass: local-path
+  # Image pull secrets
+  imagePullSecrets: []
+
+# Zeal application configuration
+zeal:
+  # Number of replicas
+  replicas: 3
+  
+  # Image configuration
+  image:
+    repository: ghcr.io/offbit-ai/zeal
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+  
+  # Resource limits and requests
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  # Autoscaling configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  # Environment variables
+  env:
+    NEXT_PUBLIC_ENABLE_COLLABORATION: "true"
+    NEXT_PUBLIC_ENABLE_FLOW_TRACING: "true"
+    NEXT_PUBLIC_ENABLE_VERSION_HISTORY: "true"
+    NEXT_PUBLIC_EMBED_ENABLED: "true"
+    USE_TEMPLATE_REPOSITORY: "true"
+    AUTO_INGEST_TEMPLATES: "true"
+  
+  # Node selector
+  nodeSelector: {}
+  
+  # Tolerations
+  tolerations: []
+  
+  # Affinity
+  affinity: {}
+
+# CRDT Server configuration
+crdtServer:
+  enabled: true
+  replicas: 2
+  
+  image:
+    repository: ghcr.io/offbit-ai/zeal-crdt-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  service:
+    type: ClusterIP
+    port: 8080
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  
+  auth:
+    database: zeal_db
+    username: zeal_user
+    # Password will be auto-generated if not set
+    password: ""
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+      # storageClass defined globally
+    
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    
+    initdb:
+      scriptsConfigMap: postgres-init
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# TimescaleDB configuration
+timescaledb:
+  enabled: true
+  
+  image:
+    repository: timescale/timescaledb
+    tag: latest-pg15
+  
+  persistence:
+    enabled: true
+    size: 100Gi
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  
+  config:
+    shared_preload_libraries: timescaledb
+    max_connections: 200
+    shared_buffers: 1GB
+    effective_cache_size: 3GB
+    maintenance_work_mem: 512MB
+    checkpoint_completion_target: 0.9
+    wal_buffers: 16MB
+
+# Redis configuration
+redis:
+  enabled: true
+  
+  architecture: standalone
+  
+  auth:
+    enabled: true
+    # Password will be auto-generated if not set
+    password: ""
+  
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+    
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# MinIO configuration
+minio:
+  enabled: true
+  
+  mode: standalone
+  
+  rootUser: minioadmin
+  # Root password will be auto-generated if not set
+  rootPassword: ""
+  
+  persistence:
+    enabled: true
+    size: 200Gi
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  buckets:
+    - name: zeal-uploads
+      policy: public
+      purge: false
+  
+  metrics:
+    serviceMonitor:
+      enabled: true
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: traefik
+  
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: "{{ .Release.Namespace }}-cors@kubernetescrd"
+  
+  tls:
+    enabled: true
+    # Secret name for TLS certificate
+    secretName: zeal-tls
+  
+  # Additional hosts
+  hosts:
+    - host: "{{ .Values.global.domain }}"
+      paths:
+        - path: /
+          pathType: Prefix
+          service: zeal
+          port: 3000
+        - path: /ws
+          pathType: Prefix
+          service: crdt-server
+          port: 8080
+        - path: /zip/events
+          pathType: Prefix
+          service: zeal
+          port: 3000
+
+# Certificate manager configuration
+certManager:
+  enabled: true
+  
+  # Email for Let's Encrypt
+  email: admin@example.com
+  
+  # Use production Let's Encrypt server
+  production: true
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  
+  prometheus:
+    enabled: true
+    retention: 30d
+    storageSize: 50Gi
+  
+  grafana:
+    enabled: true
+    adminPassword: changeme
+    
+    dashboards:
+      enabled: true
+      # ConfigMap containing dashboard JSON files
+      configMapName: grafana-dashboards
+  
+  alertmanager:
+    enabled: true
+    config:
+      receivers:
+        - name: default-receiver
+          # Configure your notification channels here
+  
+  # Service monitors for scraping metrics
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Backup configuration
+backup:
+  enabled: true
+  
+  # Backup schedule (cron format)
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  
+  # Retention period in days
+  retention: 30
+  
+  # Backup destination
+  destination:
+    type: s3  # s3, gcs, azure, or local
+    bucket: zeal-backups
+    # Additional destination config
+  
+  # Resources for backup job
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Security configuration
+security:
+  # Pod Security Policy
+  podSecurityPolicy:
+    enabled: true
+  
+  # Network Policies
+  networkPolicy:
+    enabled: true
+    
+    # Allow traffic from these namespaces
+    allowedNamespaces:
+      - ingress-nginx
+      - monitoring
+  
+  # RBAC
+  rbac:
+    create: true
+    
+    # Service Account
+    serviceAccount:
+      create: true
+      name: zeal-sa
+      annotations: {}
+
+# Persistence configuration for application data
+persistence:
+  enabled: true
+  
+  # Storage size for application data
+  size: 10Gi
+  
+  # Mount path in the container
+  mountPath: /data
+  
+  # Access mode
+  accessMode: ReadWriteOnce
+  
+  # Annotations for the PVC
+  annotations: {}
+
+# Secrets configuration
+secrets:
+  # Create secrets from values
+  create: true
+  
+  # External secret names (if not creating)
+  externalSecrets:
+    database: ""
+    redis: ""
+    nextauth: ""
+    minio: ""
+
+# Health checks
+healthCheck:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  readiness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Logging configuration
+logging:
+  level: info  # debug, info, warn, error
+  format: json  # json or text
+  
+  # Send logs to external system
+  external:
+    enabled: false
+    type: loki  # loki, elasticsearch, fluentd
+    endpoint: ""
+
+# Feature flags
+features:
+  # Enable ZIP (Zeal Integration Protocol)
+  zip:
+    enabled: true
+    webhooks: true
+    websocket: true
+  
+  # Enable embedding API
+  embedding:
+    enabled: true
+    maxApiKeys: 100
+    rateLimit: 1000
+  
+  # Enable AI features
+  ai:
+    enabled: false
+    openaiApiKey: ""
+    provider: openai  # openai, anthropic, custom
+
+# Maintenance mode
+maintenance:
+  enabled: false
+  message: "System is under maintenance. Please check back later."
+
+# Debug configuration
+debug:
+  enabled: false
+  verboseLogging: false
+  
+  # Enable debug endpoints
+  endpoints:
+    enabled: false
+    # Require authentication for debug endpoints
+    protected: true
