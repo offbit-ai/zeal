@@ -43,6 +43,7 @@ export interface FlowTraceSession {
   endTime?: string
   traces: FlowTrace[]
   status: 'running' | 'completed' | 'failed'
+  metadata?: Record<string, any>
   summary: {
     totalTraces: number
     successCount: number

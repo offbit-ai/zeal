@@ -9,6 +9,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 POSTGRES_CONTAINER="zeal-postgres"
+TIMESCALE_CONTAINER="zeal-timescaledb"
 REDIS_CONTAINER="zeal-redis"
 CRDT_CONTAINER="zeal-crdt-server"
 MINIO_CONTAINER="zeal-minio"
@@ -17,6 +18,8 @@ DB_NAME="zeal_db"
 DB_USER="zeal_user"
 DB_PASSWORD="zeal_password"
 DB_PORT="5432"
+TIMESCALE_DB_NAME="zeal_traces"
+TIMESCALE_PORT="5433"
 REDIS_PORT="6379"
 REDIS_PASSWORD="redispass123"
 CRDT_PORT="8080"
@@ -41,7 +44,7 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo ""
     echo -e "${BLUE}What it does:${NC}"
     echo -e "  - Loads existing .env.local configuration if present"
-    echo -e "  - Starts PostgreSQL, Redis, MinIO, and CRDT server in Docker"
+    echo -e "  - Starts PostgreSQL, TimescaleDB, Redis, MinIO, and CRDT server in Docker"
     echo -e "  - Creates/updates .env.local with proper configuration"
     echo -e "  - Ingests node templates into the database"
     echo -e "  - Starts the Next.js development server"
@@ -89,6 +92,66 @@ create_docker_network() {
     else
         echo -e "${GREEN}✅ Docker network already exists${NC}"
     fi
+}
+
+# Function to start TimescaleDB for flow traces
+start_timescaledb() {
+    echo -e "${BLUE}⏰ Starting TimescaleDB for flow traces...${NC}"
+    
+    # Check if container exists
+    if [ "$(docker ps -aq -f name=^${TIMESCALE_CONTAINER}$)" ]; then
+        if [ "$(docker ps -q -f name=^${TIMESCALE_CONTAINER}$)" ]; then
+            echo -e "${YELLOW}TimescaleDB is already running${NC}"
+            return
+        else
+            echo -e "Starting existing TimescaleDB container..."
+            docker start $TIMESCALE_CONTAINER > /dev/null
+        fi
+    else
+        echo -e "Creating new TimescaleDB container..."
+        docker run -d \
+            --name $TIMESCALE_CONTAINER \
+            --network $DOCKER_NETWORK \
+            -e POSTGRES_DB=$TIMESCALE_DB_NAME \
+            -e POSTGRES_USER=$DB_USER \
+            -e POSTGRES_PASSWORD=$DB_PASSWORD \
+            -p $TIMESCALE_PORT:5432 \
+            -v zeal-timescale-data:/var/lib/postgresql/data \
+            -v "$(pwd)/timescaledb-init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+            timescale/timescaledb:latest-pg15 > /dev/null
+    fi
+    
+    # Wait for TimescaleDB to be ready
+    echo -e "Waiting for TimescaleDB..."
+    for i in {1..30}; do
+        if docker exec $TIMESCALE_CONTAINER pg_isready -U $DB_USER > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ TimescaleDB is ready${NC}"
+            
+            # Check if database needs initialization
+            echo -e "${BLUE}Checking TimescaleDB schema...${NC}"
+            if ! docker exec $TIMESCALE_CONTAINER psql -U $DB_USER -d $TIMESCALE_DB_NAME -c "SELECT 1 FROM flow_trace_sessions LIMIT 1;" > /dev/null 2>&1; then
+                echo -e "${YELLOW}Initializing TimescaleDB schema...${NC}"
+                # Copy init.sql into container and run it
+                docker cp timescaledb-init.sql $TIMESCALE_CONTAINER:/tmp/init.sql
+                if docker exec $TIMESCALE_CONTAINER psql -U $DB_USER -d $TIMESCALE_DB_NAME -f /tmp/init.sql > /dev/null 2>&1; then
+                    echo -e "${GREEN}✅ TimescaleDB schema initialized with hypertables${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  TimescaleDB initialization had warnings (this is normal for IF NOT EXISTS statements)${NC}"
+                fi
+            else
+                echo -e "${GREEN}✅ TimescaleDB schema already exists${NC}"
+            fi
+            
+            # Show TimescaleDB info
+            echo -e "${BLUE}TimescaleDB Configuration:${NC}"
+            docker exec $TIMESCALE_CONTAINER psql -U $DB_USER -d $TIMESCALE_DB_NAME -c "SELECT extversion FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | grep -E '[0-9]+\.[0-9]+' || echo "   Version: Unknown"
+            
+            return
+        fi
+        sleep 1
+    done
+    echo -e "${RED}❌ TimescaleDB failed to start${NC}"
+    exit 1
 }
 
 # Function to start PostgreSQL
@@ -468,6 +531,13 @@ create_env_file() {
 # Database Configuration
 DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?schema=public}"
 
+# TimescaleDB Configuration for Flow Traces
+TIMESCALE_HOST="localhost"
+TIMESCALE_PORT="${TIMESCALE_PORT}"
+TIMESCALE_DATABASE="${TIMESCALE_DB_NAME}"
+TIMESCALE_USER="${DB_USER}"
+TIMESCALE_PASSWORD="${DB_PASSWORD}"
+
 # Redis Configuration
 REDIS_URL="${REDIS_URL:-redis://:${REDIS_PASSWORD}@localhost:${REDIS_PORT}}"
 REDIS_PASSWORD="${REDIS_PASSWORD}"
@@ -548,6 +618,7 @@ start_nextjs() {
     echo ""
     echo -e "${YELLOW}💡 Connection details:${NC}"
     echo -e "   PostgreSQL:     localhost:${DB_PORT} (user: ${DB_USER}, pass: ${DB_PASSWORD})"
+    echo -e "   TimescaleDB:    localhost:${TIMESCALE_PORT} (db: ${TIMESCALE_DB_NAME})"
     echo -e "   Redis:          localhost:${REDIS_PORT} (pass: ${REDIS_PASSWORD})"
     echo -e "   CRDT Server:    ws://localhost:${CRDT_PORT}"
     echo -e "   MinIO S3:       http://localhost:${MINIO_PORT}"
@@ -595,6 +666,9 @@ main() {
     
     # Start PostgreSQL
     start_postgres
+    
+    # Start TimescaleDB for flow traces
+    start_timescaledb
     
     # Start Redis
     start_redis

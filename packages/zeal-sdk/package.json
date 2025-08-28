@@ -1,0 +1,42 @@
+{
+  "name": "@offbit-ai/zeal-sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for Zeal Integration Protocol (ZIP)",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "jest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "zeal",
+    "workflow",
+    "orchestration",
+    "zip",
+    "sdk"
+  ],
+  "author": "offbit.ai",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/offbit-ai/zeal.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "socket.io-client": "^4.0.0"
+  }
+}

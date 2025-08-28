@@ -129,13 +129,17 @@ CREATE INDEX idx_env_vars_user_id ON env_vars(user_id);
 CREATE TABLE flow_trace_sessions (
   id TEXT PRIMARY KEY,
   workflow_id TEXT REFERENCES workflows(id) ON DELETE SET NULL,
+  workflow_version_id TEXT,
+  workflow_name TEXT NOT NULL,
   execution_id TEXT REFERENCES workflow_executions(id) ON DELETE SET NULL,
   start_time TIMESTAMPTZ DEFAULT NOW(),
   end_time TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'active',
+  summary JSONB,
   metadata JSONB,
   user_id TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create indexes
@@ -786,4 +790,107 @@ BEGIN
   CREATE TRIGGER template_repository_search_update
     BEFORE INSERT OR UPDATE ON template_repository
     FOR EACH ROW EXECUTE FUNCTION update_template_search_text();
+END $$;
+-- ============================================================================
+-- ZIP INTEGRATION WEBHOOKS
+-- ============================================================================
+
+-- Table for storing ZIP integration webhooks
+-- These are different from workflow trigger webhooks
+CREATE TABLE IF NOT EXISTS zip_webhooks (
+  id VARCHAR(255) PRIMARY KEY,
+  namespace VARCHAR(255) NOT NULL,
+  url TEXT NOT NULL,
+  events JSONB NOT NULL DEFAULT '["*"]'::jsonb,
+  headers JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for ZIP webhooks
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_namespace ON zip_webhooks(namespace);
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_active ON zip_webhooks(is_active);
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_namespace_active ON zip_webhooks(namespace, is_active);
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_events ON zip_webhooks USING gin(events);
+
+-- Function to update the updated_at timestamp for ZIP webhooks
+CREATE OR REPLACE FUNCTION update_zip_webhooks_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to automatically update updated_at for ZIP webhooks
+DROP TRIGGER IF EXISTS trigger_update_zip_webhooks_updated_at ON zip_webhooks;
+CREATE TRIGGER trigger_update_zip_webhooks_updated_at
+  BEFORE UPDATE ON zip_webhooks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_zip_webhooks_updated_at();
+
+-- Comments for documentation
+COMMENT ON TABLE zip_webhooks IS 'Stores webhook configurations for ZIP integrations';
+COMMENT ON COLUMN zip_webhooks.id IS 'Unique identifier for the webhook';
+COMMENT ON COLUMN zip_webhooks.namespace IS 'Namespace of the integration (e.g., reflow, n8n)';
+COMMENT ON COLUMN zip_webhooks.url IS 'URL to send webhook events to';
+COMMENT ON COLUMN zip_webhooks.events IS 'Array of event types to send, or ["*"] for all events';
+COMMENT ON COLUMN zip_webhooks.headers IS 'Custom headers to include in webhook requests';
+COMMENT ON COLUMN zip_webhooks.is_active IS 'Whether the webhook is currently active';
+COMMENT ON COLUMN zip_webhooks.metadata IS 'Additional metadata for the webhook';
+
+-- Row Level Security (RLS) for Supabase
+ALTER TABLE zip_webhooks ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for ZIP webhooks (adjust as needed for your auth model)
+CREATE POLICY "Enable all operations for authenticated users" ON zip_webhooks
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================================
+-- MIGRATIONS FOR EXISTING DATABASES
+-- ============================================================================
+
+-- Add missing columns to flow_trace_sessions if they don't exist
+DO $$ 
+BEGIN 
+  -- Add workflow_version_id column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'workflow_version_id') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN workflow_version_id TEXT;
+  END IF;
+  
+  -- Add workflow_name column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'workflow_name') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN workflow_name TEXT;
+    -- Set a default value for existing rows
+    UPDATE flow_trace_sessions SET workflow_name = 'Workflow ' || workflow_id WHERE workflow_name IS NULL;
+    -- Make it NOT NULL after setting values
+    ALTER TABLE flow_trace_sessions ALTER COLUMN workflow_name SET NOT NULL;
+  END IF;
+  
+  -- Add summary column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'summary') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN summary JSONB;
+  END IF;
+  
+  -- Add metadata column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'metadata') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN metadata JSONB;
+  END IF;
+  
+  -- Add updated_at column if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'updated_at') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
 END $$;

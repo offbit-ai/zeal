@@ -7,6 +7,7 @@ import {
 } from '@/lib/database'
 import { ApiError } from '@/types/api'
 import type { WorkflowOperations } from '@/lib/database/operations'
+import { webhookEvents } from '@/services/event-bus'
 
 export interface WorkflowRecord {
   id: string
@@ -174,6 +175,12 @@ export class WorkflowDatabase {
         publishedAt: createdVersion.publishedAt,
       }
 
+      // Emit webhook event
+      await webhookEvents.workflowCreated(workflow.id, {
+        workflow,
+        version,
+      })
+      
       return { workflow, version }
     } catch (error) {
       await transaction.rollback()
@@ -383,6 +390,11 @@ export class WorkflowDatabase {
         publishedAt: undefined,
       }
 
+      // Emit webhook event
+      await webhookEvents.workflowUpdated(workflowId, {
+        version: result,
+      })
+      
       return result
     } catch (error) {
       await transaction.rollback()
@@ -434,6 +446,9 @@ export class WorkflowDatabase {
 
     // Foreign key constraints will handle cascading deletes
     await ops.deleteWorkflow(workflowId)
+    
+    // Emit webhook event
+    await webhookEvents.workflowDeleted(workflowId)
   }
 
   // Unpublish a workflow

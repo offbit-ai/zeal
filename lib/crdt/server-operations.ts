@@ -7,6 +7,7 @@ import { getDatabaseOperations } from '../database'
 import type { NodeMetadata, Connection as WorkflowConnection } from '../../types/workflow'
 import { Doc } from 'yjs'
 import * as Y from 'yjs'
+import { webhookEvents } from '@/services/event-bus'
 
 export interface WorkflowNode {
   id: string
@@ -101,6 +102,9 @@ export class ServerCRDTOperations {
       data: nodeData,
       timestamp: Date.now(),
     })
+    
+    // Emit webhook event
+    await webhookEvents.nodeAdded(workflowId, graphId, nodeId, nodeData)
 
     // Also save to database for persistence - with retry logic for concurrency
     let retryCount = 0
@@ -242,6 +246,9 @@ export class ServerCRDTOperations {
       data: connectionData,
       timestamp: Date.now(),
     })
+    
+    // Emit webhook event
+    await webhookEvents.connectionAdded(workflowId, graphId, connectionData)
 
     // Save to database
     try {
@@ -528,6 +535,9 @@ export class ServerCRDTOperations {
       },
       timestamp: Date.now()
     })
+    
+    // Emit webhook event
+    await webhookEvents.nodeUpdated(workflowId, graphId, nodeId, { propertyValues })
     
     // Also update in database for persistence
     try {
@@ -968,5 +978,183 @@ export class ServerCRDTOperations {
     }
     
     return createdNodes
+  }
+
+  /**
+   * Remove a node from the workflow
+   */
+  static async removeNode(
+    workflowId: string,
+    graphId: string,
+    nodeId: string
+  ): Promise<void> {
+    const doc = this.getDoc(workflowId)
+    
+    // Update CRDT document
+    doc.transact(() => {
+      const graphs = doc.getMap('graphs')
+      const graph = graphs.get(graphId) as Y.Map<any>
+      
+      if (graph) {
+        const nodes = graph.get('nodes') as Y.Map<any>
+        if (nodes) {
+          nodes.delete(nodeId)
+        }
+        
+        // Also remove any connections that involve this node
+        const connections = graph.get('connections') as Y.Map<any>
+        if (connections) {
+          const toDelete: string[] = []
+          connections.forEach((conn: Y.Map<any>, connId: string) => {
+            const source = conn.get('source')
+            const target = conn.get('target')
+            if (
+              (source && source.nodeId === nodeId) ||
+              (target && target.nodeId === nodeId)
+            ) {
+              toDelete.push(connId)
+            }
+          })
+          toDelete.forEach(connId => connections.delete(connId))
+        }
+        
+        // Also remove from any groups
+        const groups = graph.get('groups') as Y.Map<any>
+        if (groups) {
+          groups.forEach((group: Y.Map<any>) => {
+            const nodeIds = group.get('nodeIds')
+            if (Array.isArray(nodeIds)) {
+              const newNodeIds = nodeIds.filter(id => id !== nodeId)
+              if (newNodeIds.length !== nodeIds.length) {
+                group.set('nodeIds', newNodeIds)
+              }
+            }
+          })
+        }
+      }
+    })
+    
+    // Broadcast the update
+    await this.broadcastUpdate({
+      type: 'node-removed',
+      workflowId,
+      graphId,
+      data: { nodeId },
+      timestamp: Date.now(),
+    })
+    
+    // Emit webhook event
+    await webhookEvents.nodeDeleted(workflowId, graphId, nodeId)
+    
+    // Remove from database for persistence
+    try {
+      const db = await getDatabaseOperations()
+      console.log(`[ServerCRDTOperations] Removing node ${nodeId} from database for workflow ${workflowId}`)
+      
+      const { versions } = await db.listWorkflowVersions(workflowId, { limit: 1 })
+      const latestVersion = versions[0]
+      
+      if (latestVersion && latestVersion.graphs) {
+        const graphs = typeof latestVersion.graphs === 'string'
+          ? JSON.parse(latestVersion.graphs)
+          : latestVersion.graphs
+        
+        const graph = graphs.find((g: any) => g.id === graphId)
+        if (graph) {
+          // Remove node
+          if (graph.nodes) {
+            graph.nodes = graph.nodes.filter((n: any) => n.id !== nodeId)
+          }
+          
+          // Remove connections involving this node
+          if (graph.connections) {
+            graph.connections = graph.connections.filter((c: any) => 
+              c.source !== nodeId && c.target !== nodeId
+            )
+          }
+          
+          // Remove from groups
+          if (graph.groups) {
+            graph.groups = graph.groups.map((g: any) => ({
+              ...g,
+              nodeIds: g.nodeIds ? g.nodeIds.filter((id: string) => id !== nodeId) : []
+            }))
+          }
+          
+          // Update the version with modified graphs
+          await db.updateWorkflowVersion(latestVersion.id, {
+            graphs: JSON.stringify(graphs),
+            isDraft: true,
+            createdAt: new Date().toISOString(),
+          })
+          
+          console.log(`[ServerCRDTOperations] Successfully removed node ${nodeId} from database`)
+        }
+      }
+    } catch (error) {
+      console.error('[ServerCRDTOperations] Error removing node from database:', error)
+    }
+  }
+
+  /**
+   * Remove a connection from the workflow
+   */
+  static async removeConnection(
+    workflowId: string,
+    graphId: string,
+    connectionId: string
+  ): Promise<void> {
+    const doc = this.getDoc(workflowId)
+    
+    // Update CRDT document
+    doc.transact(() => {
+      const graphs = doc.getMap('graphs')
+      const graph = graphs.get(graphId) as Y.Map<any>
+      
+      if (graph) {
+        const connections = graph.get('connections') as Y.Map<any>
+        if (connections) {
+          connections.delete(connectionId)
+        }
+      }
+    })
+    
+    // Broadcast the update
+    await this.broadcastUpdate({
+      type: 'connection-removed',
+      workflowId,
+      graphId,
+      data: { connectionId },
+      timestamp: Date.now(),
+    })
+    
+    // Emit webhook event
+    await webhookEvents.connectionDeleted(workflowId, graphId, { connectionId })
+    
+    // Remove from database
+    try {
+      const db = await getDatabaseOperations()
+      const { versions } = await db.listWorkflowVersions(workflowId, { limit: 1 })
+      const latestVersion = versions[0]
+      
+      if (latestVersion && latestVersion.graphs) {
+        const graphs = typeof latestVersion.graphs === 'string'
+          ? JSON.parse(latestVersion.graphs)
+          : latestVersion.graphs
+        
+        const graph = graphs.find((g: any) => g.id === graphId)
+        if (graph && graph.connections) {
+          graph.connections = graph.connections.filter((c: any) => c.id !== connectionId)
+          
+          await db.updateWorkflowVersion(latestVersion.id, {
+            graphs: JSON.stringify(graphs),
+            isDraft: true,
+            createdAt: new Date().toISOString(),
+          })
+        }
+      }
+    } catch (error) {
+      console.error('[ServerCRDTOperations] Error removing connection from database:', error)
+    }
   }
 }

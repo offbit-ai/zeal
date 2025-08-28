@@ -125,8 +125,10 @@ CREATE TABLE IF NOT EXISTS flow_trace_sessions (
   "endTime" TIMESTAMP,
   status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
   summary TEXT, -- JSON string of summary stats
+  metadata JSONB, -- Additional metadata for the session
   "userId" TEXT NOT NULL,
   "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY ("workflowId") REFERENCES workflows(id) ON DELETE CASCADE
 );
 
@@ -223,6 +225,22 @@ CREATE INDEX IF NOT EXISTS idx_embed_api_keys_workflow_id ON embed_api_keys("wor
 CREATE INDEX IF NOT EXISTS idx_embed_api_keys_is_active ON embed_api_keys("isActive");
 CREATE INDEX IF NOT EXISTS idx_embed_sessions_api_key_id ON embed_sessions("apiKeyId");
 CREATE INDEX IF NOT EXISTS idx_embed_sessions_started_at ON embed_sessions("startedAt");
+
+-- Add metadata column if it doesn't exist (for existing databases)
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'metadata') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN metadata JSONB;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'flow_trace_sessions' 
+                AND column_name = 'updatedAt') THEN
+    ALTER TABLE flow_trace_sessions ADD COLUMN "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  END IF;
+END $$;
 
 -- Create update timestamp trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -544,3 +562,51 @@ CREATE TRIGGER update_node_templates_updated_at BEFORE UPDATE
 
 CREATE TRIGGER update_dynamic_templates_updated_at BEFORE UPDATE
   ON dynamic_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column_snake();
+-- ============================================================================
+-- ZIP INTEGRATION WEBHOOKS
+-- ============================================================================
+
+-- Table for storing ZIP integration webhooks
+-- These are different from workflow trigger webhooks
+CREATE TABLE IF NOT EXISTS zip_webhooks (
+  id VARCHAR(255) PRIMARY KEY,
+  namespace VARCHAR(255) NOT NULL,
+  url TEXT NOT NULL,
+  events JSONB NOT NULL DEFAULT '["*"]'::jsonb,
+  headers JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for ZIP webhooks
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_namespace ON zip_webhooks(namespace);
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_active ON zip_webhooks(is_active);
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_namespace_active ON zip_webhooks(namespace, is_active);
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_events ON zip_webhooks USING gin(events);
+
+-- Function to update the updated_at timestamp for ZIP webhooks
+CREATE OR REPLACE FUNCTION update_zip_webhooks_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to automatically update updated_at for ZIP webhooks
+CREATE TRIGGER trigger_update_zip_webhooks_updated_at
+  BEFORE UPDATE ON zip_webhooks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_zip_webhooks_updated_at();
+
+-- Comments for documentation
+COMMENT ON TABLE zip_webhooks IS 'Stores webhook configurations for ZIP integrations';
+COMMENT ON COLUMN zip_webhooks.id IS 'Unique identifier for the webhook';
+COMMENT ON COLUMN zip_webhooks.namespace IS 'Namespace of the integration (e.g., reflow, n8n)';
+COMMENT ON COLUMN zip_webhooks.url IS 'URL to send webhook events to';
+COMMENT ON COLUMN zip_webhooks.events IS 'Array of event types to send, or ["*"] for all events';
+COMMENT ON COLUMN zip_webhooks.headers IS 'Custom headers to include in webhook requests';
+COMMENT ON COLUMN zip_webhooks.is_active IS 'Whether the webhook is currently active';
+COMMENT ON COLUMN zip_webhooks.metadata IS 'Additional metadata for the webhook';

@@ -1,15 +1,18 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Connection, ConnectionState } from '@/types/workflow'
 import { PortPosition } from '@/hooks/usePortPositions'
 import { usePortPositionSubscription } from '@/hooks/usePortPositionSubscription'
 import { useWorkflowStore } from '@/store/workflow-store'
+import { useZipConnectionState } from '@/hooks/useZipConnectionState'
 
 interface ConnectionLinesProps {
   connections: Connection[]
   getPortPosition: (nodeId: string, portId: string) => PortPosition | undefined
   onConnectionClick?: (connectionId: string) => void
   localGroupCollapseState?: Record<string, boolean>
+  enableZipEvents?: boolean // Optional: Enable ZIP WebSocket event integration
 }
 
 // Get visual styles for connection states
@@ -256,6 +259,7 @@ export function ConnectionLines({
   getPortPosition,
   onConnectionClick,
   localGroupCollapseState = {},
+  enableZipEvents = false, // Default to false for backward compatibility
 }: ConnectionLinesProps) {
   // Subscribe to port position changes for immediate updates
   usePortPositionSubscription()
@@ -263,11 +267,44 @@ export function ConnectionLines({
   // Get all groups to check for collapsed ones
   const groups = useWorkflowStore(state => state.groups)
 
+  // Subscribe to ZIP WebSocket events for real-time connection states (only if enabled)
+  const { connectionStates, isConnected } = useZipConnectionState({
+    autoConnect: enableZipEvents,
+    autoClear: true,
+    successTimeout: 3000,
+  })
+
+  // Merge ZIP WebSocket states with connection data
+  const enhancedConnections = useMemo(() => {
+    // Only enhance if ZIP events are enabled and connected
+    if (!enableZipEvents || !isConnected || Object.keys(connectionStates).length === 0) {
+      return connections
+    }
+    
+    return connections.map(conn => {
+      const zipState = connectionStates[conn.id]
+      if (zipState) {
+        // Update the connection's state based on WebSocket events
+        // This will trigger visual changes through getConnectionStyles
+        return {
+          ...conn,
+          state: zipState.state, // This updates the visual state
+          metadata: {
+            ...conn.metadata,
+            ...zipState.metadata,
+            lastUpdate: zipState.lastUpdate,
+          }
+        }
+      }
+      return conn
+    })
+  }, [connections, connectionStates, isConnected, enableZipEvents])
+
   // TODO: Re-implement group dragging state in V2 store
   // For now, connections will remain visible during group drag
 
   // Check if we have port positions for connections that should render
-  const connectionsWithPositions = connections.filter(conn => {
+  const connectionsWithPositions = enhancedConnections.filter(conn => {
     const sourcePos = getPortPosition(conn.source.nodeId, conn.source.portId)
     const targetPos = getPortPosition(conn.target.nodeId, conn.target.portId)
     return sourcePos && targetPos

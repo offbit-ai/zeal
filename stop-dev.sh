@@ -9,6 +9,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 POSTGRES_CONTAINER="zeal-postgres"
+TIMESCALE_CONTAINER="zeal-timescaledb"
 REDIS_CONTAINER="zeal-redis"
 CRDT_CONTAINER="zeal-crdt-server"
 MINIO_CONTAINER="zeal-minio"
@@ -23,6 +24,15 @@ if [ "$(docker ps -q -f name=^${POSTGRES_CONTAINER}$)" ]; then
     echo -e "${GREEN}✅ PostgreSQL stopped${NC}"
 else
     echo -e "${YELLOW}ℹ️  PostgreSQL container is not running${NC}"
+fi
+
+# Stop TimescaleDB container
+if [ "$(docker ps -q -f name=^${TIMESCALE_CONTAINER}$)" ]; then
+    echo -e "${YELLOW}⏰ Stopping TimescaleDB server...${NC}"
+    docker stop $TIMESCALE_CONTAINER > /dev/null
+    echo -e "${GREEN}✅ TimescaleDB stopped${NC}"
+else
+    echo -e "${YELLOW}ℹ️  TimescaleDB container is not running${NC}"
 fi
 
 # Stop Redis container
@@ -58,6 +68,7 @@ read -p "Do you want to remove the containers? (y/N) " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     docker rm $POSTGRES_CONTAINER > /dev/null 2>&1
+    docker rm $TIMESCALE_CONTAINER > /dev/null 2>&1
     docker rm $REDIS_CONTAINER > /dev/null 2>&1
     docker rm $CRDT_CONTAINER > /dev/null 2>&1
     docker rm $MINIO_CONTAINER > /dev/null 2>&1
@@ -70,6 +81,7 @@ read -p "Do you want to remove the data volumes? This will delete all data! (y/N
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     docker volume rm zeal-postgres-data > /dev/null 2>&1
+    docker volume rm zeal-timescale-data > /dev/null 2>&1
     docker volume rm zeal-redis-data > /dev/null 2>&1
     docker volume rm zeal-minio-data > /dev/null 2>&1
     echo -e "${GREEN}✅ Data volumes removed${NC}"
