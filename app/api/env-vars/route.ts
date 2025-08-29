@@ -8,14 +8,20 @@ import {
   parseFilterParams,
   extractUserId,
   validateEnvVarKey,
-  mockDelay,
 } from '@/lib/api-utils'
 import { ApiError, EnvVarCreateRequest, EnvVarResponse } from '@/types/api'
 import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
 import { EnvVarDatabase } from '@/services/envVarDatabase'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import {
+  buildTenantQuery,
+  addTenantContext,
+  applyTenantFilterToArray
+} from '@/lib/auth/tenant-utils'
 
 // GET /api/env-vars - List environment variables
-export const GET = withErrorHandling(async (req: NextRequest) => {
+export const GET = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
   // Generate cache key
   const cacheKey = apiCache.generateKey(req)
 
@@ -27,12 +33,16 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   }
 
   const { searchParams } = new URL(req.url)
-  const userId = extractUserId(req)
+  const userId = req.auth?.subject?.id || extractUserId(req)
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
 
-  // Get environment variables from database
+  // Build query with tenant context
+  const tenantQuery = buildTenantQuery(req as NextRequest)
+
+  // Get environment variables from database with tenant filter
   const { data, total } = await EnvVarDatabase.list({
+    ...tenantQuery,
     category: filters.category,
     limit: pagination.limit,
     offset: (pagination.page - 1) * pagination.limit,
@@ -55,18 +65,27 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   apiCache.set(cacheKey, response, CACHE_TTL.ENV_VARS)
 
   return NextResponse.json(response)
-})
+  }),
+  {
+    resource: 'env-vars',
+    action: 'read'
+  }
+)
 
 // POST /api/env-vars - Create environment variable
-export const POST = withErrorHandling(async (req: NextRequest) => {
-  const userId = extractUserId(req)
-  const body: EnvVarCreateRequest = await req.json()
+export const POST = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
+    const userId = req.auth?.subject?.id || extractUserId(req)
+    const body: EnvVarCreateRequest = await req.json()
 
   // Validate required fields
   validateRequired(body, ['key', 'value'])
   validateEnvVarKey(body.key)
 
-  // Check for duplicate key
+  // Build tenant context
+  const tenantQuery = buildTenantQuery(req as NextRequest)
+
+  // Check for duplicate key within the same tenant
   const existingVar = await EnvVarDatabase.getByKey(body.key)
 
   if (existingVar) {
@@ -80,15 +99,23 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   // Ensure isSecret is set based on category or explicit flag
   const isSecret = body.isSecret || body.category === 'secrets'
 
-  // Create new environment variable using upsert to handle potential race conditions
-  const newEnvVar = await EnvVarDatabase.upsert({
+  // Add tenant context to the new environment variable
+  const envVarData = addTenantContext({
     ...body,
     isSecret,
     userId,
-  })
+  }, req as NextRequest)
+
+  // Create new environment variable using upsert to handle potential race conditions
+  const newEnvVar = await EnvVarDatabase.upsert(envVarData)
 
   // Invalidate cache for env vars
   invalidateCache('/api/env-vars')
 
   return NextResponse.json(createSuccessResponse(newEnvVar), { status: 201 })
-})
+  }),
+  {
+    resource: 'env-vars',
+    action: 'create'
+  }
+)

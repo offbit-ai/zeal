@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 // Server-side intent extraction using OpenRouter
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const { query } = await request.json()
     
@@ -85,4 +86,7 @@ If they mention GitHub, include "github". Do not generalize.`
       error: 'Internal server error' 
     }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'create'
+})

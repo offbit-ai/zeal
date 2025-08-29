@@ -4,35 +4,42 @@ import {
   withErrorHandling,
   extractUserId,
   validateRequired,
-  mockDelay,
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
 
 // POST /api/workflows/[id]/rollback - Rollback to a specific published version
-export const POST = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(250) // Rollback might take longer
+export const POST = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context || !context.params || !context.params.id) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
-    }
+      if (!context || !context.params || !context.params.id) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+      }
 
-    const { id } = context.params
-    const userId = extractUserId(req)
+      const { id } = context.params
+      const userId = req.auth?.subject?.id || extractUserId(req)
     const { versionId } = await req.json()
 
     // Validate required fields
     validateRequired({ versionId }, ['versionId'])
 
-    // Get workflow to verify ownership
+    // Get workflow to verify ownership and tenant access
     const workflow = await WorkflowDatabase.getWorkflow(id)
 
     if (!workflow) {
       throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
     }
 
-    if (workflow.userId !== userId) {
+    // Check tenant access
+    if (!validateTenantAccess(workflow, req as NextRequest)) {
+      return createTenantViolationError()
+    }
+
+    // Check ownership for legacy workflows without tenantId
+    if (!(workflow as any).tenantId && workflow.userId !== userId) {
       throw new ApiError('FORBIDDEN', 'Not authorized to rollback this workflow', 403)
     }
 
@@ -125,5 +132,10 @@ export const POST = withErrorHandling(
     // console.log removed`)
 
     return NextResponse.json(createSuccessResponse(response))
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'update'
   }
 )

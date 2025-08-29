@@ -55,7 +55,7 @@ const createServerLLM = () => {
   }
 }
 
-export async function GET(request: NextRequest) {
+export const GET = async (request: NextRequest) => {
   try {
     // Check if GraphRAG snapshot exists
     const fs = require('fs').promises
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = async (request: NextRequest) => {
   try {
     // This endpoint is for runtime GraphRAG operations that need LLM
     // The actual initialization happens at build time

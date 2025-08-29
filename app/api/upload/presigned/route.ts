@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPresignedUploadUrl, generateFileKey } from '@/lib/s3-client'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+    }
+    
+    // Add tenant access validation for resources that support it
+    // if ((resource as any).tenantId && !validateTenantAccess(resource as any, request as NextRequest)) {
+    //   return createTenantViolationError()
+    // }
     const { fileName, fileType, fileSize } = await request.json()
 
     if (!fileName || !fileType) {
@@ -55,4 +64,7 @@ export async function POST(request: NextRequest) {
     console.error('Presigned URL error:', error)
     return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'create'
+})

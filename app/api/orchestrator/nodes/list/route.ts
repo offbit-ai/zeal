@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabaseOperations } from '../../../../../lib/database'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
     const { workflowId, graphId = 'main' } = body
@@ -60,4 +61,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'node',
+  action: 'read'
+})

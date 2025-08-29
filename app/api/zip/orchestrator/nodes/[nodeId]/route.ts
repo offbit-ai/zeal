@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 const updateNodeSchema = z.object({
   workflowId: z.string(),
@@ -13,12 +14,17 @@ const updateNodeSchema = z.object({
 })
 
 // PATCH /api/zip/orchestrator/nodes/[nodeId] - Update node
-export async function PATCH(
+export const PATCH = withZIPAuthorization(async (
   request: NextRequest,
-  { params }: { params: { nodeId: string } }
-) {
+  context?: { params: { nodeId: string } }
+) => {
   try {
-    const { nodeId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({
+        error: 'Missing node ID parameter'
+      }, { status: 400 })
+    }
+    const { nodeId } = context.params
     const body = await request.json()
     
     // Validate request
@@ -62,15 +68,23 @@ export async function PATCH(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'node',
+  action: 'update'
+})
 
 // DELETE /api/zip/orchestrator/nodes/[nodeId] - Delete node
-export async function DELETE(
+export const DELETE = withZIPAuthorization(async (
   request: NextRequest,
-  { params }: { params: { nodeId: string } }
-) {
+  context?: { params: { nodeId: string } }
+) => {
   try {
-    const { nodeId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({
+        error: 'Missing node ID parameter'
+      }, { status: 400 })
+    }
+    const { nodeId } = context.params
     const { searchParams } = new URL(request.url)
     const workflowId = searchParams.get('workflowId')
     const graphId = searchParams.get('graphId') || 'main'
@@ -101,4 +115,7 @@ export async function DELETE(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'node',
+  action: 'delete'
+})

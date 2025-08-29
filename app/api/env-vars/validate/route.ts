@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuccessResponse, withErrorHandling, extractUserId, mockDelay } from '@/lib/api-utils'
+import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { EnvVarDatabase } from '@/services/envVarDatabase'
 import { allNodeTemplates } from '@/data/nodeTemplates'
@@ -57,7 +57,6 @@ interface ValidateEnvVarsResponse {
 
 // POST /api/env-vars/validate - Validate required environment variables
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(75)
 
   const _userId = extractUserId(req) // Prefix with _ to indicate intentionally unused
 

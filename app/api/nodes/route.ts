@@ -5,14 +5,16 @@ import {
   parsePaginationParams,
   parseFilterParams,
   extractUserId,
-  mockDelay,
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
 import { nodeTemplateService } from '@/services/nodeTemplateService'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { buildTenantQuery, addTenantContext } from '@/lib/auth/tenant-utils'
 
 // GET /api/nodes - List node templates
-export const GET = withErrorHandling(async (req: NextRequest) => {
+export const GET = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
   // Generate cache key
   const cacheKey = apiCache.generateKey(req)
 
@@ -22,14 +24,14 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     return NextResponse.json(cachedResponse)
   }
 
-  await mockDelay(100)
 
   const { searchParams } = new URL(req.url)
-  const _userId = extractUserId(req) // Prefix with _ to indicate intentionally unused
+  const userId = req.auth?.subject?.id || extractUserId(req)
+  const tenantQuery = buildTenantQuery(req as NextRequest)
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
 
-  // Use the new template service
+  // Use the new template service with tenant context
   const searchResult = await nodeTemplateService.searchTemplates({
     query: filters.search,
     category: filters.category,
@@ -37,6 +39,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     tags: filters.tags ? (Array.isArray(filters.tags) ? filters.tags : [filters.tags]) : undefined,
     useRepository: searchParams.get('useRepository') === 'true',
     limit: 1000, // Get all for client-side pagination
+    ...tenantQuery,
   })
 
   let filteredNodes = searchResult.templates
@@ -88,13 +91,17 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   apiCache.set(cacheKey, response, CACHE_TTL.NODES)
 
   return NextResponse.json(response)
-})
+  }),
+  {
+    resource: 'nodes',
+    action: 'read'
+  }
+)
 
 // POST /api/nodes - Create custom node template
-export const POST = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(200)
-
-  const userId = extractUserId(req)
+export const POST = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
+    const userId = req.auth?.subject?.id || extractUserId(req)
   const body = await req.json()
 
   // Validate required fields
@@ -112,8 +119,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     )
   }
 
-  // Save the template to the database
-  const createdTemplate = await nodeTemplateService.createTemplate({
+  // Add tenant context to template data
+  const templateData = addTenantContext({
     id: body.id || `tpl_custom_${Date.now()}`,
     type: body.type,
     title: body.title,
@@ -134,10 +141,18 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     createdBy: userId,
     // Mark as pending approval for non-admin users
     status: userId.startsWith('admin_') ? 'active' : 'draft',
-  })
+  }, req as NextRequest)
+
+  // Save the template to the database
+  const createdTemplate = await nodeTemplateService.createTemplate(templateData)
 
   // Invalidate all nodes cache since this affects all users
   invalidateCache('/api/nodes')
 
   return NextResponse.json(createSuccessResponse(createdTemplate), { status: 201 })
-})
+  }),
+  {
+    resource: 'nodes',
+    action: 'create'
+  }
+)

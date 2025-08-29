@@ -1,0 +1,65 @@
+{
+  "name": "@offbit-ai/zeal-auth",
+  "version": "1.0.0",
+  "description": "Zeal Authorization Framework - Decoupled, policy-driven authorization system",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src/**/*.ts",
+    "migrate:up": "ts-node migrations/migrate.ts up",
+    "migrate:down": "ts-node migrations/migrate.ts down",
+    "migrate:reset": "ts-node migrations/migrate.ts reset"
+  },
+  "keywords": [
+    "authorization",
+    "auth",
+    "abac",
+    "rbac",
+    "policy",
+    "jwt",
+    "multi-tenant"
+  ],
+  "author": "Zeal Team",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "jwks-rsa": "^3.0.0",
+    "pg": "^8.11.0",
+    "reflect-metadata": "^0.1.13"
+  },
+  "devDependencies": {
+    "@graphql-tools/utils": "^10.9.1",
+    "@types/jest": "^29.0.0",
+    "@types/js-yaml": "^4.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.15.5",
+    "eslint": "^8.0.0",
+    "graphql": "^16.11.0",
+    "ioredis": "^5.7.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "express": "^4.0.0",
+    "fastify": "^4.0.0",
+    "koa": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "koa": {
+      "optional": true
+    }
+  }
+}

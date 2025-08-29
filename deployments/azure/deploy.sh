@@ -27,6 +27,13 @@ POSTGRES_SKU="${POSTGRES_SKU:-GP_Gen5_4}"
 REDIS_SKU="${REDIS_SKU:-Premium_P1}"
 ENABLE_MONITORING="${ENABLE_MONITORING:-true}"
 ENABLE_BACKUPS="${ENABLE_BACKUPS:-true}"
+ENABLE_AUTH="${ENABLE_AUTH:-true}"
+AUTH_MODE="${AUTH_MODE:-production}"
+
+# Auth Configuration
+AUTH_JWT_ISSUER="${AUTH_JWT_ISSUER:-}"
+AUTH_JWT_AUDIENCE="${AUTH_JWT_AUDIENCE:-}"
+AUTH_JWT_JWKS_URI="${AUTH_JWT_JWKS_URI:-}"
 
 # TimescaleDB Retention Policies
 TIMESCALE_RETENTION_FLOW_TRACES="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
@@ -388,6 +395,21 @@ setup_namespace() {
 }
 
 # Function to deploy Zeal application
+# Function to deploy auth system
+deploy_auth() {
+    if [ "$ENABLE_AUTH" = "true" ]; then
+        log $BLUE "🔐 Deploying authorization system..."
+        
+        # Set namespace for auth deployment
+        export NAMESPACE="zeal-production"
+        
+        # Run auth deployment script
+        bash "$SCRIPT_DIR/../auth/deploy-auth.sh" azure
+        
+        log $GREEN "✅ Authorization system deployed"
+    fi
+}
+
 deploy_zeal() {
     log $BLUE "🚀 Deploying Zeal application..."
     
@@ -436,6 +458,16 @@ spec:
             name: zeal-config
         - secretRef:
             name: zeal-secrets
+        - configMapRef:
+            name: zeal-auth-config
+            optional: true
+        - secretRef:
+            name: zeal-auth-secret
+            optional: true
+        volumeMounts:
+        - name: auth-policies
+          mountPath: /config
+          readOnly: true
         resources:
           requests:
             cpu: 500m
@@ -455,6 +487,11 @@ spec:
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5
+      volumes:
+      - name: auth-policies
+        configMap:
+          name: auth-policies
+          optional: true
 ---
 apiVersion: v1
 kind: Service
@@ -683,6 +720,7 @@ main() {
     create_redis  
     create_storage
     setup_namespace
+    deploy_auth
     deploy_zeal
     setup_monitoring
     setup_backups

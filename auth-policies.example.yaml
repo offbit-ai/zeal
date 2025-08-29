@@ -1,0 +1,373 @@
+# Zeal Authorization Policies Example
+# These policies work with claims from any JWT-based identity provider
+# Copy to auth-policies.yaml and customize for your needs
+
+version: "1.0"
+metadata:
+  description: "Example authorization policies for Zeal platform"
+  created: "2025-01-01"
+
+# Define resource types in your system
+resources:
+  - type: workflow
+    attributes: [id, owner, organizationId, status, visibility]
+  - type: node_template
+    attributes: [id, category, tier, restricted]
+  - type: orchestrator
+    attributes: [id, type, owner]
+  - type: execution
+    attributes: [id, workflowId, status]
+  - type: api_endpoint
+    attributes: [path, method]
+
+# Define standard actions
+actions:
+  - read
+  - create
+  - update
+  - delete
+  - execute
+  - share
+  - publish
+
+# Authorization policies
+policies:
+  # ========================================
+  # Workflow Policies
+  # ========================================
+  
+  - id: workflow-owner-full-access
+    description: "Workflow owners have full access to their workflows"
+    priority: 100
+    effect: allow
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: owner
+            operator: equals
+            value: "${subject.id}"
+    actions: ["*"]
+    
+  - id: workflow-organization-read
+    description: "Organization members can read organization workflows"
+    priority: 90
+    effect: allow
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: organizationId
+            operator: equals
+            value: "${subject.organizationId}"
+          - attribute: visibility
+            operator: in
+            values: ["organization", "public"]
+    actions: ["read", "execute"]
+    subjects:
+      conditions:
+        - claim: organizationId
+          operator: exists
+    
+  - id: workflow-public-read
+    description: "Anyone can read public workflows"
+    priority: 80
+    effect: allow
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: visibility
+            operator: equals
+            value: "public"
+    actions: ["read"]
+    
+  - id: workflow-create-limit
+    description: "Limit workflow creation based on plan"
+    priority: 70
+    effect: deny
+    resources:
+      - type: workflow
+    actions: ["create"]
+    conditions:
+      - type: quota
+        resource: workflow
+        limit: "${subject.workflowQuota || 10}"
+    
+  # ========================================
+  # Node Template Policies
+  # ========================================
+  
+  - id: node-template-basic-access
+    description: "All users can use basic node templates"
+    priority: 100
+    effect: allow
+    resources:
+      - type: node_template
+        conditions:
+          - attribute: tier
+            operator: equals
+            value: "basic"
+    actions: ["read", "use"]
+    
+  - id: node-template-premium-access
+    description: "Premium features for premium users"
+    priority: 90
+    effect: allow
+    resources:
+      - type: node_template
+        conditions:
+          - attribute: tier
+            operator: in
+            values: ["basic", "premium"]
+    actions: ["read", "use"]
+    subjects:
+      conditions:
+        - claim: planTier
+          operator: in
+          values: ["premium", "enterprise"]
+    
+  - id: node-template-enterprise-only
+    description: "Enterprise node templates"
+    priority: 85
+    effect: allow
+    resources:
+      - type: node_template
+        conditions:
+          - attribute: tier
+            operator: equals
+            value: "enterprise"
+    actions: ["read", "use"]
+    subjects:
+      conditions:
+        - claim: planTier
+          operator: equals
+          value: "enterprise"
+    
+  - id: node-template-restricted-access
+    description: "Restricted templates need special permission"
+    priority: 80
+    effect: deny
+    resources:
+      - type: node_template
+        conditions:
+          - attribute: restricted
+            operator: equals
+            value: true
+    actions: ["use"]
+    subjects:
+      conditions:
+        - claim: permissions
+          operator: not_contains
+          value: "node_template.restricted.use"
+    
+  # ========================================
+  # Role-Based Policies
+  # ========================================
+  
+  - id: admin-full-access
+    description: "Admins have full access"
+    priority: 1000
+    effect: allow
+    resources:
+      - type: "*"
+    actions: ["*"]
+    subjects:
+      conditions:
+        - claim: roles
+          operator: contains
+          value: "admin"
+    
+  - id: developer-workflow-access
+    description: "Developers can manage workflows"
+    priority: 200
+    effect: allow
+    resources:
+      - type: workflow
+      - type: node_template
+      - type: execution
+    actions: ["read", "create", "update", "execute"]
+    subjects:
+      conditions:
+        - claim: roles
+          operator: contains
+          value: "developer"
+    
+  - id: viewer-read-only
+    description: "Viewers have read-only access"
+    priority: 150
+    effect: allow
+    resources:
+      - type: "*"
+    actions: ["read"]
+    subjects:
+      conditions:
+        - claim: roles
+          operator: contains
+          value: "viewer"
+    
+  # ========================================
+  # API Endpoint Policies
+  # ========================================
+  
+  - id: api-public-endpoints
+    description: "Public API endpoints"
+    priority: 500
+    effect: allow
+    resources:
+      - type: api_endpoint
+        conditions:
+          - attribute: path
+            operator: matches
+            pattern: "^/api/(health|status|public).*"
+    actions: ["*"]
+    
+  - id: api-authenticated-required
+    description: "Most API endpoints require authentication"
+    priority: 100
+    effect: deny
+    resources:
+      - type: api_endpoint
+        conditions:
+          - attribute: path
+            operator: matches
+            pattern: "^/api/.*"
+    actions: ["*"]
+    subjects:
+      conditions:
+        - claim: sub
+          operator: not_exists
+    
+  # ========================================
+  # Multi-Tenant Policies
+  # ========================================
+  
+  - id: tenant-isolation
+    description: "Enforce tenant isolation"
+    priority: 10000
+    effect: deny
+    resources:
+      - type: "*"
+        conditions:
+          - attribute: tenantId
+            operator: exists
+          - attribute: tenantId
+            operator: not_equals
+            value: "${subject.tenantId}"
+    actions: ["*"]
+    subjects:
+      conditions:
+        - claim: tenantId
+          operator: exists
+    
+  # ========================================
+  # Compliance-Based Policies
+  # ========================================
+  
+  - id: require-verified-for-production
+    description: "Production workflows require verified users"
+    priority: 300
+    effect: deny
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: environment
+            operator: equals
+            value: "production"
+    actions: ["create", "update", "publish"]
+    subjects:
+      conditions:
+        - claim: verificationStatus
+          operator: not_equals
+          value: "verified"
+    
+  # ========================================
+  # Time-Based Policies
+  # ========================================
+  
+  - id: business-hours-only
+    description: "Certain operations only during business hours"
+    priority: 400
+    effect: deny
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: critical
+            operator: equals
+            value: true
+    actions: ["update", "delete"]
+    conditions:
+      - type: time
+        timezone: "UTC"
+        notBetween:
+          start: "09:00"
+          end: "17:00"
+        weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    
+  # ========================================
+  # Data Filtering Policies
+  # ========================================
+  
+  - id: filter-sensitive-fields
+    description: "Remove sensitive fields for non-admin users"
+    priority: 600
+    effect: filter
+    resources:
+      - type: "*"
+    actions: ["read"]
+    filters:
+      - type: field
+        remove: ["internalNotes", "debugInfo", "secrets"]
+    subjects:
+      conditions:
+        - claim: roles
+          operator: not_contains
+          value: "admin"
+    
+  # ========================================
+  # Audit Obligations
+  # ========================================
+  
+  - id: audit-critical-operations
+    description: "Audit all critical operations"
+    priority: 50
+    effect: allow
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: critical
+            operator: equals
+            value: true
+    actions: ["update", "delete", "publish"]
+    obligations:
+      - type: audit
+        level: critical
+        includeRequestBody: true
+    
+  - id: notify-on-share
+    description: "Notify when workflows are shared"
+    priority: 60
+    effect: allow
+    resources:
+      - type: workflow
+    actions: ["share"]
+    obligations:
+      - type: notify
+        channel: email
+        template: workflow_shared
+        recipients: ["${resource.owner}"]
+
+# Policy evaluation rules
+evaluation:
+  # Strategy: priority, first-match, all-match
+  strategy: priority
+  
+  # Default effect when no policy matches
+  defaultEffect: deny
+  
+  # Cache policy decisions
+  cache:
+    enabled: true
+    ttl: 300
+  
+  # Conflict resolution
+  conflictResolution:
+    # When policies conflict, which effect wins
+    precedence: [deny, filter, allow]

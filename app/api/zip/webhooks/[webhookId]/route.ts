@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getZipWebhookOperations } from '@/lib/database-zip-operations'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // Schema for webhook update
 const updateWebhookSchema = z.object({
@@ -11,14 +12,19 @@ const updateWebhookSchema = z.object({
 })
 
 // PATCH /api/zip/webhooks/[webhookId] - Update webhook
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { webhookId: string } }
-) {
+export const PATCH = withZIPAuthorization(async (request: NextRequest, context?: { params: { webhookId: string } }) => {
   try {
-    const { webhookId } = params
+    const { webhookId } = context?.params || {};
+    if (!webhookId) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing webhook ID in request parameters',
+        }
+      }, { status: 400 })
+    }
     const body = await request.json()
-    
+
     // Validate request
     const validation = updateWebhookSchema.safeParse(body)
     if (!validation.success) {
@@ -30,15 +36,15 @@ export async function PATCH(
         }
       }, { status: 400 })
     }
-    
+
     const webhookOps = await getZipWebhookOperations()
-    
+
     // Update webhook configuration
     await webhookOps.updateWebhookConfiguration(webhookId, {
       ...validation.data,
       updatedAt: new Date().toISOString(),
     })
-    
+
     return NextResponse.json({
       success: true,
       webhookId,
@@ -54,20 +60,28 @@ export async function PATCH(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'create'
+})
 
 // DELETE /api/zip/webhooks/[webhookId] - Delete webhook
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { webhookId: string } }
-) {
+export const DELETE = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
-    const { webhookId } = params
+    const { webhookId } = context?.params || {};
+    if (!webhookId) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing webhook ID in request parameters',
+        }
+      }, { status: 400 })
+    }
     const webhookOps = await getZipWebhookOperations()
-    
+
     // Delete webhook configuration
     await webhookOps.deleteWebhookConfiguration(webhookId)
-    
+
     return NextResponse.json({
       success: true,
       message: `Webhook ${webhookId} deleted successfully`,
@@ -83,19 +97,27 @@ export async function DELETE(
     }, { status: 500 })
   }
 }
-
+  , {
+    resourceType: 'workflow',
+    action: 'delete'
+  })
 // POST /api/zip/webhooks/[webhookId]/test - Test webhook
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: { webhookId: string } }
-) {
+export const POST = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
-    const { webhookId } = params
+    const { webhookId } = context?.params || {};
+    if (!webhookId) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing webhook ID in request parameters',
+        }
+      }, { status: 400 })
+    }
     const webhookOps = await getZipWebhookOperations()
-    
+
     // Get webhook configuration
     const webhook = await webhookOps.getWebhookConfiguration(webhookId)
-    
+
     if (!webhook) {
       return NextResponse.json({
         error: {
@@ -104,7 +126,7 @@ export async function POST(
         }
       }, { status: 404 })
     }
-    
+
     // Send test event to webhook
     const testEvent = {
       id: `test-${Date.now()}`,
@@ -115,7 +137,7 @@ export async function POST(
         message: 'This is a test event from Zeal ZIP',
       },
     }
-    
+
     try {
       const response = await fetch(webhook.url, {
         method: 'POST',
@@ -127,7 +149,7 @@ export async function POST(
         },
         body: JSON.stringify(testEvent),
       })
-      
+
       return NextResponse.json({
         success: response.ok,
         statusCode: response.status,
@@ -149,4 +171,7 @@ export async function POST(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'update'
+})

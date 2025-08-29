@@ -2,14 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 import { ReplayData } from '@/types/zip'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // GET /api/zip/executions/[sessionId]/replay - Get replay data
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { sessionId: string } }
-) {
+export const GET = withZIPAuthorization(async (
+  request: NextRequest,
+  context?: { params: { sessionId: string } }
+) => {
   try {
-    const { sessionId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Missing session ID parameter'
+        }
+      }, { status: 400 })
+    }
+    const { sessionId } = context.params
     
     // Get session details
     const sessions = await FlowTraceDatabase.getSessions('zip-integration', {
@@ -87,4 +96,7 @@ export async function GET(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'execution',
+  action: 'read'
+})

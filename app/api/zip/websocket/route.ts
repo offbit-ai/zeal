@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { initializeZipWebSocket, getZipWebSocketHandler } from '@/lib/zip/websocket-server'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // GET /api/zip/websocket - Check WebSocket status
-export async function GET(_request: NextRequest) {
+export const GET = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   const handler = getZipWebSocketHandler()
   
   if (!handler) {
@@ -28,4 +29,7 @@ export async function GET(_request: NextRequest) {
     message: 'ZIP WebSocket server is running',
     port: process.env.ZIP_WEBSOCKET_PORT || 3001,
   })
-}
+}, {
+  resourceType: 'workflow',
+  action: 'read'
+})

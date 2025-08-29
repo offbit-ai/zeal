@@ -22,7 +22,7 @@ cp .env.example .env
 # Generate a secure secret for NextAuth
 openssl rand -base64 32
 
-# Start all services
+# Start all services (auth is disabled by default)
 docker-compose up -d
 
 # View logs
@@ -151,8 +151,11 @@ cd ..
 # Replace with your actual database URL
 psql postgresql://user:password@localhost/zeal_db < init.sql
 
-# Start development servers
+# Start development servers (auth disabled by default)
 npm run dev
+
+# Or use the development script for guided setup:
+./start-dev.sh  # Prompts for optional auth configuration
 ```
 
 > **Note**:
@@ -291,13 +294,44 @@ See [ZIP Integration Examples](packages/zeal-sdk/examples/) for sample implement
 
 ### 2. **User Management & Authentication**
 
-While the editor supports multi-user collaboration, user management is not included:
+Zeal includes a comprehensive authorization framework (`zeal-auth`) that is **disabled by default** for easier development. The authorization system provides:
 
-- User registration and login systems
-- Role-based access control (RBAC)
-- Team/organization management
-- API authentication beyond basic NextAuth setup
-- User profile management
+#### Built-in Authorization Features (When Enabled):
+- **JWT Token Validation**: Integrate with external identity providers (Auth0, Okta, AWS Cognito, etc.)
+- **Policy-Based Access Control**: Fine-grained permissions using YAML policies
+- **Multi-Tenancy Support**: Automatic tenant isolation for SaaS deployments
+- **Claim Mapping**: Map JWT claims to Zeal's authorization model
+- **Audit Logging**: Track all authorization decisions
+- **Development Mode**: Mock authentication for local development
+
+#### Enabling Authorization:
+
+**Quick Start (Development Mode):**
+```bash
+# During setup, choose to enable authorization
+./start-dev.sh
+# When prompted: "Enable authorization? (y/N)": y
+# Select: "1. Development (mock auth)"
+```
+
+**Production Mode:**
+```bash
+# Set environment variables before starting
+export ZEAL_AUTH_ENABLED=true
+export ZEAL_AUTH_MODE=production
+export AUTH_JWT_ISSUER="https://your-identity-provider.com"
+export AUTH_JWT_AUDIENCE="https://api.your-app.com"
+export AUTH_JWT_JWKS_URI="https://your-idp.com/.well-known/jwks.json"
+```
+
+#### What's NOT Included:
+While authorization is built-in, the following user management features require external implementation:
+
+- User registration and login UI/flows
+- Identity provider setup (use Auth0, Okta, AWS Cognito, etc.)
+- User profile management interfaces
+- Team/organization creation workflows
+- Password reset and account recovery
 
 ### 3. **Production Deployment Considerations**
 
@@ -332,6 +366,12 @@ For production deployments, see our [comprehensive deployment guide](deployments
 | `SUPABASE_URL`                     | Supabase project URL               | Required (if USE_SUPABASE=true)  |
 | `SUPABASE_ANON_KEY`                | Supabase anonymous key             | Required (if USE_SUPABASE=true)  |
 | `SUPABASE_SERVICE_ROLE_KEY`        | Supabase service role key          | Required (if USE_SUPABASE=true)  |
+| **Authorization (Optional)**       |                                    |                                  |
+| `ZEAL_AUTH_ENABLED`                | Enable authorization system        | false (disabled by default)      |
+| `ZEAL_AUTH_MODE`                   | Auth mode (development/production) | development                      |
+| `AUTH_JWT_ISSUER`                  | JWT issuer URL                     | Required for production auth     |
+| `AUTH_JWT_AUDIENCE`                | JWT audience                       | Required for production auth     |
+| `AUTH_JWT_JWKS_URI`                | JWKS endpoint URL                  | Required for production auth     |
 
 See `.env.example` and `.env.supabase.example` for all configuration options.
 

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
 import { TraceEvent } from '@/types/zip'
 import { v4 as uuidv4 } from 'uuid'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 const traceEventSchema = z.object({
   timestamp: z.number(),
@@ -33,12 +34,20 @@ const submitEventsSchema = z.object({
 })
 
 // POST /api/zip/traces/[sessionId]/events - Submit trace events
-export async function POST(
+export const POST = withZIPAuthorization(async (
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
-) {
+  context?: { params: any }
+) => {
   try {
-    const { sessionId } = params
+    const { sessionId } = context?.params || {}
+    if (!sessionId) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing sessionId parameter',
+        }
+      }, { status: 400 })
+    }
     const body = await request.json()
     
     // Validate request
@@ -87,4 +96,7 @@ export async function POST(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'trace-events',
+  action: 'create'
+})

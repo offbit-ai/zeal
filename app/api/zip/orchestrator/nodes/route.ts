@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { AddNodeResponse } from '@/types/zip'
 import { v4 as uuidv4 } from 'uuid'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 const addNodeSchema = z.object({
   workflowId: z.string(),
@@ -16,7 +17,7 @@ const addNodeSchema = z.object({
 })
 
 // POST /api/zip/orchestrator/nodes - Add node
-export async function POST(request: NextRequest) {
+export const POST = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
     
@@ -89,4 +90,7 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'node',
+  action: 'create'
+})

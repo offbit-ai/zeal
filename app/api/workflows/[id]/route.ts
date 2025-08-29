@@ -6,34 +6,45 @@ import {
   validateRequired,
   validateWorkflowNodes,
   validateWorkflowConnections,
-  mockDelay,
 } from '@/lib/api-utils'
 import { ApiError, WorkflowUpdateRequest } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import {
+  getTenantId,
+  validateTenantAccess,
+  addTenantContext,
+  createTenantViolationError
+} from '@/lib/auth/tenant-utils'
 
 // GET /api/workflows/[id] - Get specific workflow
-export const GET = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(100)
+export const GET = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context || !context.params || !context.params.id) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
-    }
+      if (!context || !context.params || !context.params.id) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+      }
 
-    const { id } = context.params
-    const userId = extractUserId(req)
+      const { id } = context.params
+      const userId = req.auth?.subject?.id || extractUserId(req)
 
-    // Get workflow
-    const workflow = await WorkflowDatabase.getWorkflow(id)
+      // Get workflow
+      const workflow = await WorkflowDatabase.getWorkflow(id)
 
-    if (!workflow) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
-    }
+      if (!workflow) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
+      }
 
-    // Check ownership
-    if (workflow.userId !== userId) {
-      throw new ApiError('FORBIDDEN', 'Not authorized to access this workflow', 403)
-    }
+      // Check tenant access (with fallback for resources without tenantId)
+      if (!validateTenantAccess(workflow, req as NextRequest)) {
+        return createTenantViolationError()
+      }
+
+      // Check ownership (fallback for resources without tenantId)
+      if (!workflow.tenantId && workflow.userId !== userId) {
+        throw new ApiError('FORBIDDEN', 'Not authorized to access this workflow', 403)
+      }
 
     // Get latest version
     const { versions } = await WorkflowDatabase.getWorkflowVersions(id, { limit: 1 })
@@ -75,20 +86,25 @@ export const GET = withErrorHandling(
     )
 
     return NextResponse.json(createSuccessResponse(response))
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'read'
   }
 )
 
 // PUT /api/workflows/[id] - Update workflow (creates new version)
-export const PUT = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(200)
+export const PUT = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context || !context.params || !context.params.id) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
-    }
+      if (!context || !context.params || !context.params.id) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+      }
 
-    const { id } = context.params
-    const userId = extractUserId(req)
+      const { id } = context.params
+      const userId = req.auth?.subject?.id || extractUserId(req)
 
     // Handle empty request body
     let body: WorkflowUpdateRequest
@@ -113,12 +129,15 @@ export const PUT = withErrorHandling(
       // Extract name from body or use a default
       const workflowName = body.name || 'Untitled Workflow'
 
-      // Create the workflow with the specific ID
-      await WorkflowDatabase.createWorkflowWithId(id, {
+      // Add tenant context for new workflow
+      const workflowData = addTenantContext({
         name: workflowName,
         description: body.description || '',
         userId,
-      })
+      }, req as NextRequest)
+
+      // Create the workflow with the specific ID
+      await WorkflowDatabase.createWorkflowWithId(id, workflowData)
 
       // Fetch the newly created workflow
       workflow = await WorkflowDatabase.getWorkflow(id)
@@ -126,8 +145,16 @@ export const PUT = withErrorHandling(
       if (!workflow) {
         throw new ApiError('CREATE_FAILED', 'Failed to create workflow', 500)
       }
-    } else if (workflow.userId !== userId) {
-      throw new ApiError('FORBIDDEN', 'Not authorized to update this workflow', 403)
+    } else {
+      // Check tenant access for existing workflow
+      if (!validateTenantAccess(workflow, req as NextRequest)) {
+        return createTenantViolationError()
+      }
+      
+      // Check ownership (fallback for resources without tenantId)
+      if (!workflow.tenantId && workflow.userId !== userId) {
+        throw new ApiError('FORBIDDEN', 'Not authorized to update this workflow', 403)
+      }
     }
 
     // Validate required fields
@@ -205,29 +232,52 @@ export const PUT = withErrorHandling(
     }
 
     return NextResponse.json(createSuccessResponse(response))
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'update'
   }
 )
 
 // DELETE /api/workflows/[id] - Delete workflow
-export const DELETE = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(150)
+export const DELETE = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context || !context.params || !context.params.id) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
-    }
+      if (!context || !context.params || !context.params.id) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+      }
 
-    const { id } = context.params
-    const userId = extractUserId(req)
+      const { id } = context.params
+      const userId = req.auth?.subject?.id || extractUserId(req)
 
-    // Delete workflow (includes authorization check)
-    // Delete workflow (cascades to versions and executions)
-    await WorkflowDatabase.deleteWorkflow(id, userId)
+      // Get workflow to check tenant access
+      const workflow = await WorkflowDatabase.getWorkflow(id)
+      if (workflow) {
+        // Check tenant access
+        if (!validateTenantAccess(workflow, req as NextRequest)) {
+          return createTenantViolationError()
+        }
+        
+        // Check ownership (fallback for resources without tenantId)
+        if (!workflow.tenantId && workflow.userId !== userId) {
+          throw new ApiError('FORBIDDEN', 'Not authorized to delete this workflow', 403)
+        }
+      }
+
+      // Delete workflow (cascades to versions and executions)
+      await WorkflowDatabase.deleteWorkflow(id, userId)
 
     return NextResponse.json(
       createSuccessResponse({
         message: `Workflow '${id}' has been deleted`,
       })
     )
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'delete'
   }
 )

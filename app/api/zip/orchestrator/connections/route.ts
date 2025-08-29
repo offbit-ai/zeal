@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { ConnectNodesResponse } from '@/types/zip'
 import { v4 as uuidv4 } from 'uuid'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 const connectNodesSchema = z.object({
   workflowId: z.string(),
@@ -24,10 +25,10 @@ const removeConnectionSchema = z.object({
 })
 
 // DELETE /api/zip/orchestrator/connections - Remove connection
-export async function DELETE(request: NextRequest) {
+export const DELETE = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
-    
+
     // Validate request
     const validation = removeConnectionSchema.safeParse(body)
     if (!validation.success) {
@@ -39,16 +40,16 @@ export async function DELETE(request: NextRequest) {
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, connectionId } = validation.data
-    
+
     // Use CRDT operations to remove connection
     await ServerCRDTOperations.removeConnection(
       workflowId,
       graphId || 'main',
       connectionId
     )
-    
+
     return NextResponse.json({
       success: true,
       message: 'Connection removed successfully',
@@ -63,13 +64,16 @@ export async function DELETE(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'delete'
+})
 
 // POST /api/zip/orchestrator/connections - Connect nodes
-export async function POST(request: NextRequest) {
+export const POST = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
-    
+
     // Validate request
     const validation = connectNodesSchema.safeParse(body)
     if (!validation.success) {
@@ -81,10 +85,10 @@ export async function POST(request: NextRequest) {
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, source, target } = validation.data
     const connectionId = uuidv4()
-    
+
     // Use CRDT operations to add connection
     const connectionData = await ServerCRDTOperations.connectNodes(
       workflowId,
@@ -96,12 +100,12 @@ export async function POST(request: NextRequest) {
         targetPortId: target.portId,
       }
     )
-    
+
     const response: ConnectNodesResponse = {
       connectionId,
       connection: connectionData,
     }
-    
+
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error connecting nodes:', error)
@@ -112,5 +116,9 @@ export async function POST(request: NextRequest) {
         traceId: `trace_${Date.now()}`,
       }
     }, { status: 500 })
+
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'create'
+})

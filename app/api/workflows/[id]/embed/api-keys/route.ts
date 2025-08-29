@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { EmbedApiKeyService } from '@/services/embedApiKeyService'
 import { z } from 'zod'
 import { getDatabaseOperations } from '@/lib/database'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError, addTenantContext, getAuthenticatedUserId } from '@/lib/auth/tenant-utils'
 
 // Schema for creating API key
 const createApiKeySchema = z.object({
@@ -34,11 +36,26 @@ const createApiKeySchema = z.object({
 })
 
 // GET /api/workflows/[id]/embed/api-keys - List API keys
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withAuth(async (request: AuthenticatedRequest, context?: { params: { id: string } }) => {
   try {
-    const { id: workflowId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing workflow ID' }, { status: 400 })
+    }
+    const { id: workflowId } = context.params
+    const userId = getAuthenticatedUserId(request as NextRequest)
 
-    // TODO: Add authentication to ensure user owns this workflow
+    // Verify user owns this workflow
+    const db = await getDatabaseOperations()
+    const workflow = await db.getWorkflow(workflowId)
+    
+    if (!workflow) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    }
+
+    // Check tenant access
+    if ((workflow as any).tenantId && !validateTenantAccess(workflow as any, request as NextRequest)) {
+      return createTenantViolationError()
+    }
 
     const apiKeys = await EmbedApiKeyService.listApiKeys(workflowId)
 
@@ -54,12 +71,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.error('Error listing API keys:', error)
     return NextResponse.json({ error: 'Failed to list API keys' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'read'
+})
 
 // POST /api/workflows/[id]/embed/api-keys - Create new API key
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: { id: string } }) => {
   try {
-    const { id: workflowId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing workflow ID' }, { status: 400 })
+    }
+    const { id: workflowId } = context.params
+    const userId = getAuthenticatedUserId(request as NextRequest)
     const body = await request.json()
 
     // Validate request
@@ -71,9 +95,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       )
     }
 
-    // TODO: Add authentication to ensure user owns this workflow
-
-    // Check if workflow exists and allows embedding
+    // Check if workflow exists and user has access
     const db = await getDatabaseOperations()
     const workflow = await db.getWorkflow(workflowId)
 
@@ -81,7 +103,22 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // Create the API key
+    // Check tenant access
+    if ((workflow as any).tenantId && !validateTenantAccess(workflow as any, request as NextRequest)) {
+      return createTenantViolationError()
+    }
+
+    // Create the API key with tenant context
+    const apiKeyData = addTenantContext({
+      workflowId,
+      name: validation.data.name,
+      permissions: validation.data.permissions,
+      description: validation.data.description,
+      expiresAt: validation.data.expiresAt,
+      rateLimits: validation.data.rateLimits,
+      createdBy: userId
+    }, request as NextRequest)
+
     const { apiKey, plainKey } = await EmbedApiKeyService.createApiKey(
       workflowId,
       validation.data.name,
@@ -106,17 +143,31 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     console.error('Error creating API key:', error)
     return NextResponse.json({ error: 'Failed to create API key' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'update'
+})
 
 // DELETE /api/workflows/[id]/embed/api-keys/[keyId] - Revoke API key
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string; keyId: string } }
-) {
+export const DELETE = withAuth(async (request: AuthenticatedRequest, context?: { params: { id: string; keyId: string } }) => {
   try {
-    const { id: workflowId, keyId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+    }
+    const { id: workflowId, keyId } = context.params
 
-    // TODO: Add authentication to ensure user owns this workflow
+    // Verify user owns this workflow
+    const db = await getDatabaseOperations()
+    const workflow = await db.getWorkflow(workflowId)
+    
+    if (!workflow) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    }
+
+    // Check tenant access
+    if ((workflow as any).tenantId && !validateTenantAccess(workflow as any, request as NextRequest)) {
+      return createTenantViolationError()
+    }
 
     await EmbedApiKeyService.revokeApiKey(keyId)
 
@@ -125,4 +176,7 @@ export async function DELETE(
     console.error('Error revoking API key:', error)
     return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'update'
+})

@@ -1,0 +1,508 @@
+# Zeal Authorization System Kubernetes Manifests
+# Can be used across all cloud providers (AWS, Azure, GCP, K3s)
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zeal-auth-config
+  namespace: zeal
+data:
+  # Authorization Configuration
+  ZEAL_AUTH_ENABLED: "true"
+  ZEAL_AUTH_MODE: "production"
+  
+  # Claim Mappings - Map JWT claims to Zeal's model
+  AUTH_CLAIM_SUBJECT_ID: "sub"
+  AUTH_CLAIM_TENANT: "tenant_id"
+  AUTH_CLAIM_ORGANIZATION: "org_id"
+  AUTH_CLAIM_ROLES: "roles"
+  AUTH_CLAIM_PERMISSIONS: "permissions"
+  AUTH_CLAIM_EMAIL: "email"
+  AUTH_CLAIM_NAME: "name"
+  
+  # Additional claim mappings
+  AUTH_CLAIM_TEAMS: "teams"
+  AUTH_CLAIM_GROUPS: "groups"
+  AUTH_CLAIM_SESSION_ID: "sid"
+  AUTH_CLAIM_CLIENT_ID: "client_id"
+  
+  # Policy Configuration
+  ZEAL_AUTH_POLICIES_PATH: "/config/auth-policies.yaml"
+  ZEAL_AUTH_DEFAULT_EFFECT: "deny"
+  ZEAL_AUTH_POLICY_STRATEGY: "priority"
+  
+  # Cache Configuration
+  ZEAL_AUTH_CACHE_ENABLED: "true"
+  ZEAL_AUTH_CACHE_TTL: "300"
+  ZEAL_AUTH_CACHE_PROVIDER: "redis"
+  
+  # Redis Cache Settings
+  ZEAL_AUTH_REDIS_PREFIX: "zeal:auth:"
+  
+  # Audit Configuration
+  ZEAL_AUTH_AUDIT_ENABLED: "true"
+  ZEAL_AUTH_AUDIT_LEVEL: "info"
+  ZEAL_AUTH_AUDIT_DB: "true"
+  ZEAL_AUTH_AUDIT_TABLE: "audit_logs"
+  ZEAL_AUTH_AUDIT_BUFFER: "true"
+  ZEAL_AUTH_AUDIT_BUFFER_SIZE: "100"
+  ZEAL_AUTH_AUDIT_BUFFER_FLUSH: "10"
+  ZEAL_AUTH_AUDIT_SAMPLE_RATE: "1.0"
+  
+  # Database Configuration
+  ZEAL_AUTH_USE_WORKFLOW_DB: "true"
+  ZEAL_AUTH_SCHEMA_NAME: "zeal_auth"
+  ZEAL_AUTH_SCHEMA_PER_TENANT: "false"
+  ZEAL_AUTH_ENABLE_RLS: "false"
+  
+  # Hierarchy Configuration
+  ZEAL_AUTH_HIERARCHY_ENABLED: "true"
+  ZEAL_AUTH_HIERARCHY_CACHE_TTL: "300"
+  ZEAL_AUTH_HIERARCHY_CACHE_SIZE: "1000"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zeal-auth-secret
+  namespace: zeal
+type: Opaque
+stringData:
+  # Identity Provider Configuration
+  # These should be updated with your actual identity provider details
+  AUTH_JWT_ISSUER: "https://your-identity-provider.com"
+  AUTH_JWT_AUDIENCE: "https://api.your-app.com"
+  AUTH_JWT_JWKS_URI: "https://your-identity-provider.com/.well-known/jwks.json"
+  
+  # Optional: Static public key (if not using JWKS)
+  # AUTH_JWT_PUBLIC_KEY: |
+  #   -----BEGIN PUBLIC KEY-----
+  #   YOUR_PUBLIC_KEY_HERE
+  #   -----END PUBLIC KEY-----
+  
+  # Optional: API key validation endpoint
+  # AUTH_API_KEY_VALIDATION_ENDPOINT: "https://your-identity-provider.com/api/keys/validate"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-policies
+  namespace: zeal
+data:
+  auth-policies.yaml: |
+    version: "1.0"
+    metadata:
+      description: "Production authorization policies for Zeal"
+      environment: production
+      
+    # Resource definitions
+    resources:
+      - type: workflow
+        attributes: [id, owner, organizationId, tenantId, status, visibility]
+      - type: node_template
+        attributes: [id, category, tier, restricted]
+      - type: orchestrator
+        attributes: [id, type, owner]
+      - type: execution
+        attributes: [id, workflowId, status]
+      - type: api_endpoint
+        attributes: [path, method]
+    
+    # Policy definitions
+    policies:
+      # ========================================
+      # System Admin Policies
+      # ========================================
+      
+      - id: system-admin-full-access
+        description: "System administrators have unrestricted access"
+        priority: 10000
+        effect: allow
+        resources:
+          - type: "*"
+        actions: ["*"]
+        subjects:
+          conditions:
+            - claim: roles
+              operator: contains
+              value: "system_admin"
+      
+      # ========================================
+      # Tenant Isolation
+      # ========================================
+      
+      - id: enforce-tenant-isolation
+        description: "Enforce strict tenant isolation"
+        priority: 9999
+        effect: deny
+        resources:
+          - type: "*"
+            conditions:
+              - attribute: tenantId
+                operator: exists
+              - attribute: tenantId
+                operator: not_equals
+                value: "${subject.tenantId}"
+        actions: ["*"]
+        subjects:
+          conditions:
+            - claim: tenantId
+              operator: exists
+      
+      # ========================================
+      # Organization Policies
+      # ========================================
+      
+      - id: org-admin-access
+        description: "Organization admins can manage org resources"
+        priority: 1000
+        effect: allow
+        resources:
+          - type: "*"
+            conditions:
+              - attribute: organizationId
+                operator: equals
+                value: "${subject.organizationId}"
+        actions: ["*"]
+        subjects:
+          conditions:
+            - claim: roles
+              operator: contains
+              value: "org_admin"
+      
+      - id: org-member-read-access
+        description: "Organization members can read org resources"
+        priority: 900
+        effect: allow
+        resources:
+          - type: "*"
+            conditions:
+              - attribute: organizationId
+                operator: equals
+                value: "${subject.organizationId}"
+              - attribute: visibility
+                operator: in
+                values: ["organization", "public"]
+        actions: ["read", "execute"]
+        subjects:
+          conditions:
+            - claim: organizationId
+              operator: exists
+      
+      # ========================================
+      # Workflow Policies
+      # ========================================
+      
+      - id: workflow-owner-full-access
+        description: "Workflow owners have full control"
+        priority: 800
+        effect: allow
+        resources:
+          - type: workflow
+            conditions:
+              - attribute: owner
+                operator: equals
+                value: "${subject.id}"
+        actions: ["*"]
+      
+      - id: workflow-collaboration
+        description: "Shared workflows can be edited by team members"
+        priority: 700
+        effect: allow
+        resources:
+          - type: workflow
+            conditions:
+              - attribute: visibility
+                operator: equals
+                value: "team"
+        actions: ["read", "update", "execute"]
+        subjects:
+          conditions:
+            - claim: teams
+              operator: overlaps
+              value: "${resource.sharedWith}"
+      
+      - id: workflow-public-read
+        description: "Public workflows are readable by all"
+        priority: 600
+        effect: allow
+        resources:
+          - type: workflow
+            conditions:
+              - attribute: visibility
+                operator: equals
+                value: "public"
+        actions: ["read"]
+      
+      # ========================================
+      # Node Template Policies
+      # ========================================
+      
+      - id: node-template-basic-access
+        description: "All users can use basic templates"
+        priority: 500
+        effect: allow
+        resources:
+          - type: node_template
+            conditions:
+              - attribute: tier
+                operator: equals
+                value: "basic"
+        actions: ["read", "use"]
+      
+      - id: node-template-premium-access
+        description: "Premium templates for premium users"
+        priority: 400
+        effect: allow
+        resources:
+          - type: node_template
+            conditions:
+              - attribute: tier
+                operator: in
+                values: ["basic", "premium"]
+        actions: ["read", "use"]
+        subjects:
+          conditions:
+            - claim: planTier
+              operator: in
+              values: ["premium", "enterprise"]
+      
+      - id: node-template-restricted-deny
+        description: "Restricted templates require special permission"
+        priority: 350
+        effect: deny
+        resources:
+          - type: node_template
+            conditions:
+              - attribute: restricted
+                operator: equals
+                value: true
+        actions: ["use"]
+        subjects:
+          conditions:
+            - claim: permissions
+              operator: not_contains
+              value: "node_template.restricted.use"
+      
+      # ========================================
+      # API Endpoint Policies
+      # ========================================
+      
+      - id: api-public-endpoints
+        description: "Public API endpoints"
+        priority: 300
+        effect: allow
+        resources:
+          - type: api_endpoint
+            conditions:
+              - attribute: path
+                operator: matches
+                pattern: "^/api/(health|status|public).*"
+        actions: ["*"]
+      
+      - id: api-auth-required
+        description: "Most endpoints require authentication"
+        priority: 100
+        effect: deny
+        resources:
+          - type: api_endpoint
+            conditions:
+              - attribute: path
+                operator: matches
+                pattern: "^/api/.*"
+        actions: ["*"]
+        subjects:
+          conditions:
+            - claim: sub
+              operator: not_exists
+      
+      # ========================================
+      # Compliance Policies
+      # ========================================
+      
+      - id: require-verification-for-production
+        description: "Production resources require verified users"
+        priority: 200
+        effect: deny
+        resources:
+          - type: workflow
+            conditions:
+              - attribute: environment
+                operator: equals
+                value: "production"
+        actions: ["create", "update", "publish"]
+        subjects:
+          conditions:
+            - claim: verificationStatus
+              operator: not_equals
+              value: "verified"
+      
+      # ========================================
+      # Default Policies
+      # ========================================
+      
+      - id: authenticated-user-basic-access
+        description: "Authenticated users have basic access"
+        priority: 50
+        effect: allow
+        resources:
+          - type: workflow
+        actions: ["create"]
+        subjects:
+          conditions:
+            - claim: sub
+              operator: exists
+      
+      - id: default-deny
+        description: "Deny by default"
+        priority: 1
+        effect: deny
+        resources:
+          - type: "*"
+        actions: ["*"]
+        
+    # Audit obligations
+    obligations:
+      - id: audit-critical
+        triggers:
+          - resources: ["workflow", "orchestrator"]
+            actions: ["delete", "publish"]
+        actions:
+          - type: audit
+            level: critical
+            includeRequestBody: true
+      
+      - id: audit-admin
+        triggers:
+          - subjects:
+              roles: ["system_admin", "org_admin"]
+        actions:
+          - type: audit
+            level: info
+            
+    # Policy evaluation settings
+    evaluation:
+      strategy: priority
+      defaultEffect: deny
+      cache:
+        enabled: true
+        ttl: 300
+      conflictResolution:
+        precedence: [deny, filter, allow]
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zeal-auth-db-init
+  namespace: zeal
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: auth-db-init
+        image: postgres:15-alpine
+        env:
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-config
+              key: host
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-config
+              key: database
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready; do
+            echo "PostgreSQL is not ready yet..."
+            sleep 2
+          done
+          
+          echo "Initializing auth database schema..."
+          psql << 'EOSQL'
+          -- Create auth schema
+          CREATE SCHEMA IF NOT EXISTS zeal_auth;
+          
+          -- Create policies table
+          CREATE TABLE IF NOT EXISTS zeal_auth.policies (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              name VARCHAR(255) NOT NULL,
+              description TEXT,
+              effect VARCHAR(20) NOT NULL CHECK (effect IN ('allow', 'deny', 'filter')),
+              priority INTEGER DEFAULT 100,
+              resources JSONB NOT NULL,
+              actions TEXT[] NOT NULL,
+              subjects JSONB,
+              conditions JSONB,
+              obligations JSONB,
+              tenant_id VARCHAR(255),
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(name, tenant_id)
+          );
+          
+          -- Create hierarchy table
+          CREATE TABLE IF NOT EXISTS zeal_auth.hierarchy (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              tenant_id VARCHAR(255) NOT NULL,
+              type VARCHAR(50) NOT NULL,
+              parent_id UUID REFERENCES zeal_auth.hierarchy(id),
+              name VARCHAR(255) NOT NULL,
+              attributes JSONB,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+          
+          -- Create audit log table (partitioned)
+          CREATE TABLE IF NOT EXISTS zeal_auth.audit_logs (
+              id UUID DEFAULT gen_random_uuid(),
+              timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              type VARCHAR(100) NOT NULL,
+              level VARCHAR(20),
+              subject JSONB NOT NULL,
+              resource JSONB,
+              action VARCHAR(100),
+              result VARCHAR(20),
+              reason TEXT,
+              metadata JSONB,
+              tenant_id VARCHAR(255),
+              PRIMARY KEY (timestamp, id)
+          ) PARTITION BY RANGE (timestamp);
+          
+          -- Create default partition
+          CREATE TABLE IF NOT EXISTS zeal_auth.audit_logs_default 
+              PARTITION OF zeal_auth.audit_logs DEFAULT;
+          
+          -- Create indexes
+          CREATE INDEX IF NOT EXISTS idx_policies_tenant ON zeal_auth.policies(tenant_id);
+          CREATE INDEX IF NOT EXISTS idx_policies_priority ON zeal_auth.policies(priority DESC);
+          CREATE INDEX IF NOT EXISTS idx_hierarchy_tenant ON zeal_auth.hierarchy(tenant_id);
+          CREATE INDEX IF NOT EXISTS idx_hierarchy_parent ON zeal_auth.hierarchy(parent_id);
+          CREATE INDEX IF NOT EXISTS idx_audit_tenant_timestamp ON zeal_auth.audit_logs(tenant_id, timestamp DESC);
+          CREATE INDEX IF NOT EXISTS idx_audit_type_timestamp ON zeal_auth.audit_logs(type, timestamp DESC);
+          
+          -- Grant permissions
+          GRANT ALL ON SCHEMA zeal_auth TO zeal_user;
+          GRANT ALL ON ALL TABLES IN SCHEMA zeal_auth TO zeal_user;
+          GRANT ALL ON ALL SEQUENCES IN SCHEMA zeal_auth TO zeal_user;
+          
+          echo "Auth schema initialization complete!"
+          EOSQL

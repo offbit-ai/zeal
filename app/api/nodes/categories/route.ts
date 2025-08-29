@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuccessResponse, withErrorHandling, extractUserId, mockDelay } from '@/lib/api-utils'
+import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { apiCache, CACHE_TTL, invalidateCache } from '@/lib/api-cache'
 import { nodeTemplateService } from '@/services/nodeTemplateService'
 import { getCategoryOperations } from '@/lib/database-category-operations'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { addTenantContext } from '@/lib/auth/tenant-utils'
 
 interface NodeCategoryResponse {
   name: string
@@ -21,7 +23,8 @@ interface NodeCategoryResponse {
 }
 
 // GET /api/nodes/categories - List node categories
-export const GET = withErrorHandling(async (req: NextRequest) => {
+export const GET = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
   // Generate cache key
   const cacheKey = apiCache.generateKey(req)
 
@@ -31,10 +34,9 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     return NextResponse.json(cachedResponse)
   }
 
-  await mockDelay(75)
 
   const { searchParams } = new URL(req.url)
-  const _userId = extractUserId(req) // Prefix with _ to indicate intentionally unused
+  const userId = req.auth?.subject?.id || extractUserId(req)
 
   const includeSubcategories = searchParams.get('include_subcategories') !== 'false'
   const includeInactive = searchParams.get('include_inactive') === 'true'
@@ -64,13 +66,18 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   apiCache.set(cacheKey, response, CACHE_TTL.CATEGORIES)
 
   return NextResponse.json(response)
-})
+  }),
+  {
+    resource: 'nodes',
+    action: 'read'
+  }
+)
 
 // POST /api/nodes/categories - Create new category
-export const POST = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(150)
+export const POST = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
 
-  const userId = extractUserId(req)
+  const userId = req.auth?.subject?.id || extractUserId(req)
   const body = await req.json()
 
   // Validate required fields
@@ -91,8 +98,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       )
     }
 
-    // Create new category
-    const createdCategory = await categoryOps.createCategory({
+    // Create new category with tenant context
+    const categoryData = addTenantContext({
       name: body.name,
       displayName: body.displayName,
       description: body.description || '',
@@ -101,7 +108,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       sortOrder: body.sortOrder,
       createdBy: userId,
       updatedBy: userId,
-    })
+    }, req as NextRequest)
+    
+    const createdCategory = await categoryOps.createCategory(categoryData)
 
     // Create subcategories if provided
     const subcategoriesWithCounts = []
@@ -141,4 +150,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     if (error instanceof ApiError) throw error
     throw new ApiError('INTERNAL_ERROR', 'Failed to create category', 500)
   }
-})
+  }),
+  {
+    resource: 'nodes',
+    action: 'create'
+  }
+)

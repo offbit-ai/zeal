@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { apiCache } from '@/lib/api-cache'
 import { ApiError } from '@/types/api'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
 
 // GET /api/cache/stats - Get cache statistics (admin only)
-export const GET = withErrorHandling(async (req: NextRequest) => {
-  const userId = extractUserId(req)
-
-  // In real implementation, check if user has admin permissions
-  // For now, allow all authenticated users to view cache stats
-  if (!userId) {
-    throw new ApiError('UNAUTHORIZED', 'Authentication required', 401)
+export const GET = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
+  if (!context || !context.params) {
+    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+  }
+  
+  // Cache stats are system-level - require admin access for multi-tenant environments
+  const tenantId = request.auth?.subject?.tenantId
+  const isAdmin = request.auth?.subject?.roles?.includes('admin')
+  
+  if (tenantId && !isAdmin) {
+    return NextResponse.json({ error: 'Insufficient permissions. Cache statistics require admin access.' }, { status: 403 })
   }
 
   const stats = apiCache.getStats()
@@ -29,19 +35,28 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       timestamp: new Date().toISOString(),
     })
   )
+}, {
+  resource: 'workflow',
+  action: 'read'
 })
 
 // DELETE /api/cache/stats - Clear cache (admin only)
-export const DELETE = withErrorHandling(async (req: NextRequest) => {
-  const userId = extractUserId(req)
-  const { searchParams } = new URL(req.url)
+export const DELETE = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
+  if (!context || !context.params) {
+    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+  }
+  
+  // Cache clearing is system-level - require admin access for multi-tenant environments  
+  const tenantId = request.auth?.subject?.tenantId
+  const isAdmin = request.auth?.subject?.roles?.includes('admin')
+  
+  if (tenantId && !isAdmin) {
+    return NextResponse.json({ error: 'Insufficient permissions. Cache clearing requires admin access.' }, { status: 403 })
+  }
+
+  const { searchParams } = new URL(request.url)
   const pattern = searchParams.get('pattern')
   const clearAll = searchParams.get('clear_all') === 'true'
-
-  // In real implementation, check if user has admin permissions
-  if (!userId.startsWith('admin_')) {
-    throw new ApiError('FORBIDDEN', 'Only administrators can clear cache', 403)
-  }
 
   if (clearAll) {
     apiCache.clearAll()
@@ -64,6 +79,7 @@ export const DELETE = withErrorHandling(async (req: NextRequest) => {
   }
 
   // Clear current user's cache by default
+  const userId = request.auth?.subject?.id || 'unknown'
   apiCache.clearUserCache(userId)
   return NextResponse.json(
     createSuccessResponse({
@@ -71,4 +87,7 @@ export const DELETE = withErrorHandling(async (req: NextRequest) => {
       timestamp: new Date().toISOString(),
     })
   )
+}, {
+  resource: 'workflow',
+  action: 'delete'
 })

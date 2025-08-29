@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuccessResponse, withErrorHandling, extractUserId, mockDelay } from '@/lib/api-utils'
+import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 interface NodeTemplateResponse {
   id: string
@@ -196,10 +197,10 @@ interface ValidateNodeResponse {
 }
 
 // POST /api/nodes/validate - Validate node configuration
-export const POST = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(100)
+export const POST = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
 
-  const _userId = extractUserId(req) // Prefix with _ to indicate intentionally unused
+  const userId = req.auth?.subject?.id || extractUserId(req)
   const body: ValidateNodeRequest = await req.json()
 
   if (!body.nodeTemplateId) {
@@ -410,4 +411,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       requestId: `req_${Date.now()}`,
     })
   )
-})
+  }),
+  {
+    resource: 'nodes',
+    action: 'read'
+  }
+)

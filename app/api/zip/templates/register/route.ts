@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getTemplateOperations } from '@/lib/database-template-operations'
 import { RegisterTemplatesResponse } from '@/types/zip'
+import { withZIPAuthorization, getAuthenticatedUserId } from '@/lib/auth/zip-middleware'
 
 // Template validation schema
 const nodeTemplateSchema = z.object({
@@ -64,7 +65,7 @@ const registerTemplatesSchema = z.object({
 })
 
 // POST /api/zip/templates/register
-export async function POST(request: NextRequest) {
+export const POST = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
     
@@ -175,8 +176,8 @@ export async function POST(request: NextRequest) {
             runtime: template.runtime,
             webhookUrl,
           },
-          createdBy: 'zip-integration',
-          updatedBy: 'zip-integration',
+          createdBy: getAuthenticatedUserId(request),
+          updatedBy: getAuthenticatedUserId(request),
           createdAt: new Date(),
           updatedAt: new Date(),
         } as any)
@@ -216,4 +217,7 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'templates',
+  action: 'create'
+})

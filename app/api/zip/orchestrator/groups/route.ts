@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { v4 as uuidv4 } from 'uuid'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 const createGroupSchema = z.object({
   workflowId: z.string(),
@@ -29,10 +30,10 @@ const updateGroupSchema = z.object({
 })
 
 // DELETE /api/zip/orchestrator/groups - Remove group
-export async function DELETE(request: NextRequest) {
+export const DELETE = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
-    
+
     // Validate request
     const validation = removeGroupSchema.safeParse(body)
     if (!validation.success) {
@@ -44,16 +45,16 @@ export async function DELETE(request: NextRequest) {
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, groupId } = validation.data
-    
+
     // Use CRDT operations to remove group
     await ServerCRDTOperations.removeGroup(
       workflowId,
       graphId || 'main',
       groupId
     )
-    
+
     return NextResponse.json({
       success: true,
       message: 'Group removed successfully',
@@ -68,13 +69,16 @@ export async function DELETE(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'delete'
+})
 
 // PATCH /api/zip/orchestrator/groups - Update group properties
-export async function PATCH(request: NextRequest) {
+export const PATCH = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
-    
+
     // Validate request
     const validation = updateGroupSchema.safeParse(body)
     if (!validation.success) {
@@ -86,9 +90,9 @@ export async function PATCH(request: NextRequest) {
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, groupId, ...updates } = validation.data
-    
+
     // Use CRDT operations to update group
     const updatedGroup = await ServerCRDTOperations.updateGroupProperties(
       workflowId,
@@ -96,7 +100,7 @@ export async function PATCH(request: NextRequest) {
       groupId,
       updates
     )
-    
+
     return NextResponse.json({
       success: true,
       group: updatedGroup,
@@ -111,13 +115,16 @@ export async function PATCH(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'update'
+})
 
 // POST /api/zip/orchestrator/groups - Create node group
-export async function POST(request: NextRequest) {
+export const POST = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
-    
+
     // Validate request
     const validation = createGroupSchema.safeParse(body)
     if (!validation.success) {
@@ -129,10 +136,10 @@ export async function POST(request: NextRequest) {
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, title, nodeIds, color, description } = validation.data
     const groupId = uuidv4()
-    
+
     // Use CRDT operations to add group
     const groupData = await ServerCRDTOperations.createNodeGroup(
       workflowId,
@@ -144,7 +151,7 @@ export async function POST(request: NextRequest) {
         color: color || '#6B7280',
       }
     )
-    
+
     return NextResponse.json({
       success: true,
       groupId,
@@ -160,4 +167,7 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'create'
+})

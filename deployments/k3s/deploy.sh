@@ -23,6 +23,8 @@ STORAGE_CLASS="${STORAGE_CLASS:-local-path}"
 ENABLE_MONITORING="${ENABLE_MONITORING:-true}"
 ENABLE_BACKUPS="${ENABLE_BACKUPS:-true}"
 ENABLE_TLS="${ENABLE_TLS:-true}"
+ENABLE_AUTH="${ENABLE_AUTH:-true}"
+AUTH_MODE="${AUTH_MODE:-production}"
 POSTGRES_STORAGE_SIZE="${POSTGRES_STORAGE_SIZE:-20Gi}"
 TIMESCALE_STORAGE_SIZE="${TIMESCALE_STORAGE_SIZE:-50Gi}"
 REDIS_STORAGE_SIZE="${REDIS_STORAGE_SIZE:-10Gi}"
@@ -32,6 +34,11 @@ MINIO_STORAGE_SIZE="${MINIO_STORAGE_SIZE:-100Gi}"
 TIMESCALE_RETENTION_FLOW_TRACES="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
 TIMESCALE_RETENTION_TRACE_EVENTS="${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"
 TIMESCALE_RETENTION_SESSIONS="${TIMESCALE_RETENTION_SESSIONS:-90 days}"
+
+# Auth Configuration
+AUTH_JWT_ISSUER="${AUTH_JWT_ISSUER:-}"
+AUTH_JWT_AUDIENCE="${AUTH_JWT_AUDIENCE:-}"
+AUTH_JWT_JWKS_URI="${AUTH_JWT_JWKS_URI:-}"
 
 # Function to print colored output
 log() {
@@ -699,6 +706,12 @@ spec:
         envFrom:
         - configMapRef:
             name: zeal-config
+        - configMapRef:
+            name: zeal-auth-config
+            optional: true
+        - secretRef:
+            name: zeal-auth-secret
+            optional: true
         env:
         - name: DATABASE_PASSWORD
           valueFrom:
@@ -727,6 +740,10 @@ spec:
               key: database-password
         ports:
         - containerPort: 3000
+        volumeMounts:
+        - name: auth-policies
+          mountPath: /config
+          readOnly: true
         resources:
           requests:
             memory: "512Mi"
@@ -746,6 +763,11 @@ spec:
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5
+      volumes:
+      - name: auth-policies
+        configMap:
+          name: auth-policies
+          optional: true
 EOF
     
     kubectl apply -f "$SCRIPT_DIR/manifests/zeal-app.yaml"
@@ -829,6 +851,280 @@ EOF
     kubectl apply -f "$SCRIPT_DIR/manifests/cors-middleware.yaml"
     kubectl apply -f "$SCRIPT_DIR/manifests/ingress.yaml"
     log $GREEN "✅ Ingress deployed"
+}
+
+# Function to deploy auth system
+deploy_auth() {
+    if [ "$ENABLE_AUTH" = "true" ]; then
+        log $BLUE "🔐 Deploying authorization system..."
+        
+        # Create auth database schema initialization script
+        cat > "$SCRIPT_DIR/manifests/auth-init.sql" <<'EOSQL'
+-- Create auth schema
+CREATE SCHEMA IF NOT EXISTS zeal_auth;
+
+-- Create policies table
+CREATE TABLE IF NOT EXISTS zeal_auth.policies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    effect VARCHAR(20) NOT NULL CHECK (effect IN ('allow', 'deny', 'filter')),
+    priority INTEGER DEFAULT 100,
+    resources JSONB NOT NULL,
+    actions TEXT[] NOT NULL,
+    subjects JSONB,
+    conditions JSONB,
+    obligations JSONB,
+    tenant_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(name, tenant_id)
+);
+
+-- Create hierarchy table
+CREATE TABLE IF NOT EXISTS zeal_auth.hierarchy (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    parent_id UUID REFERENCES zeal_auth.hierarchy(id),
+    name VARCHAR(255) NOT NULL,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create audit log table
+CREATE TABLE IF NOT EXISTS zeal_auth.audit_logs (
+    id UUID DEFAULT gen_random_uuid(),
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    type VARCHAR(100) NOT NULL,
+    level VARCHAR(20),
+    subject JSONB NOT NULL,
+    resource JSONB,
+    action VARCHAR(100),
+    result VARCHAR(20),
+    reason TEXT,
+    metadata JSONB,
+    tenant_id VARCHAR(255),
+    PRIMARY KEY (timestamp, id)
+) PARTITION BY RANGE (timestamp);
+
+-- Create default partition
+CREATE TABLE IF NOT EXISTS zeal_auth.audit_logs_default 
+    PARTITION OF zeal_auth.audit_logs DEFAULT;
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_policies_tenant ON zeal_auth.policies(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_policies_priority ON zeal_auth.policies(priority DESC);
+CREATE INDEX IF NOT EXISTS idx_hierarchy_tenant ON zeal_auth.hierarchy(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_hierarchy_parent ON zeal_auth.hierarchy(parent_id);
+CREATE INDEX IF NOT EXISTS idx_audit_tenant_timestamp ON zeal_auth.audit_logs(tenant_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_type_timestamp ON zeal_auth.audit_logs(type, timestamp DESC);
+
+-- Grant permissions
+GRANT ALL ON SCHEMA zeal_auth TO zeal_user;
+GRANT ALL ON ALL TABLES IN SCHEMA zeal_auth TO zeal_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA zeal_auth TO zeal_user;
+EOSQL
+        
+        # Create tenant isolation migration
+        cat > "$SCRIPT_DIR/manifests/tenant-isolation.sql" <<'EOSQL'
+-- Add tenant_id columns to all relevant tables
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE workflow_versions ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE workflow_snapshots ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE workflow_snapshots ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE env_vars ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE env_vars ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE flow_trace_sessions ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE flow_trace_sessions ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE flow_traces ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE flow_traces ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE embed_api_keys ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE embed_api_keys ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE embed_sessions ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE embed_sessions ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE node_templates ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE node_templates ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE node_templates ADD COLUMN IF NOT EXISTS "visibility" TEXT DEFAULT 'private';
+ALTER TABLE template_usage ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE template_usage ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE dynamic_templates ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE dynamic_templates ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+ALTER TABLE zip_webhooks ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+ALTER TABLE zip_webhooks ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
+
+-- Create indexes for tenant queries
+CREATE INDEX IF NOT EXISTS idx_workflows_tenant ON workflows("tenantId");
+CREATE INDEX IF NOT EXISTS idx_workflows_org ON workflows("organizationId");
+CREATE INDEX IF NOT EXISTS idx_workflow_versions_tenant ON workflow_versions("tenantId");
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant ON workflow_executions("tenantId");
+CREATE INDEX IF NOT EXISTS idx_workflow_snapshots_tenant ON workflow_snapshots("tenantId");
+CREATE INDEX IF NOT EXISTS idx_env_vars_tenant ON env_vars("tenantId");
+CREATE INDEX IF NOT EXISTS idx_flow_trace_sessions_tenant ON flow_trace_sessions("tenantId");
+CREATE INDEX IF NOT EXISTS idx_flow_traces_tenant ON flow_traces("tenantId");
+CREATE INDEX IF NOT EXISTS idx_embed_api_keys_tenant ON embed_api_keys("tenantId");
+CREATE INDEX IF NOT EXISTS idx_embed_sessions_tenant ON embed_sessions("tenantId");
+CREATE INDEX IF NOT EXISTS idx_node_templates_tenant ON node_templates("tenantId");
+CREATE INDEX IF NOT EXISTS idx_template_usage_tenant ON template_usage("tenantId");
+CREATE INDEX IF NOT EXISTS idx_dynamic_templates_tenant ON dynamic_templates("tenantId");
+CREATE INDEX IF NOT EXISTS idx_zip_webhooks_tenant ON zip_webhooks("tenantId");
+EOSQL
+        
+        # Add auth schema and tenant isolation to postgres init ConfigMap
+        kubectl create configmap postgres-auth-init \
+            --from-file="$SCRIPT_DIR/manifests/auth-init.sql" \
+            --from-file="$SCRIPT_DIR/manifests/tenant-isolation.sql" \
+            --namespace=$NAMESPACE \
+            --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Create auth policies ConfigMap
+        cat > "$SCRIPT_DIR/manifests/auth-policies.yaml" <<'EOF'
+version: "1.0"
+metadata:
+  description: "Production authorization policies for Zeal"
+  
+policies:
+  # Admin full access
+  - id: admin-full-access
+    description: "Administrators have full access"
+    priority: 1000
+    effect: allow
+    resources:
+      - type: "*"
+    actions: ["*"]
+    subjects:
+      conditions:
+        - claim: roles
+          operator: contains
+          value: "admin"
+  
+  # Workflow owner access
+  - id: workflow-owner-access
+    description: "Workflow owners have full access to their workflows"
+    priority: 100
+    effect: allow
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: owner
+            operator: equals
+            value: "${subject.id}"
+    actions: ["*"]
+  
+  # Organization read access
+  - id: org-read-access
+    description: "Organization members can read organization resources"
+    priority: 90
+    effect: allow
+    resources:
+      - type: workflow
+        conditions:
+          - attribute: organizationId
+            operator: equals
+            value: "${subject.organizationId}"
+    actions: ["read", "execute"]
+  
+  # Tenant isolation
+  - id: tenant-isolation
+    description: "Enforce tenant isolation"
+    priority: 10000
+    effect: deny
+    resources:
+      - type: "*"
+        conditions:
+          - attribute: tenantId
+            operator: exists
+          - attribute: tenantId
+            operator: not_equals
+            value: "${subject.tenantId}"
+    actions: ["*"]
+    subjects:
+      conditions:
+        - claim: tenantId
+          operator: exists
+  
+  # Default deny
+  - id: default-deny
+    description: "Deny by default"
+    priority: 1
+    effect: deny
+    resources:
+      - type: "*"
+    actions: ["*"]
+EOF
+        
+        kubectl create configmap auth-policies \
+            --from-file="$SCRIPT_DIR/manifests/auth-policies.yaml" \
+            --namespace=$NAMESPACE \
+            --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Create auth environment ConfigMap
+        cat > "$SCRIPT_DIR/manifests/auth-env.yaml" <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zeal-auth-config
+  namespace: $NAMESPACE
+data:
+  ZEAL_AUTH_ENABLED: "true"
+  ZEAL_AUTH_MODE: "$AUTH_MODE"
+  
+  # Claim mappings
+  AUTH_CLAIM_SUBJECT_ID: "sub"
+  AUTH_CLAIM_TENANT: "tenant_id"
+  AUTH_CLAIM_ORGANIZATION: "org_id"
+  AUTH_CLAIM_ROLES: "roles"
+  AUTH_CLAIM_PERMISSIONS: "permissions"
+  
+  # Policy configuration
+  ZEAL_AUTH_POLICIES_PATH: "/config/auth-policies.yaml"
+  ZEAL_AUTH_DEFAULT_EFFECT: "deny"
+  
+  # Cache configuration
+  ZEAL_AUTH_CACHE_ENABLED: "true"
+  ZEAL_AUTH_CACHE_TTL: "300"
+  ZEAL_AUTH_CACHE_PROVIDER: "redis"
+  
+  # Audit configuration
+  ZEAL_AUTH_AUDIT_ENABLED: "true"
+  ZEAL_AUTH_AUDIT_LEVEL: "info"
+  ZEAL_AUTH_AUDIT_DB: "true"
+  
+  # Database configuration
+  ZEAL_AUTH_USE_WORKFLOW_DB: "true"
+  ZEAL_AUTH_SCHEMA_NAME: "zeal_auth"
+  ZEAL_AUTH_ENABLE_RLS: "false"
+EOF
+        
+        kubectl apply -f "$SCRIPT_DIR/manifests/auth-env.yaml"
+        
+        # Create auth Secret for JWT configuration
+        if [ -n "$AUTH_JWT_ISSUER" ] && [ -n "$AUTH_JWT_AUDIENCE" ] && [ -n "$AUTH_JWT_JWKS_URI" ]; then
+            kubectl create secret generic zeal-auth-secret \
+                --from-literal=AUTH_JWT_ISSUER="$AUTH_JWT_ISSUER" \
+                --from-literal=AUTH_JWT_AUDIENCE="$AUTH_JWT_AUDIENCE" \
+                --from-literal=AUTH_JWT_JWKS_URI="$AUTH_JWT_JWKS_URI" \
+                --namespace=$NAMESPACE \
+                --dry-run=client -o yaml | kubectl apply -f -
+        else
+            log $YELLOW "⚠️  No JWT configuration provided. Using placeholder values."
+            log $YELLOW "   Update the secret later with: kubectl edit secret zeal-auth-secret -n $NAMESPACE"
+            
+            kubectl create secret generic zeal-auth-secret \
+                --from-literal=AUTH_JWT_ISSUER="https://your-identity-provider.com" \
+                --from-literal=AUTH_JWT_AUDIENCE="https://api.your-app.com" \
+                --from-literal=AUTH_JWT_JWKS_URI="https://your-identity-provider.com/.well-known/jwks.json" \
+                --namespace=$NAMESPACE \
+                --dry-run=client -o yaml | kubectl apply -f -
+        fi
+        
+        log $GREEN "✅ Authorization system deployed"
+    fi
 }
 
 # Function to deploy monitoring stack
@@ -962,6 +1258,17 @@ display_access_info() {
 ║  📡 ZIP WebSocket: wss://$DOMAIN/zip/events               ║
 ║                                                           ║"
     
+    if [ "$ENABLE_AUTH" = "true" ]; then
+        log $CYAN "║  🔐 Auth Status:   Enabled                                ║"
+        if [ -n "$AUTH_JWT_ISSUER" ]; then
+            log $CYAN "║     JWT Issuer: $AUTH_JWT_ISSUER                         ║"
+        else
+            log $YELLOW "║     ⚠️  JWT not configured - update auth secret          ║"
+        fi
+    fi
+    
+    log $CYAN "║                                                           ║"
+    
     if [ "$ENABLE_MONITORING" = "true" ]; then
         GRAFANA_PASSWORD=$(kubectl get secret --namespace monitoring prometheus-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
         log $CYAN "║  📊 Grafana:       https://$DOMAIN/grafana                ║
@@ -1051,6 +1358,22 @@ main() {
                 ENABLE_TLS="false"
                 shift
                 ;;
+            --no-auth)
+                ENABLE_AUTH="false"
+                shift
+                ;;
+            --auth-issuer)
+                AUTH_JWT_ISSUER="$2"
+                shift 2
+                ;;
+            --auth-audience)
+                AUTH_JWT_AUDIENCE="$2"
+                shift 2
+                ;;
+            --auth-jwks)
+                AUTH_JWT_JWKS_URI="$2"
+                shift 2
+                ;;
             --help)
                 echo "Usage: $0 [OPTIONS]"
                 echo ""
@@ -1061,6 +1384,10 @@ main() {
                 echo "  --no-monitoring       Disable monitoring stack deployment"
                 echo "  --no-backups         Disable backup system"
                 echo "  --no-tls            Disable TLS/HTTPS"
+                echo "  --no-auth           Disable authorization system"
+                echo "  --auth-issuer URL   JWT issuer URL"
+                echo "  --auth-audience URL JWT audience URL"
+                echo "  --auth-jwks URL     JWKS endpoint URL"
                 echo "  --help              Show this help message"
                 exit 0
                 ;;
@@ -1082,6 +1409,7 @@ main() {
     deploy_redis
     deploy_minio
     deploy_crdt_server
+    deploy_auth
     deploy_zeal_app
     deploy_ingress
     deploy_monitoring

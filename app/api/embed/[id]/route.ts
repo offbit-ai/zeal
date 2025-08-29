@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabaseOperations } from '@/lib/database'
 import { z } from 'zod'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
 
 // GET /api/embed/[id] - Get workflow data for embedding
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withAuth(async (request: AuthenticatedRequest, context?: { params: { id: string } }) => {
   try {
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 })
+    }
+    const { params } = context
     const { id } = params
 
     // Check for API key in Authorization header
@@ -35,6 +41,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     if (!workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    }
+
+    // Check tenant access
+    if (!validateTenantAccess(workflow, request as NextRequest)) {
+      return createTenantViolationError()
     }
 
     // Check if workflow allows embedding
@@ -82,4 +93,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.error('Error fetching embed workflow:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'read'
+})

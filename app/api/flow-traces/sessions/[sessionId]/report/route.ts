@@ -2,18 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
 
 // GET /api/flow-traces/sessions/[sessionId]/report - Generate trace report
-export const GET = withErrorHandling(
-  async (req: NextRequest, context?: { params: { sessionId: string } }) => {
-    const userId = extractUserId(req)
+export const GET = withAuth(async (request: AuthenticatedRequest, context?: { params: { sessionId: string } }) => {
+  if (!context || !context.params) {
+    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+  }
 
-    if (!context || !context.params || !context.params.sessionId) {
-      throw new ApiError('TRACE_SESSION_NOT_FOUND', 'Session ID is required', 400)
-    }
-
-    const { sessionId } = context.params
-    const { searchParams } = new URL(req.url)
+  const { sessionId } = context.params
+  const { searchParams } = new URL(request.url)
 
     // Get optional filters
     const search = searchParams.get('search') || undefined
@@ -23,7 +22,12 @@ export const GET = withErrorHandling(
     const session = await FlowTraceDatabase.getSession(sessionId)
 
     if (!session) {
-      throw new ApiError('TRACE_SESSION_NOT_FOUND', 'Trace session not found', 404)
+      return NextResponse.json({ error: 'Trace session not found' }, { status: 404 })
+    }
+
+    // Validate tenant access for trace session reports
+    if ((session as any).tenantId && !validateTenantAccess(session as any, request as NextRequest)) {
+      return createTenantViolationError()
     }
 
     // Filter traces if needed
@@ -203,5 +207,7 @@ Status Filter: ${report.filters.status}
 
     // Default to JSON
     return NextResponse.json(createSuccessResponse(report))
-  }
-)
+}, {
+  resource: 'execution',
+  action: 'read'
+})

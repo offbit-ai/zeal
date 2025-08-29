@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ServerCRDTOperations } from '../../../../lib/crdt/server-operations'
 import { getDatabaseOperations } from '../../../../lib/database'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 const AddNodeSchema = z.object({
   workflowId: z.string().min(1, 'Workflow ID is required'),
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json()
     
@@ -156,4 +157,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'orchestrator',
+  action: 'create'
+})

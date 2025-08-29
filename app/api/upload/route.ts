@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadFile, generateFileKey } from '@/lib/s3-client'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { addTenantContext } from '@/lib/auth/tenant-utils'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60 // 60 seconds timeout for large files
@@ -28,7 +30,7 @@ function getFileCategory(contentType: string): string {
   return 'default'
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -73,14 +75,17 @@ export async function POST(request: NextRequest) {
       .substring(0, 50) // Limit filename length
     const key = `${workflowId}/${graphId}/${nodeId}/${timestamp}-${sanitizedName}.${extension}`
 
-    // Upload to S3/MinIO
-    const url = await uploadFile(buffer, key, file.type, {
+    // Add tenant context to metadata
+    const metadata = addTenantContext({
       originalName: file.name,
       uploadedAt: new Date().toISOString(),
       workflowId,
       graphId,
       nodeId,
-    })
+    }, request as NextRequest)
+
+    // Upload to S3/MinIO
+    const url = await uploadFile(buffer, key, file.type, metadata)
 
     return NextResponse.json({
       url,
@@ -94,4 +99,7 @@ export async function POST(request: NextRequest) {
     console.error('Upload error:', error)
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 })
   }
-}
+}, {
+  resource: 'upload',
+  action: 'create'
+})

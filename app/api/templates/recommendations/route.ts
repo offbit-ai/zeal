@@ -6,9 +6,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateOperations } from '@/lib/database-template-operations'
 import { SearchService } from '@/services/node-template-repository/search/search-service'
 import { EmbeddingService } from '@/services/node-template-repository/search/embedding-service'
+import { withAuth } from '@/lib/auth/middleware'
 
 // POST /api/templates/recommendations - Get template recommendations
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
     const { recentlyUsed, workflowCategory, currentNodes } = body
@@ -31,4 +32,7 @@ export async function POST(request: NextRequest) {
     console.error('Recommendations error:', error)
     return NextResponse.json({ error: 'Failed to get recommendations' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'create'
+})

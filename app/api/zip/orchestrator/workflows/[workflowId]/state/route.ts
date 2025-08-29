@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // GET /api/zip/orchestrator/workflows/[workflowId]/state - Get workflow state
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { workflowId: string } }
-) {
+export const GET = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
-    const { workflowId } = params
+    const { workflowId } = context?.params || {}
+    if (!workflowId) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing workflowId parameter',
+        }
+      }, { status: 400 })
+    }
     const { searchParams } = new URL(request.url)
     const graphId = searchParams.get('graphId') || 'main'
     
@@ -76,4 +82,7 @@ export async function GET(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'workflow',
+  action: 'read'
+})

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ServerCRDTOperations } from '../../../../lib/crdt/server-operations'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 // Zod schema for creating a group
 const CreateGroupSchema = z.object({
@@ -31,7 +32,7 @@ const UpdateGroupSchema = z.object({
   ),
 })
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json()
     
@@ -81,9 +82,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'orchestrator',
+  action: 'create'
+})
 
-export async function PUT(request: NextRequest) {
+export const PUT = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json()
     
@@ -134,4 +138,7 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'orchestrator',
+  action: 'update'
+})

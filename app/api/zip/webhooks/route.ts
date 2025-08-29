@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getZipWebhookOperations } from '@/lib/database-zip-operations'
 import { v4 as uuidv4 } from 'uuid'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // Schema for webhook registration
 const registerWebhookSchema = z.object({
@@ -13,7 +14,7 @@ const registerWebhookSchema = z.object({
 })
 
 // POST /api/zip/webhooks - Register webhook
-export async function POST(request: NextRequest) {
+export const POST = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
     
@@ -65,10 +66,13 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'webhooks',
+  action: 'create'
+})
 
 // GET /api/zip/webhooks - List webhooks
-export async function GET(request: NextRequest) {
+export const GET = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url)
     const namespace = searchParams.get('namespace')
@@ -100,4 +104,7 @@ export async function GET(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'webhooks',
+  action: 'read'
+})

@@ -6,9 +6,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateOperations } from '@/lib/database-template-operations'
 import { nodeTemplateService } from '@/services/nodeTemplateService'
 import { EmbeddingService } from '@/services/node-template-repository/search/embedding-service'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { addTenantContext } from '@/lib/auth/tenant-utils'
+import { extractUserId } from '@/lib/api-utils'
 
 // GET /api/templates - Search templates
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get('q') || searchParams.get('query') || ''
@@ -43,10 +46,13 @@ export async function GET(request: NextRequest) {
     console.error('Template search error:', error)
     return NextResponse.json({ error: 'Failed to search templates' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'read'
+})
 
 // POST /api/templates - Create a new template
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
 
@@ -56,8 +62,8 @@ export async function POST(request: NextRequest) {
 
     const templateOps = await getTemplateOperations()
 
-    // Create template with defaults
-    const template = {
+    // Create template with defaults and tenant context
+    const templateData = addTenantContext({
       id: body.id || `tpl_custom_${Date.now()}`,
       type: body.type || 'unknown',
       version: body.version || '1.0.0',
@@ -83,12 +89,12 @@ export async function POST(request: NextRequest) {
       },
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: 'api', // TODO: Get from auth
-      updatedBy: 'api',
+      createdBy: 'api-user',
+      updatedBy: 'api-user',
       isActive: true,
-    }
+    }, request as NextRequest)
 
-    const created = await templateOps.createTemplate(template)
+    const created = await templateOps.createTemplate(templateData)
 
     // Generate embeddings and store in repository
     const embeddingService = EmbeddingService.fromEnvironment()
@@ -108,7 +114,7 @@ export async function POST(request: NextRequest) {
       template: created,
       embeddings,
       metadata,
-      source: template.source,
+      source: templateData.source,
     })
 
     return NextResponse.json(
@@ -122,4 +128,7 @@ export async function POST(request: NextRequest) {
     console.error('Template creation error:', error)
     return NextResponse.json({ error: 'Failed to create template' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'create'
+})

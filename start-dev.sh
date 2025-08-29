@@ -18,6 +18,8 @@ DB_NAME="zeal_db"
 DB_USER="zeal_user"
 DB_PASSWORD="zeal_password"
 DB_PORT="5432"
+# Auth database configuration
+AUTH_SCHEMA="zeal_auth"
 TIMESCALE_DB_NAME="zeal_traces"
 TIMESCALE_PORT="5433"
 REDIS_PORT="6379"
@@ -243,6 +245,99 @@ start_postgres() {
                 echo -e "${GREEN}✅ Database schema already exists${NC}"
             fi
             
+            # Initialize auth schema if enabled
+            if [ "$ZEAL_AUTH_ENABLED" = "true" ] || [ "$SETUP_AUTH" = "true" ]; then
+                echo -e "${BLUE}🔐 Checking authorization schema...${NC}"
+                if ! docker exec $POSTGRES_CONTAINER psql -U $DB_USER -d $DB_NAME -c "SELECT 1 FROM information_schema.schemata WHERE schema_name = '$AUTH_SCHEMA';" | grep -q 1; then
+                    echo -e "${YELLOW}Initializing authorization schema...${NC}"
+                    # Create auth schema initialization SQL
+                    cat > /tmp/auth-init.sql << 'EOSQL'
+-- Create auth schema
+CREATE SCHEMA IF NOT EXISTS zeal_auth;
+
+-- Create policies table
+CREATE TABLE IF NOT EXISTS zeal_auth.policies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    effect VARCHAR(20) NOT NULL CHECK (effect IN ('allow', 'deny', 'filter')),
+    priority INTEGER DEFAULT 100,
+    resources JSONB NOT NULL,
+    actions TEXT[] NOT NULL,
+    subjects JSONB,
+    conditions JSONB,
+    obligations JSONB,
+    tenant_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(name, tenant_id)
+);
+
+-- Create hierarchy table
+CREATE TABLE IF NOT EXISTS zeal_auth.hierarchy (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    parent_id UUID REFERENCES zeal_auth.hierarchy(id),
+    name VARCHAR(255) NOT NULL,
+    attributes JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create audit log table (partitioned by month)
+CREATE TABLE IF NOT EXISTS zeal_auth.audit_logs (
+    id UUID DEFAULT gen_random_uuid(),
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    type VARCHAR(100) NOT NULL,
+    level VARCHAR(20),
+    subject JSONB NOT NULL,
+    resource JSONB,
+    action VARCHAR(100),
+    result VARCHAR(20),
+    reason TEXT,
+    metadata JSONB,
+    tenant_id VARCHAR(255),
+    PRIMARY KEY (timestamp, id)
+) PARTITION BY RANGE (timestamp);
+
+-- Create initial partition for current month
+CREATE TABLE IF NOT EXISTS zeal_auth.audit_logs_default 
+    PARTITION OF zeal_auth.audit_logs DEFAULT;
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_policies_tenant ON zeal_auth.policies(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_policies_priority ON zeal_auth.policies(priority DESC);
+CREATE INDEX IF NOT EXISTS idx_hierarchy_tenant ON zeal_auth.hierarchy(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_hierarchy_parent ON zeal_auth.hierarchy(parent_id);
+CREATE INDEX IF NOT EXISTS idx_audit_tenant_timestamp ON zeal_auth.audit_logs(tenant_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_type_timestamp ON zeal_auth.audit_logs(type, timestamp DESC);
+EOSQL
+                    docker cp /tmp/auth-init.sql $POSTGRES_CONTAINER:/tmp/auth-init.sql
+                    if docker exec $POSTGRES_CONTAINER psql -U $DB_USER -d $DB_NAME -f /tmp/auth-init.sql > /dev/null 2>&1; then
+                        echo -e "${GREEN}✅ Authorization schema initialized${NC}"
+                    else
+                        echo -e "${YELLOW}⚠️  Auth schema initialization had warnings${NC}"
+                    fi
+                    rm -f /tmp/auth-init.sql
+                else
+                    echo -e "${GREEN}✅ Authorization schema already exists${NC}"
+                fi
+                
+                # Apply tenant isolation migration
+                echo -e "${BLUE}🔐 Applying tenant isolation migration...${NC}"
+                if [ -f "migrations/add-tenant-isolation.sql" ]; then
+                    docker cp migrations/add-tenant-isolation.sql $POSTGRES_CONTAINER:/tmp/add-tenant-isolation.sql
+                    if docker exec $POSTGRES_CONTAINER psql -U $DB_USER -d $DB_NAME -f /tmp/add-tenant-isolation.sql > /dev/null 2>&1; then
+                        echo -e "${GREEN}✅ Tenant isolation migration applied${NC}"
+                    else
+                        echo -e "${YELLOW}⚠️  Tenant isolation migration had warnings (columns may already exist)${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}⚠️  Tenant isolation migration file not found${NC}"
+                fi
+            fi
+            
             return
         fi
         sleep 1
@@ -456,6 +551,75 @@ load_existing_env() {
     fi
 }
 
+# Function to configure authorization
+configure_auth_services() {
+    if [ "$SKIP_PROMPTS" = "true" ]; then
+        echo -e "${BLUE}🔐 Authorization Configuration${NC}"
+        echo -e "${YELLOW}Skipping prompts, using existing configuration...${NC}"
+        
+        if [ "$ZEAL_AUTH_ENABLED" = "true" ]; then
+            echo -e "   ${GREEN}✓ Authorization: Enabled${NC}"
+            ZEAL_AUTH_MODE="${ZEAL_AUTH_MODE:-development}"
+            echo -e "   Mode: $ZEAL_AUTH_MODE"
+        else
+            echo -e "   ${YELLOW}○ Authorization: Disabled${NC}"
+        fi
+        echo ""
+        return
+    fi
+    
+    echo -e "${BLUE}🔐 Authorization Configuration${NC}"
+    echo -e "${YELLOW}Authorization is disabled by default for easier development.${NC}"
+    echo -e "${YELLOW}Enable it to protect your APIs and enforce access control.${NC}"
+    echo ""
+    
+    # Check if user wants to enable auth (default to disabled for development)
+    if [ -z "$ZEAL_AUTH_ENABLED" ]; then
+        read -p "   Enable authorization? (y/N): " enable_auth
+        if [[ "$enable_auth" =~ ^[Yy]$ ]]; then
+            ZEAL_AUTH_ENABLED="true"
+            SETUP_AUTH="true"
+            
+            # Ask for auth mode
+            echo -e "\n   ${GREEN}Authorization Modes:${NC}"
+            echo -e "   1. Development (mock auth with configurable defaults)"
+            echo -e "   2. Production (requires external identity provider)"
+            read -p "   Select mode (1-2) [1]: " auth_mode
+            
+            case $auth_mode in
+                2)
+                    ZEAL_AUTH_MODE="production"
+                    echo -e "\n   ${YELLOW}Production mode requires an external identity provider${NC}"
+                    read -p "   JWT Issuer URL: " AUTH_JWT_ISSUER
+                    read -p "   JWT Audience: " AUTH_JWT_AUDIENCE
+                    read -p "   JWKS URI (or press Enter to use public key): " AUTH_JWT_JWKS_URI
+                    
+                    if [ -z "$AUTH_JWT_JWKS_URI" ]; then
+                        echo -e "   Enter JWT public key (paste and press Ctrl+D when done):"
+                        AUTH_JWT_PUBLIC_KEY=$(cat)
+                    fi
+                    ;;
+                *)
+                    ZEAL_AUTH_MODE="development"
+                    echo -e "\n   ${GREEN}Using development mode with mock authentication${NC}"
+                    ZEAL_DEV_USER_ID="${ZEAL_DEV_USER_ID:-dev-user}"
+                    ZEAL_DEV_TENANT_ID="${ZEAL_DEV_TENANT_ID:-dev-tenant}"
+                    ZEAL_DEV_ORG_ID="${ZEAL_DEV_ORG_ID:-dev-org}"
+                    ZEAL_DEV_ROLES="${ZEAL_DEV_ROLES:-user,developer}"
+                    ;;
+            esac
+        else
+            ZEAL_AUTH_ENABLED="false"
+            echo -e "   ${YELLOW}Authorization disabled${NC}"
+        fi
+    else
+        echo -e "   ${GREEN}✓ Using existing ZEAL_AUTH_ENABLED setting: $ZEAL_AUTH_ENABLED${NC}"
+        ZEAL_AUTH_MODE="${ZEAL_AUTH_MODE:-development}"
+    fi
+    
+    echo ""
+}
+
 # Function to prompt for AI configuration
 configure_ai_services() {
     if [ "$SKIP_PROMPTS" = "true" ]; then
@@ -633,6 +797,50 @@ EMBED_DEFAULT_RATE_LIMIT=1000
 # Development URLs
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 NEXT_PUBLIC_EMBED_URL="http://localhost:3000/embed"
+
+# ========================================
+# Authorization Configuration
+# ========================================
+
+# Enable/Disable Authorization
+ZEAL_AUTH_ENABLED=${ZEAL_AUTH_ENABLED:-false}
+ZEAL_AUTH_MODE=${ZEAL_AUTH_MODE:-development}
+
+# Development Mode Settings
+${ZEAL_DEV_USER_ID:+ZEAL_DEV_USER_ID=${ZEAL_DEV_USER_ID}}
+${ZEAL_DEV_TENANT_ID:+ZEAL_DEV_TENANT_ID=${ZEAL_DEV_TENANT_ID}}
+${ZEAL_DEV_ORG_ID:+ZEAL_DEV_ORG_ID=${ZEAL_DEV_ORG_ID}}
+${ZEAL_DEV_ROLES:+ZEAL_DEV_ROLES=${ZEAL_DEV_ROLES}}
+ZEAL_DEV_ALLOW_ALL=${ZEAL_DEV_ALLOW_ALL:-false}
+
+# Production Mode - Identity Provider Configuration
+${AUTH_JWT_ISSUER:+AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER}}
+${AUTH_JWT_AUDIENCE:+AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE}}
+${AUTH_JWT_JWKS_URI:+AUTH_JWT_JWKS_URI=${AUTH_JWT_JWKS_URI}}
+${AUTH_JWT_PUBLIC_KEY:+AUTH_JWT_PUBLIC_KEY="${AUTH_JWT_PUBLIC_KEY}"}
+
+# Claim Mappings (defaults for most identity providers)
+AUTH_CLAIM_SUBJECT_ID=${AUTH_CLAIM_SUBJECT_ID:-sub}
+AUTH_CLAIM_TENANT=${AUTH_CLAIM_TENANT:-tenant_id}
+AUTH_CLAIM_ORGANIZATION=${AUTH_CLAIM_ORGANIZATION:-org_id}
+AUTH_CLAIM_ROLES=${AUTH_CLAIM_ROLES:-roles}
+AUTH_CLAIM_PERMISSIONS=${AUTH_CLAIM_PERMISSIONS:-permissions}
+
+# Policy Configuration
+ZEAL_AUTH_POLICIES_PATH=${ZEAL_AUTH_POLICIES_PATH:-./auth-policies.yaml}
+ZEAL_AUTH_DEFAULT_EFFECT=${ZEAL_AUTH_DEFAULT_EFFECT:-deny}
+
+# Cache Configuration
+ZEAL_AUTH_CACHE_ENABLED=${ZEAL_AUTH_CACHE_ENABLED:-true}
+ZEAL_AUTH_CACHE_TTL=${ZEAL_AUTH_CACHE_TTL:-300}
+
+# Audit Configuration
+ZEAL_AUTH_AUDIT_ENABLED=${ZEAL_AUTH_AUDIT_ENABLED:-false}
+ZEAL_AUTH_AUDIT_LEVEL=${ZEAL_AUTH_AUDIT_LEVEL:-info}
+
+# Auth Database Configuration
+ZEAL_AUTH_USE_WORKFLOW_DB=true
+ZEAL_AUTH_SCHEMA_NAME=${AUTH_SCHEMA}
 EOF
 
     echo -e "${GREEN}✅ .env.local file created${NC}"
@@ -640,7 +848,24 @@ EOF
     
     # Show configuration summary
     echo ""
-    echo -e "${BLUE}📋 AI Services Configuration Summary:${NC}"
+    echo -e "${BLUE}📋 Configuration Summary:${NC}"
+    
+    # Auth summary
+    echo -e "\n   ${BLUE}Authorization:${NC}"
+    if [ "$ZEAL_AUTH_ENABLED" = "true" ]; then
+        echo -e "   ${GREEN}✓${NC} Authorization: Enabled (Mode: $ZEAL_AUTH_MODE)"
+        if [ "$ZEAL_AUTH_MODE" = "development" ]; then
+            echo -e "      User: $ZEAL_DEV_USER_ID"
+            echo -e "      Roles: $ZEAL_DEV_ROLES"
+        else
+            echo -e "      Issuer: $AUTH_JWT_ISSUER"
+        fi
+    else
+        echo -e "   ${YELLOW}○${NC} Authorization: Disabled"
+    fi
+    
+    # AI summary
+    echo -e "\n   ${BLUE}AI Services:${NC}"
     if [ "$EMBEDDING_VENDOR" = "openai" ]; then
         echo -e "   ${GREEN}✓${NC} OpenAI Embeddings: Configured (semantic search enabled)"
     else
@@ -725,11 +950,53 @@ main() {
     # Start CRDT server
     start_crdt_server
     
+    # Configure authorization (optional)
+    configure_auth_services
+    
     # Configure AI services (optional)
     configure_ai_services
     
     # Create environment file
     create_env_file
+    
+    # Create auth policies file if auth is enabled and file doesn't exist
+    if [ "$ZEAL_AUTH_ENABLED" = "true" ] && [ ! -f "auth-policies.yaml" ]; then
+        echo -e "${BLUE}📝 Creating default auth policies...${NC}"
+        if [ -f "auth-policies.example.yaml" ]; then
+            cp auth-policies.example.yaml auth-policies.yaml
+            echo -e "${GREEN}✅ Created auth-policies.yaml from example${NC}"
+        else
+            # Create minimal default policies
+            cat > auth-policies.yaml << 'EOF'
+version: "1.0"
+metadata:
+  description: "Default authorization policies for Zeal development"
+  
+policies:
+  # Allow all in development mode
+  - id: dev-allow-all
+    description: "Allow all access in development mode"
+    priority: 1000
+    effect: allow
+    resources:
+      - type: "*"
+    actions: ["*"]
+    conditions:
+      - type: environment
+        value: development
+        
+  # Default deny for production
+  - id: default-deny
+    description: "Deny by default in production"
+    priority: 1
+    effect: deny
+    resources:
+      - type: "*"
+    actions: ["*"]
+EOF
+            echo -e "${GREEN}✅ Created default auth-policies.yaml${NC}"
+        fi
+    fi
     
     # Install dependencies if needed
     if [ ! -d "node_modules" ]; then

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ServerCRDTOperations } from '../../../../lib/crdt/server-operations'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 // GET /api/orchestrator/crdt-updates?workflowId=xxx&since=timestamp
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const searchParams = request.nextUrl.searchParams
     const workflowId = searchParams.get('workflowId')
@@ -24,10 +25,13 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching CRDT updates:', error)
     return NextResponse.json({ error: 'Failed to fetch updates' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'read'
+})
 
 // POST /api/orchestrator/crdt-updates/clear
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
     const { workflowId } = body
@@ -45,4 +49,7 @@ export async function POST(request: NextRequest) {
     console.error('Error clearing CRDT updates:', error)
     return NextResponse.json({ error: 'Failed to clear updates' }, { status: 500 })
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'update'
+})

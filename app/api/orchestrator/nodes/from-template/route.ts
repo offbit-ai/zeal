@@ -4,6 +4,7 @@ import { SearchService } from '../../../../../services/node-template-repository/
 import { EmbeddingService } from '../../../../../services/node-template-repository/search/embedding-service'
 import { getTemplateOperations } from '../../../../../lib/database-template-operations'
 import { ServerCRDTOperations } from '../../../../../lib/crdt/server-operations'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 const AddNodeFromTemplateSchema = z.object({
   workflowId: z.string().min(1, 'Workflow ID is required'),
@@ -18,7 +19,7 @@ const AddNodeFromTemplateSchema = z.object({
   propertyValues: z.record(z.any()).optional(),
 })
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
     const body = await request.json()
     
@@ -143,4 +144,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'node',
+  action: 'create'
+})

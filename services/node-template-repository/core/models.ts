@@ -108,6 +108,7 @@ export interface NodeTemplate {
   createdBy: string
   updatedBy: string
   isActive: boolean
+  tenantId?: string // For multi-tenant setups
 }
 
 export interface TemplateEmbeddings {

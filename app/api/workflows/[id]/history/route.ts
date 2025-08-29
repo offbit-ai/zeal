@@ -4,36 +4,43 @@ import {
   withErrorHandling,
   extractUserId,
   parsePaginationParams,
-  mockDelay,
 } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
 
 // GET /api/workflows/[id]/history - Get workflow version history
-export const GET = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(100)
+export const GET = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context || !context.params || !context.params.id) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
-    }
+      if (!context || !context.params || !context.params.id) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow ID is required', 400)
+      }
 
-    const { id } = context.params
-    const { searchParams } = new URL(req.url)
-    const userId = extractUserId(req)
-    const pagination = parsePaginationParams(searchParams)
-    const publishedOnly = searchParams.get('published_only') === 'true'
+      const { id } = context.params
+      const { searchParams } = new URL(req.url)
+      const userId = req.auth?.subject?.id || extractUserId(req)
+      const pagination = parsePaginationParams(searchParams)
+      const publishedOnly = searchParams.get('published_only') === 'true'
 
-    // Get workflow to verify ownership
-    const workflow = await WorkflowDatabase.getWorkflow(id)
+      // Get workflow to verify ownership and tenant access
+      const workflow = await WorkflowDatabase.getWorkflow(id)
 
-    if (!workflow) {
-      throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
-    }
+      if (!workflow) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
+      }
 
-    if (workflow.userId !== userId) {
-      throw new ApiError('FORBIDDEN', 'Not authorized to access this workflow history', 403)
-    }
+      // Check tenant access
+      if (!validateTenantAccess(workflow, req as NextRequest)) {
+        return createTenantViolationError()
+      }
+
+      // Check ownership for legacy workflows without tenantId
+      if (!workflow.tenantId && workflow.userId !== userId) {
+        throw new ApiError('FORBIDDEN', 'Not authorized to access this workflow history', 403)
+      }
 
     // Get workflow versions
     const { versions, total } = await WorkflowDatabase.getWorkflowVersions(id, {
@@ -87,5 +94,10 @@ export const GET = withErrorHandling(
         }
       )
     )
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'read'
   }
 )

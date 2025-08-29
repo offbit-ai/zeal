@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ServerCRDTOperations } from '../../../../../lib/crdt/server-operations'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { addTenantContext } from '@/lib/auth/tenant-utils'
 
 const BatchAddNodesSchema = z.object({
   workflowId: z.string().min(1, 'Workflow ID is required'),
@@ -44,7 +46,7 @@ const BatchAddNodesSchema = z.object({
   })),
 })
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json()
     
@@ -71,11 +73,16 @@ export async function POST(request: NextRequest) {
     console.log(`[API] Batch adding ${params.nodes.length} nodes to workflow ${params.workflowId}`)
     console.log(`[API] Node titles:`, params.nodes.map(n => n.metadata.title))
 
+    // Add tenant context to all nodes
+    const nodesWithTenant = params.nodes.map(node => 
+      addTenantContext(node, request as NextRequest)
+    )
+
     // Use batch operation to add all nodes at once
     const createdNodes = await ServerCRDTOperations.addNodesBatch(
       params.workflowId,
       params.graphId,
-      params.nodes
+      nodesWithTenant
     )
 
     console.log(`[API] Successfully created ${createdNodes.length} nodes in batch`)
@@ -97,4 +104,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'orchestrator',
+  action: 'create'
+})

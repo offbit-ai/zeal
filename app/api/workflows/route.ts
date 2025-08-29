@@ -8,23 +8,34 @@ import {
   extractUserId,
   validateWorkflowNodes,
   validateWorkflowConnections,
-  mockDelay,
 } from '@/lib/api-utils'
 import { ApiError, WorkflowCreateRequest } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import {
+  getTenantId,
+  getOrganizationId,
+  applyTenantFilterToArray,
+  addTenantContext,
+  buildTenantQuery
+} from '@/lib/auth/tenant-utils'
 
 // GET /api/workflows - List workflows
-export const GET = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(150)
+export const GET = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
 
-  const { searchParams } = new URL(req.url)
-  const userId = extractUserId(req)
+    const { searchParams } = new URL(req.url)
+    // Use authenticated user ID if available, otherwise fall back to extractUserId
+    const userId = req.auth?.subject?.id || extractUserId(req)
   const pagination = parsePaginationParams(searchParams)
   const filters = parseFilterParams(searchParams)
 
-  // Get workflows from database
+  // Build query with tenant context
+  const tenantQuery = buildTenantQuery(req as NextRequest)
+  
+  // Get workflows from database with tenant filter
   const { workflows, total } = await WorkflowDatabase.listWorkflows({
-    userId: userId,
+    ...tenantQuery,
     limit: pagination.limit,
     offset: (pagination.page - 1) * pagination.limit,
     searchTerm: filters.search,
@@ -118,13 +129,18 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       requestId: `req_${Date.now()}`,
     })
   )
-})
+  }),
+  {
+    resource: 'workflow',
+    action: 'read'
+  }
+)
 
 // POST /api/workflows - Create workflow
-export const POST = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(200)
+export const POST = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
 
-  const userId = extractUserId(req)
+    const userId = req.auth?.subject?.id || extractUserId(req)
   const body: WorkflowCreateRequest = await req.json()
 
   // Validate required fields
@@ -153,8 +169,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     validateWorkflowConnections(graph.connections, nodeIds)
   })
 
-  // Create new workflow with initial version
-  const { workflow, version } = await WorkflowDatabase.createWorkflow({
+  // Add tenant context to the new workflow
+  const workflowData = addTenantContext({
     name: body.name,
     description: body.description,
     userId,
@@ -164,7 +180,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       ...body.metadata,
       activeGraphId: body.activeGraphId || 'main',
     },
-  })
+  }, req as NextRequest)
+  
+  // Create new workflow with initial version and tenant context
+  const { workflow, version } = await WorkflowDatabase.createWorkflow(workflowData)
 
   // Transform to API response format
   const response = {
@@ -186,4 +205,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   return NextResponse.json(createSuccessResponse(response), { status: 201 })
-})
+  }),
+  {
+    resource: 'workflow',
+    action: 'create'
+  }
+)

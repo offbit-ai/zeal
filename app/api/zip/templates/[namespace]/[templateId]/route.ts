@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateOperations } from '@/lib/database-template-operations'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // PUT /api/zip/templates/[namespace]/[templateId] - Update template
-export async function PUT(
+export const PUT = withZIPAuthorization(async (
   request: NextRequest,
-  { params }: { params: { namespace: string; templateId: string } }
-) {
+  context?: { params: { namespace: string; templateId: string } }
+) => {
   try {
-    const { namespace, templateId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Missing template parameters'
+        }
+      }, { status: 400 })
+    }
+    const { namespace, templateId } = context.params
     const body = await request.json()
     
     const globalId = `${namespace}/${templateId}`
@@ -52,15 +61,26 @@ export async function PUT(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'template',
+  action: 'update'
+})
 
 // DELETE /api/zip/templates/[namespace]/[templateId] - Delete template
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { namespace: string; templateId: string } }
-) {
+export const DELETE = withZIPAuthorization(async (
+  request: NextRequest,
+  context?: { params: { namespace: string; templateId: string } }
+) => {
   try {
-    const { namespace, templateId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Missing template parameters'
+        }
+      }, { status: 400 })
+    }
+    const { namespace, templateId } = context.params
     const globalId = `${namespace}/${templateId}`
     
     const templateOps = await getTemplateOperations()
@@ -80,4 +100,7 @@ export async function DELETE(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'template',
+  action: 'delete'
+})

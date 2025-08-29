@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ApiError } from '@/types/api'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 // POST /api/workflows/[id]/keep-alive - Keep CRDT room alive
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withAuth(async (req: AuthenticatedRequest, { params }: { params: { id: string } }) => {
   try {
     const workflowId = params.id
 
@@ -39,4 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       { status: 500 }
     )
   }
-}
+}, {
+  resource: 'workflow',
+  action: 'update'
+})

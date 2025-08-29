@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuccessResponse, withErrorHandling, extractUserId, mockDelay } from '@/lib/api-utils'
+import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { ApiError } from '@/types/api'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { buildTenantQuery } from '@/lib/auth/tenant-utils'
 
 interface AnalyticsResponse {
   summary: {
@@ -63,11 +65,12 @@ interface AnalyticsResponse {
 let flowTracesStore: any[] = []
 
 // GET /api/flow-traces/analytics - Get flow trace analytics
-export const GET = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(300) // Analytics queries are typically slower
+export const GET = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
 
   const { searchParams } = new URL(req.url)
-  const userId = extractUserId(req)
+  const userId = req.auth?.subject?.id || extractUserId(req)
+  const tenantQuery = buildTenantQuery(req as NextRequest)
 
   // Parse date range filters
   const dateFrom = searchParams.get('date_from')
@@ -256,13 +259,18 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   }
 
   return NextResponse.json(createSuccessResponse(analytics))
-})
+  }),
+  {
+    resource: 'flow-traces',
+    action: 'read'
+  }
+)
 
 // POST /api/flow-traces/analytics/report - Generate analytics report
-export const POST = withErrorHandling(async (req: NextRequest) => {
-  await mockDelay(500) // Report generation takes longer
+export const POST = withAuth(
+  withErrorHandling(async (req: AuthenticatedRequest) => {
 
-  const userId = extractUserId(req)
+  const userId = req.auth?.subject?.id || extractUserId(req)
   const body = await req.json()
 
   // In real implementation, this would:
@@ -299,4 +307,9 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }, 5000)
 
   return NextResponse.json(createSuccessResponse(reportConfig), { status: 202 })
-})
+  }),
+  {
+    resource: 'flow-traces',
+    action: 'create'
+  }
+)

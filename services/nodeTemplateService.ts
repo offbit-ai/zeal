@@ -39,6 +39,7 @@ export interface NodeTemplateResponse {
   createdAt: string
   updatedAt: string
   propertyRules?: any
+  tenantId?: string // For multi-tenant setups
   // Optional search metadata
   _searchScore?: number
   _highlights?: any
@@ -247,6 +248,43 @@ class NodeTemplateService {
     // Fall back to static categories
     const templates = allNodeTemplates
     return getCategoriesWithCounts(templates)
+  }
+
+  /**
+   * Update an existing template
+   */
+  async updateTemplate(id: string, updateData: Partial<NodeTemplateResponse>): Promise<NodeTemplateResponse> {
+    const templateOps = await getTemplateOperations()
+
+    // Get existing template
+    const existing = await templateOps.getTemplate(id)
+    if (!existing) {
+      throw new Error(`Template ${id} not found`)
+    }
+
+    // Update template data
+    const updated = await templateOps.updateTemplate(id, {
+      ...updateData,
+      updatedAt: new Date(),
+    } as any)
+
+    // Re-generate embeddings if content changed
+    if (updateData.title || updateData.description || updateData.properties) {
+      const embeddingService = EmbeddingService.fromEnvironment()
+      const metadataExtractor = new MetadataExtractor()
+
+      const embeddings = await embeddingService.generateEmbeddings(updated)
+      const metadata = await metadataExtractor.extractMetadata(updated)
+
+      await templateOps.upsertRepository({
+        template: updated,
+        embeddings,
+        metadata,
+        source: updated.source,
+      })
+    }
+
+    return this.convertDbTemplate(updated)
   }
 
   /**

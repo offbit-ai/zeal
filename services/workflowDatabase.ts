@@ -14,6 +14,7 @@ export interface WorkflowRecord {
   name: string
   description?: string
   userId: string
+  tenantId?: string
   publishedVersionId?: string
   createdAt: string
   updatedAt: string

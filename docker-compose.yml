@@ -180,6 +180,30 @@ services:
       # Development URLs
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
       NEXT_PUBLIC_EMBED_URL: ${NEXT_PUBLIC_EMBED_URL:-http://localhost:3000/embed}
+      
+      # Authorization Configuration
+      ZEAL_AUTH_ENABLED: ${ZEAL_AUTH_ENABLED:-false}
+      ZEAL_AUTH_MODE: ${ZEAL_AUTH_MODE:-development}
+      
+      # JWT Configuration (for production auth)
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER}
+      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE}
+      AUTH_JWT_JWKS_URI: ${AUTH_JWT_JWKS_URI}
+      
+      # Development auth settings
+      ZEAL_DEV_USER_ID: ${ZEAL_DEV_USER_ID:-dev-user}
+      ZEAL_DEV_ROLES: ${ZEAL_DEV_ROLES:-user,developer}
+      ZEAL_DEV_ALLOW_ALL: ${ZEAL_DEV_ALLOW_ALL:-true}
+      
+      # Auth claim mappings
+      AUTH_CLAIM_SUBJECT_ID: ${AUTH_CLAIM_SUBJECT_ID:-sub}
+      AUTH_CLAIM_TENANT: ${AUTH_CLAIM_TENANT:-tenant_id}
+      AUTH_CLAIM_ORGANIZATION: ${AUTH_CLAIM_ORGANIZATION:-org_id}
+      AUTH_CLAIM_ROLES: ${AUTH_CLAIM_ROLES:-roles}
+      AUTH_CLAIM_PERMISSIONS: ${AUTH_CLAIM_PERMISSIONS:-permissions}
+      
+      # Auth policies path (mounted as volume)
+      ZEAL_AUTH_POLICIES_PATH: ${ZEAL_AUTH_POLICIES_PATH:-/app/auth-policies.yaml}
     ports:
       - "3000:3000"
     networks:
@@ -195,6 +219,8 @@ services:
       # - /app/node_modules
       # - /app/.next
       - uploads:/app/uploads
+      # Mount auth policies if they exist
+      - ./auth-policies.yaml:/app/auth-policies.yaml:ro
 
   # Nginx Reverse Proxy (optional, for production)
   nginx:

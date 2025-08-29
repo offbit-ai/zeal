@@ -11,6 +11,8 @@ services:
     # No volume mounts for source code in production
     volumes:
       - uploads:/app/uploads
+      # Mount auth policies
+      - ./auth-policies.yaml:/app/auth-policies.yaml:ro
 
   crdt-server:
     env_file:

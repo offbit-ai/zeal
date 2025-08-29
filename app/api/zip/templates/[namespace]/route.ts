@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { nodeTemplateService } from '@/services/nodeTemplateService'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // GET /api/zip/templates/[namespace] - List templates in namespace
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { namespace: string } }
-) {
+export const GET = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
   try {
-    const { namespace } = params
+    const { namespace } = context?.params || {};
+
+    if (!namespace) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing namespace parameter'
+        }
+      }, { status: 400 })
+    }
     
     // Search for templates with namespace tag
     const result = await nodeTemplateService.searchTemplates({
@@ -69,4 +76,7 @@ export async function GET(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'template',
+  action: 'read'
+})

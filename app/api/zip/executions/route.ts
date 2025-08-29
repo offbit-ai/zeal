@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
 import { ListExecutionsRequest, ExecutionSummary } from '@/types/zip'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 // GET /api/zip/executions - List execution sessions
-export async function GET(request: NextRequest) {
+export const GET = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url)
     const workflowId = searchParams.get('workflowId')
@@ -60,4 +61,7 @@ export async function GET(request: NextRequest) {
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'executions',
+  action: 'read'
+})

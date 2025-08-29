@@ -6,9 +6,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateOperations } from '@/lib/database-template-operations'
 import { SearchService } from '@/services/node-template-repository/search/search-service'
 import { EmbeddingService } from '@/services/node-template-repository/search/embedding-service'
+import { withAuth } from '@/lib/auth/middleware'
 
 // GET /api/templates/autocomplete - Get autocomplete suggestions
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, context?: { params: any }) => {
   try {
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get('q') || ''
@@ -35,4 +36,7 @@ export async function GET(request: NextRequest) {
     console.error('Autocomplete error:', error)
     return NextResponse.json({ error: 'Failed to get suggestions' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'read'
+})

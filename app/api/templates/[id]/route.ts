@@ -4,20 +4,27 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateOperations } from '@/lib/database-template-operations'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 
 // GET /api/templates/[id] - Get a specific template
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withAuth(async (request: NextRequest, context?: { params: { id: string } }) => {
   try {
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+    }
+
+    const { id } = context.params
     const templateOps = await getTemplateOperations()
 
-    const template = await templateOps.getTemplate(params.id)
+    const template = await templateOps.getTemplate(id)
 
     if (!template) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
     // Get repository data for additional metadata
-    const repository = await templateOps.getRepository(params.id)
+    const repository = await templateOps.getRepository(id)
 
     return NextResponse.json({
       success: true,
@@ -39,22 +46,35 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.error('Template fetch error:', error)
     return NextResponse.json({ error: 'Failed to fetch template' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'read'
+})
 
 // PUT /api/templates/[id] - Update a template
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export const PUT = withAuth(async (request: NextRequest, context?: { params: { id: string } }) => {
   try {
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+    }
+
+    const { id } = context.params
     const body = await request.json()
     const templateOps = await getTemplateOperations()
 
     // Check if template exists
-    const existing = await templateOps.getTemplate(params.id)
+    const existing = await templateOps.getTemplate(id)
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
+    // Check tenant access
+    if (!validateTenantAccess(existing, request as NextRequest)) {
+      return createTenantViolationError()
+    }
+
     // Update template
-    const updated = await templateOps.updateTemplate(params.id, {
+    const updated = await templateOps.updateTemplate(id, {
       ...body,
       updatedBy: 'api', // TODO: Get from auth
       updatedAt: new Date(),
@@ -92,21 +112,36 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     console.error('Template update error:', error)
     return NextResponse.json({ error: 'Failed to update template' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'update'
+})
 
 // DELETE /api/templates/[id] - Delete a template
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export const DELETE = withAuth(async (request: AuthenticatedRequest, context?: { params: { id: string } }) => {
   try {
+    if (!context || !context.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
+    }
+
+    const { id } = context.params
     const templateOps = await getTemplateOperations()
 
     // Check if template exists
-    const existing = await templateOps.getTemplate(params.id)
+    const existing = await templateOps.getTemplate(id)
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
+    // Check tenant access
+    if (!validateTenantAccess(existing, request as NextRequest)) {
+      return createTenantViolationError()
+    }
+
+    // Authorization is handled by withAuth middleware based on policy
+
     // Delete template (this will cascade to repository)
-    await templateOps.deleteTemplate(params.id)
+    await templateOps.deleteTemplate(id)
 
     return NextResponse.json({
       success: true,
@@ -116,4 +151,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     console.error('Template deletion error:', error)
     return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 })
   }
-}
+}, {
+  resource: 'template',
+  action: 'delete'
+})

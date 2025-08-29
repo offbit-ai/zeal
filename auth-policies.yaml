@@ -1,0 +1,398 @@
+# Zeal Authorization Policies Configuration
+# This file demonstrates comprehensive policy examples for various use cases
+
+# ============= Identity Provider Configuration =============
+identity_providers:
+  - id: primary_idp
+    type: jwt
+    issuer: "https://auth.example.com"
+    audience: "zeal-platform"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    
+# ============= Claim Mappings =============
+claim_mappings:
+  subject:
+    id: ["sub", "user_id", "email"]  # Try multiple paths
+    type: "user_type"
+  
+  tenant: 
+    - "custom_claims.tenant_id"
+    - "org_id"
+    - "company_id"
+  
+  organization:
+    - "custom_claims.org_id"
+    - "organization.id"
+  
+  teams: "user.teams"
+  groups: "user.groups"
+  roles: "realm_access.roles"
+  
+  custom:
+    department: "user_metadata.department"
+    clearance_level: "security.clearance"
+    cost_center: "finance.cost_center"
+
+# ============= Hierarchy Configuration =============
+hierarchy:
+  enabled: true
+  providers:
+    - type: database
+      config:
+        table: "organizational_hierarchy"
+        refresh_interval: 300  # seconds
+    
+    - type: api
+      config:
+        endpoint: "https://org-service.internal/api/hierarchy"
+        cache_ttl: 600
+
+# ============= Resource Access Policies =============
+policies:
+  # Policy 1: Tenant Isolation (Highest Priority)
+  - id: tenant_isolation
+    name: "Strict Tenant Isolation"
+    description: "Ensures users can only access resources within their tenant"
+    enabled: true
+    priority: 1000
+    effect: deny
+    conditions:
+      - type: all
+        rules:
+          - attribute: "resource.tenantId"
+            operator: exists
+            value: true
+          - attribute: "resource.tenantId"
+            operator: notEquals
+            value: "{{subject.tenantId}}"
+    
+  # Policy 2: Organization Admin Full Access
+  - id: org_admin_access
+    name: "Organization Admin Access"
+    enabled: true
+    priority: 900
+    effect: allow
+    conditions:
+      - type: all
+        rules:
+          - attribute: "subject.roles"
+            operator: contains
+            value: "org_admin"
+          - attribute: "resource.organizationId"
+            operator: equals
+            value: "{{subject.organizationId}}"
+    
+  # Policy 3: Team-based Workflow Access
+  - id: team_workflow_access
+    name: "Team Workflow Collaboration"
+    enabled: true
+    priority: 800
+    effect: allow
+    conditions:
+      - type: all
+        rules:
+          - attribute: "resource.type"
+            operator: equals
+            value: "workflow"
+          - attribute: "action"
+            operator: in
+            value: ["read", "update", "execute"]
+          - attribute: "resource.attributes.teamId"
+            operator: in
+            value: "{{subject.teams}}"
+    constraints:
+      fields: ["id", "name", "description", "nodes", "connections", "status"]
+      filters:
+        status: ["active", "testing"]
+    
+  # Policy 4: Workflow Developer Permissions
+  - id: workflow_developer
+    name: "Workflow Developer Access"
+    enabled: true
+    priority: 700
+    effect: allow
+    conditions:
+      - type: all
+        rules:
+          - attribute: "subject.roles"
+            operator: contains
+            value: "workflow_developer"
+          - attribute: "resource.type"
+            operator: in
+            value: ["workflow", "template", "node"]
+          - attribute: "action"
+            operator: in
+            value: ["create", "read", "update", "delete", "execute"]
+    constraints:
+      filters:
+        visibility: ["private", "organization"]
+      rateLimit:
+        requests: 100
+        window: 60
+    
+  # Policy 5: Public Workflow Read Access
+  - id: public_workflow_read
+    name: "Public Workflow Visibility"
+    enabled: true
+    priority: 600
+    effect: allow
+    conditions:
+      - type: all
+        rules:
+          - attribute: "resource.type"
+            operator: equals
+            value: "workflow"
+          - attribute: "resource.visibility"
+            operator: equals
+            value: "public"
+          - attribute: "action"
+            operator: equals
+            value: "read"
+    constraints:
+      fields: ["id", "name", "description", "tags", "author"]
+    
+  # Policy 6: Restricted Node Usage
+  - id: restricted_nodes
+    name: "Restricted Node Type Access"
+    enabled: true
+    priority: 500
+    effect: deny
+    conditions:
+      - type: all
+        rules:
+          - attribute: "resource.type"
+            operator: equals
+            value: "node"
+          - attribute: "resource.attributes.nodeType"
+            operator: in
+            value: ["database_write", "system_command", "admin_action"]
+          - attribute: "subject.roles"
+            operator: notContains
+            value: "trusted_developer"
+    
+  # Policy 7: Data Export Restrictions
+  - id: data_export_control
+    name: "Data Export Control"
+    enabled: true
+    priority: 400
+    effect: deny
+    conditions:
+      - type: all
+        rules:
+          - attribute: "action"
+            operator: equals
+            value: "export"
+          - attribute: "subject.claims.clearance_level"
+            operator: lessThan
+            value: 3
+          - attribute: "resource.attributes.classification"
+            operator: in
+            value: ["confidential", "restricted"]
+    
+  # Policy 8: Time-based Access
+  - id: business_hours_only
+    name: "Business Hours Execution"
+    enabled: true
+    priority: 300
+    effect: deny
+    conditions:
+      - type: all
+        rules:
+          - attribute: "action"
+            operator: equals
+            value: "execute"
+          - attribute: "subject.roles"
+            operator: notContains
+            value: "24x7_operator"
+          - attribute: "environment.timestamp"
+            operator: notIn
+            value: "business_hours"  # Evaluated by custom function
+    
+  # Policy 9: Cost Center Budget Control
+  - id: budget_control
+    name: "Cost Center Budget Limits"
+    enabled: true
+    priority: 200
+    effect: deny
+    conditions:
+      - type: all
+        rules:
+          - attribute: "resource.type"
+            operator: equals
+            value: "workflow"
+          - attribute: "action"
+            operator: equals
+            value: "execute"
+          - attribute: "resource.attributes.estimatedCost"
+            operator: greaterThan
+            value: 1000
+          - attribute: "subject.claims.cost_center"
+            operator: equals
+            value: "{{resource.attributes.costCenter}}"
+          - attribute: "subject.claims.budget_remaining"
+            operator: lessThan
+            value: "{{resource.attributes.estimatedCost}}"
+    
+  # Policy 10: Workflow Sharing Rules
+  - id: workflow_sharing
+    name: "Workflow Sharing Permissions"
+    enabled: true
+    priority: 100
+    effect: allow
+    conditions:
+      - type: any
+        rules:
+          # Owner can always share
+          - attribute: "resource.ownerId"
+            operator: equals
+            value: "{{subject.id}}"
+          # Org admins can share org workflows
+          - type: all
+            rules:
+              - attribute: "subject.roles"
+                operator: contains
+                value: "org_admin"
+              - attribute: "resource.visibility"
+                operator: equals
+                value: "organization"
+          # Team leads can share team workflows
+          - type: all
+            rules:
+              - attribute: "subject.hierarchy[?type=='team'].permissions"
+                operator: contains
+                value: "share"
+              - attribute: "resource.attributes.teamId"
+                operator: in
+                value: "{{subject.teams}}"
+
+# ============= Node Template Permissions =============
+node_permissions:
+  # Database operations require special permissions
+  - nodeType: "database_write"
+    requiredPermissions: ["database.write"]
+    requiredRoles: ["data_engineer", "backend_developer"]
+    restrictions:
+      - property: "connectionString"
+        validator: "validateDatabaseConnection"
+  
+  - nodeType: "database_delete"
+    requiredPermissions: ["database.delete"]
+    requiredRoles: ["data_admin"]
+    allowedTenants: ["production", "staging"]
+  
+  # External API calls need approval
+  - nodeType: "external_api"
+    requiredPermissions: ["external.api.call"]
+    restrictions:
+      - property: "endpoint"
+        allowedValues: 
+          - "https://api.approved-vendor.com/*"
+          - "https://internal-api.company.com/*"
+  
+  # System commands are highly restricted
+  - nodeType: "system_command"
+    requiredRoles: ["system_admin"]
+    allowedOrganizations: ["platform_team"]
+    restrictions:
+      - property: "command"
+        deniedValues: ["rm", "delete", "drop", "truncate"]
+  
+  # AI/ML nodes may have cost implications
+  - nodeType: "ai_inference"
+    requiredPermissions: ["ai.inference"]
+    requiredClaims:
+      clearance_level: 2
+      ai_budget_allocated: true
+    restrictions:
+      - property: "model"
+        allowedValues: ["gpt-3.5", "gpt-4", "claude-2"]
+      - property: "max_tokens"
+        validator: "validateTokenLimit"
+  
+  # File operations
+  - nodeType: "file_write"
+    requiredPermissions: ["file.write"]
+    restrictions:
+      - property: "path"
+        validator: "validateFilePath"
+        deniedValues: ["/etc/*", "/sys/*", "/root/*"]
+  
+  # Email/notification nodes
+  - nodeType: "send_email"
+    requiredPermissions: ["notification.send"]
+    restrictions:
+      - property: "recipients"
+        validator: "validateEmailDomain"
+      - property: "attachments"
+        validator: "validateAttachmentSize"
+
+# ============= Workflow Sharing Configuration =============
+workflow_sharing:
+  defaultVisibility: "organization"
+  allowedVisibilities: ["private", "organization", "public"]
+  
+  sharePermissions:
+    roles: ["workflow_developer", "team_lead", "org_admin"]
+    minLevel: 2  # Minimum hierarchy level (0=user, 1=team, 2=org)
+  
+  publicPermissions:
+    requiresApproval: true
+    approverRoles: ["security_reviewer", "org_admin"]
+    
+  sharingMatrix:
+    private:
+      owner: ["read", "write", "delete", "share", "execute"]
+      shared_users: ["read", "execute"]
+      team_members: []
+      organization: []
+      public: []
+    
+    organization:
+      owner: ["read", "write", "delete", "share", "execute"]
+      shared_users: ["read", "write", "execute"]
+      team_members: ["read", "execute"]
+      organization: ["read"]
+      public: []
+    
+    public:
+      owner: ["read", "write", "delete", "share", "execute"]
+      shared_users: ["read", "write", "execute"]
+      team_members: ["read", "write", "execute"]
+      organization: ["read", "execute"]
+      public: ["read"]
+
+# ============= Audit Configuration =============
+audit:
+  enabled: true
+  level: all  # all | denials | changes
+  destinations:
+    - type: database
+      config:
+        table: "authorization_audit"
+        retention_days: 90
+    
+    - type: webhook
+      config:
+        url: "https://audit-service.internal/webhook"
+        events: ["denial", "privilege_escalation", "policy_override"]
+    
+    - type: file
+      config:
+        path: "/var/log/zeal/authorization.log"
+        rotate: daily
+        compress: true
+
+# ============= Cache Configuration =============
+cache:
+  enabled: true
+  provider: redis
+  ttl: 300  # 5 minutes default
+  redis:
+    url: "${REDIS_URL}"
+    keyPrefix: "zeal:auth:"
+  
+  # Different TTLs for different decision types
+  ttl_overrides:
+    allow: 600  # 10 minutes for allows
+    deny: 60    # 1 minute for denials
+    error: 0    # Don't cache errors

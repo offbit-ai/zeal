@@ -1,40 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuccessResponse, withErrorHandling, extractUserId, mockDelay } from '@/lib/api-utils'
+import { createSuccessResponse, withErrorHandling, extractUserId } from '@/lib/api-utils'
 import { ApiError, WorkflowExecutionRequest, WorkflowExecutionResponse } from '@/types/api'
+import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
+import { WorkflowDatabase } from '@/services/workflowDatabase'
 
 // Mock execution store
 let executionsStore: WorkflowExecutionResponse[] = []
 
 // POST /api/workflows/[id]/execute - Execute workflow
-export const POST = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(100)
+export const POST = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context?.params) {
-      return NextResponse.json(createSuccessResponse({}), { status: 400 })
-    }
+      if (!context?.params) {
+        return NextResponse.json(createSuccessResponse({}), { status: 400 })
+      }
 
-    const userId = extractUserId(req)
-    const { id: workflowId } = context.params
-    const body: WorkflowExecutionRequest = await req.json()
+      const userId = req.auth?.subject?.id || extractUserId(req)
+      const { id: workflowId } = context.params
+      const body: WorkflowExecutionRequest = await req.json()
 
-    // Validate workflow exists and is published
-    // In real implementation, this would query the database
-    // console.log removed
+      // Validate workflow exists and check tenant access
+      const workflow = await WorkflowDatabase.getWorkflow(workflowId)
+      if (!workflow) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
+      }
+      
+      // Check tenant access
+      if (!validateTenantAccess(workflow, req as NextRequest)) {
+        return createTenantViolationError()
+      }
+      
+      // Check ownership for legacy workflows without tenantId
+      if (!workflow.tenantId && workflow.userId !== userId) {
+        throw new ApiError('FORBIDDEN', 'Not authorized to execute this workflow', 403)
+      }
 
-    // Create execution record
-    const execution: WorkflowExecutionResponse = {
-      id: `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      workflowId: body.workflowId,
-      status: 'queued',
-      startTime: new Date().toISOString(),
-      input: body.input,
-      metadata: {
-        triggeredBy: userId,
-        configuration: body.configuration,
-        executionMode: 'manual',
-      },
-    }
+      // Create execution record with tenant context
+      const execution: WorkflowExecutionResponse = {
+        id: `exec_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        workflowId: body.workflowId,
+        status: 'queued',
+        startTime: new Date().toISOString(),
+        input: body.input,
+        metadata: {
+          triggeredBy: userId,
+          configuration: body.configuration,
+          executionMode: 'manual',
+        },
+        ...(req as any).authContext?.subject?.tenantId && { 
+          tenantId: (req as any).authContext?.subject?.tenantId 
+        }
+      }
 
     executionsStore.push(execution)
 
@@ -74,20 +92,36 @@ export const POST = withErrorHandling(
     }, 1000)
 
     return NextResponse.json(createSuccessResponse(execution), { status: 202 })
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'execute'
   }
 )
 
 // GET /api/workflows/[id]/execute - Get execution history
-export const GET = withErrorHandling(
-  async (req: NextRequest, context?: { params: { id: string } }) => {
-    await mockDelay(75)
+export const GET = withAuth(
+  withErrorHandling(
+    async (req: AuthenticatedRequest, context?: { params: { id: string } }) => {
 
-    if (!context?.params) {
-      return NextResponse.json(createSuccessResponse([]), { status: 400 })
-    }
+      if (!context?.params) {
+        return NextResponse.json(createSuccessResponse([]), { status: 400 })
+      }
 
-    const userId = extractUserId(req)
-    const { id: workflowId } = context.params
+      const userId = req.auth?.subject?.id || extractUserId(req)
+      const { id: workflowId } = context.params
+      
+      // Validate workflow exists and check tenant access
+      const workflow = await WorkflowDatabase.getWorkflow(workflowId)
+      if (!workflow) {
+        throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
+      }
+      
+      // Check tenant access
+      if (!validateTenantAccess(workflow, req as NextRequest)) {
+        return createTenantViolationError()
+      }
     const { searchParams } = new URL(req.url)
 
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
@@ -100,5 +134,10 @@ export const GET = withErrorHandling(
       .slice(offset, offset + limit)
 
     return NextResponse.json(createSuccessResponse(workflowExecutions))
+    }
+  ),
+  {
+    resource: 'workflow',
+    action: 'read'
   }
 )

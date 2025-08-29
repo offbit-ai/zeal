@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { FlowTraceDatabase } from '@/services/flowTraceDatabase'
 import { CompleteTraceSessionRequest } from '@/types/zip'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
 
 const completeSessionSchema = z.object({
   status: z.enum(['success', 'error', 'cancelled']),
@@ -20,12 +21,20 @@ const completeSessionSchema = z.object({
 })
 
 // POST /api/zip/traces/[sessionId]/complete - Complete trace session
-export async function POST(
+export const POST = withZIPAuthorization(async (
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
-) {
+  context?: { params: { sessionId: string } }
+) => {
   try {
-    const { sessionId } = params
+    if (!context || !context.params) {
+      return NextResponse.json({
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Missing session ID parameter'
+        }
+      }, { status: 400 })
+    }
+    const { sessionId } = context.params
     const body = await request.json()
     
     // Validate request
@@ -66,4 +75,7 @@ export async function POST(
       }
     }, { status: 500 })
   }
-}
+}, {
+  resourceType: 'execution',
+  action: 'update'
+})
