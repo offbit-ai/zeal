@@ -3,16 +3,70 @@
  * Provides a unified interface for both OpenAI Functions and MCP servers
  */
 
-import ZealClient from '@offbit-ai/zeal-sdk';
-import { 
-  Workflow, 
-  Node, 
-  Connection, 
-  Template, 
-  ExecutionResult,
-  FlowTrace,
-  ZipEvent 
-} from '@offbit-ai/zeal-sdk/types';
+import ZealClient from '../../packages/zeal-sdk';
+// Since the types are not properly exported, we'll define them locally
+interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  nodes: any[];
+  connections: any[];
+  metadata?: any;
+  graph?: {
+    nodes: any[];
+    connections: any[];
+  };
+}
+
+interface Node {
+  id: string;
+  type: string;
+  position?: { x: number; y: number };
+  properties?: any;
+  metadata?: any;
+  data?: any;
+}
+
+interface Connection {
+  id: string;
+  source: string;
+  sourceHandle: string;
+  target: string;
+  targetHandle: string;
+}
+
+interface Template {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  category: string;
+  properties?: any;
+  name?: string;
+  confidence?: number;
+  reasoning?: string;
+}
+
+interface ExecutionResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+interface FlowTrace {
+  id: string;
+  nodeId: string;
+  status: string;
+  timestamp: Date;
+  data?: any;
+  errorMessage?: string;
+  targetNodeId?: string;
+}
+
+interface ZipEvent {
+  type: string;
+  data: any;
+}
 
 export interface CreateWorkflowParams {
   name: string;
@@ -168,7 +222,7 @@ export class ZIPBridge {
       
       if (updates.nodes) {
         for (const node of updates.nodes) {
-          if (node.id && graph.nodes.find(n => n.id === node.id)) {
+          if (node.id && graph.nodes.find((n: any) => n.id === node.id)) {
             await this.updateNode(id, node.id, node);
           } else {
             await this.addNode(id, node);
@@ -298,7 +352,7 @@ export class ZIPBridge {
         status: 'failed',
         startTime: new Date(),
         endTime: new Date(),
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
@@ -408,15 +462,15 @@ export class ZIPBridge {
 
     // Calculate analytics
     const totalExecutions = sessions.length;
-    const successfulExecutions = sessions.filter(s => s.status === 'completed').length;
-    const failedExecutions = sessions.filter(s => s.status === 'failed').length;
+    const successfulExecutions = sessions.filter((s: any) => s.status === 'completed').length;
+    const failedExecutions = sessions.filter((s: any) => s.status === 'failed').length;
     
     const durations = sessions
-      .filter(s => s.endTime)
-      .map(s => new Date(s.endTime!).getTime() - new Date(s.startTime).getTime());
+      .filter((s: any) => s.endTime)
+      .map((s: any) => new Date(s.endTime!).getTime() - new Date(s.startTime).getTime());
     
     const avgDuration = durations.length > 0 
-      ? durations.reduce((a, b) => a + b, 0) / durations.length 
+      ? durations.reduce((a: number, b: number) => a + b, 0) / durations.length 
       : 0;
 
     // Node-level metrics

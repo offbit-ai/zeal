@@ -16,7 +16,8 @@ export interface ZipEventBase {
   /** Graph ID (optional, defaults to 'main') */
   graphId?: string
   /** Event metadata */
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  source?: 'webhook' | 'websocket'
 }
 
 /**

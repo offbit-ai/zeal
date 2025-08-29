@@ -506,7 +506,7 @@ export class WebhookSubscription {
     const sources = Array.isArray(source) ? source : [source]
     
     const filteredCallback: WebhookEventCallback = (event) => {
-      if (sources.includes(event.source)) {
+      if (sources.includes(event.source || '')) {
         callback(event)
       }
     }

@@ -49,7 +49,7 @@ export class ZealClient {
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`)
     }
-    return response.json()
+    return response.json() as any
   }
   
   /**
@@ -68,7 +68,7 @@ export class ZealClient {
     })
     
     if (!response.ok) {
-      const error = await response.json().catch(() => ({
+      const error: any = await response.json().catch(() => ({
         error: { message: response.statusText }
       }))
       throw new Error(error.error?.message || response.statusText)

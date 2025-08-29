@@ -392,7 +392,7 @@ export class GraphRAGIntegration {
 
     // Analyze for redundancies
     const nodesByType = new Map<string, any[]>();
-    nodes.forEach(node => {
+    nodes.forEach((node: any) => {
       if (!nodesByType.has(node.type)) {
         nodesByType.set(node.type, []);
       }

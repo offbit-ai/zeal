@@ -3,7 +3,6 @@
  * Defines all available functions with their schemas
  */
 
-import { z } from 'zod';
 import { ZIPBridge } from '../../../shared/zip-bridge';
 
 export interface FunctionDefinition {
@@ -613,5 +612,49 @@ export class FunctionRegistry {
 
   hasFunction(name: string): boolean {
     return this.functions.has(name);
+  }
+
+  async executeFunction(name: string, args: any): Promise<any> {
+    const fn = this.functions.get(name);
+    if (!fn) {
+      throw new Error(`Function ${name} not found`);
+    }
+
+    // Map function names to actual implementations
+    switch (name) {
+      case 'create_workflow':
+        return await this.zipBridge.createWorkflow(args);
+      case 'update_workflow':
+        return await this.zipBridge.updateWorkflow(args.workflow_id, args);
+      case 'execute_workflow':
+        return await this.zipBridge.executeWorkflow(args.workflow_id, args.input_data);
+      case 'add_node':
+        return await this.zipBridge.addNode(args.workflow_id, args.node);
+      case 'connect_nodes':
+        return await this.zipBridge.connectNodes(args.workflow_id, args.connection);
+      case 'get_workflow':
+        return await this.zipBridge.getWorkflow(args.workflow_id);
+      case 'list_workflows':
+        return await this.zipBridge.listWorkflows();
+      case 'get_execution_status':
+        return await this.zipBridge.getExecutionStatus(args.execution_id);
+      case 'search_templates':
+        return await this.zipBridge.searchTemplates(args);
+      case 'analyze_workflow':
+        return await this.zipBridge.getAnalytics(args.workflow_id);
+      default:
+        throw new Error(`Function ${name} not implemented`);
+    }
+  }
+
+  async getMetrics(): Promise<any> {
+    // TODO: Implement proper metrics collection
+    return {
+      total_functions: this.functions.size,
+      categories: this.getCategories(),
+      function_counts_by_category: Object.fromEntries(
+        Array.from(this.categories.entries()).map(([cat, fns]) => [cat, fns.length])
+      )
+    };
   }
 }

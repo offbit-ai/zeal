@@ -71,7 +71,7 @@ if (OPENROUTER_API_KEY) {
         throw new Error(`OpenRouter API error: ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as any;
       return data.choices[0].message.content;
     }
   };
@@ -83,7 +83,7 @@ if (OPENROUTER_API_KEY) {
 // Initialize registries with optional LLM
 const toolRegistry = new ToolRegistry(zipBridge, llm, embeddings);
 const resourceProvider = new ResourceProvider(zipBridge);
-const promptRegistry = new PromptRegistry(zipBridge);
+const promptRegistry = new PromptRegistry();
 
 // Create MCP Server
 const server = new Server(
@@ -142,7 +142,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // ============= Resource Handlers =============
 
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  const resources = await resourceProvider.listResources();
+  const resources = await resourceProvider.list();
   return { resources };
 });
 
@@ -151,7 +151,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   
   try {
     logger.info(`Reading resource: ${uri}`);
-    const content = await resourceProvider.readResource(uri);
+    const content = await resourceProvider.read(uri);
     
     return {
       contents: [
@@ -182,7 +182,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // ============= Prompt Handlers =============
 
 server.setRequestHandler(ListPromptsRequestSchema, async () => {
-  const prompts = promptRegistry.getAllPrompts();
+  const prompts = promptRegistry.list();
   return { prompts };
 });
 
@@ -191,7 +191,18 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   
   try {
     logger.info(`Getting prompt: ${name}`, { prompt: name, args });
-    const messages = await promptRegistry.getPrompt(name, args);
+    const prompt = promptRegistry.get(name);
+    if (!prompt) {
+      throw new Error(`Prompt ${name} not found`);
+    }
+    const formatted = promptRegistry.format(name, args || {});
+    const messages = [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: formatted
+      }
+    }];
     
     return { 
       description: `Generated prompt for ${name}`,
@@ -243,12 +254,12 @@ export async function executeTool(name: string, args: any): Promise<any> {
  * For context injection in Claude API
  */
 export async function getResourcesForAPI(): Promise<any[]> {
-  const resources = await resourceProvider.listResources();
+  const resources = await resourceProvider.list();
   const resourceContents = [];
   
   for (const resource of resources) {
     try {
-      const content = await resourceProvider.readResource(resource.uri);
+      const content = await resourceProvider.read(resource.uri);
       resourceContents.push({
         name: resource.name,
         description: resource.description,
@@ -267,8 +278,11 @@ export async function getResourcesForAPI(): Promise<any[]> {
  * For use with Claude API
  */
 export async function generatePrompt(name: string, args: any): Promise<string> {
-  const messages = await promptRegistry.getPrompt(name, args);
-  return messages.map(m => m.content.text).join('\n\n');
+  const prompt = promptRegistry.get(name);
+  if (!prompt) {
+    throw new Error(`Prompt ${name} not found`);
+  }
+  return promptRegistry.format(name, args || {});
 }
 
 // ============= Server Startup =============
@@ -299,7 +313,7 @@ async function startServer() {
         const result = await executeTool(req.params.name, req.body);
         res.json({ result });
       } catch (error) {
-        res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
       }
     });
     
@@ -310,12 +324,12 @@ async function startServer() {
     });
     
     // Prompts endpoint
-    app.get('/prompts/:name', async (req, res) => {
+    app.get('/prompts/:name', async (req: any, res: any) => {
       try {
         const prompt = await generatePrompt(req.params.name, req.query);
         res.json({ prompt });
       } catch (error) {
-        res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
       }
     });
     
@@ -331,7 +345,7 @@ async function startServer() {
 
 // Start the server
 startServer().catch((error) => {
-  logger.error('Failed to start MCP server:', error);
+  logger.error('Failed to start MCP server:', error as Error);
   process.exit(1);
 });
 

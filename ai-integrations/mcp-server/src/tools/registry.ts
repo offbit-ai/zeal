@@ -442,6 +442,8 @@ export class ToolRegistry {
       const workflow = await this.zipBridge.getWorkflow(args.workflow_id);
       
       // Analyze workflow input requirements using GraphRAG
+      const testData = [];
+      
       if (this.graphragIntegration && this.graphragIntegration.isAvailable()) {
         const analysis = await this.graphragIntegration.analyzeForOptimization(args.workflow_id);
         
@@ -456,8 +458,6 @@ export class ToolRegistry {
           });
         }
       }
-      
-      const testData = [];
       for (let i = 0; i < args.test_scenarios; i++) {
         testData.push({
           scenario: `Test Scenario ${i + 1}`,
@@ -513,6 +513,8 @@ export class ToolRegistry {
     }, async (args) => {
       const workflow = await this.zipBridge.getWorkflow(args.workflow_id);
       
+      let explanation = `Workflow "${workflow.name}" `;
+      
       // Implement workflow analysis and explanation generation
       if (this.graphragIntegration && this.graphragIntegration.isAvailable()) {
         const analysis = await this.graphragIntegration.analyzeForOptimization(args.workflow_id);
@@ -524,8 +526,6 @@ export class ToolRegistry {
           explanation += `- Optimization potential: ${analysis.redundancies.length > 0 || analysis.missingCapabilities.length > 0 ? 'Yes' : 'No'}`;
         }
       }
-      
-      let explanation = `Workflow "${workflow.name}" `;
       
       if (args.detail_level === 'simple') {
         explanation += `processes data through a series of connected steps. `;
