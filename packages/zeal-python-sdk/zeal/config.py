@@ -9,6 +9,7 @@ class ClientConfig(BaseModel):
     """Configuration for Zeal client."""
     
     base_url: str = Field(default="http://localhost:3000", description="Base URL for the Zeal API")
+    auth_token: Optional[str] = Field(default=None, description="Authentication token for API access")
     default_timeout: timedelta = Field(default=timedelta(seconds=30), description="Default request timeout")
     verify_tls: bool = Field(default=True, description="Whether to verify TLS certificates")
     user_agent: str = Field(default="zeal-python-sdk/1.0.0", description="User agent string")

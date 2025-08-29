@@ -6,12 +6,13 @@ import { ZealClient } from './client'
 import {
   CreateTraceSessionRequest,
   TraceEvent,
+  ZealClientConfig,
 } from './types'
 
 export class TracesAPI {
   private sessionId: string | null = null
   
-  constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string, private config?: ZealClientConfig) {}
   
   /**
    * Create a new trace session
@@ -24,7 +25,8 @@ export class TracesAPI {
       {
         method: 'POST',
         body: JSON.stringify(request),
-      }
+      },
+      this.config
     )
     
     this.sessionId = response.sessionId
@@ -43,7 +45,8 @@ export class TracesAPI {
       {
         method: 'POST',
         body: JSON.stringify({ events }),
-      }
+      },
+      this.config
     )
   }
   
@@ -83,7 +86,8 @@ export class TracesAPI {
       {
         method: 'POST',
         body: JSON.stringify(request),
-      }
+      },
+      this.config
     )
     
     if (this.sessionId === sessionId) {
@@ -129,7 +133,8 @@ export class TracesAPI {
       {
         method: 'POST',
         body: JSON.stringify(request),
-      }
+      },
+      this.config
     )
   }
 }

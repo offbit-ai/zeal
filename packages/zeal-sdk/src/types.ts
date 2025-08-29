@@ -216,4 +216,5 @@ export interface WebhookConfig {
 export interface ZealClientConfig {
   baseUrl: string
   websocketPath?: string
+  authToken?: string
 }

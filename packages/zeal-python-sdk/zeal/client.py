@@ -4,6 +4,10 @@ import httpx
 from typing import Optional
 
 from .config import ClientConfig
+
+# SDK Constants
+SDK_VERSION = "1.0.0"
+APPLICATION_ID = "zeal-python-sdk"
 from .orchestrator import OrchestratorAPI
 from .templates import TemplatesAPI
 from .traces import TracesAPI
@@ -29,13 +33,19 @@ class ZealClient:
         
         # Create HTTP client
         timeout = httpx.Timeout(self.config.default_timeout.total_seconds())
+        headers = {
+            "User-Agent": self.config.user_agent,
+            "Content-Type": "application/json"
+        }
+        
+        # Add auth token to headers if provided
+        if self.config.auth_token:
+            headers["Authorization"] = f"Bearer {self.config.auth_token}"
+        
         self._http_client = httpx.AsyncClient(
             timeout=timeout,
             verify=self.config.verify_tls,
-            headers={
-                "User-Agent": self.config.user_agent,
-                "Content-Type": "application/json"
-            }
+            headers=headers
         )
         
         # Initialize API modules

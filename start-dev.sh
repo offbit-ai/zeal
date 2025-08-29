@@ -806,6 +806,13 @@ NEXT_PUBLIC_EMBED_URL="http://localhost:3000/embed"
 ZEAL_AUTH_ENABLED=${ZEAL_AUTH_ENABLED:-false}
 ZEAL_AUTH_MODE=${ZEAL_AUTH_MODE:-development}
 
+# Secret key for HMAC token signing (required for SDK token generation)
+# Generate a secure random key if not set
+if [ -z "$ZEAL_SECRET_KEY" ]; then
+    ZEAL_SECRET_KEY=$(openssl rand -base64 32 2>/dev/null || echo "dev-secret-key-change-in-production")
+fi
+ZEAL_SECRET_KEY=${ZEAL_SECRET_KEY}
+
 # Development Mode Settings
 ${ZEAL_DEV_USER_ID:+ZEAL_DEV_USER_ID=${ZEAL_DEV_USER_ID}}
 ${ZEAL_DEV_TENANT_ID:+ZEAL_DEV_TENANT_ID=${ZEAL_DEV_TENANT_ID}}

@@ -3,10 +3,10 @@
  */
 
 import { ZealClient } from './client'
-import { WebhookConfig } from './types'
+import { WebhookConfig, ZealClientConfig } from './types'
 
 export class WebhooksAPI {
-  constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string, private config?: ZealClientConfig) {}
   
   /**
    * Register a webhook
@@ -21,7 +21,7 @@ export class WebhooksAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/webhooks`, {
       method: 'POST',
       body: JSON.stringify(config),
-    })
+    }, this.config)
   }
   
   /**
@@ -39,7 +39,7 @@ export class WebhooksAPI {
     count: number
   }> {
     const params = namespace ? `?namespace=${namespace}` : ''
-    return ZealClient.request(`${this.baseUrl}/api/zip/webhooks${params}`)
+    return ZealClient.request(`${this.baseUrl}/api/zip/webhooks${params}`, {}, this.config)
   }
   
   /**
@@ -57,7 +57,7 @@ export class WebhooksAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/webhooks/${webhookId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
-    })
+    }, this.config)
   }
   
   /**
@@ -66,7 +66,7 @@ export class WebhooksAPI {
   async delete(webhookId: string): Promise<{ success: boolean; message: string }> {
     return ZealClient.request(`${this.baseUrl}/api/zip/webhooks/${webhookId}`, {
       method: 'DELETE',
-    })
+    }, this.config)
   }
   
   /**
@@ -80,6 +80,6 @@ export class WebhooksAPI {
   }> {
     return ZealClient.request(`${this.baseUrl}/api/zip/webhooks/${webhookId}/test`, {
       method: 'POST',
-    })
+    }, this.config)
   }
 }

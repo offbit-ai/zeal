@@ -11,35 +11,10 @@ export * from './events'
 export * from './webhooks'
 export * from './webhook-subscription'
 export * from './types'
+export * from './auth'
 
-// Re-export event types for SDK users
-export type {
-  ZipWebSocketEvent,
-  ZipWebhookEvent,
-  ZipExecutionEvent,
-  ZipWorkflowEvent,
-  NodeExecutingEvent,
-  NodeCompletedEvent,
-  NodeFailedEvent,
-  NodeWarningEvent,
-  ExecutionStartedEvent,
-  ExecutionCompletedEvent,
-  ExecutionFailedEvent,
-  WorkflowCreatedEvent,
-  WorkflowUpdatedEvent,
-  WorkflowDeletedEvent,
-} from '../../../types/zip-events'
-
-export {
-  isExecutionEvent,
-  isWorkflowEvent,
-  isControlEvent,
-  isNodeEvent,
-  createNodeExecutingEvent,
-  createNodeCompletedEvent,
-  createNodeFailedEvent,
-  createExecutionStartedEvent,
-} from '../../../types/zip-events'
+// Event types will be exported from webhook-subscription
+// TODO: Bundle proper event types with the SDK package
 
 import { ZealClient } from './client'
 

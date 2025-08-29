@@ -8,6 +8,7 @@ import {
   ZealEventType,
   RuntimeEvent,
   RuntimeEventType,
+  ZealClientConfig,
 } from './types'
 
 export interface EventHandlers {
@@ -25,7 +26,8 @@ export class EventsAPI {
   
   constructor(
     private baseUrl: string,
-    private websocketPath = '/zip/events'
+    private websocketPath = '/zip/events',
+    private config?: ZealClientConfig
   ) {}
   
   /**

@@ -7,10 +7,11 @@ import {
   NodeTemplate,
   RegisterTemplatesRequest,
   RegisterTemplatesResponse,
+  ZealClientConfig,
 } from './types'
 
 export class TemplatesAPI {
-  constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string, private config?: ZealClientConfig) {}
   
   /**
    * Register templates
@@ -19,7 +20,7 @@ export class TemplatesAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/templates/register`, {
       method: 'POST',
       body: JSON.stringify(request),
-    })
+    }, this.config)
   }
   
   /**
@@ -30,7 +31,7 @@ export class TemplatesAPI {
     templates: NodeTemplate[]
     count: number
   }> {
-    return ZealClient.request(`${this.baseUrl}/api/zip/templates/${namespace}`)
+    return ZealClient.request(`${this.baseUrl}/api/zip/templates/${namespace}`, {}, this.config)
   }
   
   /**
@@ -46,7 +47,8 @@ export class TemplatesAPI {
       {
         method: 'PUT',
         body: JSON.stringify(updates),
-      }
+      },
+      this.config
     )
   }
   
@@ -61,7 +63,8 @@ export class TemplatesAPI {
       `${this.baseUrl}/api/zip/templates/${namespace}/${templateId}`,
       {
         method: 'DELETE',
-      }
+      },
+      this.config
     )
   }
 }

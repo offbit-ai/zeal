@@ -35,6 +35,13 @@ AUTH_JWT_ISSUER="${AUTH_JWT_ISSUER:-}"
 AUTH_JWT_AUDIENCE="${AUTH_JWT_AUDIENCE:-}"
 AUTH_JWT_JWKS_URI="${AUTH_JWT_JWKS_URI:-}"
 
+# Secret key for HMAC token signing (required for SDK token generation)
+# Generate a secure random key if not set
+if [ -z "$ZEAL_SECRET_KEY" ]; then
+    ZEAL_SECRET_KEY=$(openssl rand -base64 32 2>/dev/null || echo "azure-secret-key-change-in-production")
+fi
+ZEAL_SECRET_KEY="${ZEAL_SECRET_KEY}"
+
 # TimescaleDB Retention Policies
 TIMESCALE_RETENTION_FLOW_TRACES="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
 TIMESCALE_RETENTION_TRACE_EVENTS="${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"

@@ -119,39 +119,21 @@ impl Default for PerformanceConfig {
 /// Authentication configuration
 #[derive(Debug, Clone)]
 pub struct AuthConfig {
-    /// API key for authentication
-    pub api_key: Option<String>,
-    
     /// Bearer token for authentication
-    pub bearer_token: Option<String>,
-    
-    /// Custom headers for authentication
-    pub custom_headers: std::collections::HashMap<String, String>,
+    pub bearer_token: String,
 }
 
 impl AuthConfig {
-    /// Create auth config with API key
-    pub fn with_api_key(api_key: String) -> Self {
-        Self {
-            api_key: Some(api_key),
-            bearer_token: None,
-            custom_headers: std::collections::HashMap::new(),
-        }
-    }
-    
     /// Create auth config with bearer token
-    pub fn with_bearer_token(token: String) -> Self {
+    pub fn new(token: String) -> Self {
         Self {
-            api_key: None,
-            bearer_token: Some(token),
-            custom_headers: std::collections::HashMap::new(),
+            bearer_token: token,
         }
     }
     
-    /// Add custom header
-    pub fn with_header(mut self, name: String, value: String) -> Self {
-        self.custom_headers.insert(name, value);
-        self
+    /// Create auth config with bearer token (alias for consistency)
+    pub fn with_bearer_token(token: String) -> Self {
+        Self::new(token)
     }
 }
 
@@ -258,16 +240,14 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_config_with_api_key() {
-        let auth = AuthConfig::with_api_key("test-key".to_string());
-        assert_eq!(auth.api_key, Some("test-key".to_string()));
-        assert_eq!(auth.bearer_token, None);
+    fn test_auth_config_new() {
+        let auth = AuthConfig::new("test-token".to_string());
+        assert_eq!(auth.bearer_token, "test-token");
     }
 
     #[test]
     fn test_auth_config_with_bearer_token() {
         let auth = AuthConfig::with_bearer_token("test-token".to_string());
-        assert_eq!(auth.bearer_token, Some("test-token".to_string()));
-        assert_eq!(auth.api_key, None);
+        assert_eq!(auth.bearer_token, "test-token");
     }
 }

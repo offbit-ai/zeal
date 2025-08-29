@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+const (
+	// SDK version
+	SDKVersion = "1.0.0"
+	// Application ID
+	ApplicationID = "zeal-go-sdk"
+)
+
 // Client represents the main Zeal SDK client
 type Client struct {
 	config     ClientConfig
@@ -129,6 +136,11 @@ func (c *Client) makeRequest(ctx context.Context, method, path string, body inte
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", c.config.UserAgent)
+	
+	// Add auth token if provided
+	if c.config.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.config.AuthToken)
+	}
 
 	// Execute request with retries
 	var resp *http.Response

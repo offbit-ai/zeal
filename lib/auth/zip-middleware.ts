@@ -8,6 +8,7 @@ import { getAuth, extractToken, shouldBypassAuth } from './index';
 import { Resource, AuthorizationResult } from '@offbit-ai/zeal-auth';
 import { ApiError } from '@/types/api';
 import { createErrorResponse } from '@/lib/api-utils';
+import { createHmac } from 'crypto';
 
 /**
  * ZIP endpoint auth wrapper
@@ -34,29 +35,10 @@ export function withZIPAuthorization(
       return handler(request);
     }
 
-    // Extract token from request
+    // Extract token from request header
     const token = extractToken(request);
     
-    // For ZIP endpoints, also check for SDK token in body
-    let sdkToken: string | null = null;
-    let sdkContext: any = null;
-    
-    try {
-      const clonedReq = request.clone();
-      const body = await clonedReq.json();
-      
-      // Check for SDK auth context in ZIP request
-      if (body.auth?.token) {
-        sdkToken = body.auth.token;
-        sdkContext = body.auth;
-      }
-    } catch {
-      // Not JSON or no body
-    }
-    
-    const authToken = token || sdkToken;
-    
-    if (!authToken) {
+    if (!token) {
       // Allow anonymous access for certain operations
       if (isAnonymousAllowed(request)) {
         return handler(request);
@@ -69,6 +51,21 @@ export function withZIPAuthorization(
           traceId: `trace_${Date.now()}`
         }
       }, { status: 401 });
+    }
+
+    // Verify token signature if ZEAL_SECRET_KEY is set
+    const secretKey = process.env.ZEAL_SECRET_KEY;
+    if (secretKey) {
+      const verificationResult = verifyTokenSignature(token, secretKey);
+      if (!verificationResult.valid) {
+        return NextResponse.json({
+          error: {
+            code: 'INVALID_TOKEN',
+            message: verificationResult.error || 'Invalid authentication token',
+            traceId: `trace_${Date.now()}`
+          }
+        }, { status: 401 });
+      }
     }
 
     try {
@@ -85,13 +82,11 @@ export function withZIPAuthorization(
         protocol: 'zip',
         endpoint: request.nextUrl.pathname,
         method: request.method,
-        sdkVersion: sdkContext?.sdkVersion,
-        applicationId: sdkContext?.applicationId,
         timestamp: new Date()
       };
       
       // Perform authorization
-      const result = await auth.authorize(authToken, resource, action);
+      const result = await auth.authorize(token, resource, action);
       
       if (!result.allowed) {
         // Log denied access
@@ -124,9 +119,8 @@ export function withZIPAuthorization(
       // Attach auth context to request for handler use
       (request as any).authContext = {
         subject: result.subject,
-        token: authToken,
-        result,
-        sdkContext
+        token: token,
+        result
       };
       
       // Apply any pre-handler obligations
@@ -179,6 +173,56 @@ export function withZIPAuthorization(
       }, { status: 500 });
     }
   };
+}
+
+/**
+ * Verify token signature using HMAC-SHA256
+ */
+function verifyTokenSignature(token: string, secretKey: string): { valid: boolean; error?: string; payload?: any } {
+  try {
+    // Token format: base64url(payload).signature
+    const parts = token.split('.');
+    if (parts.length !== 2) {
+      // Not a signed token, might be a regular JWT or other format
+      // Let zeal-auth handle it
+      return { valid: true };
+    }
+
+    const [encodedPayload, signature] = parts;
+    
+    // Verify HMAC signature
+    const hmac = createHmac('sha256', secretKey);
+    hmac.update(encodedPayload);
+    const expectedSignature = hmac.digest('base64url');
+    
+    if (signature !== expectedSignature) {
+      return { valid: false, error: 'Invalid token signature' };
+    }
+    
+    // Parse and validate payload
+    try {
+      const payloadJson = Buffer.from(encodedPayload, 'base64url').toString('utf-8');
+      const payload = JSON.parse(payloadJson);
+      
+      // Check expiration
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        return { valid: false, error: 'Token has expired' };
+      }
+      
+      // Check not before
+      if (payload.nbf && payload.nbf > now) {
+        return { valid: false, error: 'Token not yet valid' };
+      }
+      
+      return { valid: true, payload };
+    } catch (e) {
+      return { valid: false, error: 'Invalid token payload' };
+    }
+  } catch (error) {
+    // If verification fails, treat as invalid token
+    return { valid: false, error: 'Token verification failed' };
+  }
 }
 
 /**

@@ -8,12 +8,17 @@ import * as http from 'http'
 import * as https from 'https'
 import { WebhooksAPI } from './webhooks'
 
-// Import the typed events from the main types
-// In a real SDK package, these would be bundled with the SDK
-import type { ZipWebhookEvent } from '../../../types/zip-events'
-
-// Re-export as WebhookEvent for SDK users
-export type WebhookEvent = ZipWebhookEvent
+// Webhook event type
+// TODO: Import from bundled types when SDK is properly packaged
+export interface WebhookEvent {
+  type: string
+  timestamp: string
+  workflowId?: string
+  sessionId?: string
+  nodeId?: string
+  data?: any
+  source?: 'webhook' | 'websocket'
+}
 
 export interface WebhookDelivery {
   webhook_id: string

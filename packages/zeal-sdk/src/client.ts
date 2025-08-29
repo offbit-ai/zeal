@@ -18,16 +18,20 @@ export class ZealClient {
   public webhooks: WebhooksAPI
   
   private baseUrl: string
+  private config: ZealClientConfig
+  private static readonly SDK_VERSION = '1.0.0'
+  private static readonly APPLICATION_ID = 'zeal-js-sdk'
   
   constructor(config: ZealClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '') // Remove trailing slash
+    this.config = config
     
-    // Initialize API modules
-    this.templates = new TemplatesAPI(this.baseUrl)
-    this.orchestrator = new OrchestratorAPI(this.baseUrl)
-    this.traces = new TracesAPI(this.baseUrl)
-    this.events = new EventsAPI(this.baseUrl, config.websocketPath)
-    this.webhooks = new WebhooksAPI(this.baseUrl)
+    // Initialize API modules with auth config
+    this.templates = new TemplatesAPI(this.baseUrl, config)
+    this.orchestrator = new OrchestratorAPI(this.baseUrl, config)
+    this.traces = new TracesAPI(this.baseUrl, config)
+    this.events = new EventsAPI(this.baseUrl, config.websocketPath, config)
+    this.webhooks = new WebhooksAPI(this.baseUrl, config)
   }
   
   /**
@@ -57,14 +61,22 @@ export class ZealClient {
    */
   static async request(
     url: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    config?: ZealClientConfig
   ): Promise<any> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    
+    // Add auth token if provided
+    if (config?.authToken) {
+      headers['Authorization'] = `Bearer ${config.authToken}`
+    }
+    
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
+      body: options.body
     })
     
     if (!response.ok) {

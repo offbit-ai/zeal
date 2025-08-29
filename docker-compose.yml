@@ -150,7 +150,10 @@ services:
       # NextAuth
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-    
+      
+      # Auth Configuration
+      ZEAL_AUTH_ENABLED: ${ZEAL_AUTH_ENABLED:-false}
+      ZEAL_SECRET_KEY: ${ZEAL_SECRET_KEY}
       
       # App Config
       NODE_ENV: ${NODE_ENV:-production}

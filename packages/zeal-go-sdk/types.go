@@ -7,6 +7,7 @@ import (
 // Core configuration
 type ClientConfig struct {
 	BaseURL           string        `json:"baseUrl"`
+	AuthToken         string        `json:"authToken"`
 	DefaultTimeout    time.Duration `json:"defaultTimeout"`
 	VerifyTLS         bool          `json:"verifyTls"`
 	UserAgent         string        `json:"userAgent"`
@@ -19,6 +20,7 @@ type ClientConfig struct {
 func DefaultClientConfig() ClientConfig {
 	return ClientConfig{
 		BaseURL:           "http://localhost:3000",
+		AuthToken:         "",
 		DefaultTimeout:    30 * time.Second,
 		VerifyTLS:         true,
 		UserAgent:         "zeal-go-sdk/1.0.0",

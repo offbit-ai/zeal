@@ -9,10 +9,11 @@ import {
   AddNodeRequest,
   AddNodeResponse,
   ConnectNodesRequest,
+  ZealClientConfig,
 } from './types'
 
 export class OrchestratorAPI {
-  constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string, private config?: ZealClientConfig) {}
   
   /**
    * Create a new workflow
@@ -21,7 +22,7 @@ export class OrchestratorAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/workflows`, {
       method: 'POST',
       body: JSON.stringify(request),
-    })
+    }, this.config)
   }
   
   /**
@@ -65,7 +66,9 @@ export class OrchestratorAPI {
     metadata: any
   }> {
     return ZealClient.request(
-      `${this.baseUrl}/api/zip/orchestrator/workflows/${workflowId}/state?graphId=${graphId}`
+      `${this.baseUrl}/api/zip/orchestrator/workflows/${workflowId}/state?graphId=${graphId}`,
+      {},
+      this.config
     )
   }
   
@@ -76,7 +79,7 @@ export class OrchestratorAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/nodes`, {
       method: 'POST',
       body: JSON.stringify(request),
-    })
+    }, this.config)
   }
   
   /**
@@ -123,7 +126,7 @@ export class OrchestratorAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/connections`, {
       method: 'POST',
       body: JSON.stringify(request),
-    })
+    }, this.config)
   }
   
   /**
