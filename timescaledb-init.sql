@@ -209,20 +209,32 @@ SELECT add_continuous_aggregate_policy('node_performance_hourly',
 -- ============================================================================
 -- RETENTION POLICIES
 -- ============================================================================
+-- Retention policies are now configurable via environment variables.
+-- Use the configure-timescale-retention.sh script to set them.
+-- 
+-- Environment variables:
+--   TIMESCALE_RETENTION_FLOW_TRACES (default: 30 days)
+--   TIMESCALE_RETENTION_TRACE_EVENTS (default: 7 days)
+--   TIMESCALE_RETENTION_SESSIONS (default: 90 days)
+--
+-- To apply retention policies:
+--   ./scripts/configure-timescale-retention.sh
+--
+-- For backwards compatibility, we set default policies here that can be overridden
 
--- Keep detailed traces for 30 days
+-- Keep detailed traces for 30 days (default, can be overridden)
 SELECT add_retention_policy('flow_traces', 
   INTERVAL '30 days',
   if_not_exists => TRUE
 );
 
--- Keep trace events for 7 days (more granular, shorter retention)
+-- Keep trace events for 7 days (default, can be overridden)
 SELECT add_retention_policy('flow_trace_events',
   INTERVAL '7 days',
   if_not_exists => TRUE
 );
 
--- Keep sessions for 90 days
+-- Keep sessions for 90 days (default, can be overridden)
 SELECT add_retention_policy('flow_trace_sessions',
   INTERVAL '90 days',
   if_not_exists => TRUE

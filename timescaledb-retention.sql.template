@@ -1,0 +1,44 @@
+-- TimescaleDB Retention Policy Configuration
+-- This template is processed by the setup script to apply configurable retention policies
+-- 
+-- Default retention periods (can be overridden via environment variables):
+--   TIMESCALE_RETENTION_FLOW_TRACES: 30 days
+--   TIMESCALE_RETENTION_TRACE_EVENTS: 7 days  
+--   TIMESCALE_RETENTION_SESSIONS: 90 days
+
+-- ============================================================================
+-- RETENTION POLICIES
+-- ============================================================================
+
+-- Remove existing policies if they exist
+SELECT remove_retention_policy('flow_traces', if_exists => TRUE);
+SELECT remove_retention_policy('flow_trace_events', if_exists => TRUE);
+SELECT remove_retention_policy('flow_trace_sessions', if_exists => TRUE);
+
+-- Keep detailed traces for configurable period (default: 30 days)
+SELECT add_retention_policy('flow_traces', 
+  INTERVAL '${TIMESCALE_RETENTION_FLOW_TRACES}',
+  if_not_exists => TRUE
+);
+
+-- Keep trace events for configurable period (default: 7 days)
+-- More granular data, shorter retention
+SELECT add_retention_policy('flow_trace_events',
+  INTERVAL '${TIMESCALE_RETENTION_TRACE_EVENTS}',
+  if_not_exists => TRUE
+);
+
+-- Keep sessions for configurable period (default: 90 days)
+SELECT add_retention_policy('flow_trace_sessions',
+  INTERVAL '${TIMESCALE_RETENTION_SESSIONS}',
+  if_not_exists => TRUE
+);
+
+-- Show current retention policies
+SELECT 
+  hypertable_schema,
+  hypertable_name,
+  config::json->>'drop_after' as retention_period
+FROM timescaledb_information.jobs 
+WHERE proc_name = 'policy_retention'
+ORDER BY hypertable_name;

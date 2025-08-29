@@ -148,6 +148,77 @@ export interface WorkflowDeletedEvent extends ZipEventBase {
 }
 
 /**
+ * CRDT events for real-time collaboration
+ */
+export interface NodeAddedEvent extends ZipEventBase {
+  type: 'node.added'
+  /** Node ID that was added */
+  nodeId: string
+  /** Node data */
+  data: any
+}
+
+export interface NodeUpdatedEvent extends ZipEventBase {
+  type: 'node.updated'
+  /** Node ID that was updated */
+  nodeId: string
+  /** Node data */
+  data: any
+}
+
+export interface NodeDeletedEvent extends ZipEventBase {
+  type: 'node.deleted'
+  /** Node ID that was deleted */
+  nodeId: string
+}
+
+export interface ConnectionAddedEvent extends ZipEventBase {
+  type: 'connection.added'
+  /** Connection data */
+  data: any
+}
+
+export interface ConnectionDeletedEvent extends ZipEventBase {
+  type: 'connection.deleted'
+  /** Connection data */
+  data: any
+}
+
+export interface GroupCreatedEvent extends ZipEventBase {
+  type: 'group.created'
+  /** Group data */
+  data: any
+}
+
+export interface GroupUpdatedEvent extends ZipEventBase {
+  type: 'group.updated'
+  /** Group data */
+  data: any
+}
+
+export interface GroupDeletedEvent extends ZipEventBase {
+  type: 'group.deleted'
+  /** Group data */
+  data: any
+}
+
+export interface TemplateRegisteredEvent extends ZipEventBase {
+  type: 'template.registered'
+  /** Template data */
+  data: any
+}
+
+export interface TraceEvent extends ZipEventBase {
+  type: 'trace.event'
+  /** Session ID */
+  sessionId: string
+  /** Node ID */
+  nodeId: string
+  /** Event data */
+  data: any
+}
+
+/**
  * WebSocket control events
  */
 export interface SubscribeEvent {
@@ -188,6 +259,18 @@ export type ZipWorkflowEvent =
   | WorkflowUpdatedEvent
   | WorkflowDeletedEvent
 
+export type ZipCRDTEvent =
+  | NodeAddedEvent
+  | NodeUpdatedEvent
+  | NodeDeletedEvent
+  | ConnectionAddedEvent
+  | ConnectionDeletedEvent
+  | GroupCreatedEvent
+  | GroupUpdatedEvent
+  | GroupDeletedEvent
+  | TemplateRegisteredEvent
+  | TraceEvent
+
 export type ZipControlEvent =
   | SubscribeEvent
   | UnsubscribeEvent
@@ -203,8 +286,8 @@ export interface ConnectionStateEvent extends ZipEventBase {
   targetNodeId: string
 }
 
-export type ZipWebSocketEvent = ZipExecutionEvent | ZipControlEvent | WorkflowUpdatedEvent | ConnectionStateEvent
-export type ZipWebhookEvent = ZipExecutionEvent | ZipWorkflowEvent
+export type ZipWebSocketEvent = ZipExecutionEvent | ZipControlEvent | WorkflowUpdatedEvent | ConnectionStateEvent | ZipCRDTEvent
+export type ZipWebhookEvent = ZipExecutionEvent | ZipWorkflowEvent | ZipCRDTEvent
 
 /**
  * Type guards

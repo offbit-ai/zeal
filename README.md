@@ -378,11 +378,41 @@ The Zeal Integration Protocol enables third-party workflow runtime engines to in
 - **Flow Trace Recording**: Submit execution logs for replay and debugging
 - **Programmatic Orchestration**: Create and modify workflows via API
 
-#### Quick Start with ZIP SDK
+#### ZIP SDK Options
 
+Zeal provides SDKs in multiple languages for integrating with the ZIP protocol:
+
+**TypeScript/JavaScript**
 ```bash
 npm install @offbit-ai/zeal-sdk
 ```
+
+**Python**
+```bash
+pip install zeal-sdk
+```
+
+**Go**
+```bash
+go get github.com/offbit-ai/zeal-go-sdk
+```
+
+**Rust**
+```toml
+[dependencies]
+zeal-sdk = "1.0.0"
+```
+
+**Java**
+```xml
+<dependency>
+    <groupId>com.offbit</groupId>
+    <artifactId>zeal-java-sdk</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+#### Quick Start Example (TypeScript)
 
 ```typescript
 import ZealClient from '@offbit-ai/zeal-sdk'
@@ -487,7 +517,16 @@ observable
   })
 ```
 
-See the [Zeal SDK documentation](packages/zeal-sdk/) and [ZIP examples](packages/zeal-sdk/examples/) for complete integration patterns including:
+See the SDK documentation for your preferred language:
+
+**SDK Documentation**
+- [TypeScript/JavaScript SDK](packages/zeal-sdk/) - Full-featured SDK with RxJS observables
+- [Python SDK](packages/zeal-python-sdk/) - Async/await support with type hints
+- [Go SDK](packages/zeal-go-sdk/) - Idiomatic Go with channels and goroutines
+- [Rust SDK](packages/zeal-rust-sdk/) - High-performance with async runtime
+- [Java SDK](packages/zeal-java-sdk/) - Enterprise-ready with CompletableFuture and builder patterns
+
+**Integration Examples**
 - [Webhook subscription patterns](packages/zeal-sdk/examples/webhook-subscription.ts)
 - [WebSocket real-time communication](packages/zeal-sdk/examples/websocket-events.ts)
 - [Flow trace recording](packages/zeal-sdk/examples/flow-traces.ts)

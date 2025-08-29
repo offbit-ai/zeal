@@ -17,6 +17,54 @@ const connectNodesSchema = z.object({
   }),
 })
 
+const removeConnectionSchema = z.object({
+  workflowId: z.string(),
+  graphId: z.string().optional().default('main'),
+  connectionId: z.string(),
+})
+
+// DELETE /api/zip/orchestrator/connections - Remove connection
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json()
+    
+    // Validate request
+    const validation = removeConnectionSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request format',
+          details: validation.error.errors,
+        }
+      }, { status: 400 })
+    }
+    
+    const { workflowId, graphId, connectionId } = validation.data
+    
+    // Use CRDT operations to remove connection
+    await ServerCRDTOperations.removeConnection(
+      workflowId,
+      graphId || 'main',
+      connectionId
+    )
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Connection removed successfully',
+    })
+  } catch (error) {
+    console.error('Error removing connection:', error)
+    return NextResponse.json({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to remove connection',
+        traceId: `trace_${Date.now()}`,
+      }
+    }, { status: 500 })
+  }
+}
+
 // POST /api/zip/orchestrator/connections - Connect nodes
 export async function POST(request: NextRequest) {
   try {

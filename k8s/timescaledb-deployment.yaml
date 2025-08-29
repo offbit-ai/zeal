@@ -1,0 +1,151 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timescaledb
+  namespace: default
+  labels:
+    app: timescaledb
+    component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: timescaledb
+  template:
+    metadata:
+      labels:
+        app: timescaledb
+        component: database
+    spec:
+      containers:
+      - name: timescaledb
+        image: timescale/timescaledb:latest-pg15
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: "zeal_traces"
+        - name: POSTGRES_USER
+          value: "zeal_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: timescaledb-secret
+              key: password
+        # Retention policy configuration from ConfigMap
+        - name: TIMESCALE_RETENTION_FLOW_TRACES
+          valueFrom:
+            configMapKeyRef:
+              name: timescaledb-config
+              key: TIMESCALE_RETENTION_FLOW_TRACES
+        - name: TIMESCALE_RETENTION_TRACE_EVENTS
+          valueFrom:
+            configMapKeyRef:
+              name: timescaledb-config
+              key: TIMESCALE_RETENTION_TRACE_EVENTS
+        - name: TIMESCALE_RETENTION_SESSIONS
+          valueFrom:
+            configMapKeyRef:
+              name: timescaledb-config
+              key: TIMESCALE_RETENTION_SESSIONS
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d
+        - name: timescaledb-init-sql
+          mountPath: /docker-entrypoint-initdb.d/01-init.sql
+          subPath: timescaledb-init.sql
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - zeal_user
+            - -d
+            - zeal_traces
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - zeal_user
+            - -d
+            - zeal_traces
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: timescaledb-pvc
+      - name: init-scripts
+        configMap:
+          name: timescaledb-init
+          defaultMode: 0755
+      - name: timescaledb-init-sql
+        configMap:
+          name: timescaledb-sql-init
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb
+  namespace: default
+  labels:
+    app: timescaledb
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: timescaledb
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: timescaledb-pvc
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: timescaledb-secret
+  namespace: default
+type: Opaque
+stringData:
+  password: "zeal_password"  # Change this in production!
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timescaledb-sql-init
+  namespace: default
+data:
+  timescaledb-init.sql: |
+    -- This content would be loaded from the actual timescaledb-init.sql file
+    -- For production, use kubectl create configmap from file:
+    -- kubectl create configmap timescaledb-sql-init --from-file=timescaledb-init.sql

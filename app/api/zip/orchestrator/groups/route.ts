@@ -12,6 +12,107 @@ const createGroupSchema = z.object({
   description: z.string().optional(),
 })
 
+const removeGroupSchema = z.object({
+  workflowId: z.string(),
+  graphId: z.string().optional().default('main'),
+  groupId: z.string(),
+})
+
+const updateGroupSchema = z.object({
+  workflowId: z.string(),
+  graphId: z.string().optional().default('main'),
+  groupId: z.string(),
+  title: z.string().optional(),
+  nodeIds: z.array(z.string()).optional(),
+  color: z.string().optional(),
+  description: z.string().optional(),
+})
+
+// DELETE /api/zip/orchestrator/groups - Remove group
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json()
+    
+    // Validate request
+    const validation = removeGroupSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request format',
+          details: validation.error.errors,
+        }
+      }, { status: 400 })
+    }
+    
+    const { workflowId, graphId, groupId } = validation.data
+    
+    // Use CRDT operations to remove group
+    await ServerCRDTOperations.removeGroup(
+      workflowId,
+      graphId || 'main',
+      groupId
+    )
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Group removed successfully',
+    })
+  } catch (error) {
+    console.error('Error removing group:', error)
+    return NextResponse.json({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to remove group',
+        traceId: `trace_${Date.now()}`,
+      }
+    }, { status: 500 })
+  }
+}
+
+// PATCH /api/zip/orchestrator/groups - Update group properties
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    
+    // Validate request
+    const validation = updateGroupSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request format',
+          details: validation.error.errors,
+        }
+      }, { status: 400 })
+    }
+    
+    const { workflowId, graphId, groupId, ...updates } = validation.data
+    
+    // Use CRDT operations to update group
+    const updatedGroup = await ServerCRDTOperations.updateGroupProperties(
+      workflowId,
+      graphId || 'main',
+      groupId,
+      updates
+    )
+    
+    return NextResponse.json({
+      success: true,
+      group: updatedGroup,
+    })
+  } catch (error) {
+    console.error('Error updating group:', error)
+    return NextResponse.json({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to update group',
+        traceId: `trace_${Date.now()}`,
+      }
+    }, { status: 500 })
+  }
+}
+
 // POST /api/zip/orchestrator/groups - Create node group
 export async function POST(request: NextRequest) {
   try {

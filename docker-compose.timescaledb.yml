@@ -1,0 +1,68 @@
+# Docker Compose overlay for TimescaleDB with configurable retention policies
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.timescaledb.yml up
+
+version: '3.8'
+
+services:
+  # TimescaleDB for Flow Traces with Time-Series Optimization
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: zeal-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${TIMESCALE_USER:-zeal_user}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-zeal_password}
+      POSTGRES_DB: ${TIMESCALE_DATABASE:-zeal_traces}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      
+      # Retention policy environment variables
+      # These are used by the init script to configure retention policies
+      TIMESCALE_RETENTION_FLOW_TRACES: ${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}
+      TIMESCALE_RETENTION_TRACE_EVENTS: ${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}
+      TIMESCALE_RETENTION_SESSIONS: ${TIMESCALE_RETENTION_SESSIONS:-90 days}
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./timescaledb-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./scripts/apply-retention-policies.sh:/docker-entrypoint-initdb.d/02-retention.sh:ro
+    ports:
+      - "${TIMESCALE_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TIMESCALE_USER:-zeal_user} -d ${TIMESCALE_DATABASE:-zeal_traces}"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - zeal-network
+
+  # Update app service to include TimescaleDB configuration
+  app:
+    environment:
+      # TimescaleDB Configuration for Flow Traces
+      TIMESCALE_HOST: timescaledb
+      TIMESCALE_PORT: 5432
+      TIMESCALE_DATABASE: ${TIMESCALE_DATABASE:-zeal_traces}
+      TIMESCALE_USER: ${TIMESCALE_USER:-zeal_user}
+      TIMESCALE_PASSWORD: ${TIMESCALE_PASSWORD:-zeal_password}
+      
+      # TimescaleDB Retention Policies (can be overridden)
+      TIMESCALE_RETENTION_FLOW_TRACES: ${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}
+      TIMESCALE_RETENTION_TRACE_EVENTS: ${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}
+      TIMESCALE_RETENTION_SESSIONS: ${TIMESCALE_RETENTION_SESSIONS:-90 days}
+      
+      # Enable flow tracing feature
+      NEXT_PUBLIC_ENABLE_FLOW_TRACING: ${NEXT_PUBLIC_ENABLE_FLOW_TRACING:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      crdt-server:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+
+volumes:
+  timescaledb_data:
+    driver: local

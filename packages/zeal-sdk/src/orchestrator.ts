@@ -127,6 +127,26 @@ export class OrchestratorAPI {
   }
   
   /**
+   * Remove a connection between nodes
+   */
+  async removeConnection(request: {
+    workflowId: string
+    graphId?: string
+    connectionId: string
+  }): Promise<{
+    success: boolean
+    message: string
+  }> {
+    return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/connections`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        ...request,
+        graphId: request.graphId || 'main'
+      }),
+    })
+  }
+  
+  /**
    * Create a node group
    */
   async createGroup(request: {
@@ -144,6 +164,50 @@ export class OrchestratorAPI {
     return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/groups`, {
       method: 'POST',
       body: JSON.stringify(request),
+    })
+  }
+  
+  /**
+   * Update group properties
+   */
+  async updateGroup(request: {
+    workflowId: string
+    graphId?: string
+    groupId: string
+    title?: string
+    nodeIds?: string[]
+    color?: string
+    description?: string
+  }): Promise<{
+    success: boolean
+    group: any
+  }> {
+    return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/groups`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        ...request,
+        graphId: request.graphId || 'main'
+      }),
+    })
+  }
+  
+  /**
+   * Remove a group
+   */
+  async removeGroup(request: {
+    workflowId: string
+    graphId?: string
+    groupId: string
+  }): Promise<{
+    success: boolean
+    message: string
+  }> {
+    return ZealClient.request(`${this.baseUrl}/api/zip/orchestrator/groups`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        ...request,
+        graphId: request.graphId || 'main'
+      }),
     })
   }
 }

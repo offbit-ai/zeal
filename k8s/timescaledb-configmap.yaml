@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timescaledb-config
+  namespace: default
+data:
+  # Retention policy configuration
+  TIMESCALE_RETENTION_FLOW_TRACES: "${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
+  TIMESCALE_RETENTION_TRACE_EVENTS: "${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"
+  TIMESCALE_RETENTION_SESSIONS: "${TIMESCALE_RETENTION_SESSIONS:-90 days}"
+  
+  # Script to apply retention policies
+  apply-retention-policies.sql: |
+    -- TimescaleDB Retention Policy Configuration
+    -- This script is applied after TimescaleDB initialization
+    
+    -- Remove existing retention policies if they exist
+    SELECT remove_retention_policy('flow_traces', if_exists => TRUE);
+    SELECT remove_retention_policy('flow_trace_events', if_exists => TRUE);
+    SELECT remove_retention_policy('flow_trace_sessions', if_exists => TRUE);
+    
+    -- Apply new retention policies with configured values
+    SELECT add_retention_policy('flow_traces', 
+        INTERVAL ':flow_traces_retention',
+        if_not_exists => TRUE
+    );
+    
+    SELECT add_retention_policy('flow_trace_events',
+        INTERVAL ':trace_events_retention',
+        if_not_exists => TRUE
+    );
+    
+    SELECT add_retention_policy('flow_trace_sessions',
+        INTERVAL ':sessions_retention',
+        if_not_exists => TRUE
+    );
+    
+    -- Display configured retention policies
+    SELECT 
+        hypertable_name,
+        config::json->>'drop_after' as retention_period
+    FROM timescaledb_information.jobs 
+    WHERE proc_name = 'policy_retention'
+    ORDER BY hypertable_name;
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timescaledb-init
+  namespace: default
+data:
+  init.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Initializing TimescaleDB with configurable retention policies..."
+    
+    # Load retention policy environment variables from ConfigMap
+    export FLOW_TRACES_RETENTION="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
+    export TRACE_EVENTS_RETENTION="${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"
+    export SESSIONS_RETENTION="${TIMESCALE_RETENTION_SESSIONS:-90 days}"
+    
+    echo "Retention policy configuration:"
+    echo "  Flow traces: $FLOW_TRACES_RETENTION"
+    echo "  Trace events: $TRACE_EVENTS_RETENTION"
+    echo "  Sessions: $SESSIONS_RETENTION"
+    
+    # Wait for database to be ready
+    until pg_isready -h localhost -U $POSTGRES_USER; do
+      echo "Waiting for TimescaleDB to be ready..."
+      sleep 2
+    done
+    
+    # Apply the main initialization SQL
+    if [ -f /docker-entrypoint-initdb.d/timescaledb-init.sql ]; then
+      psql -U $POSTGRES_USER -d $POSTGRES_DB -f /docker-entrypoint-initdb.d/timescaledb-init.sql
+    fi
+    
+    # Apply retention policies with substituted values
+    psql -U $POSTGRES_USER -d $POSTGRES_DB <<-EOSQL
+      -- Remove existing retention policies if they exist
+      SELECT remove_retention_policy('flow_traces', if_exists => TRUE);
+      SELECT remove_retention_policy('flow_trace_events', if_exists => TRUE);
+      SELECT remove_retention_policy('flow_trace_sessions', if_exists => TRUE);
+      
+      -- Apply new retention policies
+      SELECT add_retention_policy('flow_traces', 
+          INTERVAL '$FLOW_TRACES_RETENTION',
+          if_not_exists => TRUE
+      );
+      
+      SELECT add_retention_policy('flow_trace_events',
+          INTERVAL '$TRACE_EVENTS_RETENTION',
+          if_not_exists => TRUE
+      );
+      
+      SELECT add_retention_policy('flow_trace_sessions',
+          INTERVAL '$SESSIONS_RETENTION',
+          if_not_exists => TRUE
+      );
+      
+      -- Show configured policies
+      SELECT 
+          hypertable_name,
+          config::json->>'drop_after' as retention_period
+      FROM timescaledb_information.jobs 
+      WHERE proc_name = 'policy_retention'
+      ORDER BY hypertable_name;
+    EOSQL
+    
+    echo "TimescaleDB initialization complete with retention policies"

@@ -142,6 +142,47 @@ start_timescaledb() {
                 echo -e "${GREEN}✅ TimescaleDB schema already exists${NC}"
             fi
             
+            # Apply configurable retention policies
+            echo -e "${BLUE}Applying retention policies...${NC}"
+            
+            # Load retention policy environment variables
+            TIMESCALE_RETENTION_FLOW_TRACES="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
+            TIMESCALE_RETENTION_TRACE_EVENTS="${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"
+            TIMESCALE_RETENTION_SESSIONS="${TIMESCALE_RETENTION_SESSIONS:-90 days}"
+            
+            # Create retention policy SQL
+            cat > /tmp/retention-policies.sql << EOSQL
+-- Remove existing policies if they exist
+SELECT remove_retention_policy('flow_traces', if_exists => TRUE);
+SELECT remove_retention_policy('flow_trace_events', if_exists => TRUE);
+SELECT remove_retention_policy('flow_trace_sessions', if_exists => TRUE);
+
+-- Apply new retention policies
+SELECT add_retention_policy('flow_traces', 
+  INTERVAL '${TIMESCALE_RETENTION_FLOW_TRACES}',
+  if_not_exists => TRUE
+);
+
+SELECT add_retention_policy('flow_trace_events',
+  INTERVAL '${TIMESCALE_RETENTION_TRACE_EVENTS}',
+  if_not_exists => TRUE
+);
+
+SELECT add_retention_policy('flow_trace_sessions',
+  INTERVAL '${TIMESCALE_RETENTION_SESSIONS}',
+  if_not_exists => TRUE
+);
+EOSQL
+            
+            # Copy and execute retention policy SQL
+            docker cp /tmp/retention-policies.sql $TIMESCALE_CONTAINER:/tmp/retention-policies.sql
+            if docker exec $TIMESCALE_CONTAINER psql -U $DB_USER -d $TIMESCALE_DB_NAME -f /tmp/retention-policies.sql > /dev/null 2>&1; then
+                echo -e "${GREEN}✅ Retention policies applied: Traces=${TIMESCALE_RETENTION_FLOW_TRACES}, Events=${TIMESCALE_RETENTION_TRACE_EVENTS}, Sessions=${TIMESCALE_RETENTION_SESSIONS}${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Retention policy application had warnings${NC}"
+            fi
+            rm -f /tmp/retention-policies.sql
+            
             # Show TimescaleDB info
             echo -e "${BLUE}TimescaleDB Configuration:${NC}"
             docker exec $TIMESCALE_CONTAINER psql -U $DB_USER -d $TIMESCALE_DB_NAME -c "SELECT extversion FROM pg_extension WHERE extname='timescaledb';" 2>/dev/null | grep -E '[0-9]+\.[0-9]+' || echo "   Version: Unknown"
@@ -537,6 +578,11 @@ TIMESCALE_PORT="${TIMESCALE_PORT}"
 TIMESCALE_DATABASE="${TIMESCALE_DB_NAME}"
 TIMESCALE_USER="${DB_USER}"
 TIMESCALE_PASSWORD="${DB_PASSWORD}"
+
+# TimescaleDB Retention Policies (PostgreSQL intervals)
+TIMESCALE_RETENTION_FLOW_TRACES="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
+TIMESCALE_RETENTION_TRACE_EVENTS="${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"
+TIMESCALE_RETENTION_SESSIONS="${TIMESCALE_RETENTION_SESSIONS:-90 days}"
 
 # Redis Configuration
 REDIS_URL="${REDIS_URL:-redis://:${REDIS_PASSWORD}@localhost:${REDIS_PORT}}"

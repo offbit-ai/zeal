@@ -417,6 +417,40 @@ export const webhookEvents = {
     })
   },
   
+  // Group events
+  groupCreated(workflowId: string, graphId: string, data: any, metadata?: any) {
+    return eventBus.emitWebhookEvent({
+      source: 'crdt',
+      type: 'group.created',
+      workflowId,
+      graphId,
+      data,
+      metadata
+    })
+  },
+  
+  groupUpdated(workflowId: string, graphId: string, data: any, metadata?: any) {
+    return eventBus.emitWebhookEvent({
+      source: 'crdt',
+      type: 'group.updated',
+      workflowId,
+      graphId,
+      data,
+      metadata
+    })
+  },
+  
+  groupDeleted(workflowId: string, graphId: string, data: any, metadata?: any) {
+    return eventBus.emitWebhookEvent({
+      source: 'crdt',
+      type: 'group.deleted',
+      workflowId,
+      graphId,
+      data,
+      metadata
+    })
+  },
+  
   // Template events
   templateRegistered(templateId: string, data: any, metadata?: any) {
     return eventBus.emitWebhookEvent({

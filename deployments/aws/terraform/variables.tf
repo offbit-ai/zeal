@@ -85,3 +85,22 @@ variable "eks_node_desired_size" {
   type        = number
   default     = 3
 }
+
+# TimescaleDB Retention Policy Variables
+variable "timescale_retention_flow_traces" {
+  description = "Retention period for flow traces in TimescaleDB"
+  type        = string
+  default     = "30 days"
+}
+
+variable "timescale_retention_trace_events" {
+  description = "Retention period for trace events in TimescaleDB"
+  type        = string
+  default     = "7 days"
+}
+
+variable "timescale_retention_sessions" {
+  description = "Retention period for flow trace sessions in TimescaleDB"
+  type        = string
+  default     = "90 days"
+}

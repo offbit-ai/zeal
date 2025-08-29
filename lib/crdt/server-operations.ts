@@ -23,6 +23,8 @@ export interface CRDTUpdate {
     | 'connection-added'
     | 'connection-removed'
     | 'group-created'
+    | 'group-updated'
+    | 'group-removed'
   workflowId: string
   graphId: string
   data: any
@@ -416,6 +418,9 @@ export class ServerCRDTOperations {
       console.error('[ServerCRDTOperations] Error saving group to database:', error)
       // Continue anyway - CRDT update was successful
     }
+
+    // Emit webhook event
+    await webhookEvents.groupCreated(workflowId, graphId, groupData)
 
     return groupData
   }
@@ -811,7 +816,7 @@ export class ServerCRDTOperations {
     
     // Broadcast the update
     await this.broadcastUpdate({
-      type: 'group-created', // Using existing type
+      type: 'group-updated',
       workflowId,
       graphId,
       data: {
@@ -820,6 +825,9 @@ export class ServerCRDTOperations {
       },
       timestamp: Date.now()
     })
+    
+    // Emit webhook event
+    await webhookEvents.groupUpdated(workflowId, graphId, { groupId, ...updatedGroup })
     
     return updatedGroup
   }
@@ -1155,6 +1163,70 @@ export class ServerCRDTOperations {
       }
     } catch (error) {
       console.error('[ServerCRDTOperations] Error removing connection from database:', error)
+    }
+  }
+
+  /**
+   * Remove a group from the workflow
+   */
+  static async removeGroup(
+    workflowId: string,
+    graphId: string,
+    groupId: string
+  ): Promise<void> {
+    const doc = this.getDoc(workflowId)
+    
+    // Update CRDT document
+    doc.transact(() => {
+      const graphs = doc.getMap('graphs')
+      const graph = graphs.get(graphId) as Y.Map<any>
+      
+      if (graph) {
+        const groups = graph.get('groups') as Y.Map<any>
+        if (groups) {
+          groups.delete(groupId)
+        }
+      }
+    })
+    
+    // Broadcast the update
+    await this.broadcastUpdate({
+      type: 'group-removed',
+      workflowId,
+      graphId,
+      data: { groupId },
+      timestamp: Date.now(),
+    })
+    
+    // Emit webhook event
+    await webhookEvents.groupDeleted(workflowId, graphId, { groupId })
+    
+    // Remove from database
+    try {
+      const db = await getDatabaseOperations()
+      const { versions } = await db.listWorkflowVersions(workflowId, { limit: 1 })
+      const latestVersion = versions[0]
+      
+      if (latestVersion && latestVersion.graphs) {
+        const graphs = typeof latestVersion.graphs === 'string'
+          ? JSON.parse(latestVersion.graphs)
+          : latestVersion.graphs
+        
+        const graph = graphs.find((g: any) => g.id === graphId)
+        if (graph && graph.groups) {
+          graph.groups = graph.groups.filter((g: any) => g.id !== groupId)
+          
+          await db.updateWorkflowVersion(latestVersion.id, {
+            graphs: JSON.stringify(graphs),
+            isDraft: true,
+            createdAt: new Date().toISOString(),
+          })
+          
+          console.log(`[ServerCRDTOperations] Successfully removed group ${groupId} from database`)
+        }
+      }
+    } catch (error) {
+      console.error('[ServerCRDTOperations] Error removing group from database:', error)
     }
   }
 }
