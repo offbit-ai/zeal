@@ -32,6 +32,77 @@ variable "domain" {
   type        = string
 }
 
+# AI Integration Variables
+variable "enable_ai_integrations" {
+  description = "Enable AI integrations (OpenAI Functions and MCP Server)"
+  type        = bool
+  default     = false
+}
+
+variable "use_container_instances" {
+  description = "Use Azure Container Instances instead of AKS for AI services"
+  type        = bool
+  default     = false
+}
+
+variable "ai_service_cpu" {
+  description = "CPU cores for AI service (Container Instances) or millicores (AKS)"
+  type        = number
+  default     = 0.5
+}
+
+variable "ai_service_memory" {
+  description = "Memory in GB for AI service"
+  type        = number
+  default     = 1.0
+}
+
+variable "ai_service_count" {
+  description = "Number of AI service instances"
+  type        = number
+  default     = 2
+}
+
+variable "ai_service_version" {
+  description = "Version tag for AI service images"
+  type        = string
+  default     = "latest"
+}
+
+variable "openrouter_api_key" {
+  description = "OpenRouter API key for GraphRAG (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "openrouter_model" {
+  description = "OpenRouter model for GraphRAG"
+  type        = string
+  default     = "anthropic/claude-3-haiku-20240307"
+}
+
+variable "zeal_api_key" {
+  description = "Zeal API key for AI services"
+  type        = string
+  default     = "internal"
+  sensitive   = true
+}
+
+variable "jwt_secret" {
+  description = "JWT secret for AI services"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "use_application_gateway" {
+  description = "Use Application Gateway for load balancing"
+  type        = bool
+  default     = true
+}
+
+
 # Network Configuration
 variable "vnet_address_space" {
   description = "Address space for the VNet"

@@ -5,12 +5,27 @@ Comprehensive deployment solutions for Zeal across different platforms and cloud
 ## 📋 Table of Contents
 
 - [Deployment Options](#deployment-options)
+- [AI Integrations](#ai-integrations)
 - [Quick Decision Guide](#quick-decision-guide)
 - [Platform Comparison](#platform-comparison)
 - [Architecture Overview](#architecture-overview)
 - [Component Requirements](#component-requirements)
 
 ## 🚀 Deployment Options
+
+### AI Integrations (Optional Add-on)
+**Enhance Zeal with AI-powered workflow orchestration**
+
+- **[AI Integrations Guide](#ai-integrations)** - OpenAI Functions & Anthropic MCP servers
+- GraphRAG-powered intelligent node selection
+- Natural language workflow generation
+- Automatic optimization and debugging
+- Compatible with all deployment options below
+
+```bash
+# Quick deployment with Docker
+./deployments/deploy-ai-integrations.sh
+```
 
 ### 1. K3s (Self-Hosted)
 **Best for**: On-premise, edge computing, cost-conscious deployments
@@ -189,6 +204,112 @@ graph TB
 | **Grafana** | Dashboards | Recommended | For visualization |
 | **Loki** | Logs | Optional | For log aggregation |
 | **Jaeger** | Tracing | Optional | For distributed tracing |
+
+## 🤖 AI Integrations
+
+Optional AI-powered features for intelligent workflow orchestration.
+
+### Components
+
+1. **OpenAI Functions Server** - GPT integration for workflow automation
+2. **Anthropic MCP Server** - Claude integration with advanced AI features
+3. **GraphRAG Engine** - Knowledge graph for intelligent node selection
+
+### Deployment Options
+
+#### Docker Compose (Recommended for Quick Start)
+```bash
+# Deploy alongside main Zeal instance
+docker-compose -f docker-compose.yml -f docker-compose.ai.yml up -d
+
+# Or use the deployment script
+./deployments/deploy-ai-integrations.sh docker production
+```
+
+#### Kubernetes
+```bash
+# Deploy to Kubernetes cluster
+kubectl apply -f deployments/k8s/ai-integrations.yaml
+
+# Or use the deployment script
+./deployments/deploy-ai-integrations.sh k8s production
+```
+
+#### Docker Swarm
+```bash
+# Deploy to Docker Swarm
+./deployments/deploy-ai-integrations.sh swarm production
+```
+
+### Configuration
+
+Required environment variables for AI features:
+
+```bash
+# OpenRouter API (for GraphRAG and LLM features)
+OPENROUTER_API_KEY=your-api-key
+OPENROUTER_MODEL=anthropic/claude-3-haiku-20240307
+
+# Service URLs (automatically configured in Docker)
+OPENAI_FUNCTIONS_URL=http://openai-functions:3456
+MCP_SERVER_URL=http://mcp-server:3457
+
+# Optional settings
+ENABLE_AI_OPTIMIZATION=true
+ENABLE_AUTO_DESIGN=true
+ENABLE_SMART_DEBUG=true
+```
+
+### Building GraphRAG
+
+Before using AI features, build the knowledge graph:
+
+```bash
+# One-time setup
+./ai-integrations/setup-ai.sh
+
+# Or manually
+OPENROUTER_API_KEY=your-key npm run graphrag:build
+```
+
+### Service Endpoints
+
+- **OpenAI Functions**: Port 3456
+  - `/tools` - List available functions
+  - `/execute` - Execute functions
+  - `/stream` - SSE streaming
+
+- **MCP Server**: Port 3457
+  - `/tools` - List MCP tools
+  - `/resources` - Available resources
+  - `/prompts` - Prompt templates
+
+### Load Balancing
+
+For production deployments with multiple AI server instances:
+
+```yaml
+# Use the included nginx load balancer
+services:
+  ai-loadbalancer:
+    profiles:
+      - production
+```
+
+### Monitoring
+
+AI services expose metrics at `/metrics`:
+- Function call frequency
+- Response times (p50, p95, p99)
+- Error rates by function
+- Token usage tracking
+
+### Security
+
+- API key authentication
+- Rate limiting (configurable)
+- JWT token support
+- Network isolation
 
 ## 🔧 Common Configuration
 

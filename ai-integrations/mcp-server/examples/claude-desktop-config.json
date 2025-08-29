@@ -1,0 +1,117 @@
+{
+  "mcpServers": {
+    "zeal-orchestrator": {
+      "command": "node",
+      "args": [
+        "/path/to/zeal/ai-integrations/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "ZEAL_API_URL": "http://localhost:3000",
+        "ZEAL_API_KEY": "your-api-key-here",
+        "MCP_TRANSPORT": "stdio"
+      },
+      "description": "Zeal Workflow Orchestration MCP Server",
+      "capabilities": {
+        "resources": true,
+        "tools": true,
+        "prompts": true,
+        "sampling": false
+      },
+      "resources": [
+        {
+          "uri": "workflow://list",
+          "name": "Workflow List",
+          "description": "List all available workflows",
+          "mimeType": "application/json"
+        },
+        {
+          "uri": "workflow://{id}",
+          "name": "Workflow Details",
+          "description": "Get detailed workflow information",
+          "mimeType": "application/json"
+        },
+        {
+          "uri": "templates://catalog",
+          "name": "Node Templates",
+          "description": "Available node templates catalog",
+          "mimeType": "application/json"
+        },
+        {
+          "uri": "execution://{id}/trace",
+          "name": "Execution Trace",
+          "description": "Detailed execution trace with timing",
+          "mimeType": "application/json"
+        },
+        {
+          "uri": "analytics://dashboard",
+          "name": "Analytics Dashboard",
+          "description": "Workflow performance metrics",
+          "mimeType": "application/json"
+        }
+      ],
+      "tools": [
+        {
+          "name": "workflow_create",
+          "description": "Create a new workflow with AI-assisted design"
+        },
+        {
+          "name": "workflow_optimize",
+          "description": "Analyze and optimize workflow performance"
+        },
+        {
+          "name": "node_suggest",
+          "description": "Suggest the best node for a specific task"
+        },
+        {
+          "name": "debug_execution",
+          "description": "Debug a failed workflow execution with AI assistance"
+        },
+        {
+          "name": "generate_test_data",
+          "description": "Generate test data for workflow testing"
+        },
+        {
+          "name": "workflow_from_description",
+          "description": "Create a complete workflow from natural language"
+        },
+        {
+          "name": "explain_workflow",
+          "description": "Explain what a workflow does in simple terms"
+        },
+        {
+          "name": "compare_workflows",
+          "description": "Compare workflows and suggest improvements"
+        }
+      ],
+      "prompts": [
+        {
+          "name": "workflow_from_description",
+          "description": "Create a workflow from a description"
+        },
+        {
+          "name": "optimize_performance",
+          "description": "Optimize workflow for better performance"
+        },
+        {
+          "name": "debug_failure",
+          "description": "Debug and fix a failed workflow"
+        },
+        {
+          "name": "explain_workflow",
+          "description": "Explain workflow functionality"
+        },
+        {
+          "name": "suggest_improvements",
+          "description": "Suggest workflow improvements"
+        }
+      ]
+    }
+  },
+  "globalSettings": {
+    "maxConnectionAttempts": 3,
+    "connectionTimeout": 5000,
+    "requestTimeout": 30000,
+    "enableLogging": true,
+    "logLevel": "info"
+  }
+}

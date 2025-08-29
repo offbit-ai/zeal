@@ -32,6 +32,14 @@ TIMESCALE_RETENTION_FLOW_TRACES="${TIMESCALE_RETENTION_FLOW_TRACES:-30 days}"
 TIMESCALE_RETENTION_TRACE_EVENTS="${TIMESCALE_RETENTION_TRACE_EVENTS:-7 days}"
 TIMESCALE_RETENTION_SESSIONS="${TIMESCALE_RETENTION_SESSIONS:-90 days}"
 
+# AI Integration Configuration
+ENABLE_AI_INTEGRATIONS="${ENABLE_AI_INTEGRATIONS:-false}"
+OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
+OPENROUTER_MODEL="${OPENROUTER_MODEL:-anthropic/claude-3-haiku-20240307}"
+AI_SERVICE_COUNT="${AI_SERVICE_COUNT:-2}"
+AI_SERVICE_CPU="${AI_SERVICE_CPU:-512}"
+AI_SERVICE_MEMORY="${AI_SERVICE_MEMORY:-1024}"
+
 # Function to print colored output
 log() {
     local color=$1
@@ -98,6 +106,12 @@ create_infrastructure() {
     # Plan deployment
     terraform plan \
         -var="cluster_name=$CLUSTER_NAME" \
+        -var="enable_ai_integrations=$ENABLE_AI_INTEGRATIONS" \
+        -var="openrouter_api_key=$OPENROUTER_API_KEY" \
+        -var="openrouter_model=$OPENROUTER_MODEL" \
+        -var="ai_service_count=$AI_SERVICE_COUNT" \
+        -var="ai_service_cpu=$AI_SERVICE_CPU" \
+        -var="ai_service_memory=$AI_SERVICE_MEMORY" \
         -var="aws_region=$AWS_REGION" \
         -var="domain=$DOMAIN" \
         -var="environment=$ENVIRONMENT" \

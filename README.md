@@ -554,16 +554,103 @@ Quick example:
 
 See the [Embedding Guide](docs/EMBEDDING_GUIDE.md) for complete documentation.
 
-### AI Agent Integration (MCP)
+### AI Integration - OpenAI Functions & Anthropic MCP
 
-Zeal includes a Model Context Protocol (MCP) server for AI-powered orchestration:
+Zeal provides production-ready AI integrations for both OpenAI and Anthropic models, enabling natural language workflow orchestration:
 
-- **Programmatic Workflow Creation**: AI agents can create and modify workflows
-- **Semantic Node Search**: Find appropriate nodes using natural language
-- **Subgraph Management**: Create reusable components programmatically
-- **Full API Access**: Complete control over workflow operations
+#### OpenAI Functions Server
+A dedicated server that exposes Zeal's capabilities as OpenAI-compatible functions:
 
-The MCP server is located in `/mcp/embed-orchestrator` with full documentation.
+- **20+ Functions**: Complete workflow, node, execution, and analytics operations
+- **GPT-4 & Assistants API**: Full compatibility with OpenAI's function calling
+- **Streaming Support**: Real-time execution updates via Server-Sent Events
+- **Batch Operations**: Execute multiple functions in a single request
+
+```python
+# Example: Using with OpenAI API
+from openai import OpenAI
+import requests
+
+# Fetch available functions from Zeal
+tools = requests.get("http://localhost:3456/tools").json()
+
+# Use with GPT-4
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4-turbo-preview",
+    messages=[{"role": "user", "content": "Create a data processing workflow"}],
+    tools=tools,
+    tool_choice="auto"
+)
+```
+
+#### Anthropic MCP Server
+Model Context Protocol server for Claude (Desktop & API) with advanced AI features:
+
+- **AI-Powered Tools**: Workflow optimization, debugging, and auto-design
+- **Natural Language**: Convert descriptions directly to workflows
+- **Dual Transport**: Works with both Claude Desktop (stdio) and API (HTTP)
+- **Context Resources**: Provide workflow context for better AI understanding
+
+```python
+# Example: Using with Claude API
+from anthropic import Anthropic
+import requests
+
+# Fetch MCP tools
+tools = requests.get("http://localhost:3457/tools").json()
+
+# Use with Claude
+client = Anthropic()
+response = client.messages.create(
+    model="claude-3-opus-20240229",
+    messages=[{"role": "user", "content": "Optimize my workflow for performance"}],
+    tools=tools,
+    tool_choice={"type": "auto"}
+)
+```
+
+#### Key AI Features
+
+| Feature | OpenAI Functions | Anthropic MCP |
+|---------|------------------|---------------|
+| Workflow Creation | ✅ Standard | ✅ With AI design |
+| Node Operations | ✅ CRUD operations | ✅ Smart suggestions |
+| Execution Control | ✅ Full control | ✅ With debugging |
+| Optimization | Via GPT analysis | ✅ Built-in optimizer |
+| Natural Language | Via GPT | ✅ Native support |
+| Test Generation | Manual | ✅ Automatic |
+| Workflow Comparison | Basic | ✅ Advanced analysis |
+
+#### Getting Started
+
+1. **Install dependencies**:
+```bash
+cd ai-integrations/openai-functions && npm install
+cd ../mcp-server && npm install
+```
+
+2. **Start the servers**:
+```bash
+# Terminal 1: OpenAI Functions Server
+npm run dev  # Runs on port 3456
+
+# Terminal 2: MCP Server
+npm run dev  # Runs on port 3457
+```
+
+3. **Configure AI clients** to use the servers (see [AI Integration Guide](ai-integrations/README.md))
+
+#### Advanced Usage Patterns
+
+- **Collaborative AI**: Use GPT-4 for creation and Claude for optimization
+- **Parallel Generation**: Create multiple workflows simultaneously
+- **AI Orchestrator**: Intelligent task delegation based on AI strengths
+- **Debugging Assistant**: AI-powered error analysis and fixes
+
+See [AI Integration Documentation](ai-integrations/) for complete setup, examples, and API reference.
+
+The MCP server for embedded orchestration is also available in `/mcp/embed-orchestrator`.
 
 ## 🤝 Contributing
 

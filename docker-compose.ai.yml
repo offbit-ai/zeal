@@ -1,0 +1,174 @@
+version: '3.8'
+
+# AI Integrations for Zeal
+# This file adds AI services to the main Zeal deployment
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.ai.yml up
+
+services:
+  # OpenAI Functions Server
+  openai-functions:
+    build:
+      context: ./ai-integrations/openai-functions
+      dockerfile: Dockerfile
+    container_name: zeal-openai-functions
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      # Server Configuration
+      PORT: 3456
+      NODE_ENV: ${NODE_ENV:-production}
+      
+      # Zeal Integration
+      ZEAL_API_URL: http://app:3000
+      ZEAL_API_KEY: ${ZEAL_API_KEY:-internal}
+      
+      # Authentication
+      JWT_SECRET: ${JWT_SECRET:-${NEXTAUTH_SECRET}}
+      API_KEY_HEADER: X-API-Key
+      
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+      
+      # Redis (using the main Redis instance)
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass123}@redis:6379
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3456:3456"
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3456/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - ./ai-integrations/openai-functions:/app
+      - /app/node_modules
+
+  # Anthropic MCP Server
+  mcp-server:
+    build:
+      context: ./ai-integrations/mcp-server
+      dockerfile: Dockerfile
+    container_name: zeal-mcp-server
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      # Server Configuration
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-http}  # Use HTTP for Docker deployment
+      PORT: 3457
+      NODE_ENV: ${NODE_ENV:-production}
+      
+      # Zeal Integration
+      ZEAL_API_URL: http://app:3000
+      ZEAL_API_KEY: ${ZEAL_API_KEY:-internal}
+      
+      # GraphRAG AI Features (optional)
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-3-haiku-20240307}
+      
+      # AI Features
+      ENABLE_AI_OPTIMIZATION: ${ENABLE_AI_OPTIMIZATION:-true}
+      ENABLE_AUTO_DESIGN: ${ENABLE_AUTO_DESIGN:-true}
+      ENABLE_SMART_DEBUG: ${ENABLE_SMART_DEBUG:-true}
+      
+      # Caching
+      CACHE_TTL: ${CACHE_TTL:-3600}
+      MAX_CACHE_SIZE: ${MAX_CACHE_SIZE:-100}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3457:3457"
+    networks:
+      - zeal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3457/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - ./ai-integrations/mcp-server:/app
+      - ./data/graphrag-snapshot.json:/app/data/graphrag-snapshot.json:ro
+      - /app/node_modules
+
+  # GraphRAG Builder (runs once to build knowledge graph)
+  graphrag-builder:
+    image: node:20-alpine
+    container_name: zeal-graphrag-builder
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zeal}:${POSTGRES_PASSWORD:-zeal_password}@postgres:5432/${POSTGRES_DB:-zeal_db}?schema=public
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-3-haiku-20240307}
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - graphrag_data:/app/data
+    command: >
+      sh -c "
+      if [ -z \"$$OPENROUTER_API_KEY\" ]; then
+        echo '⚠️  OPENROUTER_API_KEY not set. Skipping GraphRAG build.';
+        echo '   Set OPENROUTER_API_KEY to enable AI-powered features.';
+        exit 0;
+      fi;
+      if [ -f /app/data/graphrag-snapshot.json ]; then
+        echo '✅ GraphRAG snapshot already exists.';
+        echo '   To rebuild, remove /app/data/graphrag-snapshot.json and restart.';
+      else
+        echo '🔨 Building GraphRAG knowledge graph...';
+        npm run graphrag:build || node scripts/build-graphrag.js;
+        echo '✅ GraphRAG build complete.';
+      fi
+      "
+    networks:
+      - zeal-network
+    profiles:
+      - setup
+
+  # AI Load Balancer (optional, for production with multiple AI server instances)
+  ai-loadbalancer:
+    image: nginx:alpine
+    container_name: zeal-ai-loadbalancer
+    restart: unless-stopped
+    depends_on:
+      - openai-functions
+      - mcp-server
+    ports:
+      - "3450:80"
+    volumes:
+      - ./deployments/nginx/ai-loadbalancer.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - zeal-network
+    profiles:
+      - production
+
+# Extend the main app service to include AI environment variables
+# This is applied when using both compose files together
+services:
+  app:
+    environment:
+      # AI Integration URLs (for the main app to know about AI services)
+      OPENAI_FUNCTIONS_URL: ${OPENAI_FUNCTIONS_URL:-http://openai-functions:3456}
+      MCP_SERVER_URL: ${MCP_SERVER_URL:-http://mcp-server:3457}
+      
+      # GraphRAG Configuration
+      ENABLE_GRAPHRAG: ${ENABLE_GRAPHRAG:-true}
+      GRAPHRAG_SNAPSHOT_PATH: /app/data/graphrag-snapshot.json
+    volumes:
+      - graphrag_data:/app/data:ro
+
+volumes:
+  graphrag_data:
+    driver: local
+
+networks:
+  zeal-network:
+    external: true

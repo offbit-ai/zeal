@@ -1,0 +1,386 @@
+# AI Integration Services for K3s Deployment
+# OpenAI Functions and MCP Servers for Zeal
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zeal-ai
+  labels:
+    app: zeal
+    component: ai
+
+---
+# ConfigMap for AI configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-config
+  namespace: zeal-ai
+data:
+  ZEAL_API_URL: "http://zeal-app.zeal.svc.cluster.local:3000"
+  NODE_ENV: "production"
+  ENABLE_AI_OPTIMIZATION: "true"
+  ENABLE_AUTO_DESIGN: "true"
+  ENABLE_SMART_DEBUG: "true"
+  CACHE_TTL: "3600"
+  MAX_CACHE_SIZE: "100"
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  LOG_LEVEL: "info"
+  OPENROUTER_MODEL: "anthropic/claude-3-haiku-20240307"
+
+---
+# Secret for API keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-secrets
+  namespace: zeal-ai
+type: Opaque
+stringData:
+  ZEAL_API_KEY: "${ZEAL_API_KEY}"
+  JWT_SECRET: "${JWT_SECRET}"
+  OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+
+---
+# PersistentVolumeClaim for GraphRAG data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: graphrag-data
+  namespace: zeal-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-path
+
+---
+# Job to build GraphRAG (runs once)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: graphrag-builder
+  namespace: zeal-ai
+spec:
+  template:
+    metadata:
+      labels:
+        app: graphrag-builder
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      - name: wait-for-db
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z postgres.zeal.svc.cluster.local 5432; do echo waiting for db; sleep 2; done;']
+      containers:
+      - name: builder
+        image: node:20-alpine
+        workingDir: /app
+        command:
+        - sh
+        - -c
+        - |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "⚠️  OPENROUTER_API_KEY not set. Skipping GraphRAG build."
+            exit 0
+          fi
+          if [ -f /data/graphrag-snapshot.json ]; then
+            echo "✅ GraphRAG snapshot already exists."
+          else
+            echo "🔨 Building GraphRAG knowledge graph..."
+            npm ci
+            npm run graphrag:build || node scripts/build-graphrag.js
+            cp data/graphrag-snapshot.json /data/
+            echo "✅ GraphRAG build complete."
+          fi
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://zeal:${POSTGRES_PASSWORD}@postgres.zeal.svc.cluster.local:5432/zeal_db"
+        - name: OPENROUTER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-secrets
+              key: OPENROUTER_API_KEY
+              optional: true
+        - name: OPENROUTER_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: ai-config
+              key: OPENROUTER_MODEL
+        volumeMounts:
+        - name: graphrag-data
+          mountPath: /data
+        - name: app-source
+          mountPath: /app
+      volumes:
+      - name: graphrag-data
+        persistentVolumeClaim:
+          claimName: graphrag-data
+      - name: app-source
+        hostPath:
+          path: /opt/zeal
+          type: Directory
+
+---
+# OpenAI Functions Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openai-functions
+  namespace: zeal-ai
+  labels:
+    app: openai-functions
+    component: ai
+spec:
+  replicas: ${AI_SERVICE_COUNT:-2}
+  selector:
+    matchLabels:
+      app: openai-functions
+  template:
+    metadata:
+      labels:
+        app: openai-functions
+        component: ai
+    spec:
+      containers:
+      - name: openai-functions
+        image: zeal/openai-functions:${AI_SERVICE_VERSION:-latest}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3456
+          name: http
+        env:
+        - name: PORT
+          value: "3456"
+        - name: REDIS_URL
+          value: "redis://:${REDIS_PASSWORD}@redis.zeal.svc.cluster.local:6379"
+        envFrom:
+        - configMapRef:
+            name: ai-config
+        - secretRef:
+            name: ai-secrets
+        resources:
+          requests:
+            memory: "${AI_SERVICE_MEMORY:-256Mi}"
+            cpu: "${AI_SERVICE_CPU:-100m}"
+          limits:
+            memory: "${AI_SERVICE_MEMORY_LIMIT:-512Mi}"
+            cpu: "${AI_SERVICE_CPU_LIMIT:-500m}"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3456
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3456
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+---
+# OpenAI Functions Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: openai-functions
+  namespace: zeal-ai
+  labels:
+    app: openai-functions
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3456
+    targetPort: 3456
+    protocol: TCP
+    name: http
+  selector:
+    app: openai-functions
+
+---
+# MCP Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: zeal-ai
+  labels:
+    app: mcp-server
+    component: ai
+spec:
+  replicas: ${AI_SERVICE_COUNT:-2}
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+        component: ai
+    spec:
+      initContainers:
+      - name: wait-for-graphrag
+        image: busybox:1.35
+        command: ['sh', '-c', 'until [ -f /data/graphrag-snapshot.json ]; do echo waiting for graphrag; sleep 5; done || exit 0']
+        volumeMounts:
+        - name: graphrag-data
+          mountPath: /data
+      containers:
+      - name: mcp-server
+        image: zeal/mcp-server:${AI_SERVICE_VERSION:-latest}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3457
+          name: http
+        env:
+        - name: PORT
+          value: "3457"
+        - name: MCP_TRANSPORT
+          value: "http"
+        envFrom:
+        - configMapRef:
+            name: ai-config
+        - secretRef:
+            name: ai-secrets
+        volumeMounts:
+        - name: graphrag-data
+          mountPath: /app/data
+          readOnly: true
+        resources:
+          requests:
+            memory: "${AI_SERVICE_MEMORY:-256Mi}"
+            cpu: "${AI_SERVICE_CPU:-100m}"
+          limits:
+            memory: "${AI_SERVICE_MEMORY_LIMIT:-512Mi}"
+            cpu: "${AI_SERVICE_CPU_LIMIT:-500m}"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3457
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3457
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: graphrag-data
+        persistentVolumeClaim:
+          claimName: graphrag-data
+
+---
+# MCP Server Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server
+  namespace: zeal-ai
+  labels:
+    app: mcp-server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3457
+    targetPort: 3457
+    protocol: TCP
+    name: http
+  selector:
+    app: mcp-server
+
+---
+# Ingress for AI Services
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-ingress
+  namespace: zeal-ai
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: default-ratelimit@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - ${DOMAIN}
+    secretName: ai-tls-secret
+  rules:
+  - host: ${DOMAIN}
+    http:
+      paths:
+      - path: /openai
+        pathType: Prefix
+        backend:
+          service:
+            name: openai-functions
+            port:
+              number: 3456
+      - path: /mcp
+        pathType: Prefix
+        backend:
+          service:
+            name: mcp-server
+            port:
+              number: 3457
+
+---
+# HorizontalPodAutoscaler for OpenAI Functions
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: openai-functions-hpa
+  namespace: zeal-ai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openai-functions
+  minReplicas: ${AI_SERVICE_MIN_REPLICAS:-1}
+  maxReplicas: ${AI_SERVICE_MAX_REPLICAS:-5}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# HorizontalPodAutoscaler for MCP Server
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mcp-server-hpa
+  namespace: zeal-ai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mcp-server
+  minReplicas: ${AI_SERVICE_MIN_REPLICAS:-1}
+  maxReplicas: ${AI_SERVICE_MAX_REPLICAS:-5}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

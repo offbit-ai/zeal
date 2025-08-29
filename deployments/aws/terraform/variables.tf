@@ -26,6 +26,56 @@ variable "domain" {
   type        = string
 }
 
+# AI Integration Variables
+variable "enable_ai_integrations" {
+  description = "Enable AI integrations (OpenAI Functions and MCP Server)"
+  type        = bool
+  default     = false
+}
+
+variable "ai_service_cpu" {
+  description = "CPU units for AI service tasks"
+  type        = string
+  default     = "512"
+}
+
+variable "ai_service_memory" {
+  description = "Memory for AI service tasks"
+  type        = string
+  default     = "1024"
+}
+
+variable "ai_service_count" {
+  description = "Number of AI service instances"
+  type        = number
+  default     = 2
+}
+
+variable "ai_service_max_count" {
+  description = "Maximum number of AI service instances for auto-scaling"
+  type        = number
+  default     = 10
+}
+
+variable "ai_service_version" {
+  description = "Version tag for AI service images"
+  type        = string
+  default     = "latest"
+}
+
+variable "openrouter_api_key" {
+  description = "OpenRouter API key for GraphRAG (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "openrouter_model" {
+  description = "OpenRouter model for GraphRAG"
+  type        = string
+  default     = "anthropic/claude-3-haiku-20240307"
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
   type        = string

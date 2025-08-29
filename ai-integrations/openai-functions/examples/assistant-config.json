@@ -1,0 +1,226 @@
+{
+  "name": "Zeal Workflow Orchestrator",
+  "description": "An AI assistant that can create, manage, and execute workflows using the Zeal platform",
+  "instructions": "You are a workflow orchestration expert. You help users design, create, and manage automated workflows using the Zeal platform. You can create nodes, connect them, execute workflows, and monitor their progress. Always aim for efficient and maintainable workflow designs.",
+  "model": "gpt-4-turbo-preview",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "create_workflow",
+        "description": "Create a new workflow in Zeal",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the workflow"
+            },
+            "description": {
+              "type": "string",
+              "description": "Description of what the workflow does"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Tags for categorizing the workflow"
+            }
+          },
+          "required": ["name"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "add_node",
+        "description": "Add a node to a workflow",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "workflow_id": {
+              "type": "string",
+              "description": "ID of the workflow"
+            },
+            "node_type": {
+              "type": "string",
+              "description": "Type of node to add (e.g., 'http_request', 'data_transform', 'condition')"
+            },
+            "position": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "description": "X coordinate on the canvas"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "Y coordinate on the canvas"
+                }
+              },
+              "required": ["x", "y"]
+            },
+            "config": {
+              "type": "object",
+              "description": "Node-specific configuration"
+            }
+          },
+          "required": ["workflow_id", "node_type", "position"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "connect_nodes",
+        "description": "Create a connection between two nodes",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "workflow_id": {
+              "type": "string",
+              "description": "ID of the workflow"
+            },
+            "source_node_id": {
+              "type": "string",
+              "description": "ID of the source node"
+            },
+            "source_port": {
+              "type": "string",
+              "description": "Output port of the source node",
+              "default": "output"
+            },
+            "target_node_id": {
+              "type": "string",
+              "description": "ID of the target node"
+            },
+            "target_port": {
+              "type": "string",
+              "description": "Input port of the target node",
+              "default": "input"
+            }
+          },
+          "required": ["workflow_id", "source_node_id", "target_node_id"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "execute_workflow",
+        "description": "Execute a workflow with optional input data",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "workflow_id": {
+              "type": "string",
+              "description": "ID of the workflow to execute"
+            },
+            "input_data": {
+              "type": "object",
+              "description": "Input data for the workflow"
+            },
+            "execution_mode": {
+              "type": "string",
+              "enum": ["sync", "async", "debug"],
+              "description": "Execution mode",
+              "default": "async"
+            }
+          },
+          "required": ["workflow_id"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "get_execution_status",
+        "description": "Get the status of a workflow execution",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "execution_id": {
+              "type": "string",
+              "description": "ID of the execution"
+            },
+            "include_traces": {
+              "type": "boolean",
+              "description": "Include detailed trace information",
+              "default": false
+            }
+          },
+          "required": ["execution_id"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_node_templates",
+        "description": "Search available node templates using semantic search",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query for finding relevant node templates"
+            },
+            "category": {
+              "type": "string",
+              "description": "Filter by category (e.g., 'data', 'api', 'logic', 'ai')"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results",
+              "default": 10
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_flow_traces",
+        "description": "Query historical flow trace data for analysis",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "workflow_id": {
+              "type": "string",
+              "description": "ID of the workflow"
+            },
+            "time_range": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Start time (ISO 8601)"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "End time (ISO 8601)"
+                }
+              }
+            },
+            "status_filter": {
+              "type": "string",
+              "enum": ["success", "failed", "warning", "all"],
+              "default": "all"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "file_ids": [],
+  "metadata": {
+    "version": "1.0.0",
+    "api_endpoint": "http://localhost:3456/functions"
+  }
+}
