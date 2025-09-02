@@ -761,5 +761,5 @@ const embed = await ZealEmbed.create(config)
 For additional help:
 
 - GitHub Issues: https://github.com/offbit-ai/zeal/issues
-- Documentation: https://docs.zeal.app
+- Documentation: https://zeal.offbit.ai/docs
 - NPM Package: https://www.npmjs.com/package/@offbit-ai/zeal-embed-sdk
