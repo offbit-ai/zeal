@@ -574,22 +574,53 @@ See the SDK documentation for your preferred language:
 
 ### Embedding the Workflow Editor
 
-Zeal can be embedded into your applications using:
+Zeal provides a browser-compatible SDK for embedding the workflow editor into your applications:
 
-- **iframe Integration**: Simple embedding with customizable options
-- **API Key Authentication**: Secure access with granular permissions
-- **WebSocket Real-time Updates**: Programmatic control and event handling
-- **Drag & Drop Support**: Allow users to drag custom nodes into workflows
+#### Zeal Embed SDK
 
-Quick example:
+The official `@offbit-ai/zeal-embed-sdk` provides:
 
-```html
-<iframe
-  src="https://your-zeal-instance.com/embed/WORKFLOW_ID?apiKey=YOUR_KEY"
-  width="100%"
-  height="600"
->
-</iframe>
+- **Easy Integration**: Simple API for embedding the workflow editor
+- **Full ZIP Protocol Support**: Access to templates, orchestrator, traces, and events APIs
+- **Real-time Updates**: WebSocket integration for live collaboration
+- **Type Safety**: Full TypeScript support
+- **Browser Compatible**: No Node.js dependencies
+
+#### Installation
+
+```bash
+npm install @offbit-ai/zeal-embed-sdk
+# or
+yarn add @offbit-ai/zeal-embed-sdk
+```
+
+#### Quick Example
+
+```javascript
+import { ZealEmbed, EmbedConfigBuilder } from '@offbit-ai/zeal-embed-sdk'
+
+// Create and configure embed
+const config = new EmbedConfigBuilder('#workflow-container')
+  .withBaseUrl('https://your-zeal-instance.com')
+  .withWorkflow('wf_123')
+  .withAuthToken('your-auth-token')
+  .withHeight('800px')
+  .build()
+
+// Initialize embed
+const embed = await ZealEmbed.create(config)
+
+// Listen to events
+embed.on('nodeAdded', (node) => {
+  console.log('Node added:', node)
+})
+
+// Access ZIP protocol APIs
+const { client } = embed
+await client.orchestrator.execute({ 
+  workflowId: 'wf_123',
+  inputs: { data: 'test' }
+})
 ```
 
 See the [Embedding Guide](docs/EMBEDDING_GUIDE.md) for complete documentation.

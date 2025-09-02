@@ -1,580 +1,759 @@
 # Zeal Workflow Editor Embedding Guide
 
-This guide explains how to embed the Zeal workflow editor into your application, allowing users to create and edit workflows within your own interface.
+This guide explains how to embed the Zeal workflow editor into your application using the official `@offbit-ai/zeal-embed-sdk`.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [API Key Setup](#api-key-setup)
-4. [Embedding Methods](#embedding-methods)
+2. [Installation](#installation)
+3. [Quick Start](#quick-start)
+4. [Authentication](#authentication)
 5. [Configuration Options](#configuration-options)
-6. [WebSocket Integration](#websocket-integration)
-7. [Security Considerations](#security-considerations)
-8. [Examples](#examples)
+6. [API Reference](#api-reference)
+7. [WebSocket Events](#websocket-events)
+8. [Advanced Usage](#advanced-usage)
+9. [Security Considerations](#security-considerations)
+10. [Migration from iframe](#migration-from-iframe)
+11. [Examples](#examples)
 
 ## Overview
 
-Zeal provides multiple ways to embed the workflow editor:
+The Zeal Embed SDK (`@offbit-ai/zeal-embed-sdk`) is a browser-compatible SDK that provides:
 
-- **iframe Embedding**: Simple integration with minimal setup
-- **React Component**: Direct integration for React applications
-- **WebSocket API**: Real-time programmatic control
-- **MCP Integration**: AI agent orchestration
+- **Easy Integration**: Simple API for embedding the workflow editor
+- **Full ZIP Protocol Support**: Access to templates, orchestrator, traces, and events APIs
+- **Real-time Updates**: WebSocket integration for live collaboration
+- **Type Safety**: Full TypeScript support
+- **Browser Compatible**: No Node.js dependencies
+
+## Installation
+
+### npm/yarn
+
+```bash
+npm install @offbit-ai/zeal-embed-sdk
+# or
+yarn add @offbit-ai/zeal-embed-sdk
+```
+
+### CDN
+
+```html
+<script type="module">
+  import { ZealEmbed, EmbedConfigBuilder } from 'https://unpkg.com/@offbit-ai/zeal-embed-sdk@latest/dist/index.mjs'
+</script>
+```
 
 ## Quick Start
 
-### 1. Basic iframe Embedding
-
-```html
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>My App with Zeal Workflow</title>
-  </head>
-  <body>
-    <h1>Workflow Editor</h1>
-
-    <!-- Basic embed -->
-    <iframe
-      src="https://your-zeal-instance.com/embed/YOUR_WORKFLOW_ID"
-      width="100%"
-      height="600"
-      frameborder="0"
-      allow="fullscreen"
-    >
-    </iframe>
-  </body>
-</html>
-```
-
-### 2. Embedding with Options
-
-```html
-<iframe
-  src="https://your-zeal-instance.com/embed/YOUR_WORKFLOW_ID?minimap=true&zoom=true&readonly=false"
-  width="100%"
-  height="600"
-  frameborder="0"
-  allow="fullscreen"
->
-</iframe>
-```
-
-## API Key Setup
-
-For secure embedding with permissions control:
-
-### 1. Create an API Key
+### Basic Embedding
 
 ```javascript
-// POST /api/workflows/{workflowId}/embed/api-keys
-const response = await fetch(`/api/workflows/${workflowId}/embed/api-keys`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: 'Bearer YOUR_AUTH_TOKEN',
-  },
-  body: JSON.stringify({
-    name: 'Production Embed Key',
-    description: 'For customer dashboard integration',
-    permissions: {
-      canAddNodes: true,
-      canEditNodes: true,
-      canDeleteNodes: false,
-      canAddGroups: true,
-      canEditGroups: true,
-      canDeleteGroups: false,
-      canExecute: false,
-      canViewWorkflow: true,
-      canExportData: false,
-    },
-    rateLimits: {
-      requestsPerMinute: 60,
-      requestsPerHour: 1000,
-      requestsPerDay: 10000,
-      executionsPerHour: 100,
-      executionsPerDay: 1000,
-    },
-  }),
+import { ZealEmbed, EmbedConfigBuilder } from '@offbit-ai/zeal-embed-sdk'
+
+// Create embed configuration
+const config = new EmbedConfigBuilder('#workflow-container')
+  .withBaseUrl('https://your-zeal-instance.com')
+  .withWorkflow('wf_123')
+  .withAuthToken('your-auth-token')
+  .withHeight('800px')
+  .build()
+
+// Create and initialize embed
+const embed = await ZealEmbed.create(config)
+
+// Listen to events
+embed.on('ready', () => {
+  console.log('Workflow editor is ready')
 })
 
-const { apiKey, plainKey } = await response.json()
-// Save plainKey securely - it won't be shown again!
-```
-
-### 2. Use API Key in Embed URL
-
-```html
-<iframe
-  src="https://your-zeal-instance.com/embed/YOUR_WORKFLOW_ID?apiKey=YOUR_API_KEY"
-  width="100%"
-  height="600"
->
-</iframe>
-```
-
-## Embedding Methods
-
-### Method 1: Simple iframe
-
-```html
-<iframe
-  id="zeal-workflow"
-  src="https://your-zeal-instance.com/embed/WORKFLOW_ID"
-  style="width: 100%; height: 600px; border: none;"
->
-</iframe>
-```
-
-### Method 2: Dynamic iframe with JavaScript
-
-```javascript
-function embedWorkflow(containerId, workflowId, options = {}) {
-  const container = document.getElementById(containerId)
-
-  // Build URL with options
-  const params = new URLSearchParams({
-    apiKey: options.apiKey || '',
-    minimap: options.showMinimap || 'true',
-    zoom: options.showZoomControls || 'true',
-    tabs: options.showSubgraphTabs || 'true',
-    readonly: options.readonly || 'false',
-  })
-
-  const iframe = document.createElement('iframe')
-  iframe.src = `https://your-zeal-instance.com/embed/${workflowId}?${params}`
-  iframe.style.width = '100%'
-  iframe.style.height = options.height || '600px'
-  iframe.style.border = 'none'
-  iframe.allow = 'fullscreen'
-
-  container.appendChild(iframe)
-
-  return iframe
-}
-
-// Usage
-embedWorkflow('workflow-container', 'wf_123', {
-  apiKey: 'emb_live_abc123',
-  showMinimap: true,
-  height: '800px',
+embed.on('nodeAdded', (node) => {
+  console.log('Node added:', node)
 })
 ```
 
-### Method 3: React Component
+### React Component
 
 ```jsx
 import React, { useEffect, useRef } from 'react'
+import { ZealEmbed, EmbedConfigBuilder } from '@offbit-ai/zeal-embed-sdk'
 
-const ZealWorkflowEmbed = ({
-  workflowId,
-  apiKey,
-  height = '600px',
-  showMinimap = true,
-  showZoomControls = true,
-  onNodeAdded,
-  onConnectionCreated,
-}) => {
-  const iframeRef = useRef(null)
+function WorkflowEditor({ workflowId, authToken }) {
+  const containerRef = useRef(null)
+  const embedRef = useRef(null)
 
   useEffect(() => {
-    // Listen for messages from embedded workflow
-    const handleMessage = event => {
-      if (event.origin !== 'https://your-zeal-instance.com') return
+    if (!containerRef.current) return
 
-      const { type, data } = event.data
+    const initEmbed = async () => {
+      const config = new EmbedConfigBuilder(containerRef.current)
+        .withBaseUrl('https://your-zeal-instance.com')
+        .withWorkflow(workflowId)
+        .withAuthToken(authToken)
+        .withHeight('100%')
+        .withTheme('light')
+        .onNodeAdded((node) => console.log('Node added:', node))
+        .onExecutionCompleted((result) => console.log('Execution completed:', result))
+        .build()
 
-      switch (type) {
-        case 'nodeAdded':
-          onNodeAdded?.(data)
-          break
-        case 'connectionCreated':
-          onConnectionCreated?.(data)
-          break
-      }
+      embedRef.current = await ZealEmbed.create(config)
     }
 
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [onNodeAdded, onConnectionCreated])
+    initEmbed()
 
-  const params = new URLSearchParams({
-    apiKey: apiKey || '',
-    minimap: String(showMinimap),
-    zoom: String(showZoomControls),
-  })
+    return () => {
+      embedRef.current?.destroy()
+    }
+  }, [workflowId, authToken])
 
-  return (
-    <iframe
-      ref={iframeRef}
-      src={`https://your-zeal-instance.com/embed/${workflowId}?${params}`}
-      style={{ width: '100%', height, border: 'none' }}
-      allow="fullscreen"
-    />
-  )
+  return <div ref={containerRef} style={{ width: '100%', height: '800px' }} />
 }
+```
 
-// Usage
-function App() {
-  return (
-    <ZealWorkflowEmbed
-      workflowId="wf_123"
-      apiKey="emb_live_abc123"
-      height="800px"
-      onNodeAdded={node => console.log('Node added:', node)}
-      onConnectionCreated={conn => console.log('Connection:', conn)}
-    />
-  )
-}
+## Authentication
+
+The SDK uses auth tokens for authentication. Tokens are checked in this order:
+1. Provided in configuration
+2. Session storage (`ZEAL_AUTH_TOKEN`)
+
+### Setting Auth Token
+
+```javascript
+// Option 1: Provide in configuration
+const config = new EmbedConfigBuilder('#container')
+  .withAuthToken('your-auth-token')
+  .build()
+
+// Option 2: Set in session storage (will be used automatically)
+sessionStorage.setItem('ZEAL_AUTH_TOKEN', 'your-auth-token')
 ```
 
 ## Configuration Options
 
-### URL Parameters
-
-| Parameter      | Type    | Default | Description                     |
-| -------------- | ------- | ------- | ------------------------------- |
-| `apiKey`       | string  | -       | API key for authentication      |
-| `minimap`      | boolean | true    | Show/hide minimap               |
-| `zoom`         | boolean | true    | Show/hide zoom controls         |
-| `tabs`         | boolean | true    | Show/hide subgraph tabs         |
-| `readonly`     | boolean | false   | Enable read-only mode           |
-| `theme`        | string  | 'light' | Color theme ('light' or 'dark') |
-| `nodeCreation` | boolean | true    | Allow creating new nodes        |
-
-### Example with All Options
-
-```html
-<iframe
-  src="https://your-zeal-instance.com/embed/wf_123?apiKey=emb_live_abc123&minimap=true&zoom=true&tabs=true&readonly=false&theme=dark&nodeCreation=true"
-></iframe>
-```
-
-## WebSocket Integration
-
-For real-time updates and programmatic control:
-
-### 1. Connect to WebSocket
+### EmbedConfigBuilder Methods
 
 ```javascript
-class ZealWorkflowClient {
-  constructor(workflowId, apiKey) {
-    this.workflowId = workflowId
-    this.apiKey = apiKey
-    this.ws = null
+const builder = new EmbedConfigBuilder('#container')
+  // Basic configuration
+  .withBaseUrl('https://your-zeal-instance.com')
+  .withWorkflow('workflow_id')
+  .withAuthToken('auth_token')
+  
+  // Display options
+  .withHeight('800px')
+  .withWidth('100%')
+  .withTheme('light') // or 'dark'
+  .withMinimap(true)
+  .withZoomControls(true)
+  .withSubgraphTabs(true)
+  .withNodeCreation(true)
+  
+  // Permissions
+  .withPermissions({
+    canAddNodes: true,
+    canEditNodes: true,
+    canDeleteNodes: true,
+    canAddGroups: true,
+    canEditGroups: true,
+    canDeleteGroups: true,
+    canExecute: true,
+    canViewWorkflow: true,
+    canExportData: false
+  })
+  
+  // Rate limits
+  .withRateLimits({
+    requestsPerMinute: 60,
+    requestsPerHour: 1000,
+    requestsPerDay: 10000,
+    executionsPerHour: 100,
+    executionsPerDay: 1000
+  })
+  
+  // Hide specific UI elements
+  .hideElements(['.toolbar-item-export', '.menu-settings'])
+  
+  // Node libraries to load
+  .withNodeLibraries('data-processing', 'ml-nodes', 'custom-nodes')
+  
+  // Read-only mode
+  .asViewOnly()
+  
+  // Event handlers
+  .onReady(() => console.log('Ready'))
+  .onError((error) => console.error('Error:', error))
+  .onNodeAdded((node) => console.log('Node added:', node))
+  .onNodeUpdated((node) => console.log('Node updated:', node))
+  .onNodeDeleted((nodeId) => console.log('Node deleted:', nodeId))
+  .onConnectionCreated((connection) => console.log('Connection created:', connection))
+  .onConnectionDeleted((connectionId) => console.log('Connection deleted:', connectionId))
+  .onWorkflowSaved((workflow) => console.log('Workflow saved:', workflow))
+  .onExecutionStarted((sessionId) => console.log('Execution started:', sessionId))
+  .onExecutionCompleted((result) => console.log('Execution completed:', result))
+  .onExecutionFailed((error) => console.log('Execution failed:', error))
+```
+
+## API Reference
+
+### ZealEmbed Instance
+
+```javascript
+const embed = await ZealEmbed.create(config)
+
+// Properties
+embed.iframe          // HTMLIFrameElement - The embedded iframe
+embed.client          // ZIPClient - Access to ZIP protocol APIs
+
+// Methods
+await embed.execute({ inputs: { data: 'test' } })  // Execute workflow
+await embed.save()                                  // Save workflow
+await embed.load('workflow_id')                     // Load different workflow
+await embed.getWorkflow()                           // Get workflow data
+await embed.setWorkflow(workflowData)               // Set workflow data
+await embed.registerNodeTemplates(templates)        // Register custom nodes
+embed.updateDisplay({ theme: 'dark' })              // Update display options
+embed.destroy()                                      // Clean up embed
+embed.isReady()                                      // Check if ready
+await embed.waitForReady()                          // Wait for ready state
+
+// Event methods (EventEmitter)
+embed.on('eventName', handler)
+embed.once('eventName', handler)
+embed.off('eventName', handler)
+embed.emit('eventName', data)
+```
+
+### ZIPClient - Full ZIP Protocol Access
+
+The embed includes a browser-compatible ZIP client with all APIs:
+
+```javascript
+const { client } = embed
+
+// Templates API
+await client.templates.register({
+  namespace: 'custom',
+  templates: [/* your templates */]
+})
+await client.templates.list('namespace')
+await client.templates.update('namespace', 'templateId', updates)
+await client.templates.delete('namespace', 'templateId')
+
+// Orchestrator API
+await client.orchestrator.createWorkflow({ name: 'New Workflow' })
+await client.orchestrator.listWorkflows({ limit: 10 })
+await client.orchestrator.getWorkflowState('workflowId')
+await client.orchestrator.addNode({
+  workflowId: 'wf_123',
+  templateId: 'data-transform',
+  position: { x: 100, y: 200 }
+})
+await client.orchestrator.updateNode('nodeId', updates)
+await client.orchestrator.deleteNode('nodeId', 'workflowId')
+await client.orchestrator.connectNodes({
+  workflowId: 'wf_123',
+  sourceNodeId: 'node1',
+  sourcePortId: 'output',
+  targetNodeId: 'node2',
+  targetPortId: 'input'
+})
+await client.orchestrator.execute({
+  workflowId: 'wf_123',
+  inputs: { data: 'test' }
+})
+await client.orchestrator.getExecutionStatus('sessionId')
+await client.orchestrator.cancelExecution('sessionId')
+
+// Traces API
+const session = await client.traces.createSession({ workflowId: 'wf_123' })
+await client.traces.submitEvent(session.sessionId, {
+  timestamp: Date.now(),
+  nodeId: 'node1',
+  eventType: 'input',
+  data: { value: 'test' }
+})
+await client.traces.completeSession(session.sessionId, { status: 'success' })
+
+// Events API (WebSocket)
+await client.events.connect('workflowId')
+client.events.on('node.executing', (event) => console.log('Node executing:', event))
+client.events.updateVisualState([{
+  id: 'node1',
+  elementType: 'node',
+  state: 'running',
+  progress: 50
+}])
+client.events.disconnect()
+
+// Health check
+const health = await client.health()
+```
+
+## WebSocket Events
+
+The SDK provides real-time updates via WebSocket:
+
+### ZIP Event Types
+
+```javascript
+// Node execution events
+embed.on('node.executing', (event) => { /* ... */ })
+embed.on('node.completed', (event) => { /* ... */ })
+embed.on('node.failed', (event) => { /* ... */ })
+embed.on('node.warning', (event) => { /* ... */ })
+
+// Workflow execution events
+embed.on('execution.started', (event) => { /* ... */ })
+embed.on('execution.completed', (event) => { /* ... */ })
+embed.on('execution.failed', (event) => { /* ... */ })
+
+// Workflow lifecycle events
+embed.on('workflow.created', (event) => { /* ... */ })
+embed.on('workflow.updated', (event) => { /* ... */ })
+embed.on('workflow.deleted', (event) => { /* ... */ })
+
+// CRDT collaboration events
+embed.on('node.added', (event) => { /* ... */ })
+embed.on('node.updated', (event) => { /* ... */ })
+embed.on('node.deleted', (event) => { /* ... */ })
+embed.on('connection.added', (event) => { /* ... */ })
+embed.on('connection.deleted', (event) => { /* ... */ })
+embed.on('group.created', (event) => { /* ... */ })
+embed.on('group.updated', (event) => { /* ... */ })
+embed.on('group.deleted', (event) => { /* ... */ })
+```
+
+## Advanced Usage
+
+### Custom Node Templates
+
+```javascript
+const customTemplates = [
+  {
+    id: 'custom-processor',
+    type: 'processor',
+    title: 'Custom Processor',
+    category: 'custom',
+    description: 'A custom data processor',
+    ports: {
+      inputs: [
+        { id: 'input', name: 'Input', type: 'any' }
+      ],
+      outputs: [
+        { id: 'output', name: 'Output', type: 'any' }
+      ]
+    },
+    properties: {
+      mode: { type: 'select', options: ['fast', 'accurate'], default: 'fast' },
+      threshold: { type: 'number', default: 0.5, min: 0, max: 1 }
+    }
+  }
+]
+
+await embed.registerNodeTemplates(customTemplates)
+```
+
+### Programmatic Workflow Building
+
+```javascript
+const embed = await ZealEmbed.create(config)
+const { client } = embed
+
+// Create a new workflow
+const { workflowId } = await client.orchestrator.createWorkflow({
+  name: 'Data Pipeline',
+  description: 'Automated data processing pipeline'
+})
+
+// Add nodes
+const node1 = await client.orchestrator.addNode({
+  workflowId,
+  templateId: 'data-source',
+  position: { x: 100, y: 100 },
+  properties: { source: 'database' }
+})
+
+const node2 = await client.orchestrator.addNode({
+  workflowId,
+  templateId: 'data-transform',
+  position: { x: 300, y: 100 },
+  properties: { operation: 'filter' }
+})
+
+// Connect nodes
+await client.orchestrator.connectNodes({
+  workflowId,
+  sourceNodeId: node1.nodeId,
+  sourcePortId: 'output',
+  targetNodeId: node2.nodeId,
+  targetPortId: 'input'
+})
+
+// Load the workflow in the embed
+await embed.load(workflowId)
+```
+
+### Real-time Collaboration
+
+```javascript
+// Enable real-time collaboration features
+const embed = await ZealEmbed.create(config)
+
+// Listen to collaboration events
+embed.on('node.added', (event) => {
+  console.log(`User added node: ${event.nodeId}`)
+})
+
+embed.on('node.updated', (event) => {
+  console.log(`Node ${event.nodeId} was updated`)
+})
+
+embed.on('connection.added', (event) => {
+  console.log('New connection created:', event.data)
+})
+
+// Update visual states for other users
+embed.client.events.updateVisualState([
+  {
+    id: 'node-123',
+    elementType: 'node',
+    state: 'running',
+    progress: 75,
+    message: 'Processing...'
+  }
+])
+```
+
+## Security Considerations
+
+### Content Security Policy
+
+```html
+<meta http-equiv="Content-Security-Policy" 
+      content="frame-src https://your-zeal-instance.com; 
+               connect-src https://your-zeal-instance.com wss://your-zeal-instance.com;">
+```
+
+### Domain Restrictions
+
+Configure allowed embedding domains in your Zeal instance:
+
+```javascript
+// Zeal server configuration
+{
+  embed: {
+    allowedOrigins: [
+      'https://myapp.com',
+      'https://staging.myapp.com',
+      'http://localhost:3000' // Development
+    ]
+  }
+}
+```
+
+### Token Security
+
+- Never expose auth tokens in client-side code
+- Use environment variables or secure token management
+- Implement token rotation
+- Set appropriate expiration times
+
+## Migration from iframe
+
+If you're currently using direct iframe embedding, here's how to migrate:
+
+### Before (iframe)
+
+```html
+<iframe src="https://zeal.example.com/embed/wf_123?apiKey=key" 
+        width="100%" height="600"></iframe>
+```
+
+### After (SDK)
+
+```javascript
+import { ZealEmbed, EmbedConfigBuilder } from '@offbit-ai/zeal-embed-sdk'
+
+const config = new EmbedConfigBuilder('#container')
+  .withBaseUrl('https://zeal.example.com')
+  .withWorkflow('wf_123')
+  .withAuthToken('key')
+  .withHeight('600px')
+  .build()
+
+const embed = await ZealEmbed.create(config)
+```
+
+## Examples
+
+### Example 1: SaaS Platform Integration
+
+```javascript
+import { ZealEmbed, EmbedConfigBuilder } from '@offbit-ai/zeal-embed-sdk'
+
+class WorkflowBuilder {
+  constructor(tenantId) {
+    this.tenantId = tenantId
+    this.embed = null
   }
 
-  connect() {
-    this.ws = new WebSocket('wss://your-zeal-instance.com/embed-ws')
+  async initialize(container) {
+    // Get tenant-specific configuration
+    const { workflowId, authToken } = await this.getTenantConfig()
 
-    this.ws.onopen = () => {
-      // Join workflow
-      this.send('embed:join_workflow', {
-        workflowId: this.workflowId,
-        apiKey: this.apiKey,
+    // Build embed configuration
+    const config = new EmbedConfigBuilder(container)
+      .withBaseUrl(process.env.ZEAL_URL)
+      .withWorkflow(workflowId)
+      .withAuthToken(authToken)
+      .withHeight('100vh')
+      .withTheme('light')
+      .withPermissions({
+        canExecute: false, // Execution handled by platform
+        canExportData: false
       })
-    }
+      .onWorkflowSaved(this.handleWorkflowSave.bind(this))
+      .onNodeAdded(this.trackNodeUsage.bind(this))
+      .build()
 
-    this.ws.onmessage = event => {
-      const { type, data } = JSON.parse(event.data)
-      this.handleEvent(type, data)
-    }
+    // Create embed
+    this.embed = await ZealEmbed.create(config)
+
+    // Register custom nodes for this tenant
+    await this.registerTenantNodes()
   }
 
-  send(type, data) {
-    this.ws.send(JSON.stringify({ type, data }))
+  async registerTenantNodes() {
+    const templates = await this.fetchTenantTemplates()
+    await this.embed.registerNodeTemplates(templates)
   }
 
-  handleEvent(type, data) {
-    switch (type) {
-      case 'embed:workflow_state':
-        console.log('Workflow loaded:', data)
-        break
-      case 'embed:node_added':
-        console.log('Node added:', data)
-        break
-      case 'embed:error':
-        console.error('Error:', data.message)
-        break
-    }
-  }
-
-  // Add a node
-  addNode(metadata, position, graphId = 'main') {
-    this.send('embed:add_node', {
-      graphId,
-      node: {
-        id: `${metadata.type}-${Date.now()}`,
-        metadata,
-        position,
-        propertyValues: metadata.propertyValues || {},
-      },
+  async handleWorkflowSave(workflow) {
+    // Save to platform database
+    await fetch(`/api/tenants/${this.tenantId}/workflows`, {
+      method: 'PUT',
+      body: JSON.stringify(workflow)
     })
   }
 
-  // Create a group
-  createGroup(title, nodeIds, graphId = 'main') {
-    this.send('embed:add_group', {
-      graphId,
-      group: {
-        id: `group-${Date.now()}`,
-        title,
-        nodeIds,
-        color: '#3b82f6',
-      },
+  async trackNodeUsage(node) {
+    // Analytics tracking
+    analytics.track('node_added', {
+      tenantId: this.tenantId,
+      nodeType: node.type,
+      timestamp: Date.now()
+    })
+  }
+
+  async deploy() {
+    const workflow = await this.embed.getWorkflow()
+    
+    // Deploy workflow to execution environment
+    const response = await fetch(`/api/deploy`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tenantId: this.tenantId,
+        workflow
+      })
+    })
+
+    return response.json()
+  }
+}
+
+// Usage
+const builder = new WorkflowBuilder('tenant_123')
+await builder.initialize('#workflow-container')
+```
+
+### Example 2: AI-Powered Workflow Generation
+
+```javascript
+import { ZealEmbed, EmbedConfigBuilder, ZIPClient } from '@offbit-ai/zeal-embed-sdk'
+
+class AIWorkflowGenerator {
+  constructor() {
+    this.client = new ZIPClient({
+      baseUrl: process.env.ZEAL_URL,
+      authToken: process.env.ZEAL_AUTH_TOKEN
+    })
+  }
+
+  async generateFromPrompt(prompt) {
+    // Call AI to understand the workflow requirements
+    const requirements = await this.analyzePrompt(prompt)
+
+    // Create new workflow
+    const { workflowId } = await this.client.orchestrator.createWorkflow({
+      name: requirements.name,
+      description: `Generated from: ${prompt}`
+    })
+
+    // Build workflow based on AI analysis
+    const nodes = []
+    for (const step of requirements.steps) {
+      const node = await this.client.orchestrator.addNode({
+        workflowId,
+        templateId: step.templateId,
+        position: step.position,
+        properties: step.properties
+      })
+      nodes.push(node)
+    }
+
+    // Create connections
+    for (let i = 0; i < nodes.length - 1; i++) {
+      await this.client.orchestrator.connectNodes({
+        workflowId,
+        sourceNodeId: nodes[i].nodeId,
+        sourcePortId: 'output',
+        targetNodeId: nodes[i + 1].nodeId,
+        targetPortId: 'input'
+      })
+    }
+
+    return workflowId
+  }
+
+  async embedGeneratedWorkflow(workflowId, container) {
+    const config = new EmbedConfigBuilder(container)
+      .withBaseUrl(process.env.ZEAL_URL)
+      .withWorkflow(workflowId)
+      .withAuthToken(process.env.ZEAL_AUTH_TOKEN)
+      .withHeight('600px')
+      .asViewOnly() // Read-only for review
+      .build()
+
+    return await ZealEmbed.create(config)
+  }
+}
+
+// Usage
+const generator = new AIWorkflowGenerator()
+const workflowId = await generator.generateFromPrompt(
+  "Create a workflow that processes CSV files, filters data, and sends email notifications"
+)
+const embed = await generator.embedGeneratedWorkflow(workflowId, '#preview')
+```
+
+### Example 3: Monitoring Dashboard
+
+```javascript
+import { ZealEmbed, EmbedConfigBuilder } from '@offbit-ai/zeal-embed-sdk'
+
+class WorkflowMonitor {
+  constructor(workflowId) {
+    this.workflowId = workflowId
+    this.embed = null
+  }
+
+  async initialize(container) {
+    const config = new EmbedConfigBuilder(container)
+      .withBaseUrl(process.env.ZEAL_URL)
+      .withWorkflow(this.workflowId)
+      .withAuthToken(process.env.ZEAL_AUTH_TOKEN)
+      .asViewOnly()
+      .withHeight('500px')
+      .build()
+
+    this.embed = await ZealEmbed.create(config)
+
+    // Setup real-time monitoring
+    this.setupMonitoring()
+  }
+
+  async setupMonitoring() {
+    const { client } = this.embed
+
+    // Connect to WebSocket for real-time events
+    await client.events.connect(this.workflowId)
+
+    // Listen to execution events
+    client.events.on('node.executing', (event) => {
+      this.updateNodeStatus(event.nodeId, 'executing')
+    })
+
+    client.events.on('node.completed', (event) => {
+      this.updateNodeStatus(event.nodeId, 'completed')
+      this.updateMetrics(event)
+    })
+
+    client.events.on('node.failed', (event) => {
+      this.updateNodeStatus(event.nodeId, 'failed')
+      this.handleError(event)
+    })
+
+    // Start trace session for detailed monitoring
+    const session = await client.traces.createSession({
+      workflowId: this.workflowId
+    })
+
+    this.traceSessionId = session.sessionId
+  }
+
+  updateNodeStatus(nodeId, status) {
+    // Update visual state in the embed
+    this.embed.client.events.updateVisualState([{
+      id: nodeId,
+      elementType: 'node',
+      state: status === 'executing' ? 'running' : status,
+      highlight: status === 'failed'
+    }])
+
+    // Update external dashboard
+    this.updateDashboard(nodeId, status)
+  }
+
+  updateMetrics(event) {
+    // Track performance metrics
+    if (event.duration) {
+      metrics.record('node.execution.duration', event.duration, {
+        nodeId: event.nodeId,
+        workflowId: this.workflowId
+      })
+    }
+  }
+
+  handleError(event) {
+    // Send alerts for failures
+    alerting.send({
+      severity: 'error',
+      title: `Node ${event.nodeId} failed`,
+      description: event.error?.message,
+      workflowId: this.workflowId
     })
   }
 }
 
 // Usage
-const client = new ZealWorkflowClient('wf_123', 'emb_live_abc123')
-client.connect()
-
-// Add a node
-client.addNode(
-  {
-    type: 'data-transform',
-    title: 'Process Data',
-    category: 'data-processing',
-  },
-  { x: 100, y: 200 }
-)
-```
-
-### 2. Drag and Drop Integration
-
-```javascript
-// Enable drag and drop of custom elements into the workflow
-function setupDragAndDrop() {
-  const workflow = document.getElementById('zeal-workflow')
-
-  // Make your elements draggable
-  document.querySelectorAll('.my-node-template').forEach(element => {
-    element.draggable = true
-
-    element.addEventListener('dragstart', e => {
-      const nodeData = {
-        type: element.dataset.nodeType,
-        title: element.dataset.title,
-        category: element.dataset.category,
-      }
-
-      e.dataTransfer.setData('application/zeal-node', JSON.stringify(nodeData))
-    })
-  })
-}
-```
-
-## Security Considerations
-
-### 1. API Key Security
-
-- Never expose API keys in client-side code
-- Use environment variables or secure key management
-- Rotate keys regularly
-- Set appropriate rate limits
-
-### 2. Content Security Policy
-
-```html
-<meta
-  http-equiv="Content-Security-Policy"
-  content="frame-src https://your-zeal-instance.com; 
-               connect-src wss://your-zeal-instance.com;"
-/>
-```
-
-### 3. Domain Whitelist
-
-Configure allowed embedding domains in your Zeal instance:
-
-```javascript
-// In your Zeal configuration
-{
-  embed: {
-    allowedDomains: ['https://myapp.com', 'https://staging.myapp.com']
-  }
-}
-```
-
-## Examples
-
-### Example 1: Customer Dashboard Integration
-
-```html
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Customer Workflow Dashboard</title>
-    <style>
-      .workflow-container {
-        width: 100%;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-      }
-      .workflow-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-      }
-      .workflow-frame {
-        width: 100%;
-        height: 700px;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="workflow-container">
-      <div class="workflow-header">
-        <h1>My Workflow</h1>
-        <button onclick="saveWorkflow()">Save</button>
-      </div>
-
-      <iframe
-        id="workflow-editor"
-        class="workflow-frame"
-        src="https://zeal.example.com/embed/wf_customer_123?apiKey=emb_live_xyz"
-      >
-      </iframe>
-    </div>
-
-    <script>
-      // Listen for workflow events
-      window.addEventListener('message', event => {
-        if (event.origin !== 'https://zeal.example.com') return
-
-        console.log('Workflow event:', event.data)
-
-        // Handle auto-save
-        if (event.data.type === 'workflowChanged') {
-          setTimeout(saveWorkflow, 5000)
-        }
-      })
-
-      function saveWorkflow() {
-        // Trigger save via API
-        fetch('/api/save-customer-workflow', {
-          method: 'POST',
-          body: JSON.stringify({ workflowId: 'wf_customer_123' }),
-        })
-      }
-    </script>
-  </body>
-</html>
-```
-
-### Example 2: SaaS Platform Integration
-
-```javascript
-// React component for SaaS workflow builder
-import React, { useState, useCallback } from 'react'
-import { ZealWorkflowEmbed } from './components/ZealWorkflowEmbed'
-
-function WorkflowBuilder({ tenantId }) {
-  const [workflowId, setWorkflowId] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  // Create or load workflow for tenant
-  useEffect(() => {
-    async function initWorkflow() {
-      const response = await fetch(`/api/tenants/${tenantId}/workflow`)
-      const { workflowId, apiKey } = await response.json()
-
-      setWorkflowId(workflowId)
-      setApiKey(apiKey)
-      setLoading(false)
-    }
-
-    initWorkflow()
-  }, [tenantId])
-
-  const handleWorkflowChange = useCallback(
-    event => {
-      // Track changes for analytics
-      analytics.track('workflow_modified', {
-        tenantId,
-        workflowId,
-        changeType: event.type,
-      })
-    },
-    [tenantId, workflowId]
-  )
-
-  if (loading) return <div>Loading workflow...</div>
-
-  return (
-    <div className="workflow-builder">
-      <h2>Build Your Automation</h2>
-
-      <ZealWorkflowEmbed
-        workflowId={workflowId}
-        apiKey={apiKey}
-        height="800px"
-        showMinimap={true}
-        showZoomControls={true}
-        onChange={handleWorkflowChange}
-      />
-
-      <div className="workflow-actions">
-        <button onClick={() => deployWorkflow(workflowId)}>Deploy Workflow</button>
-      </div>
-    </div>
-  )
-}
-```
-
-### Example 3: AI-Powered Workflow Generation
-
-```javascript
-// Using MCP to generate workflows from natural language
-async function generateWorkflowFromPrompt(prompt) {
-  // Call your AI service
-  const aiResponse = await callAI({
-    prompt: `Generate a workflow for: ${prompt}`,
-    tools: ['zeal-embed-orchestrator'],
-  })
-
-  // AI uses MCP tools to create the workflow
-  // Returns the workflow ID
-  return aiResponse.workflowId
-}
-
-// Embed the generated workflow
-async function showGeneratedWorkflow(prompt) {
-  const workflowId = await generateWorkflowFromPrompt(prompt)
-
-  document.getElementById('result').innerHTML = `
-        <h3>Generated Workflow</h3>
-        <iframe 
-            src="https://zeal.example.com/embed/${workflowId}?readonly=true"
-            width="100%" 
-            height="600">
-        </iframe>
-    `
-}
+const monitor = new WorkflowMonitor('production_workflow_123')
+await monitor.initialize('#monitoring-dashboard')
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **CORS Errors**: Ensure your domain is whitelisted
-2. **API Key Invalid**: Check key permissions and expiration
-3. **WebSocket Connection Failed**: Verify WSS endpoint and firewall rules
-4. **iframe Blocked**: Check Content Security Policy
+1. **CORS Errors**: Ensure your domain is in the allowed origins list
+2. **Auth Token Invalid**: Check token expiration and permissions
+3. **WebSocket Connection Failed**: Verify WebSocket endpoint and firewall rules
+4. **Build Errors**: Ensure you're using a modern bundler that supports ES modules
 
 ### Debug Mode
 
-Add `?debug=true` to enable console logging:
+Enable debug logging:
 
-```html
-<iframe src="https://zeal.example.com/embed/wf_123?debug=true"></iframe>
+```javascript
+const config = new EmbedConfigBuilder('#container')
+  .withBaseUrl('https://your-zeal-instance.com')
+  .withWorkflow('wf_123')
+  .withAuthToken('token')
+  .build()
+
+// Enable debug mode
+config.debug = true
+
+const embed = await ZealEmbed.create(config)
 ```
 
 ## Support
@@ -583,4 +762,4 @@ For additional help:
 
 - GitHub Issues: https://github.com/offbit-ai/zeal/issues
 - Documentation: https://docs.zeal.app
-- Community Forum: https://community.zeal.app
+- NPM Package: https://www.npmjs.com/package/@offbit-ai/zeal-embed-sdk
