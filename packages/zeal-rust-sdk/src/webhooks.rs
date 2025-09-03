@@ -1,9 +1,8 @@
 //! Webhooks API for managing webhook subscriptions
 
-use crate::types::*;
 use crate::errors::{Result, ZealError};
+use crate::types::*;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 
 /// Webhooks API for managing webhook subscriptions
 pub struct WebhooksAPI {
@@ -30,9 +29,13 @@ impl WebhooksAPI {
 
     /// Register a new webhook
     pub async fn register(&self, config: WebhookConfig) -> Result<WebhookRegistrationResponse> {
-        let url = format!("{}/api/zip/webhooks/register", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/webhooks/register",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&config)
@@ -41,7 +44,10 @@ impl WebhooksAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to register webhook: {}", status),
@@ -56,16 +62,19 @@ impl WebhooksAPI {
     /// List webhooks for a namespace
     pub async fn list(&self, namespace: &str) -> Result<Vec<WebhookRegistrationResponse>> {
         let url = format!(
-            "{}/api/zip/webhooks?namespace={}", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/webhooks?namespace={}",
+            self.base_url.trim_end_matches('/'),
             namespace
         );
-        
+
         let response = self.client.get(&url).send().await?;
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to list webhooks: {}", status),
@@ -78,14 +87,19 @@ impl WebhooksAPI {
     }
 
     /// Update a webhook
-    pub async fn update(&self, webhook_id: &str, config: WebhookConfig) -> Result<WebhookRegistrationResponse> {
+    pub async fn update(
+        &self,
+        webhook_id: &str,
+        config: WebhookConfig,
+    ) -> Result<WebhookRegistrationResponse> {
         let url = format!(
-            "{}/api/zip/webhooks/{}", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/webhooks/{}",
+            self.base_url.trim_end_matches('/'),
             webhook_id
         );
-        
-        let response = self.client
+
+        let response = self
+            .client
             .put(&url)
             .header("Content-Type", "application/json")
             .json(&config)
@@ -94,7 +108,10 @@ impl WebhooksAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to update webhook: {}", status),
@@ -109,16 +126,19 @@ impl WebhooksAPI {
     /// Delete a webhook
     pub async fn delete(&self, webhook_id: &str) -> Result<()> {
         let url = format!(
-            "{}/api/zip/webhooks/{}", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/webhooks/{}",
+            self.base_url.trim_end_matches('/'),
             webhook_id
         );
-        
+
         let response = self.client.delete(&url).send().await?;
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to delete webhook: {}", status),
@@ -132,16 +152,19 @@ impl WebhooksAPI {
     /// Get a specific webhook by ID
     pub async fn get(&self, webhook_id: &str) -> Result<WebhookRegistrationResponse> {
         let url = format!(
-            "{}/api/zip/webhooks/{}", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/webhooks/{}",
+            self.base_url.trim_end_matches('/'),
             webhook_id
         );
-        
+
         let response = self.client.get(&url).send().await?;
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to get webhook: {}", status),
@@ -156,16 +179,19 @@ impl WebhooksAPI {
     /// Test a webhook endpoint
     pub async fn test(&self, webhook_id: &str) -> Result<TestWebhookResponse> {
         let url = format!(
-            "{}/api/zip/webhooks/{}/test", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/webhooks/{}/test",
+            self.base_url.trim_end_matches('/'),
             webhook_id
         );
-        
+
         let response = self.client.post(&url).send().await?;
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to test webhook: {}", status),

@@ -1,8 +1,8 @@
 [package]
 name = "zeal-sdk"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
-description = "High-performance Rust SDK for Zeal Integration Protocol (ZIP)"
+description = "Rust SDK for Zeal Integration Protocol (ZIP)"
 authors = ["offbit.ai"]
 license = "Apache-2.0"
 repository = "https://github.com/offbit-ai/zeal.git"
@@ -38,6 +38,12 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 # URL parsing
 url = "2.4"
 
+# Cryptography and authentication
+base64 = "0.21"
+hmac = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+
 # Logging and tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"], optional = true }
@@ -69,6 +75,7 @@ tokio-test = "0.4"
 wiremock = "0.5"
 criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3.8"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [features]
 default = ["rustls-tls"]

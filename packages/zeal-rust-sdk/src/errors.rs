@@ -1,7 +1,5 @@
 //! Error types for the Zeal SDK
 
-use std::fmt;
-
 /// Result type alias for Zeal SDK operations
 pub type Result<T> = std::result::Result<T, ZealError>;
 
@@ -95,7 +93,7 @@ pub enum ZealError {
 impl Clone for ZealError {
     fn clone(&self) -> Self {
         match self {
-            Self::NetworkError { retryable, .. } => Self::Other {
+            Self::NetworkError { .. } => Self::Other {
                 message: "Network error".to_string(),
             },
             Self::WebSocketError { message } => Self::WebSocketError {
@@ -107,7 +105,11 @@ impl Clone for ZealError {
             Self::ConfigurationError { message } => Self::ConfigurationError {
                 message: message.clone(),
             },
-            Self::ApiError { status, message, error_code } => Self::ApiError {
+            Self::ApiError {
+                status,
+                message,
+                error_code,
+            } => Self::ApiError {
                 status: *status,
                 message: message.clone(),
                 error_code: error_code.clone(),
@@ -123,7 +125,10 @@ impl Clone for ZealError {
             Self::AuthenticationError { message } => Self::AuthenticationError {
                 message: message.clone(),
             },
-            Self::RateLimitError { message, retry_after } => Self::RateLimitError {
+            Self::RateLimitError {
+                message,
+                retry_after,
+            } => Self::RateLimitError {
                 message: message.clone(),
                 retry_after: *retry_after,
             },
@@ -152,11 +157,11 @@ impl Clone for ZealError {
 impl ZealError {
     /// Create a network error
     pub fn network_error(source: reqwest::Error) -> Self {
-        let retryable = source.is_timeout() 
-            || source.is_connect() 
-            || source.status().map_or(false, |s| {
-                matches!(s.as_u16(), 408 | 429 | 500..=599)
-            });
+        let retryable = source.is_timeout()
+            || source.is_connect()
+            || source
+                .status()
+                .is_some_and(|s| matches!(s.as_u16(), 408 | 429 | 500..=599));
 
         Self::NetworkError { source, retryable }
     }

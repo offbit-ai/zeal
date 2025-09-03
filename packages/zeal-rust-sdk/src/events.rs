@@ -1,11 +1,10 @@
 //! ZIP Event types and WebSocket communication
-//! 
+//!
 //! These types are compatible with @types/zip-events.ts to ensure
 //! consistency between the Rust SDK and TypeScript ecosystem.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// Base event structure for all ZIP events
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -636,7 +635,10 @@ impl ZipCRDTEvent {
     }
 
     pub fn is_node_event(&self) -> bool {
-        matches!(self, Self::NodeAdded(_) | Self::NodeUpdated(_) | Self::NodeDeleted(_))
+        matches!(
+            self,
+            Self::NodeAdded(_) | Self::NodeUpdated(_) | Self::NodeDeleted(_)
+        )
     }
 
     pub fn is_connection_event(&self) -> bool {
@@ -644,7 +646,10 @@ impl ZipCRDTEvent {
     }
 
     pub fn is_group_event(&self) -> bool {
-        matches!(self, Self::GroupCreated(_) | Self::GroupUpdated(_) | Self::GroupDeleted(_))
+        matches!(
+            self,
+            Self::GroupCreated(_) | Self::GroupUpdated(_) | Self::GroupDeleted(_)
+        )
     }
 
     pub fn is_template_event(&self) -> bool {
@@ -1173,25 +1178,22 @@ mod tests {
     #[test]
     fn test_crdt_event_creation() {
         let data = serde_json::json!({"key": "value"});
-        
+
         let node_added = create_node_added_event(
             "workflow-123",
             "node-456",
             data.clone(),
             Some("main".to_string()),
         );
-        
+
         assert_eq!(node_added.event_type, "node.added");
         assert_eq!(node_added.base.workflow_id, "workflow-123");
         assert_eq!(node_added.node_id, "node-456");
         assert_eq!(node_added.base.graph_id, Some("main".to_string()));
 
-        let group_created = create_group_created_event(
-            "workflow-123",
-            data.clone(),
-            Some("main".to_string()),
-        );
-        
+        let group_created =
+            create_group_created_event("workflow-123", data.clone(), Some("main".to_string()));
+
         assert_eq!(group_created.event_type, "group.created");
         assert_eq!(group_created.base.workflow_id, "workflow-123");
     }
@@ -1211,11 +1213,8 @@ mod tests {
         assert!(node_event.is_node_event());
         assert!(!node_event.is_group_event());
 
-        let group_event = ZipCRDTEvent::GroupCreated(create_group_created_event(
-            "workflow-123",
-            data,
-            None,
-        ));
+        let group_event =
+            ZipCRDTEvent::GroupCreated(create_group_created_event("workflow-123", data, None));
 
         assert!(group_event.is_group_event());
         assert!(!group_event.is_node_event());
@@ -1225,7 +1224,7 @@ mod tests {
     fn test_event_id_generation() {
         let id1 = generate_event_id();
         let id2 = generate_event_id();
-        
+
         assert_ne!(id1, id2);
         assert!(id1.starts_with("evt_"));
         assert!(id2.starts_with("evt_"));

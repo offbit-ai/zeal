@@ -1,7 +1,7 @@
 //! Orchestrator API for workflow management
 
-use crate::types::*;
 use crate::errors::{Result, ZealError};
+use crate::types::*;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -113,10 +113,17 @@ impl OrchestratorAPI {
     }
 
     /// Create a new workflow
-    pub async fn create_workflow(&self, request: CreateWorkflowRequest) -> Result<CreateWorkflowResponse> {
-        let url = format!("{}/api/zip/orchestrator/workflows", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+    pub async fn create_workflow(
+        &self,
+        request: CreateWorkflowRequest,
+    ) -> Result<CreateWorkflowResponse> {
+        let url = format!(
+            "{}/api/zip/orchestrator/workflows",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -125,7 +132,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to create workflow: {}", status),
@@ -138,9 +148,15 @@ impl OrchestratorAPI {
     }
 
     /// List workflows
-    pub async fn list_workflows(&self, params: Option<ListWorkflowsParams>) -> Result<ListWorkflowsResponse> {
-        let mut url = format!("{}/api/zip/orchestrator/workflows", self.base_url.trim_end_matches('/'));
-        
+    pub async fn list_workflows(
+        &self,
+        params: Option<ListWorkflowsParams>,
+    ) -> Result<ListWorkflowsResponse> {
+        let mut url = format!(
+            "{}/api/zip/orchestrator/workflows",
+            self.base_url.trim_end_matches('/')
+        );
+
         if let Some(params) = params {
             let mut query_params = Vec::new();
             if let Some(limit) = params.limit {
@@ -159,7 +175,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to list workflows: {}", status),
@@ -172,7 +191,11 @@ impl OrchestratorAPI {
     }
 
     /// Get workflow state
-    pub async fn get_workflow_state(&self, workflow_id: &str, graph_id: Option<&str>) -> Result<WorkflowState> {
+    pub async fn get_workflow_state(
+        &self,
+        workflow_id: &str,
+        graph_id: Option<&str>,
+    ) -> Result<WorkflowState> {
         let graph_id = graph_id.unwrap_or("main");
         let url = format!(
             "{}/api/zip/orchestrator/workflows/{}/state?graphId={}",
@@ -185,7 +208,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to get workflow state: {}", status),
@@ -199,9 +225,13 @@ impl OrchestratorAPI {
 
     /// Add a node to a workflow
     pub async fn add_node(&self, request: AddNodeRequest) -> Result<AddNodeResponse> {
-        let url = format!("{}/api/zip/orchestrator/nodes", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/orchestrator/nodes",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -210,7 +240,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to add node: {}", status),
@@ -223,10 +256,19 @@ impl OrchestratorAPI {
     }
 
     /// Update node properties
-    pub async fn update_node(&self, node_id: &str, updates: UpdateNodeRequest) -> Result<UpdateNodeResponse> {
-        let url = format!("{}/api/zip/orchestrator/nodes/{}", self.base_url.trim_end_matches('/'), node_id);
-        
-        let response = self.client
+    pub async fn update_node(
+        &self,
+        node_id: &str,
+        updates: UpdateNodeRequest,
+    ) -> Result<UpdateNodeResponse> {
+        let url = format!(
+            "{}/api/zip/orchestrator/nodes/{}",
+            self.base_url.trim_end_matches('/'),
+            node_id
+        );
+
+        let response = self
+            .client
             .patch(&url)
             .header("Content-Type", "application/json")
             .json(&updates)
@@ -235,7 +277,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to update node: {}", status),
@@ -248,7 +293,12 @@ impl OrchestratorAPI {
     }
 
     /// Delete a node
-    pub async fn delete_node(&self, node_id: &str, workflow_id: &str, graph_id: Option<&str>) -> Result<DeleteNodeResponse> {
+    pub async fn delete_node(
+        &self,
+        node_id: &str,
+        workflow_id: &str,
+        graph_id: Option<&str>,
+    ) -> Result<DeleteNodeResponse> {
         let graph_id = graph_id.unwrap_or("main");
         let url = format!(
             "{}/api/zip/orchestrator/nodes/{}?workflowId={}&graphId={}",
@@ -262,7 +312,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to delete node: {}", status),
@@ -276,9 +329,13 @@ impl OrchestratorAPI {
 
     /// Connect two nodes
     pub async fn connect_nodes(&self, request: ConnectNodesRequest) -> Result<ConnectionResponse> {
-        let url = format!("{}/api/zip/orchestrator/connections", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/orchestrator/connections",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -287,7 +344,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to connect nodes: {}", status),
@@ -301,9 +361,13 @@ impl OrchestratorAPI {
 
     /// Create a node group
     pub async fn create_group(&self, request: CreateGroupRequest) -> Result<CreateGroupResponse> {
-        let url = format!("{}/api/zip/orchestrator/groups", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/orchestrator/groups",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -312,7 +376,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to create group: {}", status),
@@ -323,12 +390,19 @@ impl OrchestratorAPI {
         let group_response = response.json::<CreateGroupResponse>().await?;
         Ok(group_response)
     }
-    
+
     /// Remove a connection between nodes
-    pub async fn remove_connection(&self, request: RemoveConnectionRequest) -> Result<RemoveConnectionResponse> {
-        let url = format!("{}/api/zip/orchestrator/connections", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+    pub async fn remove_connection(
+        &self,
+        request: RemoveConnectionRequest,
+    ) -> Result<RemoveConnectionResponse> {
+        let url = format!(
+            "{}/api/zip/orchestrator/connections",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .delete(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -337,7 +411,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to remove connection: {}", status),
@@ -348,12 +425,16 @@ impl OrchestratorAPI {
         let remove_response = response.json::<RemoveConnectionResponse>().await?;
         Ok(remove_response)
     }
-    
+
     /// Update group properties
     pub async fn update_group(&self, request: UpdateGroupRequest) -> Result<UpdateGroupResponse> {
-        let url = format!("{}/api/zip/orchestrator/groups", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/orchestrator/groups",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .patch(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -362,7 +443,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to update group: {}", status),
@@ -373,12 +457,16 @@ impl OrchestratorAPI {
         let update_response = response.json::<UpdateGroupResponse>().await?;
         Ok(update_response)
     }
-    
+
     /// Remove a group
     pub async fn remove_group(&self, request: RemoveGroupRequest) -> Result<RemoveGroupResponse> {
-        let url = format!("{}/api/zip/orchestrator/groups", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/orchestrator/groups",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .delete(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -387,7 +475,10 @@ impl OrchestratorAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to remove group: {}", status),

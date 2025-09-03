@@ -40,7 +40,7 @@ pub struct TokenOptions {
     pub expires_in: Option<u64>, // seconds
     pub issuer: Option<String>,
     pub audience: Option<Vec<String>>,
-    pub not_before: Option<u64>, // timestamp
+    pub not_before: Option<u64>,    // timestamp
     pub secret_key: Option<String>, // ZEAL_SECRET_KEY for signing
 }
 

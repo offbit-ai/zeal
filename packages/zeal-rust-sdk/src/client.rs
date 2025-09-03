@@ -2,13 +2,11 @@
 
 use crate::config::ClientConfig;
 use crate::errors::{Result, ZealError};
-use crate::types::HealthCheckResponse;
-use crate::templates::TemplatesAPI;
 use crate::orchestrator::OrchestratorAPI;
+use crate::templates::TemplatesAPI;
 use crate::traces::TracesAPI;
+use crate::types::HealthCheckResponse;
 use crate::webhooks::WebhooksAPI;
-use crate::subscription::{WebhookSubscription, SubscriptionOptions};
-use std::sync::Arc;
 
 /// Main client for interacting with the Zeal Integration Protocol
 pub struct ZealClient {
@@ -73,12 +71,12 @@ impl ZealClient {
 
     /// Health check endpoint
     pub async fn health(&self) -> Result<HealthCheckResponse> {
-        let url = format!("{}/api/zip/health", self.config.base_url.trim_end_matches('/'));
-        
-        let response = self.http_client
-            .get(&url)
-            .send()
-            .await?;
+        let url = format!(
+            "{}/api/zip/health",
+            self.config.base_url.trim_end_matches('/')
+        );
+
+        let response = self.http_client.get(&url).send().await?;
 
         let status = response.status();
         if !status.is_success() {
@@ -99,6 +97,7 @@ impl ZealClient {
     }
 
     /// Get the HTTP client for internal use
+    #[allow(dead_code)]
     pub(crate) fn http_client(&self) -> &reqwest::Client {
         &self.http_client
     }

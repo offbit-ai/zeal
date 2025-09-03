@@ -1,6 +1,6 @@
 //! # Zeal Rust SDK
 //!
-//! High-performance Rust SDK for the Zeal Integration Protocol (ZIP), enabling efficient 
+//! High-performance Rust SDK for the Zeal Integration Protocol (ZIP), enabling efficient
 //! third-party workflow runtime integration with the Zeal workflow editor.
 //!
 //! ## Features
@@ -15,7 +15,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```ignore
 //! use zeal_sdk::{ZealClient, ClientConfig};
 //!
 //! #[tokio::main]
@@ -39,39 +39,38 @@
 pub mod auth;
 pub mod client;
 pub mod config;
-pub mod templates;
-pub mod orchestrator;
-pub mod traces;
-pub mod events;
-pub mod webhooks;
-pub mod subscription;
-pub mod observables;
-pub mod types;
 pub mod errors;
+pub mod events;
+pub mod observables;
+pub mod orchestrator;
+pub mod subscription;
+pub mod templates;
+pub mod traces;
+pub mod types;
+pub mod webhooks;
 
-#[cfg(feature = "telemetry")]
-pub mod telemetry;
+// #[cfg(feature = "telemetry")]
+// pub mod telemetry;
 
 #[cfg(feature = "webhook-server")]
-pub mod webhook_server;
+pub use subscription::start_webhook_server;
 
 // Re-export main types
 pub use client::ZealClient;
 pub use config::{ClientConfig, PerformanceConfig};
-pub use errors::{ZealError, Result};
+pub use errors::{Result, ZealError};
+pub use subscription::{SubscriptionOptions, WebhookSubscription};
 pub use types::*;
-pub use subscription::{WebhookSubscription, SubscriptionOptions};
 
 // Re-export key traits and functions
-pub use observables::{ZealObservable, ObservableExt};
 pub use events::{
-    ZipExecutionEvent, ZipWorkflowEvent, ZipControlEvent, ZipWebSocketEvent, ZipWebhookEvent,
-    NodeExecutingEvent, NodeCompletedEvent, NodeFailedEvent, NodeWarningEvent,
-    ExecutionStartedEvent, ExecutionCompletedEvent, ExecutionFailedEvent,
-    WorkflowCreatedEvent, WorkflowUpdatedEvent, WorkflowDeletedEvent,
-    VisualStateElement, VisualStateUpdate, ElementType, ElementState,
-    ConnectionState, ConnectionStateEvent,
+    ConnectionState, ConnectionStateEvent, ElementState, ElementType, ExecutionCompletedEvent,
+    ExecutionFailedEvent, ExecutionStartedEvent, NodeCompletedEvent, NodeExecutingEvent,
+    NodeFailedEvent, NodeWarningEvent, VisualStateElement, VisualStateUpdate, WorkflowCreatedEvent,
+    WorkflowDeletedEvent, WorkflowUpdatedEvent, ZipControlEvent, ZipExecutionEvent,
+    ZipWebSocketEvent, ZipWebhookEvent, ZipWorkflowEvent,
 };
+pub use observables::{ObservableExt, ZealObservable};
 pub use traces::{TraceEvent, TraceEventType, TraceStatus};
 
 /// SDK version

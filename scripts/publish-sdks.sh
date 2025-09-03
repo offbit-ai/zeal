@@ -133,15 +133,37 @@ publish_go_package() {
     cd - > /dev/null
 }
 
+# Function to publish Rust package
+publish_rust_package() {
+    local PACKAGE_DIR=$1
+    
+    echo -e "\n${BLUE}────────────────────────────────────────────────${NC}"
+    echo -e "${GREEN}Publishing Rust SDK (crates.io)${NC}"
+    echo -e "${BLUE}────────────────────────────────────────────────${NC}\n"
+    
+    cd $PACKAGE_DIR
+    
+    if [ -f "scripts/publish.sh" ]; then
+        chmod +x scripts/publish.sh
+        ./scripts/publish.sh $VERSION_BUMP
+    else
+        echo -e "${RED}No publish script found for Rust SDK${NC}"
+        exit 1
+    fi
+    
+    cd - > /dev/null
+}
+
 # Ask which packages to publish
 echo -e "${YELLOW}Which SDKs would you like to publish?${NC}"
 echo "  1) TypeScript SDK (@offbit-ai/zeal-sdk)"
 echo "  2) Embed SDK (@offbit-ai/zeal-embed-sdk)"
 echo "  3) Python SDK (zeal-sdk)"
 echo "  4) Go SDK"
-echo "  5) All TypeScript SDKs (1 & 2)"
-echo "  6) All SDKs"
-echo -n "Enter choice [1-6]: "
+echo "  5) Rust SDK"
+echo "  6) All TypeScript SDKs (1 & 2)"
+echo "  7) All SDKs"
+echo -n "Enter choice [1-7]: "
 read CHOICE
 
 case $CHOICE in
@@ -160,18 +182,22 @@ case $CHOICE in
         publish_go_package "packages/zeal-go-sdk"
         ;;
     5)
+        publish_rust_package "packages/zeal-rust-sdk"
+        ;;
+    6)
         check_npm_auth
         echo -e "${YELLOW}Publishing all TypeScript SDKs...${NC}"
         publish_npm_package "@offbit-ai/zeal-sdk" "packages/zeal-sdk"
         publish_npm_package "@offbit-ai/zeal-embed-sdk" "packages/zeal-embed-sdk"
         ;;
-    6)
+    7)
         check_npm_auth
         echo -e "${YELLOW}Publishing all SDKs...${NC}"
         publish_npm_package "@offbit-ai/zeal-sdk" "packages/zeal-sdk"
         publish_npm_package "@offbit-ai/zeal-embed-sdk" "packages/zeal-embed-sdk"
         publish_python_package "packages/zeal-python-sdk"
         publish_go_package "packages/zeal-go-sdk"
+        publish_rust_package "packages/zeal-rust-sdk"
         ;;
     *)
         echo -e "${RED}Invalid choice${NC}"
@@ -190,3 +216,4 @@ echo -e "  NPM: https://www.npmjs.com/package/@offbit-ai/zeal-sdk"
 echo -e "       https://www.npmjs.com/package/@offbit-ai/zeal-embed-sdk"
 echo -e "  PyPI: https://pypi.org/project/zeal-sdk/"
 echo -e "  Go: https://pkg.go.dev/github.com/offbit-ai/zeal/packages/zeal-go-sdk"
+echo -e "  Rust: https://crates.io/crates/zeal-sdk"

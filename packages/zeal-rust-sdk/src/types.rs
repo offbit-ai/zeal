@@ -1,10 +1,10 @@
 //! Type definitions for the Zeal SDK
-//! 
+//!
 //! These types mirror the TypeScript SDK types and ZIP protocol definitions
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// Node template definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -483,8 +483,6 @@ pub struct WebhookRegistrationResponse {
     #[serde(rename = "createdAt")]
     pub created_at: DateTime<Utc>,
 }
-
-
 
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,17 +1,15 @@
 //! Webhook subscription management
 
+use crate::errors::{Result, ZealError};
 use crate::events::*;
 use crate::webhooks::WebhooksAPI;
-use crate::errors::{Result, ZealError};
-use crate::observables::ZealObservable;
-use futures_util::stream::{Stream, StreamExt};
+use futures_util::stream::Stream;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tokio::sync::broadcast;
-use tokio::sync::mpsc;
 
 /// Options for webhook subscriptions
 #[derive(Debug, Clone)]
@@ -81,13 +79,18 @@ pub struct WebhookMetadata {
 }
 
 /// Event callback type
-pub type WebhookEventCallback = Arc<dyn Fn(ZipWebhookEvent) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync>;
+pub type WebhookEventCallback = Arc<
+    dyn Fn(ZipWebhookEvent) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync,
+>;
 
 /// Delivery callback type
-pub type WebhookDeliveryCallback = Arc<dyn Fn(WebhookDelivery) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync>;
+pub type WebhookDeliveryCallback = Arc<
+    dyn Fn(WebhookDelivery) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync,
+>;
 
 /// Error callback type
-pub type WebhookErrorCallback = Arc<dyn Fn(ZealError) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync>;
+pub type WebhookErrorCallback =
+    Arc<dyn Fn(ZealError) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send + Sync>;
 
 /// Webhook observable stream
 #[pin_project::pin_project]
@@ -139,7 +142,7 @@ impl WebhookSubscription {
     pub fn new(webhooks_api: WebhooksAPI, options: Option<SubscriptionOptions>) -> Self {
         let options = options.unwrap_or_default();
         let (event_sender, _) = broadcast::channel(options.buffer_size);
-        
+
         Self {
             webhooks_api,
             options,
@@ -160,14 +163,13 @@ impl WebhookSubscription {
         F: Fn(ZipWebhookEvent) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
-        let wrapped_callback: WebhookEventCallback = Arc::new(move |event| {
-            Box::pin(callback(event))
-        });
-        
+        let wrapped_callback: WebhookEventCallback =
+            Arc::new(move |event| Box::pin(callback(event)));
+
         self.event_callbacks.lock().unwrap().push(wrapped_callback);
         let callbacks = Arc::clone(&self.event_callbacks);
         let index = callbacks.lock().unwrap().len() - 1;
-        
+
         move || {
             callbacks.lock().unwrap().remove(index);
         }
@@ -179,14 +181,16 @@ impl WebhookSubscription {
         F: Fn(WebhookDelivery) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
-        let wrapped_callback: WebhookDeliveryCallback = Arc::new(move |delivery| {
-            Box::pin(callback(delivery))
-        });
-        
-        self.delivery_callbacks.lock().unwrap().push(wrapped_callback);
+        let wrapped_callback: WebhookDeliveryCallback =
+            Arc::new(move |delivery| Box::pin(callback(delivery)));
+
+        self.delivery_callbacks
+            .lock()
+            .unwrap()
+            .push(wrapped_callback);
         let callbacks = Arc::clone(&self.delivery_callbacks);
         let index = callbacks.lock().unwrap().len() - 1;
-        
+
         move || {
             callbacks.lock().unwrap().remove(index);
         }
@@ -198,14 +202,13 @@ impl WebhookSubscription {
         F: Fn(ZealError) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
-        let wrapped_callback: WebhookErrorCallback = Arc::new(move |error| {
-            Box::pin(callback(error))
-        });
-        
+        let wrapped_callback: WebhookErrorCallback =
+            Arc::new(move |error| Box::pin(callback(error)));
+
         self.error_callbacks.lock().unwrap().push(wrapped_callback);
         let callbacks = Arc::clone(&self.error_callbacks);
         let index = callbacks.lock().unwrap().len() - 1;
-        
+
         move || {
             callbacks.lock().unwrap().remove(index);
         }
@@ -231,19 +234,16 @@ impl WebhookSubscription {
         #[cfg(feature = "webhook-server")]
         {
             self.start_webhook_server().await?;
-            
+
             // Auto-register webhook if enabled
             if self.options.auto_register.unwrap_or(true) {
                 self.register().await?;
             }
+            Ok(())
         }
-        
+
         #[cfg(not(feature = "webhook-server"))]
-        {
-            return Err(ZealError::other("Webhook server feature not enabled. Enable 'webhook-server' feature to use this functionality"));
-        }
-        
-        Ok(())
+        Err(ZealError::other("Webhook server feature not enabled. Enable 'webhook-server' feature to use this functionality"))
     }
 
     /// Stop the webhook server
@@ -257,7 +257,8 @@ impl WebhookSubscription {
         }
 
         // Unregister webhook if it was registered
-        if let Some(webhook_id) = self.webhook_id.lock().unwrap().take() {
+        let webhook_id = self.webhook_id.lock().unwrap().take();
+        if let Some(webhook_id) = webhook_id {
             if let Err(err) = self.webhooks_api.delete(&webhook_id).await {
                 tracing::error!("Failed to unregister webhook {}: {}", webhook_id, err);
             } else {
@@ -280,11 +281,17 @@ impl WebhookSubscription {
     /// Register the webhook with Zeal
     pub async fn register(&self) -> Result<()> {
         if !*self.is_running.lock().unwrap() {
-            return Err(ZealError::other("Webhook server must be running before registration"));
+            return Err(ZealError::other(
+                "Webhook server must be running before registration",
+            ));
         }
 
         // Determine the public URL for the webhook
-        let protocol = if self.options.https.unwrap_or(false) { "https" } else { "http" };
+        let protocol = if self.options.https.unwrap_or(false) {
+            "https"
+        } else {
+            "http"
+        };
         let host = self.options.host.as_deref().unwrap_or("localhost");
         let host = if host == "0.0.0.0" { "localhost" } else { host };
         let port = self.options.port.unwrap_or(3001);
@@ -293,7 +300,12 @@ impl WebhookSubscription {
 
         // Register with Zeal
         let config = crate::types::WebhookConfig {
-            namespace: self.options.namespace.as_deref().unwrap_or("default").to_string(),
+            namespace: self
+                .options
+                .namespace
+                .as_deref()
+                .unwrap_or("default")
+                .to_string(),
             url,
             events: Some(self.options.events.clone()),
             headers: self.options.headers.clone(),
@@ -302,11 +314,12 @@ impl WebhookSubscription {
 
         let result = self.webhooks_api.register(config).await?;
         *self.webhook_id.lock().unwrap() = Some(result.webhook_id.clone());
-        
+
         tracing::info!("Registered webhook {} at {}", result.webhook_id, result.url);
         Ok(())
     }
 
+    #[cfg(feature = "webhook-server")]
     /// Process a webhook delivery
     async fn process_delivery(&self, delivery: WebhookDelivery) {
         // Call delivery callbacks
@@ -314,8 +327,10 @@ impl WebhookSubscription {
         for callback in delivery_callbacks {
             if let Err(err) = tokio::time::timeout(
                 std::time::Duration::from_secs(30),
-                callback(delivery.clone())
-            ).await {
+                callback(delivery.clone()),
+            )
+            .await
+            {
                 tracing::error!("Delivery callback timeout: {}", err);
             }
         }
@@ -332,22 +347,25 @@ impl WebhookSubscription {
             for callback in event_callbacks {
                 if let Err(err) = tokio::time::timeout(
                     std::time::Duration::from_secs(30),
-                    callback(event.clone())
-                ).await {
+                    callback(event.clone()),
+                )
+                .await
+                {
                     tracing::error!("Event callback timeout: {}", err);
                 }
             }
         }
     }
 
+    #[cfg(feature = "webhook-server")]
     /// Emit an error to all error callbacks
     async fn emit_error(&self, error: ZealError) {
         let error_callbacks = self.error_callbacks.lock().unwrap().clone();
         for callback in error_callbacks {
-            if let Err(err) = tokio::time::timeout(
-                std::time::Duration::from_secs(30),
-                callback(error.clone())
-            ).await {
+            if let Err(err) =
+                tokio::time::timeout(std::time::Duration::from_secs(30), callback(error.clone()))
+                    .await
+            {
                 tracing::error!("Error callback timeout: {}", err);
             }
         }
@@ -359,11 +377,17 @@ impl WebhookSubscription {
         F: Fn(&ZipWebhookEvent) -> bool + Send + Sync + 'static,
     {
         use futures_util::StreamExt;
-        StreamExt::filter(self.as_observable(), move |event| futures_util::future::ready(predicate(event)))
+        StreamExt::filter(self.as_observable(), move |event| {
+            futures_util::future::ready(predicate(event))
+        })
     }
 
     /// Subscribe to specific event types
-    pub fn on_event_type<F, Fut>(&self, event_types: Vec<String>, callback: F) -> impl Fn() + Send + Sync
+    pub fn on_event_type<F, Fut>(
+        &self,
+        event_types: Vec<String>,
+        callback: F,
+    ) -> impl Fn() + Send + Sync
     where
         F: Fn(ZipWebhookEvent) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
@@ -386,7 +410,11 @@ impl WebhookSubscription {
     }
 
     /// Subscribe to events from a specific source
-    pub fn on_event_source<F, Fut>(&self, sources: Vec<String>, callback: F) -> impl Fn() + Send + Sync
+    pub fn on_event_source<F, Fut>(
+        &self,
+        sources: Vec<String>,
+        callback: F,
+    ) -> impl Fn() + Send + Sync
     where
         F: Fn(ZipWebhookEvent) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
@@ -441,8 +469,9 @@ impl WebhookSubscription {
             self.options.port.unwrap_or(3001)
         );
 
-        let listener = tokio::net::TcpListener::bind(&addr).await
-            .map_err(|e| ZealError::other(format!("Failed to bind webhook server to {}: {}", addr, e)))?;
+        let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
+            ZealError::other(format!("Failed to bind webhook server to {}: {}", addr, e))
+        })?;
 
         tracing::info!("Webhook server listening on {}", addr);
 
@@ -474,12 +503,12 @@ async fn webhook_handler(
     Json(delivery): Json<WebhookDelivery>,
 ) -> Result<StatusCode, StatusCode> {
     let subscription = unsafe { &*state.subscription };
-    
+
     // TODO: Verify signature if enabled
     if subscription.options.verify_signature.unwrap_or(false) {
         // Signature verification would be implemented here
     }
-    
+
     subscription.process_delivery(delivery).await;
     Ok(StatusCode::OK)
 }

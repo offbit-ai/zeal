@@ -1,10 +1,9 @@
 //! Traces API for workflow execution tracing
 
-use crate::types::*;
 use crate::errors::{Result, ZealError};
+use crate::types::*;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitEventsResponse {
@@ -99,10 +98,17 @@ impl TracesAPI {
     }
 
     /// Create a new trace session
-    pub async fn create_session(&mut self, request: CreateTraceSessionRequest) -> Result<CreateTraceSessionResponse> {
-        let url = format!("{}/api/zip/traces/sessions", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+    pub async fn create_session(
+        &mut self,
+        request: CreateTraceSessionRequest,
+    ) -> Result<CreateTraceSessionResponse> {
+        let url = format!(
+            "{}/api/zip/traces/sessions",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -111,7 +117,10 @@ impl TracesAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to create trace session: {}", status),
@@ -125,18 +134,23 @@ impl TracesAPI {
     }
 
     /// Submit trace events
-    pub async fn submit_events(&self, session_id: &str, events: Vec<TraceEvent>) -> Result<SubmitEventsResponse> {
+    pub async fn submit_events(
+        &self,
+        session_id: &str,
+        events: Vec<TraceEvent>,
+    ) -> Result<SubmitEventsResponse> {
         let url = format!(
-            "{}/api/zip/traces/{}/events", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/traces/{}/events",
+            self.base_url.trim_end_matches('/'),
             session_id
         );
-        
+
         let request_body = serde_json::json!({
             "events": events
         });
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request_body)
@@ -145,7 +159,10 @@ impl TracesAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to submit trace events: {}", status),
@@ -158,19 +175,28 @@ impl TracesAPI {
     }
 
     /// Submit a single trace event
-    pub async fn submit_event(&self, session_id: &str, event: TraceEvent) -> Result<SubmitEventsResponse> {
+    pub async fn submit_event(
+        &self,
+        session_id: &str,
+        event: TraceEvent,
+    ) -> Result<SubmitEventsResponse> {
         self.submit_events(session_id, vec![event]).await
     }
 
     /// Complete a trace session
-    pub async fn complete_session(&mut self, session_id: &str, request: CompleteSessionRequest) -> Result<CompleteSessionResponse> {
+    pub async fn complete_session(
+        &mut self,
+        session_id: &str,
+        request: CompleteSessionRequest,
+    ) -> Result<CompleteSessionResponse> {
         let url = format!(
-            "{}/api/zip/traces/{}/complete", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/traces/{}/complete",
+            self.base_url.trim_end_matches('/'),
             session_id
         );
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -179,7 +205,10 @@ impl TracesAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to complete trace session: {}", status),
@@ -188,11 +217,11 @@ impl TracesAPI {
         }
 
         let complete_response = response.json::<CompleteSessionResponse>().await?;
-        
+
         if self.session_id.as_deref() == Some(session_id) {
             self.session_id = None;
         }
-        
+
         Ok(complete_response)
     }
 
@@ -230,9 +259,13 @@ impl TracesAPI {
 
     /// Batch trace submission
     pub async fn submit_batch(&self, request: BatchTraceRequest) -> Result<BatchTraceResponse> {
-        let url = format!("{}/api/zip/traces/batch", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+        let url = format!(
+            "{}/api/zip/traces/batch",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -241,7 +274,10 @@ impl TracesAPI {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to submit batch trace: {}", status),

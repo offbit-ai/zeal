@@ -67,6 +67,33 @@ This guide covers how to publish the various Zeal SDKs to their respective packa
 
 The Go SDK doesn't require authentication for publishing. It uses Git tags that are automatically indexed by pkg.go.dev.
 
+### Rust SDK (crates.io)
+
+1. **Create a crates.io API Token**:
+   - Go to [crates.io Token Settings](https://crates.io/settings/tokens)
+   - Click "New Token"
+   - Give it a descriptive name (e.g., "zeal-sdk-publish")
+   - Copy the generated token
+
+2. **Configure Authentication** (choose one method):
+
+   **Option A: Environment Variable**:
+   ```bash
+   export CARGO_REGISTRY_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+   **Option B: .env.npm File** (recommended for local development):
+   ```bash
+   # Add to .env.npm
+   CARGO_REGISTRY_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+   **Option C: Cargo Login**:
+   ```bash
+   cargo login
+   # Paste your token when prompted
+   ```
+
 ## Publishing Individual SDKs
 
 ### TypeScript SDK (@offbit-ai/zeal-sdk)
@@ -99,15 +126,26 @@ cd packages/zeal-go-sdk
 ./scripts/publish.sh patch  # or minor, major
 ```
 
+### Rust SDK
+
+```bash
+cd packages/zeal-rust-sdk
+export CARGO_REGISTRY_TOKEN=your_crates_io_token_here  # or use .env.npm
+./scripts/publish.sh patch  # or minor, major
+```
+
 ## Publishing Multiple SDKs
 
 Use the root-level publish script:
 
 ```bash
-# Set authentication tokens
+# Set authentication tokens (or use .env.npm file)
 export NPM_TOKEN=your_npm_token_here
 export TWINE_PASSWORD=your_pypi_token_here
 export TWINE_USERNAME=__token__
+export CARGO_REGISTRY_TOKEN=your_crates_io_token_here
+
+# Or create .env.npm with all tokens and it will be loaded automatically
 
 # Run the publisher
 ./scripts/publish-sdks.sh patch
@@ -117,8 +155,9 @@ export TWINE_USERNAME=__token__
 # 2) Embed SDK only  
 # 3) Python SDK only
 # 4) Go SDK only
-# 5) All TypeScript SDKs
-# 6) All SDKs
+# 5) Rust SDK only
+# 6) All TypeScript SDKs
+# 7) All SDKs
 ```
 
 ## GitHub Actions CI/CD
@@ -130,6 +169,7 @@ export TWINE_USERNAME=__token__
 3. Add the following repository secrets:
    - `NPM_TOKEN`: Your NPM access token
    - `PYPI_TOKEN`: Your PyPI API token
+   - `CARGO_REGISTRY_TOKEN`: Your crates.io API token
 
 ### Manual Workflow Dispatch
 
@@ -137,7 +177,7 @@ export TWINE_USERNAME=__token__
 2. Select "SDK Publish" workflow
 3. Click "Run workflow"
 4. Select:
-   - SDK to publish (typescript/embed/python/go/all)
+   - SDK to publish (typescript/embed/python/go/rust/all)
    - Version bump type (patch/minor/major/prerelease)
    - Prerelease identifier (if using prerelease)
 
@@ -149,6 +189,7 @@ Create a GitHub release with appropriate tags:
 - `embed-sdk-v1.2.3` - Publishes Embed SDK only
 - `python-sdk-v1.2.3` - Publishes Python SDK only
 - `go-sdk-v1.2.3` - Publishes Go SDK only
+- `rust-sdk-v1.2.3` - Publishes Rust SDK only
 
 ## Version Management
 
@@ -177,6 +218,9 @@ After publishing, the SDKs will be available at:
   
 - **Go**: 
   - https://pkg.go.dev/github.com/offbit-ai/zeal/packages/zeal-go-sdk
+  
+- **Rust**: 
+  - https://crates.io/crates/zeal-sdk
 
 ## Troubleshooting
 
@@ -212,6 +256,22 @@ go mod verify
 
 # Force pkg.go.dev to update
 curl https://proxy.golang.org/github.com/offbit-ai/zeal/packages/zeal-go-sdk/@v/list
+```
+
+### Rust/Crates.io Publishing Issues
+
+```bash
+# Check authentication
+cargo login
+
+# Verify package metadata
+cargo package --list
+
+# Test with dry run
+cargo publish --dry-run
+
+# Check for duplicate version
+cargo search zeal-sdk
 ```
 
 ## Security Best Practices

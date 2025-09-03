@@ -7,22 +7,22 @@ use std::time::Duration;
 pub struct ClientConfig {
     /// Base URL of the Zeal server
     pub base_url: String,
-    
+
     /// WebSocket path (defaults to "/ws/zip")
     pub websocket_path: Option<String>,
-    
+
     /// Performance-related configuration
     pub performance: PerformanceConfig,
-    
+
     /// Authentication configuration
     pub auth: Option<AuthConfig>,
-    
+
     /// User agent string
     pub user_agent: String,
-    
+
     /// Default timeout for API requests
     pub default_timeout: Duration,
-    
+
     /// Enable TLS certificate verification
     pub verify_tls: bool,
 }
@@ -46,49 +46,49 @@ impl Default for ClientConfig {
 pub struct PerformanceConfig {
     /// Maximum number of connections per host
     pub max_connections_per_host: usize,
-    
+
     /// Connection timeout
     pub connection_timeout: Duration,
-    
+
     /// Request timeout
     pub request_timeout: Duration,
-    
+
     /// TCP keepalive duration
     pub tcp_keepalive: Option<Duration>,
-    
+
     /// Enable HTTP/2 prior knowledge
     pub http2_prior_knowledge: bool,
-    
+
     /// Enable connection pooling
     pub connection_pooling: bool,
-    
+
     /// Maximum number of idle connections
     pub max_idle_connections: usize,
-    
+
     /// Idle connection timeout
     pub idle_timeout: Duration,
-    
+
     /// Enable compression
     pub compression: bool,
-    
+
     /// WebSocket ping interval
     pub ws_ping_interval: Duration,
-    
+
     /// WebSocket pong timeout
     pub ws_pong_timeout: Duration,
-    
+
     /// Maximum WebSocket message size
     pub ws_max_message_size: usize,
-    
+
     /// Maximum frame size for WebSocket
     pub ws_max_frame_size: usize,
-    
+
     /// Buffer size for streaming operations
     pub stream_buffer_size: usize,
-    
+
     /// Batch size for trace events
     pub trace_batch_size: usize,
-    
+
     /// Batch timeout for trace events
     pub trace_batch_timeout: Duration,
 }
@@ -130,7 +130,7 @@ impl AuthConfig {
             bearer_token: token,
         }
     }
-    
+
     /// Create auth config with bearer token (alias for consistency)
     pub fn with_bearer_token(token: String) -> Self {
         Self::new(token)
@@ -142,19 +142,19 @@ impl AuthConfig {
 pub struct RetryConfig {
     /// Maximum number of retry attempts
     pub max_attempts: usize,
-    
+
     /// Initial retry delay
     pub initial_delay: Duration,
-    
+
     /// Maximum retry delay
     pub max_delay: Duration,
-    
+
     /// Backoff multiplier
     pub backoff_multiplier: f64,
-    
+
     /// Jitter factor (0.0 to 1.0)
     pub jitter_factor: f64,
-    
+
     /// HTTP status codes that should trigger retries
     pub retryable_status_codes: Vec<u16>,
 }
@@ -177,28 +177,28 @@ impl Default for RetryConfig {
 pub struct WebSocketConfig {
     /// Connection timeout
     pub connection_timeout: Duration,
-    
+
     /// Ping interval
     pub ping_interval: Duration,
-    
+
     /// Pong timeout
     pub pong_timeout: Duration,
-    
+
     /// Maximum message size
     pub max_message_size: usize,
-    
+
     /// Maximum frame size
     pub max_frame_size: usize,
-    
+
     /// Reconnection attempts
     pub max_reconnect_attempts: usize,
-    
+
     /// Initial reconnect delay
     pub reconnect_delay: Duration,
-    
+
     /// Maximum reconnect delay
     pub max_reconnect_delay: Duration,
-    
+
     /// Enable compression
     pub compression: bool,
 }

@@ -1,7 +1,7 @@
 //! Templates API for managing node templates
 
-use crate::types::*;
 use crate::errors::{Result, ZealError};
+use crate::types::*;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -48,10 +48,17 @@ impl TemplatesAPI {
     }
 
     /// Register node templates
-    pub async fn register(&self, request: RegisterTemplatesRequest) -> Result<RegisterTemplatesResponse> {
-        let url = format!("{}/api/zip/templates/register", self.base_url.trim_end_matches('/'));
-        
-        let response = self.client
+    pub async fn register(
+        &self,
+        request: RegisterTemplatesRequest,
+    ) -> Result<RegisterTemplatesResponse> {
+        let url = format!(
+            "{}/api/zip/templates/register",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -60,7 +67,10 @@ impl TemplatesAPI {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to register templates: {}", status),
@@ -75,16 +85,19 @@ impl TemplatesAPI {
     /// List templates for a namespace
     pub async fn list(&self, namespace: &str) -> Result<ListTemplatesResponse> {
         let url = format!(
-            "{}/api/zip/templates/{}", 
-            self.base_url.trim_end_matches('/'), 
+            "{}/api/zip/templates/{}",
+            self.base_url.trim_end_matches('/'),
             namespace
         );
-        
+
         let response = self.client.get(&url).send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to list templates: {}", status),
@@ -98,19 +111,20 @@ impl TemplatesAPI {
 
     /// Update a template
     pub async fn update(
-        &self, 
-        namespace: &str, 
-        template_id: &str, 
-        updates: NodeTemplate
+        &self,
+        namespace: &str,
+        template_id: &str,
+        updates: NodeTemplate,
     ) -> Result<UpdateTemplateResponse> {
         let url = format!(
-            "{}/api/zip/templates/{}/{}", 
-            self.base_url.trim_end_matches('/'), 
-            namespace, 
+            "{}/api/zip/templates/{}/{}",
+            self.base_url.trim_end_matches('/'),
+            namespace,
             template_id
         );
-        
-        let response = self.client
+
+        let response = self
+            .client
             .put(&url)
             .header("Content-Type", "application/json")
             .json(&updates)
@@ -119,7 +133,10 @@ impl TemplatesAPI {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to update template: {}", status),
@@ -132,19 +149,26 @@ impl TemplatesAPI {
     }
 
     /// Delete a template
-    pub async fn delete(&self, namespace: &str, template_id: &str) -> Result<DeleteTemplateResponse> {
+    pub async fn delete(
+        &self,
+        namespace: &str,
+        template_id: &str,
+    ) -> Result<DeleteTemplateResponse> {
         let url = format!(
-            "{}/api/zip/templates/{}/{}", 
-            self.base_url.trim_end_matches('/'), 
-            namespace, 
+            "{}/api/zip/templates/{}/{}",
+            self.base_url.trim_end_matches('/'),
+            namespace,
             template_id
         );
-        
+
         let response = self.client.delete(&url).send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ZealError::api_error(
                 status.as_u16(),
                 format!("Failed to delete template: {}", status),
@@ -159,8 +183,9 @@ impl TemplatesAPI {
     /// Get a specific template (convenience method)
     pub async fn get(&self, namespace: &str, template_id: &str) -> Result<NodeTemplate> {
         let templates = self.list(namespace).await?;
-        
-        templates.templates
+
+        templates
+            .templates
             .into_iter()
             .find(|t| t.id == template_id)
             .ok_or_else(|| ZealError::not_found("template", template_id))
