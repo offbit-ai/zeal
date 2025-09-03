@@ -1,6 +1,6 @@
 {
   "name": "@offbit-ai/zeal-embed-sdk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Zeal Embed SDK for integrating workflow editor into web applications",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",

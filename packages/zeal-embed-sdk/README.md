@@ -2,6 +2,30 @@
 
 Browser-compatible SDK for embedding the Zeal workflow editor into web applications.
 
+## Prerequisites
+
+⚠️ **Important**: A running Zeal server instance is required for the SDK to function. The embed SDK loads the workflow editor from the Zeal server and communicates via WebSocket connections.
+
+### Starting the Zeal Server
+
+```bash
+# Clone the Zeal repository
+git clone https://github.com/offbit-ai/zeal.git
+cd zeal
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+# Or use the start script
+./start-dev.sh
+```
+
+The Zeal server will be available at `http://localhost:3000` by default.
+
+For detailed setup instructions, deployment options, and configuration, please refer to the [Zeal repository](https://github.com/offbit-ai/zeal).
+
 ## Features
 
 - 🌐 **Browser Compatible** - No Node.js dependencies, works in any modern browser
