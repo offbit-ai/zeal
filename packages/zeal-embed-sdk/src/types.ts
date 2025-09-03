@@ -2,8 +2,74 @@
  * Zeal Embed SDK Types
  */
 
-import type { NodeTemplate } from '@offbit-ai/zeal-sdk'
 import { ZIPClient } from './zip-client'
+
+/**
+ * ZIP SDK Type Definitions
+ * Matches the server-side types in @/types/zip
+ */
+
+export interface NodeTemplate {
+  id: string
+  type: string
+  title: string
+  subtitle?: string
+  category: string
+  subcategory?: string
+  description: string
+  icon: string
+  variant?: string
+  shape?: 'rectangle' | 'circle' | 'diamond'
+  size?: 'small' | 'medium' | 'large'
+  ports: Port[]
+  properties?: Record<string, PropertyDefinition>
+  propertyRules?: PropertyRules
+  runtime?: RuntimeRequirements
+}
+
+export interface Port {
+  id: string
+  label: string
+  type: 'input' | 'output'
+  position: 'left' | 'right' | 'top' | 'bottom'
+  dataType?: string
+  required?: boolean
+  multiple?: boolean
+}
+
+export interface PropertyDefinition {
+  type: 'string' | 'number' | 'boolean' | 'select' | 'code-editor'
+  label?: string
+  description?: string
+  defaultValue?: any
+  options?: any[]
+  validation?: PropertyValidation
+}
+
+export interface PropertyValidation {
+  required?: boolean
+  min?: number
+  max?: number
+  pattern?: string
+}
+
+export interface PropertyRules {
+  triggers: string[]
+  rules: PropertyRule[]
+}
+
+export interface PropertyRule {
+  when: string
+  updates: Record<string, any>
+}
+
+export interface RuntimeRequirements {
+  executor: string
+  version?: string
+  requiredEnvVars?: string[]
+  capabilities?: string[]
+}
+
 
 export interface EmbedDisplay {
   minimap?: boolean
@@ -127,9 +193,6 @@ export interface EmbedMessage {
   timestamp: number
 }
 
-// Re-export NodeTemplate from zeal-sdk
-export type { NodeTemplate } from '@offbit-ai/zeal-sdk'
-
 
 export interface WorkflowExecutionRequest {
   workflowId: string
@@ -226,23 +289,3 @@ export interface EmbedInstance {
   waitForReady: () => Promise<void>
 }
 
-export interface CADNodeConfig {
-  /**
-   * CAD-specific node templates
-   */
-  templates: NodeTemplate[]
-  
-  /**
-   * CAD platform integration
-   */
-  platform: {
-    name: string
-    version: string
-    apiEndpoint?: string
-  }
-  
-  /**
-   * Custom executors for CAD operations
-   */
-  executors?: Record<string, (inputs: any) => Promise<any>>
-}

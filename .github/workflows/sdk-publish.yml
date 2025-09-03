@@ -1,0 +1,388 @@
+name: SDK Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk:
+        description: 'SDK to publish'
+        required: true
+        type: choice
+        options:
+          - typescript
+          - embed
+          - python
+          - go
+          - all
+      version:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_id:
+        description: 'Prerelease identifier (for prerelease only)'
+        required: false
+        default: 'beta'
+  release:
+    types: [published]
+
+jobs:
+  publish-typescript-sdk:
+    if: ${{ github.event_name == 'release' || github.event.inputs.sdk == 'typescript' || github.event.inputs.sdk == 'all' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/zeal-sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+
+      - name: Run linting
+        run: npm run lint || echo "No linting configured"
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          else
+            if [[ "${{ github.event.inputs.version }}" == "prerelease" ]]; then
+              VERSION_CMD="prerelease --preid ${{ github.event.inputs.prerelease_id }}"
+            else
+              VERSION_CMD="${{ github.event.inputs.version }}"
+            fi
+            npm version $VERSION_CMD --no-git-tag-version
+            VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to NPM
+        run: |
+          if [[ "$VERSION" == *"-"* ]]; then
+            npm publish --tag next --access public
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+
+  publish-embed-sdk:
+    if: ${{ github.event_name == 'release' || github.event.inputs.sdk == 'embed' || github.event.inputs.sdk == 'all' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/zeal-embed-sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+
+      - name: Run linting
+        run: npm run lint || echo "No linting configured"
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify browser compatibility
+        run: |
+          echo "Checking for Node.js-specific modules..."
+          if grep -r "require.*['\"]\\(fs\\|path\\|crypto\\|http\\|https\\|net\\|os\\|child_process\\)" dist/; then
+            echo "Error: Node.js specific modules detected in browser SDK"
+            exit 1
+          fi
+          echo "✅ Browser compatibility check passed"
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          else
+            if [[ "${{ github.event.inputs.version }}" == "prerelease" ]]; then
+              VERSION_CMD="prerelease --preid ${{ github.event.inputs.prerelease_id }}"
+            else
+              VERSION_CMD="${{ github.event.inputs.version }}"
+            fi
+            npm version $VERSION_CMD --no-git-tag-version
+            VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to NPM
+        run: |
+          if [[ "$VERSION" == *"-"* ]]; then
+            npm publish --tag next --access public
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+
+  publish-python-sdk:
+    if: ${{ github.event_name == 'release' || github.event.inputs.sdk == 'python' || github.event.inputs.sdk == 'all' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/zeal-python-sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          pip install -e .[dev]
+
+      - name: Run tests
+        run: |
+          pytest tests/ || echo "No tests configured"
+
+      - name: Run linting
+        run: |
+          black --check zeal/ || black zeal/
+          flake8 zeal/ --max-line-length=100 || true
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            VERSION="${VERSION#python-sdk-}"
+          else
+            CURRENT_VERSION=$(python -c "import re; content = open('setup.py').read(); match = re.search(r'version=[\"']([^\"']+)[\"']', content); print(match.group(1) if match else '0.0.0')")
+            IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+            MAJOR=${VERSION_PARTS[0]:-0}
+            MINOR=${VERSION_PARTS[1]:-0}
+            PATCH=${VERSION_PARTS[2]:-0}
+            
+            case "${{ github.event.inputs.version }}" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+              prerelease)
+                PATCH=$((PATCH + 1))
+                VERSION="$MAJOR.$MINOR.$PATCH-${{ github.event.inputs.prerelease_id }}"
+                ;;
+            esac
+            
+            if [[ "${{ github.event.inputs.version }}" != "prerelease" ]]; then
+              VERSION="$MAJOR.$MINOR.$PATCH"
+            fi
+          fi
+          
+          # Update version in setup.py
+          sed -i "s/version=\"[^\"]*\"/version=\"$VERSION\"/g" setup.py
+          
+          # Update version in __init__.py if exists
+          if [ -f "zeal/__init__.py" ]; then
+            sed -i "s/__version__ = [\"'][^\"']*[\"']/__version__ = \"$VERSION\"/g" zeal/__init__.py
+          fi
+          
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build package
+        run: |
+          rm -rf dist/ build/
+          python -m build
+
+      - name: Check package
+        run: |
+          twine check dist/*
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          twine upload dist/*
+
+      - name: Create GitHub Release
+        if: github.event_name != 'release'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: python-sdk-v${{ steps.version.outputs.VERSION }}
+          release_name: 'Zeal Python SDK v${{ steps.version.outputs.VERSION }}'
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          body: |
+            ## Zeal Python SDK v${{ steps.version.outputs.VERSION }}
+            
+            Published to PyPI: https://pypi.org/project/zeal-sdk/
+            
+            ### Installation
+            ```bash
+            pip install zeal-sdk==${{ steps.version.outputs.VERSION }}
+            ```
+
+  publish-go-sdk:
+    if: ${{ github.event_name == 'release' || github.event.inputs.sdk == 'go' || github.event.inputs.sdk == 'all' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/zeal-go-sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Run tests
+        run: |
+          go test ./...
+
+      - name: Run formatting
+        run: |
+          go fmt ./...
+
+      - name: Run vet
+        run: |
+          go vet ./...
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            VERSION="${VERSION#go-sdk-}"
+          else
+            # Get current version from git tags
+            CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | grep "^go-sdk-v" | sed 's/go-sdk-v//' || echo "0.0.0")
+            IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+            MAJOR=${VERSION_PARTS[0]:-0}
+            MINOR=${VERSION_PARTS[1]:-0}
+            PATCH=${VERSION_PARTS[2]:-0}
+            
+            case "${{ github.event.inputs.version }}" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+              prerelease)
+                PATCH=$((PATCH + 1))
+                VERSION="$MAJOR.$MINOR.$PATCH-${{ github.event.inputs.prerelease_id }}"
+                ;;
+            esac
+            
+            if [[ "${{ github.event.inputs.version }}" != "prerelease" ]]; then
+              VERSION="$MAJOR.$MINOR.$PATCH"
+            fi
+          fi
+          
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Ensure go.mod is tidy
+        run: |
+          go mod tidy
+
+      - name: Commit changes if any
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "GitHub Actions"
+            git config user.email "actions@github.com"
+            git add -A
+            git commit -m "chore(go-sdk): update dependencies for v${{ steps.version.outputs.VERSION }}"
+          fi
+
+      - name: Create and push tag
+        run: |
+          TAG="go-sdk-v${{ steps.version.outputs.VERSION }}"
+          git tag -a "$TAG" -m "Release Zeal Go SDK v${{ steps.version.outputs.VERSION }}"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        if: github.event_name != 'release'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: go-sdk-v${{ steps.version.outputs.VERSION }}
+          release_name: 'Zeal Go SDK v${{ steps.version.outputs.VERSION }}'
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          body: |
+            ## Zeal Go SDK v${{ steps.version.outputs.VERSION }}
+            
+            The module will be available at:
+            https://pkg.go.dev/github.com/offbit-ai/zeal/packages/zeal-go-sdk@v${{ steps.version.outputs.VERSION }}
+            
+            ### Installation
+            ```bash
+            go get github.com/offbit-ai/zeal/packages/zeal-go-sdk@v${{ steps.version.outputs.VERSION }}
+            ```

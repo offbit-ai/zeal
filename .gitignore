@@ -79,6 +79,8 @@ next-env.d.ts
 .env.test
 .env.production
 .env.local
+.env.npm*
+packages/**/scripts
 
 # Temporary files
 tmp/

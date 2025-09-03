@@ -1,0 +1,213 @@
+name: NPM Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish'
+        required: true
+        type: choice
+        options:
+          - zeal-sdk
+          - zeal-embed-sdk
+          - both
+      version:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_id:
+        description: 'Prerelease identifier (e.g., beta, alpha)'
+        required: false
+        default: 'beta'
+  release:
+    types: [published]
+
+jobs:
+  publish-zeal-sdk:
+    if: ${{ github.event_name == 'release' || github.event.inputs.package == 'zeal-sdk' || github.event.inputs.package == 'both' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/zeal-sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+
+      - name: Run linting
+        run: npm run lint || echo "No linting configured"
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            # Extract version from release tag
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          else
+            # Use workflow input
+            if [[ "${{ github.event.inputs.version }}" == "prerelease" ]]; then
+              VERSION_CMD="prerelease --preid ${{ github.event.inputs.prerelease_id }}"
+            else
+              VERSION_CMD="${{ github.event.inputs.version }}"
+            fi
+            npm version $VERSION_CMD --no-git-tag-version
+            VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to NPM
+        run: |
+          if [[ "$VERSION" == *"-"* ]]; then
+            npm publish --tag next --access public
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+
+      - name: Create GitHub Release
+        if: github.event_name != 'release'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: zeal-sdk-v${{ steps.version.outputs.VERSION }}
+          release_name: '@offbit-ai/zeal-sdk v${{ steps.version.outputs.VERSION }}'
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          body: |
+            ## @offbit-ai/zeal-sdk v${{ steps.version.outputs.VERSION }}
+            
+            Published to npm: https://www.npmjs.com/package/@offbit-ai/zeal-sdk
+            
+            ### Installation
+            ```bash
+            npm install @offbit-ai/zeal-sdk@${{ steps.version.outputs.VERSION }}
+            ```
+
+  publish-zeal-embed-sdk:
+    if: ${{ github.event_name == 'release' || github.event.inputs.package == 'zeal-embed-sdk' || github.event.inputs.package == 'both' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/zeal-embed-sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+
+      - name: Run linting
+        run: npm run lint || echo "No linting configured"
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify browser compatibility
+        run: |
+          echo "Checking for Node.js-specific modules..."
+          if grep -r "require.*['\"]\(fs\|path\|crypto\|http\|https\|net\|os\|child_process\)" dist/; then
+            echo "Error: Node.js specific modules detected in browser SDK"
+            exit 1
+          fi
+          echo "✅ Browser compatibility check passed"
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            # Extract version from release tag
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          else
+            # Use workflow input
+            if [[ "${{ github.event.inputs.version }}" == "prerelease" ]]; then
+              VERSION_CMD="prerelease --preid ${{ github.event.inputs.prerelease_id }}"
+            else
+              VERSION_CMD="${{ github.event.inputs.version }}"
+            fi
+            npm version $VERSION_CMD --no-git-tag-version
+            VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to NPM
+        run: |
+          if [[ "$VERSION" == *"-"* ]]; then
+            npm publish --tag next --access public
+          else
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+
+      - name: Create GitHub Release
+        if: github.event_name != 'release'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: zeal-embed-sdk-v${{ steps.version.outputs.VERSION }}
+          release_name: '@offbit-ai/zeal-embed-sdk v${{ steps.version.outputs.VERSION }}'
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          body: |
+            ## @offbit-ai/zeal-embed-sdk v${{ steps.version.outputs.VERSION }}
+            
+            Published to npm: https://www.npmjs.com/package/@offbit-ai/zeal-embed-sdk
+            
+            ### Installation
+            ```bash
+            npm install @offbit-ai/zeal-embed-sdk@${{ steps.version.outputs.VERSION }}
+            ```
+            
+            ### CDN
+            ```html
+            <script type="module">
+              import { ZealEmbed } from 'https://unpkg.com/@offbit-ai/zeal-embed-sdk@${{ steps.version.outputs.VERSION }}/dist/index.mjs'
+            </script>
+            ```

@@ -10,7 +10,12 @@
     "dev": "tsup --watch",
     "test": "jest",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "publish:patch": "./scripts/publish.sh patch",
+    "publish:minor": "./scripts/publish.sh minor",
+    "publish:major": "./scripts/publish.sh major",
+    "publish:beta": "./scripts/publish.sh prerelease --preid beta"
   },
   "keywords": [
     "zeal",
