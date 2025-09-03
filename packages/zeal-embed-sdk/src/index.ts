@@ -18,7 +18,6 @@ export type {
   NodeTemplate,
   WorkflowExecutionRequest,
   WorkflowExecutionResult,
-  CADNodeConfig,
 } from './types'
 
 // Re-export ZIP event types for consumers
