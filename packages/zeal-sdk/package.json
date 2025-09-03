@@ -1,6 +1,6 @@
 {
   "name": "@offbit-ai/zeal-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TypeScript SDK for Zeal Integration Protocol (ZIP)",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
