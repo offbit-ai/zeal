@@ -1,0 +1,191 @@
+# Docker Compose for testing Railway deployment locally
+# This mimics the Railway environment
+
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: railway-postgres
+    environment:
+      POSTGRES_DB: zeal_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - railway-network
+
+  # TimescaleDB for traces
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: railway-timescaledb
+    environment:
+      POSTGRES_DB: zeal_traces
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-postgres}
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ../../timescaledb-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - railway-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: railway-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispass}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - railway-network
+
+  # CRDT Server (separate service)
+  crdt-server:
+    build:
+      context: ../..
+      dockerfile: deployments/railway/Dockerfile.crdt
+    container_name: railway-crdt-server
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass}@redis:6379
+      PORT: 8080
+      VERBOSE: true
+      MAX_CLIENTS_PER_ROOM: 100
+      CLIENT_TIMEOUT_MINUTES: 30
+    ports:
+      - "8080:8080"
+    networks:
+      - railway-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Main Next.js Application
+  app:
+    build:
+      context: ../..
+      dockerfile: deployments/railway/Dockerfile.nextjs
+    container_name: railway-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      crdt-server:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/zeal_db?schema=public
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      
+      # TimescaleDB
+      TIMESCALE_HOST: timescaledb
+      TIMESCALE_PORT: 5432
+      TIMESCALE_DATABASE: zeal_traces
+      TIMESCALE_USER: postgres
+      TIMESCALE_PASSWORD: ${TIMESCALE_PASSWORD:-postgres}
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass}@redis:6379
+      
+      # CRDT Server (now external service)
+      NEXT_PUBLIC_CRDT_SERVER_URL: ws://crdt-server:8080
+      
+      # Application
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-development-secret-change-in-production}
+      
+      # Features
+      NEXT_PUBLIC_ENABLE_COLLABORATION: true
+      NEXT_PUBLIC_ENABLE_FLOW_TRACING: true
+      NEXT_PUBLIC_ENABLE_VERSION_HISTORY: true
+      NEXT_PUBLIC_EMBED_ENABLED: true
+      
+      # Auth (enabled by default in production)
+      ZEAL_AUTH_ENABLED: true
+      ZEAL_AUTH_MODE: production
+      ZEAL_SECRET_KEY: ${ZEAL_SECRET_KEY:-development-secret}
+      
+      # Storage (MinIO for local testing)
+      MINIO_ENDPOINT: host.docker.internal:9000
+      MINIO_BUCKET: zeal-uploads
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_USE_SSL: false
+      NEXT_PUBLIC_MINIO_URL: http://localhost:9000
+      
+    ports:
+      - "3000:3000"
+    networks:
+      - railway-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MinIO for local S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: railway-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - railway-network
+
+volumes:
+  postgres_data:
+  timescale_data:
+  redis_data:
+  minio_data:
+
+networks:
+  railway-network:
+    driver: bridge

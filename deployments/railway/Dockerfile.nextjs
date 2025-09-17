@@ -1,0 +1,113 @@
+# Dockerfile for Zeal Next.js application (CRDT server is separate)
+FROM node:20-alpine AS base
+
+# Install system dependencies needed for builds
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    postgresql-client \
+    curl \
+    bash \
+    git
+
+# Dependencies stage
+FROM base AS deps
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including dev for build)
+RUN npm ci --include=dev
+
+# Next.js Builder stage
+FROM base AS builder
+WORKDIR /app
+
+# Copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy all source code (paths relative to project root)
+COPY app ./app
+COPY public ./public
+COPY data ./data
+COPY hooks ./hooks
+COPY lib ./lib
+COPY pages ./pages
+COPY store ./store
+COPY utils ./utils
+COPY components ./components
+COPY packages ./packages
+COPY types ./types
+COPY services ./services
+COPY scripts ./scripts
+COPY next.config.js ./
+COPY tsconfig.json ./
+COPY package.json ./
+COPY package-lock.json ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+COPY init.sql ./
+COPY timescaledb-init.sql ./
+
+# Build the application (includes templates:ingest and graphrag:build)
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Build Next.js and prepare data files
+RUN npm run templates:ingest && \
+    npm run graphrag:build && \
+    next build
+
+# Production stage
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    postgresql-client \
+    curl
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/public /app/.next /app/config && \
+    chown -R nextjs:nodejs /app
+
+# Copy production build
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./next.config.js
+
+# Copy data files (templates, graphrag)
+COPY --from=builder --chown=nextjs:nodejs /app/data ./data
+
+# Copy start script
+COPY --chown=nextjs:nodejs deployments/railway/start-nextjs.sh /app/start.sh
+
+# Copy SQL initialization files for reference (not for container init)
+# COPY --chown=nextjs:nodejs init.sql timescaledb-init.sql ./
+
+# Make start script executable
+RUN chmod +x /app/start.sh
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port (Railway provides PORT env var)
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-3000}/api/health || exit 1
+
+# Use the start script
+CMD ["/app/start.sh"]

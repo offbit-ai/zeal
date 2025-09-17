@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { uploadFile, generateFileKey } from '@/lib/s3-client'
+import { uploadFile } from '@/lib/s3-client'
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 import { addTenantContext } from '@/lib/auth/tenant-utils'
+import { generateWorkflowScopedKey } from '@/lib/storage/key-utils'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60 // 60 seconds timeout for large files
@@ -66,14 +67,8 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // Generate namespaced key: workflowId/graphId/nodeId/filename
-    const timestamp = Date.now()
-    const extension = file.name.split('.').pop()
-    const sanitizedName = file.name
-      .split('.')[0]
-      .replace(/[^a-zA-Z0-9-_]/g, '_')
-      .substring(0, 50) // Limit filename length
-    const key = `${workflowId}/${graphId}/${nodeId}/${timestamp}-${sanitizedName}.${extension}`
+    // Generate namespaced key using shared utility
+    const key = generateWorkflowScopedKey(workflowId, graphId, nodeId, file.name)
 
     // Add tenant context to metadata
     const metadata = addTenantContext({

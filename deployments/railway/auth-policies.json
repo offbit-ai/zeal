@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "description": "Production authorization policies for Zeal on Railway"
+  },
+  "policies": [
+    {
+      "id": "admin-full-access",
+      "description": "Administrators have full access",
+      "priority": 1000,
+      "effect": "allow",
+      "resources": [{"type": "*"}],
+      "actions": ["*"],
+      "subjects": {
+        "conditions": [
+          {
+            "claim": "roles",
+            "operator": "contains",
+            "value": "admin"
+          }
+        ]
+      }
+    },
+    {
+      "id": "workflow-owner-access",
+      "description": "Workflow owners have full access to their workflows",
+      "priority": 100,
+      "effect": "allow",
+      "resources": [
+        {
+          "type": "workflow",
+          "conditions": [
+            {
+              "attribute": "owner",
+              "operator": "equals",
+              "value": "${subject.id}"
+            }
+          ]
+        }
+      ],
+      "actions": ["*"]
+    },
+    {
+      "id": "org-read-access",
+      "description": "Organization members can read organization resources",
+      "priority": 90,
+      "effect": "allow",
+      "resources": [
+        {
+          "type": "workflow",
+          "conditions": [
+            {
+              "attribute": "organizationId",
+              "operator": "equals",
+              "value": "${subject.organizationId}"
+            }
+          ]
+        }
+      ],
+      "actions": ["read", "execute"]
+    },
+    {
+      "id": "tenant-isolation",
+      "description": "Enforce tenant isolation",
+      "priority": 10000,
+      "effect": "deny",
+      "resources": [
+        {
+          "type": "*",
+          "conditions": [
+            {
+              "attribute": "tenantId",
+              "operator": "exists"
+            },
+            {
+              "attribute": "tenantId",
+              "operator": "not_equals",
+              "value": "${subject.tenantId}"
+            }
+          ]
+        }
+      ],
+      "actions": ["*"],
+      "subjects": {
+        "conditions": [
+          {
+            "claim": "tenantId",
+            "operator": "exists"
+          }
+        ]
+      }
+    },
+    {
+      "id": "default-deny",
+      "description": "Deny by default",
+      "priority": 1,
+      "effect": "deny",
+      "resources": [{"type": "*"}],
+      "actions": ["*"]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Zeal Rust SDK
 
-High-performance Rust SDK for the Zeal Integration Protocol (ZIP), enabling efficient third-party workflow runtime integration with the Zeal workflow editor.
+Rust SDK for the Zeal Integration Protocol (ZIP), enabling efficient third-party workflow runtime integration with the Zeal workflow editor.
 
 ## Prerequisites
 

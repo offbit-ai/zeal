@@ -1,0 +1,23 @@
+# Railway Configuration for CRDT Server
+# Deploy this as a separate Railway service
+
+[build]
+# Build using the CRDT server's Dockerfile
+builder = "DOCKERFILE"
+dockerfilePath = "./crdt-server/Dockerfile"
+buildContext = "./crdt-server"
+
+[deploy]
+# Start command (matches the Dockerfile CMD)
+startCommand = "server --port 8080"
+
+# Health check
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+# Restart configuration  
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# The CRDT server listens on port 8080
+# Railway will provide the public URL for WebSocket connections

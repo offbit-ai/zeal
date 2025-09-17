@@ -1,0 +1,72 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "./deployments/railway/Dockerfile.nextjs"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  },
+  "services": [
+    {
+      "name": "web",
+      "source": {
+        "repo": "."
+      },
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "./deployments/railway/Dockerfile.nextjs"
+      },
+      "deploy": {
+        "healthcheckPath": "/api/health",
+        "healthcheckTimeout": 30,
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 3
+      }
+    },
+    {
+      "name": "crdt-server",
+      "source": {
+        "repo": "."
+      },
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "./deployments/railway/Dockerfile.crdt"
+      },
+      "deploy": {
+        "healthcheckPath": "/health",
+        "healthcheckTimeout": 30,
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 3,
+        "port": 8080
+      }
+    }
+  ],
+  "databases": [
+    {
+      "name": "postgres",
+      "plugin": "postgresql@latest",
+      "config": {
+        "extensions": ["uuid-ossp", "pgvector", "pg_trgm"]
+      }
+    },
+    {
+      "name": "timescaledb",
+      "plugin": "postgresql@latest",
+      "config": {
+        "extensions": ["timescaledb"],
+        "databaseName": "zeal_traces"
+      }
+    }
+  ],
+  "plugins": [
+    {
+      "name": "redis",
+      "plugin": "redis@latest"
+    }
+  ]
+}

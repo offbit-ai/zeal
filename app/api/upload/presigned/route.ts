@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPresignedUploadUrl, generateFileKey } from '@/lib/s3-client'
+import { getPresignedUploadUrl, getPublicUrl } from '@/lib/s3-client'
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
+import { generateWorkflowScopedKey } from '@/lib/storage/key-utils'
 
 export const POST = withAuth(async (request: AuthenticatedRequest, context?: { params: any }) => {
   try {
@@ -12,10 +13,15 @@ export const POST = withAuth(async (request: AuthenticatedRequest, context?: { p
     // if ((resource as any).tenantId && !validateTenantAccess(resource as any, request as NextRequest)) {
     //   return createTenantViolationError()
     // }
-    const { fileName, fileType, fileSize } = await request.json()
+    const { fileName, fileType, fileSize, workflowId, graphId, nodeId } = await request.json()
 
     if (!fileName || !fileType) {
       return NextResponse.json({ error: 'fileName and fileType are required' }, { status: 400 })
+    }
+
+    // Validate required IDs for namespacing
+    if (!workflowId || !graphId || !nodeId) {
+      return NextResponse.json({ error: 'Missing workflowId, graphId, or nodeId' }, { status: 400 })
     }
 
     // Validate file type
@@ -37,23 +43,15 @@ export const POST = withAuth(async (request: AuthenticatedRequest, context?: { p
       return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
     }
 
-    // Determine category
-    const category = fileType.startsWith('image/')
-      ? 'image'
-      : fileType.startsWith('audio/')
-        ? 'audio'
-        : fileType.startsWith('video/')
-          ? 'video'
-          : 'other'
-
-    // Generate unique key
-    const key = generateFileKey(category, fileName)
+    // Generate namespaced key using shared utility
+    const key = generateWorkflowScopedKey(workflowId, graphId, nodeId, fileName)
 
     // Generate presigned URL
     const presignedUrl = await getPresignedUploadUrl(key, fileType)
 
     // Generate public URL that will be accessible after upload
-    const publicUrl = `${process.env.NEXT_PUBLIC_MINIO_URL || 'http://localhost:9000'}/${process.env.MINIO_BUCKET || 'zeal-uploads'}/${key}`
+    // This now works with all storage providers (AWS S3, Azure, GCS, MinIO)
+    const publicUrl = getPublicUrl(key)
 
     return NextResponse.json({
       presignedUrl,
