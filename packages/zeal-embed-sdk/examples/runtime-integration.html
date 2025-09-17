@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zeal Embed SDK - Runtime Integration Example</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 8px 16px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .embed-container {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      height: 600px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status {
+      padding: 10px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin: 4px 0;
+      padding: 4px;
+      background: white;
+      border-left: 3px solid #4CAF50;
+    }
+    .log-entry.error {
+      border-left-color: #f44336;
+      background: #ffebee;
+    }
+    .log-entry.warning {
+      border-left-color: #ff9800;
+      background: #fff3e0;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: white;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      border: 1px solid #ddd;
+      border-bottom: none;
+    }
+    .tab.active {
+      background: #4CAF50;
+      color: white;
+    }
+    .tab-content {
+      background: white;
+      padding: 20px;
+      border-radius: 0 8px 8px 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Zeal Embed SDK - Runtime Integration</h1>
+      <p>This example demonstrates using the Zeal Embed SDK with the integrated Reflow runtime for browser-based workflow execution.</p>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('embed')">Workflow Editor</div>
+      <div class="tab" onclick="switchTab('runtime')">Runtime Actors</div>
+      <div class="tab" onclick="switchTab('execution')">Execution</div>
+    </div>
+
+    <div id="embed-tab" class="tab-content">
+      <div class="controls">
+        <button onclick="registerTemplates()">Register Templates</button>
+        <button onclick="bindActors()">Bind Runtime Actors</button>
+        <button onclick="createWorkflow()">Create Test Workflow</button>
+        <button onclick="executeWorkflow()">Execute with Runtime</button>
+        <button onclick="executeOnServer()">Execute on Server</button>
+      </div>
+      
+      <div class="status" id="status">Status: Initializing...</div>
+      
+      <div id="zeal-embed" class="embed-container"></div>
+      
+      <h3>Execution Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div id="runtime-tab" class="tab-content" style="display:none">
+      <h2>Runtime Actor Configuration</h2>
+      <p>The following actors are registered with the local runtime:</p>
+      
+      <h3>1. Transform Actor</h3>
+      <pre><code>runtime.bindTemplate('transform')
+  .handler(async (inputs, context) => {
+    const { data, operation } = inputs;
+    
+    switch(operation) {
+      case 'uppercase':
+        return { output: data.toUpperCase() };
+      case 'lowercase':
+        return { output: data.toLowerCase() };
+      case 'reverse':
+        return { output: data.split('').reverse().join('') };
+      default:
+        return { output: data };
+    }
+  })
+  .register();</code></pre>
+
+      <h3>2. Filter Actor</h3>
+      <pre><code>runtime.bindTemplate('filter')
+  .handler(async (inputs, context) => {
+    const { items, condition } = inputs;
+    
+    const filtered = items.filter(item => {
+      // Simple condition evaluation
+      return eval(condition.replace('$item', 'item'));
+    });
+    
+    return { filtered };
+  })
+  .register();</code></pre>
+
+      <h3>3. Streaming Data Generator</h3>
+      <pre><code>runtime.bindTemplate('data-generator')
+  .handler(async function* (inputs, context) {
+    const { count = 10, delay = 100 } = inputs;
+    
+    for (let i = 0; i < count; i++) {
+      yield {
+        value: Math.random(),
+        index: i,
+        timestamp: Date.now()
+      };
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  })
+  .streaming()
+  .register();</code></pre>
+    </div>
+
+    <div id="execution-tab" class="tab-content" style="display:none">
+      <h2>Execution Comparison</h2>
+      
+      <h3>Runtime Execution (Browser)</h3>
+      <ul>
+        <li>✅ Zero latency - runs in SharedWorker</li>
+        <li>✅ Real-time streaming support</li>
+        <li>✅ No network overhead</li>
+        <li>⚠️ Limited to browser capabilities</li>
+        <li>⚠️ Cannot access server resources</li>
+      </ul>
+      
+      <h3>Server Execution (ZIP API)</h3>
+      <ul>
+        <li>✅ Full server capabilities</li>
+        <li>✅ Database access</li>
+        <li>✅ External API calls</li>
+        <li>⚠️ Network latency</li>
+        <li>⚠️ Rate limits apply</li>
+      </ul>
+      
+      <h3>Hybrid Approach</h3>
+      <p>Use runtime for:</p>
+      <ul>
+        <li>Data transformation</li>
+        <li>Filtering and mapping</li>
+        <li>Real-time UI updates</li>
+        <li>Rapid prototyping</li>
+      </ul>
+      
+      <p>Use server for:</p>
+      <ul>
+        <li>Database operations</li>
+        <li>External API calls</li>
+        <li>Heavy computations</li>
+        <li>Persistent storage</li>
+      </ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ZealEmbed, ZealReflowRuntime } from '/dist/zeal-embed-sdk.js';
+    
+    let embed;
+    let runtime;
+    
+    // Initialize runtime and embed
+    async function initialize() {
+      try {
+        log('Initializing Reflow runtime...');
+        
+        // Create runtime instance
+        runtime = new ZealReflowRuntime({
+          debug: true,
+          templates: []
+        });
+        
+        // Wait for runtime to be ready
+        await runtime.waitForReady();
+        log('Runtime ready', 'success');
+        
+        // Create embed with runtime integration
+        log('Creating Zeal embed with runtime...');
+        embed = new ZealEmbed({
+          container: '#zeal-embed',
+          baseUrl: 'http://localhost:3000',
+          runtime: runtime, // Pass runtime for integration
+          display: {
+            minimap: true,
+            zoomControls: true,
+            theme: 'light'
+          },
+          events: {
+            onReady: () => {
+              log('Embed ready', 'success');
+              updateStatus('Ready - Runtime integrated');
+            },
+            onNodeAdded: (event) => {
+              log(`Node added: ${event.nodeId}`);
+            },
+            onExecutionStarted: (sessionId) => {
+              log(`Execution started: ${sessionId}`, 'info');
+            },
+            onExecutionCompleted: (result) => {
+              log(`Execution completed: ${result.sessionId}`, 'success');
+              log(`Duration: ${result.duration}ms`);
+              log(`Outputs: ${JSON.stringify(result.outputs)}`);
+            },
+            onExecutionFailed: (error) => {
+              log(`Execution failed: ${error.error}`, 'error');
+            }
+          }
+        });
+        
+        // Setup runtime event listeners
+        embed.on('runtime:ready', () => {
+          log('Runtime integration complete', 'success');
+        });
+        
+        embed.on('nodeExecuting', (data) => {
+          log(`Executing node: ${data.nodeId}`);
+        });
+        
+        embed.on('nodeCompleted', (data) => {
+          log(`Node completed: ${data.nodeId}`);
+        });
+        
+        embed.on('actorBound', (data) => {
+          log(`Actor bound to template: ${data.templateId}`, 'success');
+        });
+        
+      } catch (error) {
+        log(`Initialization error: ${error.message}`, 'error');
+        updateStatus('Error: ' + error.message);
+      }
+    }
+    
+    // Register node templates
+    window.registerTemplates = async function() {
+      try {
+        log('Registering node templates...');
+        
+        const templates = [
+          {
+            id: 'transform',
+            type: 'processor',
+            category: 'Data',
+            title: 'Transform',
+            description: 'Transform data with various operations',
+            icon: '🔄',
+            properties: {
+              operation: {
+                type: 'select',
+                label: 'Operation',
+                default: 'uppercase',
+                options: ['uppercase', 'lowercase', 'reverse']
+              }
+            },
+            ports: [
+              { id: 'data', type: 'input', label: 'Data', position: 'left' },
+              { id: 'output', type: 'output', label: 'Output', position: 'right' }
+            ]
+          },
+          {
+            id: 'filter',
+            type: 'processor',
+            category: 'Data',
+            title: 'Filter',
+            description: 'Filter array items',
+            icon: '🔍',
+            properties: {
+              condition: {
+                type: 'text',
+                label: 'Condition',
+                default: '$item > 0'
+              }
+            },
+            ports: [
+              { id: 'items', type: 'input', label: 'Items', position: 'left' },
+              { id: 'filtered', type: 'output', label: 'Filtered', position: 'right' }
+            ]
+          },
+          {
+            id: 'data-generator',
+            type: 'source',
+            category: 'Data',
+            title: 'Data Generator',
+            description: 'Generate streaming test data',
+            icon: '📊',
+            properties: {
+              count: {
+                type: 'number',
+                label: 'Count',
+                default: 10
+              },
+              delay: {
+                type: 'number',
+                label: 'Delay (ms)',
+                default: 100
+              }
+            },
+            ports: [
+              { id: 'output', type: 'output', label: 'Stream', position: 'right' }
+            ]
+          }
+        ];
+        
+        await embed.registerNodeTemplates(templates);
+        log('Templates registered successfully', 'success');
+        
+      } catch (error) {
+        log(`Template registration error: ${error.message}`, 'error');
+      }
+    };
+    
+    // Bind actors to templates
+    window.bindActors = async function() {
+      try {
+        log('Binding runtime actors...');
+        
+        // Bind transform actor
+        await embed.bindActor('transform', async (inputs, context) => {
+          const { data, operation } = inputs;
+          
+          switch(operation) {
+            case 'uppercase':
+              return { output: data.toUpperCase() };
+            case 'lowercase':
+              return { output: data.toLowerCase() };
+            case 'reverse':
+              return { output: data.split('').reverse().join('') };
+            default:
+              return { output: data };
+          }
+        });
+        
+        // Bind filter actor
+        await embed.bindActor('filter', async (inputs, context) => {
+          const { items, condition } = inputs;
+          
+          const filtered = items.filter(item => {
+            // Simple condition evaluation (in production, use safe evaluation)
+            try {
+              return Function('item', `return ${condition.replace(/\$item/g, 'item')}`)(item);
+            } catch {
+              return false;
+            }
+          });
+          
+          return { filtered };
+        });
+        
+        // Bind streaming data generator
+        await embed.bindStreamingActor('data-generator', async function* (inputs, context) {
+          const { count = 10, delay = 100 } = inputs;
+          
+          for (let i = 0; i < count; i++) {
+            yield {
+              output: {
+                value: Math.random(),
+                index: i,
+                timestamp: Date.now()
+              }
+            };
+            
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        });
+        
+        log('All actors bound successfully', 'success');
+        
+      } catch (error) {
+        log(`Actor binding error: ${error.message}`, 'error');
+      }
+    };
+    
+    // Create test workflow
+    window.createWorkflow = async function() {
+      try {
+        log('Creating test workflow...');
+        
+        const workflow = {
+          id: 'test-workflow',
+          name: 'Runtime Test Workflow',
+          namespace: 'test',
+          isMain: true,
+          nodes: [
+            {
+              id: 'gen1',
+              type: 'data-generator',
+              position: { x: 100, y: 100 },
+              metadata: {
+                templateId: 'data-generator',
+                propertyValues: { count: 5, delay: 200 }
+              }
+            },
+            {
+              id: 'transform1',
+              type: 'transform',
+              position: { x: 300, y: 100 },
+              metadata: {
+                templateId: 'transform',
+                propertyValues: { operation: 'uppercase' }
+              }
+            }
+          ],
+          connections: [
+            {
+              id: 'conn1',
+              source: { nodeId: 'gen1', portId: 'output' },
+              target: { nodeId: 'transform1', portId: 'data' },
+              state: 'active'
+            }
+          ],
+          groups: []
+        };
+        
+        await embed.setWorkflow(workflow);
+        log('Workflow created successfully', 'success');
+        
+      } catch (error) {
+        log(`Workflow creation error: ${error.message}`, 'error');
+      }
+    };
+    
+    // Execute workflow with runtime
+    window.executeWorkflow = async function() {
+      try {
+        log('Executing workflow with runtime...');
+        updateStatus('Executing with local runtime...');
+        
+        const workflow = await embed.getWorkflow();
+        
+        const result = await embed.execute({
+          workflow: workflow, // Pass workflow for runtime execution
+          inputs: { testData: 'hello world' }
+        });
+        
+        log('Runtime execution complete', 'success');
+        updateStatus('Execution complete');
+        
+      } catch (error) {
+        log(`Runtime execution error: ${error.message}`, 'error');
+        updateStatus('Execution failed');
+      }
+    };
+    
+    // Execute workflow on server
+    window.executeOnServer = async function() {
+      try {
+        log('Executing workflow on server...');
+        updateStatus('Executing on server via API...');
+        
+        const result = await embed.execute({
+          workflowId: embed.config.workflowId
+        });
+        
+        log('Server execution complete', 'success');
+        updateStatus('Server execution complete');
+        
+      } catch (error) {
+        log(`Server execution error: ${error.message}`, 'error');
+        updateStatus('Server execution failed');
+      }
+    };
+    
+    // Helper functions
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : ''}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    
+    function updateStatus(message) {
+      document.getElementById('status').textContent = `Status: ${message}`;
+    }
+    
+    window.switchTab = function(tab) {
+      // Hide all tabs
+      document.getElementById('embed-tab').style.display = 'none';
+      document.getElementById('runtime-tab').style.display = 'none';
+      document.getElementById('execution-tab').style.display = 'none';
+      
+      // Remove active class
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      
+      // Show selected tab
+      document.getElementById(`${tab}-tab`).style.display = 'block';
+      
+      // Add active class
+      event.target.classList.add('active');
+    };
+    
+    // Initialize on load
+    initialize();
+  </script>
+</body>
+</html>

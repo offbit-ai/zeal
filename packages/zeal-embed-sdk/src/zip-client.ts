@@ -3,7 +3,7 @@
  * Directly calls ZIP protocol APIs without Node.js dependencies
  */
 
-import type { NodeTemplate } from '@offbit-ai/zeal-sdk'
+import type { NodeTemplate } from './types'
 
 export interface ZIPClientConfig {
   baseUrl: string

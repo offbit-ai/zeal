@@ -11,8 +11,11 @@ import {
   NodeTemplate,
   WorkflowExecutionRequest,
   WorkflowExecutionResult,
+  WorkflowGraph
 } from './types'
 import { EmbedWebSocketHandler } from './websocket'
+import { ZealReflowRuntime } from './worker/runtime/reflow-runtime'
+import { ExecutionHandle } from './worker/bridge/execution-handle'
 import type {
   NodeAddedEvent,
   NodeUpdatedEvent,
@@ -29,14 +32,19 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
   private config: Required<EmbedConfig>
   private _iframe: HTMLIFrameElement | null = null
   private _client: ZIPClient
+  private _runtime?: ZealReflowRuntime
   private _websocket?: EmbedWebSocketHandler
   private _isReady: boolean = false
   private _messageQueue: EmbedMessage[] = []
   private _readyPromise: Promise<void>
   private _readyResolve?: () => void
+  private _activeExecutions: Map<string, ExecutionHandle> = new Map()
 
-  constructor(config: EmbedConfig) {
+  constructor(config: EmbedConfig & { runtime?: ZealReflowRuntime }) {
     super()
+    
+    // Store runtime if provided
+    this._runtime = config.runtime
     
     // Try to get authToken from config or session storage
     const authToken = config.authToken || sessionStorage.getItem('ZEAL_AUTH_TOKEN') || ''
@@ -200,6 +208,11 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
   private async onEmbedReady(): Promise<void> {
     this._isReady = true
     
+    // Setup runtime if provided
+    if (this._runtime) {
+      await this.setupRuntimeIntegration()
+    }
+    
     // Setup WebSocket connection for real-time events
     if (this.config.workflowId) {
       await this.setupWebSocket()
@@ -209,6 +222,23 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
     this.config.events?.onReady?.()
     this.emit('ready')
     this.flushMessageQueue()
+  }
+  
+  private async setupRuntimeIntegration(): Promise<void> {
+    if (!this._runtime) return
+    
+    // Wait for runtime to be ready
+    await this._runtime.waitForReady()
+    
+    // Setup runtime event forwarding
+    this._runtime.on('ready', () => this.emit('runtime:ready'))
+    this._runtime.on('error', (error) => this.emit('runtime:error', error))
+    
+    // Register default templates if runtime has them
+    const templates = this._runtime.getTemplates()
+    if (templates.length > 0) {
+      await this.registerNodeTemplates(templates)
+    }
   }
 
   private async setupWebSocket(): Promise<void> {
@@ -311,6 +341,10 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
   get client(): ZIPClient {
     return this._client
   }
+  
+  get runtime(): ZealReflowRuntime | undefined {
+    return this._runtime
+  }
 
   postMessage(message: EmbedMessage): void {
     if (!this._isReady) {
@@ -330,7 +364,13 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
 
   async execute(request?: WorkflowExecutionRequest): Promise<WorkflowExecutionResult> {
     await this.waitForReady()
-
+    
+    // If runtime is available and we have a workflow graph, use runtime execution
+    if (this._runtime && request?.workflow) {
+      return this.executeWithRuntime(request.workflow, request.inputs)
+    }
+    
+    // Otherwise use iframe/API execution
     return new Promise((resolve, reject) => {
       // Setup one-time listeners
       const onCompleted = (result: any) => {
@@ -355,6 +395,89 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
         timestamp: Date.now(),
       })
     })
+  }
+  
+  private async executeWithRuntime(
+    workflow: WorkflowGraph,
+    inputs?: any
+  ): Promise<WorkflowExecutionResult> {
+    if (!this._runtime) {
+      throw new Error('Runtime not available')
+    }
+    
+    // Execute workflow using runtime
+    const handle = await this._runtime.execute(workflow, inputs)
+    
+    // Store execution handle
+    this._activeExecutions.set(handle.id, handle)
+    
+    // Setup event forwarding from runtime execution
+    handle.on('start', (data) => {
+      this.emit('executionStarted', handle.id)
+      this.config.events?.onExecutionStarted?.(handle.id)
+    })
+    
+    handle.on('progress', (data) => {
+      this.emit('executionProgress', { sessionId: handle.id, ...data })
+    })
+    
+    handle.on('actor:started', (data) => {
+      this.emit('nodeExecuting', { sessionId: handle.id, nodeId: data.actorId })
+    })
+    
+    handle.on('actor:completed', (data) => {
+      this.emit('nodeCompleted', { sessionId: handle.id, nodeId: data.actorId, outputs: data.outputs })
+    })
+    
+    handle.on('actor:failed', (data) => {
+      this.emit('nodeFailed', { sessionId: handle.id, nodeId: data.actorId, error: data.error })
+    })
+    
+    handle.on('complete', (result) => {
+      const executionResult: WorkflowExecutionResult = {
+        sessionId: handle.id,
+        status: 'completed',
+        duration: result.duration || 0,
+        executedNodes: handle.getProgress().completedNodes,
+        outputs: result.data
+      }
+      
+      this._activeExecutions.delete(handle.id)
+      this.emit('executionCompleted', executionResult)
+      this.config.events?.onExecutionCompleted?.(executionResult)
+    })
+    
+    handle.on('error', (error) => {
+      const executionResult = {
+        sessionId: handle.id,
+        status: 'failed' as const,
+        error: error.message,
+        duration: 0
+      }
+      
+      this._activeExecutions.delete(handle.id)
+      this.emit('executionFailed', executionResult)
+      this.config.events?.onExecutionFailed?.(executionResult)
+    })
+    
+    // Wait for execution to complete
+    try {
+      const result = await handle.waitForCompletion()
+      return {
+        sessionId: handle.id,
+        status: 'completed',
+        duration: result.duration || 0,
+        executedNodes: handle.getProgress().completedNodes,
+        outputs: result.data
+      }
+    } catch (error) {
+      throw {
+        sessionId: handle.id,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        duration: 0
+      }
+    }
   }
 
   async save(): Promise<void> {
@@ -448,6 +571,15 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
       namespace: 'custom',
       templates: templates
     })
+    
+    // Register with runtime if available
+    if (this._runtime) {
+      for (const template of templates) {
+        // Runtime registration is handled through bindTemplate
+        // This ensures templates are available for execution
+        this._runtime.getTemplates() // Just ensure runtime knows about them
+      }
+    }
 
     // Send to embed
     this.postMessage({
@@ -455,6 +587,82 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
       data: templates,
       timestamp: Date.now(),
     })
+  }
+  
+  /**
+   * Bind an actor implementation to a template for runtime execution
+   * This is only available when a runtime is provided
+   */
+  async bindActor(
+    templateId: string,
+    handler: (inputs: any, context: any) => any
+  ): Promise<void> {
+    if (!this._runtime) {
+      throw new Error('Runtime not available. Provide a runtime to the constructor to use actor binding.')
+    }
+    
+    await this.waitForReady()
+    
+    // Verify template exists
+    const templates = this._runtime.getTemplates()
+    const hasTemplate = templates.some(t => t.id === templateId)
+    if (!hasTemplate) {
+      throw new Error(`Template ${templateId} not found. Register it first with registerNodeTemplates()`)
+    }
+    
+    // Bind actor to template in runtime
+    await this._runtime.bindTemplate(templateId)
+      .handler(handler)
+      .register()
+    
+    this.emit('actorBound', { templateId })
+  }
+  
+  /**
+   * Register a streaming actor for template
+   */
+  async bindStreamingActor(
+    templateId: string,
+    handler: (inputs: any, context: any) => AsyncGenerator<any>
+  ): Promise<void> {
+    if (!this._runtime) {
+      throw new Error('Runtime not available. Provide a runtime to the constructor to use actor binding.')
+    }
+    
+    await this.waitForReady()
+    
+    // Verify template exists
+    const templates = this._runtime.getTemplates()
+    const hasTemplate = templates.some(t => t.id === templateId)
+    if (!hasTemplate) {
+      throw new Error(`Template ${templateId} not found. Register it first with registerNodeTemplates()`)
+    }
+    
+    // Bind streaming actor
+    await this._runtime.bindTemplate(templateId)
+      .handler(handler)
+      .streaming()
+      .register()
+    
+    this.emit('actorBound', { templateId, streaming: true })
+  }
+  
+  /**
+   * Get active execution handle by ID
+   */
+  getExecution(sessionId: string): ExecutionHandle | undefined {
+    return this._activeExecutions.get(sessionId)
+  }
+  
+  /**
+   * Cancel an active execution
+   */
+  async cancelExecution(sessionId: string): Promise<void> {
+    const handle = this._activeExecutions.get(sessionId)
+    if (handle) {
+      await handle.cancel()
+      this._activeExecutions.delete(sessionId)
+    }
   }
 
   updateDisplay(options: EmbedConfig['display']): void {
@@ -466,6 +674,17 @@ export class ZealEmbed extends EventEmitter implements EmbedInstance {
   }
 
   destroy(): void {
+    // Cancel active runtime executions
+    for (const handle of this._activeExecutions.values()) {
+      handle.cancel().catch(() => {})
+    }
+    this._activeExecutions.clear()
+    
+    // Cleanup runtime listeners
+    if (this._runtime) {
+      this._runtime.removeAllListeners()
+    }
+    
     // Disconnect WebSocket
     if (this._websocket) {
       this._websocket.disconnect()

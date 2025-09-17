@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflow Runtime Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #007acc;
+      padding-bottom: 10px;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    
+    button {
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    button:hover {
+      background: #005a9e;
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .console {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 12px;
+      min-height: 400px;
+      max-height: 600px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    .log-entry {
+      margin: 2px 0;
+      padding: 2px 0;
+      border-left: 3px solid transparent;
+      padding-left: 10px;
+    }
+    
+    .log-info {
+      color: #4fc3f7;
+      border-left-color: #4fc3f7;
+    }
+    
+    .log-success {
+      color: #81c784;
+      border-left-color: #81c784;
+    }
+    
+    .log-error {
+      color: #f48fb1;
+      border-left-color: #f48fb1;
+    }
+    
+    .log-warning {
+      color: #ffb74d;
+      border-left-color: #ffb74d;
+    }
+    
+    .status {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 10px;
+    }
+    
+    .status-idle {
+      background: #e0e0e0;
+      color: #666;
+    }
+    
+    .status-running {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1>Reflow Runtime Test Suite <span id="status" class="status status-idle">Idle</span></h1>
+  
+  <div class="controls">
+    <button id="runBasic">Run Basic Test</button>
+    <button id="runStreaming">Run Streaming Test</button>
+    <button id="runComplex">Run Complex Workflow</button>
+    <button id="clearConsole">Clear Console</button>
+  </div>
+  
+  <div id="console" class="console">
+    <div class="log-entry log-info">Ready. Click a button to run tests.</div>
+  </div>
+  
+  <script type="module">
+    import { ReflowRuntime } from '../runtime/reflow-runtime.js';
+    
+    const consoleEl = document.getElementById('console');
+    const statusEl = document.getElementById('status');
+    let runtime = null;
+    
+    // Override console.log to display in UI
+    const originalLog = console.log;
+    const log = (message, type = 'info') => {
+      originalLog(message);
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      consoleEl.appendChild(entry);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    };
+    
+    const setStatus = (status, text) => {
+      statusEl.className = `status status-${status}`;
+      statusEl.textContent = text;
+    };
+    
+    const clearConsole = () => {
+      consoleEl.innerHTML = '<div class="log-entry log-info">Console cleared.</div>';
+    };
+    
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Basic test
+    const runBasicTest = async () => {
+      try {
+        setStatus('running', 'Running Basic Test...');
+        log('Starting basic workflow test...', 'info');
+        
+        // Initialize runtime
+        runtime = new ReflowRuntime();
+        await runtime.initialize();
+        log('Runtime initialized', 'success');
+        
+        // Register simple data transform actor
+        runtime.actors()
+          .forTemplate('transform')
+          .handler(async (context) => {
+            const input = context.input.data || context.input.input;
+            const result = String(input).toUpperCase();
+            log(`Transform: "${input}" → "${result}"`, 'info');
+            return { output: result };
+          })
+          .register();
+        
+        log('Actor registered', 'success');
+        
+        // Create simple workflow
+        const workflow = {
+          id: 'basic-test',
+          name: 'Basic Test',
+          namespace: 'test',
+          isMain: true,
+          nodes: [{
+            id: 'node1',
+            type: 'transform',
+            position: { x: 100, y: 100 },
+            metadata: {
+              templateId: 'transform',
+              label: 'Transform',
+              propertyValues: {},
+              ports: [
+                { id: 'input', type: 'input', label: 'Input', position: 'left' },
+                { id: 'output', type: 'output', label: 'Output', position: 'right' }
+              ]
+            }
+          }],
+          connections: [],
+          groups: [],
+          canvasState: { zoom: 1, offset: { x: 0, y: 0 } }
+        };
+        
+        // Execute with input
+        const executionId = await runtime.executeWorkflow(workflow, {
+          inputs: { node1: { input: 'hello world' } }
+        });
+        
+        log(`Workflow executed with ID: ${executionId}`, 'success');
+        await wait(1000);
+        
+        setStatus('success', 'Basic Test Complete');
+        log('Basic test completed successfully!', 'success');
+        
+      } catch (error) {
+        setStatus('error', 'Test Failed');
+        log(`Error: ${error.message}`, 'error');
+      } finally {
+        if (runtime) runtime.destroy();
+      }
+    };
+    
+    // Streaming test
+    const runStreamingTest = async () => {
+      try {
+        setStatus('running', 'Running Streaming Test...');
+        log('Starting streaming workflow test...', 'info');
+        
+        runtime = new ReflowRuntime();
+        await runtime.initialize();
+        
+        // Register streaming actor
+        runtime.actors()
+          .forTemplate('streamer')
+          .streamingHandler(async function* (context) {
+            const count = context.properties.count || 5;
+            for (let i = 0; i < count; i++) {
+              await wait(500);
+              const value = `Item ${i + 1}`;
+              log(`Streaming: ${value}`, 'info');
+              yield { output: value };
+            }
+          })
+          .register();
+        
+        log('Streaming actor registered', 'success');
+        
+        const workflow = {
+          id: 'streaming-test',
+          name: 'Streaming Test',
+          namespace: 'test',
+          isMain: true,
+          nodes: [{
+            id: 'streamer1',
+            type: 'streamer',
+            position: { x: 100, y: 100 },
+            metadata: {
+              templateId: 'streamer',
+              label: 'Stream Generator',
+              propertyValues: { count: 3 },
+              ports: [
+                { id: 'output', type: 'output', label: 'Stream', position: 'right' }
+              ]
+            }
+          }],
+          connections: [],
+          groups: [],
+          canvasState: { zoom: 1, offset: { x: 0, y: 0 } }
+        };
+        
+        const executionId = await runtime.executeWorkflow(workflow);
+        log(`Streaming workflow started: ${executionId}`, 'success');
+        
+        await wait(3000);
+        
+        setStatus('success', 'Streaming Test Complete');
+        log('Streaming test completed!', 'success');
+        
+      } catch (error) {
+        setStatus('error', 'Test Failed');
+        log(`Error: ${error.message}`, 'error');
+      } finally {
+        if (runtime) runtime.destroy();
+      }
+    };
+    
+    // Complex workflow test
+    const runComplexTest = async () => {
+      try {
+        setStatus('running', 'Running Complex Test...');
+        log('Starting complex workflow test...', 'info');
+        
+        runtime = new ReflowRuntime();
+        await runtime.initialize();
+        
+        // Register multiple actors
+        runtime.actors()
+          .forTemplate('generator')
+          .handler(async (context) => {
+            const items = ['apple', 'banana', 'cherry'];
+            log(`Generator: Created ${items.length} items`, 'info');
+            return { output: items };
+          })
+          .register();
+        
+        runtime.actors()
+          .forTemplate('mapper')
+          .handler(async (context) => {
+            const items = context.input.input;
+            const result = items.map(item => item.toUpperCase());
+            log(`Mapper: Transformed ${result.length} items`, 'info');
+            return { output: result };
+          })
+          .register();
+        
+        runtime.actors()
+          .forTemplate('filter')
+          .handler(async (context) => {
+            const items = context.input.input;
+            const filtered = items.filter(item => item.length > 5);
+            log(`Filter: ${filtered.length} items passed filter`, 'info');
+            return { output: filtered };
+          })
+          .register();
+        
+        runtime.actors()
+          .forTemplate('logger')
+          .handler(async (context) => {
+            const data = context.input.input;
+            log(`Logger: Final result: ${JSON.stringify(data)}`, 'success');
+            return {};
+          })
+          .register();
+        
+        log('All actors registered', 'success');
+        
+        // Create complex workflow with chained actors
+        const workflow = {
+          id: 'complex-test',
+          name: 'Complex Workflow',
+          namespace: 'test',
+          isMain: true,
+          nodes: [
+            {
+              id: 'gen1',
+              type: 'generator',
+              position: { x: 100, y: 100 },
+              metadata: {
+                templateId: 'generator',
+                label: 'Generate Data',
+                propertyValues: {},
+                ports: [
+                  { id: 'output', type: 'output', label: 'Items', position: 'right' }
+                ]
+              }
+            },
+            {
+              id: 'map1',
+              type: 'mapper',
+              position: { x: 300, y: 100 },
+              metadata: {
+                templateId: 'mapper',
+                label: 'Transform',
+                propertyValues: {},
+                ports: [
+                  { id: 'input', type: 'input', label: 'Input', position: 'left' },
+                  { id: 'output', type: 'output', label: 'Output', position: 'right' }
+                ]
+              }
+            },
+            {
+              id: 'filter1',
+              type: 'filter',
+              position: { x: 500, y: 100 },
+              metadata: {
+                templateId: 'filter',
+                label: 'Filter',
+                propertyValues: {},
+                ports: [
+                  { id: 'input', type: 'input', label: 'Input', position: 'left' },
+                  { id: 'output', type: 'output', label: 'Output', position: 'right' }
+                ]
+              }
+            },
+            {
+              id: 'log1',
+              type: 'logger',
+              position: { x: 700, y: 100 },
+              metadata: {
+                templateId: 'logger',
+                label: 'Log Results',
+                propertyValues: {},
+                ports: [
+                  { id: 'input', type: 'input', label: 'Data', position: 'left' }
+                ]
+              }
+            }
+          ],
+          connections: [
+            {
+              id: 'c1',
+              source: { nodeId: 'gen1', portId: 'output' },
+              target: { nodeId: 'map1', portId: 'input' },
+              state: 'active'
+            },
+            {
+              id: 'c2',
+              source: { nodeId: 'map1', portId: 'output' },
+              target: { nodeId: 'filter1', portId: 'input' },
+              state: 'active'
+            },
+            {
+              id: 'c3',
+              source: { nodeId: 'filter1', portId: 'output' },
+              target: { nodeId: 'log1', portId: 'input' },
+              state: 'active'
+            }
+          ],
+          groups: [],
+          canvasState: { zoom: 1, offset: { x: 0, y: 0 } }
+        };
+        
+        const executionId = await runtime.executeWorkflow(workflow);
+        log(`Complex workflow executed: ${executionId}`, 'success');
+        
+        await wait(2000);
+        
+        setStatus('success', 'Complex Test Complete');
+        log('Complex workflow test completed!', 'success');
+        
+      } catch (error) {
+        setStatus('error', 'Test Failed');
+        log(`Error: ${error.message}`, 'error');
+      } finally {
+        if (runtime) runtime.destroy();
+      }
+    };
+    
+    // Event listeners
+    document.getElementById('runBasic').addEventListener('click', runBasicTest);
+    document.getElementById('runStreaming').addEventListener('click', runStreamingTest);
+    document.getElementById('runComplex').addEventListener('click', runComplexTest);
+    document.getElementById('clearConsole').addEventListener('click', clearConsole);
+    
+    log('Test suite loaded. Click a button to start.', 'success');
+  </script>
+</body>
+</html>

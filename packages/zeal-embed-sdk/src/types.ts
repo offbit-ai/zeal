@@ -71,6 +71,91 @@ export interface RuntimeRequirements {
 }
 
 
+// Workflow Graph types (compatible with @types/snapshot.ts)
+export interface WorkflowGraph {
+  id: string
+  name: string
+  namespace: string // Used for referencing in subgraph nodes
+  isMain: boolean
+  nodes: SerializedNode[]
+  connections: SerializedConnection[]
+  groups: SerializedGroup[]
+  canvasState?: {
+    offset: { x: number; y: number }
+    zoom: number
+  }
+  portPositions?: Array<{
+    key: string // nodeId-portId
+    nodeId: string
+    portId: string
+    x: number
+    y: number
+    position: 'top' | 'right' | 'bottom' | 'left'
+  }>
+}
+
+export interface SerializedNode {
+  id: string
+  type: string
+  position: { x: number; y: number }
+  metadata: {
+    id: string
+    type: string
+    title: string
+    subtitle?: string
+    icon: string // Icon name as string
+    variant: 'black' | 'gray-700' | 'gray-600' | 'gray-500'
+    shape: 'rectangle' | 'circle' | 'diamond'
+    size: 'small' | 'medium' | 'large'
+    ports: Array<{
+      id: string
+      label: string
+      type: 'input' | 'output'
+      position: 'top' | 'right' | 'bottom' | 'left'
+    }>
+    properties: Array<{
+      id: string
+      label: string
+      type: string
+      [key: string]: any
+    }>
+    propertyValues: Record<string, any>
+    // Subgraph-specific fields
+    graphId?: string
+    graphNamespace?: string
+    templateId?: string
+    requiredEnvVars?: string[]
+  } & NodeTemplate
+}
+
+export interface SerializedConnection {
+  id: string
+  source: {
+    nodeId: string
+    portId: string
+  }
+  target: {
+    nodeId: string
+    portId: string
+  }
+  state?: 'pending' | 'warning' | 'error' | 'success' | 'running'
+  metadata?: any
+}
+
+export interface SerializedGroup {
+  id: string
+  title: string
+  description: string
+  nodeIds: string[]
+  position: { x: number; y: number }
+  size: { width: number; height: number }
+  color?: string
+  isCollapsed?: boolean
+  createdAt: string
+  updatedAt: string
+  nodePositions?: Record<string, { x: number; y: number }> // Relative positions of nodes within the group
+}
+
 export interface EmbedDisplay {
   minimap?: boolean
   zoomControls?: boolean
@@ -195,7 +280,8 @@ export interface EmbedMessage {
 
 
 export interface WorkflowExecutionRequest {
-  workflowId: string
+  workflowId?: string
+  workflow?: WorkflowGraph  // Optional workflow graph for runtime execution
   inputs?: Record<string, any>
   config?: {
     timeout?: number
