@@ -1,3 +1,14 @@
+## v1.1.0 - 2025-09-17
+
+### Changes
+- 
+
+### Bug Fixes
+- 
+
+### Documentation
+- 
+
 ## v1.0.2 - 2025-09-03
 
 ### Changes

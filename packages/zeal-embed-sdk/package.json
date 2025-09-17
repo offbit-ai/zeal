@@ -1,6 +1,6 @@
 {
   "name": "@offbit-ai/zeal-embed-sdk",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Zeal Embed SDK for integrating workflow editor into web applications",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -32,6 +32,7 @@
   "author": "Zeal Team",
   "license": "Apache-2.0",
   "dependencies": {
+    "@offbit-ai/reflow": "^0.1.57",
     "eventemitter3": "^5.0.1"
   },
   "devDependencies": {
