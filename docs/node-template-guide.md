@@ -60,7 +60,7 @@ export const exampleTemplate: NodeTemplate = {
 - **`type`** (string): Node type category (e.g., "database", "api", "transformer")
 - **`title`** (string): Display name of the node
 - **`subtitle`** (string): Short description shown below the title
-- **`category`** (string): Main category for organization
+- **`category`** (string): Main category for organization (see [Categories](#categories) below)
 - **`description`** (string): Detailed explanation of the node's functionality
 - **`icon`** (string): Icon name from the icon library
 - **`ports`** (Port[]): Input and output connection points
@@ -71,7 +71,7 @@ export const exampleTemplate: NodeTemplate = {
 
 ### Optional Fields
 
-- **`subcategory`** (string): Secondary categorization
+- **`subcategory`** (string): Secondary categorization (see [Categories](#categories) below)
 - **`variant`** (string): Color variant (e.g., "blue-600", "green-500")
 - **`shape`** (string): Node shape - "rectangle" | "circle" | "diamond" | "hexagon" | "octagon"
 - **`size`** (string): Node size - "small" | "medium" | "large"
@@ -98,6 +98,28 @@ ports: [
   },
 ]
 ```
+
+## Categories
+
+Node templates are organized into categories and subcategories. These determine where the node appears in the palette UI. Use the canonical values below so your nodes are grouped correctly.
+
+Available programmatically via `GET /api/zip/categories` or `client.templates.listCategories()`.
+
+| Category | Subcategories | Description |
+|----------|--------------|-------------|
+| `ai-models` | `llm`, `agents`, `agent-tools` | Language models, agents, and AI processing |
+| `communication` | `email`, `messaging`, `voice` | Email, chat, and notification nodes |
+| `data-processing` | `aggregators`, `transformers` | Transform, aggregate, and reshape data |
+| `data-sources` | `apis`, `databases`, `files` | Database, API, and file system connections |
+| `graph-io` | — | Subgraph inputs, outputs, and proxy nodes |
+| `inputs` | `text`, `numeric` | Interactive input controls |
+| `logic-control` | `conditions`, `loops` | Conditionals, loops, and flow control |
+| `media` | `images`, `audio`, `video`, `display` | Media processing and live stream display |
+| `scripting` | `javascript`, `python`, `sql`, `nushell` | Code execution in various languages |
+| `storage-memory` | `cache`, `sessions`, `variables` | Caching, state management, and queues |
+| `tools-utilities` | `http`, `math`, `text`, `utilities`, `triggers` | HTTP, math, text processing, and triggers |
+
+Custom categories are allowed — they will appear in an "Other" section of the palette until an admin configures a dedicated section.
 
 ## Property Definitions
 

@@ -93,6 +93,25 @@ export interface RuntimeRequirements {
 }
 
 
+export interface SubcategoryDefinition {
+  id: string
+  label: string
+  description: string
+}
+
+export interface CategoryDefinition {
+  id: string
+  label: string
+  description: string
+  icon: string
+  subcategories: SubcategoryDefinition[]
+}
+
+export interface ListCategoriesResponse {
+  categories: CategoryDefinition[]
+  count: number
+}
+
 // Workflow Graph types (compatible with @types/snapshot.ts)
 export interface WorkflowGraph {
   id: string

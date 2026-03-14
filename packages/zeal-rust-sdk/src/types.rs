@@ -177,6 +177,31 @@ pub struct RuntimeRequirements {
     pub capabilities: Option<Vec<String>>,
 }
 
+/// Subcategory definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubcategoryDefinition {
+    pub id: String,
+    pub label: String,
+    pub description: String,
+}
+
+/// Category definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryDefinition {
+    pub id: String,
+    pub label: String,
+    pub description: String,
+    pub icon: String,
+    pub subcategories: Vec<SubcategoryDefinition>,
+}
+
+/// List categories response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListCategoriesResponse {
+    pub categories: Vec<CategoryDefinition>,
+    pub count: usize,
+}
+
 /// Register templates request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegisterTemplatesRequest {

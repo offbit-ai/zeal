@@ -149,6 +149,17 @@ class TemplatesAPI {
   constructor(private baseUrl: string, private authToken?: string) {}
 
   /**
+   * List available node template categories and subcategories.
+   */
+  async listCategories(): Promise<{ categories: any[]; count: number }> {
+    return ZIPClient.request(
+      `${this.baseUrl}/api/zip/categories`,
+      {},
+      this.authToken
+    )
+  }
+
+  /**
    * Register templates
    */
   async register(request: RegisterTemplatesRequest): Promise<RegisterTemplatesResponse> {

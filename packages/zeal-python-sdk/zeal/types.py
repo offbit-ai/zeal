@@ -299,6 +299,28 @@ class UploadBundleResponse(BaseModel):
         populate_by_name = True
 
 
+class SubcategoryDefinition(BaseModel):
+    """Subcategory definition."""
+    id: str
+    label: str
+    description: str
+
+
+class CategoryDefinition(BaseModel):
+    """Node template category definition."""
+    id: str
+    label: str
+    description: str
+    icon: str
+    subcategories: List[SubcategoryDefinition]
+
+
+class ListCategoriesResponse(BaseModel):
+    """Response from listing categories."""
+    categories: List[CategoryDefinition]
+    count: int
+
+
 class NodeTemplate(BaseModel):
     """Node template definition."""
     id: str

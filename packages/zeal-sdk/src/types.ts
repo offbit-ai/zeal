@@ -86,6 +86,25 @@ export interface RuntimeRequirements {
   capabilities?: string[]
 }
 
+export interface SubcategoryDefinition {
+  id: string
+  label: string
+  description: string
+}
+
+export interface CategoryDefinition {
+  id: string
+  label: string
+  description: string
+  icon: string
+  subcategories: SubcategoryDefinition[]
+}
+
+export interface ListCategoriesResponse {
+  categories: CategoryDefinition[]
+  count: number
+}
+
 export interface RegisterTemplatesRequest {
   namespace: string
   templates: NodeTemplate[]

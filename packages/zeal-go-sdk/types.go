@@ -268,6 +268,28 @@ type RuntimeRequirements struct {
 	Timeout      *int              `json:"timeout,omitempty"`
 }
 
+// SubcategoryDefinition describes a template subcategory
+type SubcategoryDefinition struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+}
+
+// CategoryDefinition describes a top-level template category
+type CategoryDefinition struct {
+	ID             string                   `json:"id"`
+	Label          string                   `json:"label"`
+	Description    string                   `json:"description"`
+	Icon           string                   `json:"icon"`
+	Subcategories  []SubcategoryDefinition  `json:"subcategories"`
+}
+
+// ListCategoriesResponse from GET /api/zip/categories
+type ListCategoriesResponse struct {
+	Categories []CategoryDefinition `json:"categories"`
+	Count      int                  `json:"count"`
+}
+
 type RegisterTemplatesRequest struct {
 	Namespace string         `json:"namespace"`
 	Templates []NodeTemplate `json:"templates"`

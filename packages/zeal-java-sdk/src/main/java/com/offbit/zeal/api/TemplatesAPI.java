@@ -17,6 +17,13 @@ public class TemplatesAPI {
     }
 
     /**
+     * List available node template categories and subcategories.
+     */
+    public Object listCategories() throws ZealException {
+        return client.makeRequest("GET", "/api/zip/categories", null, Object.class);
+    }
+
+    /**
      * Register node templates.
      */
     public Object register(Object request) throws ZealException {
