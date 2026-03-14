@@ -3,6 +3,27 @@
  * Matches the server-side types in @/types/zip
  */
 
+export interface DisplayComponent {
+  element: string
+  bundleId?: string
+  source?: string
+  shadow?: boolean
+  observedProps?: string[]
+  width?: string
+}
+
+export interface UploadBundleRequest {
+  namespace: string
+  source: string
+}
+
+export interface UploadBundleResponse {
+  bundleId: string
+  namespace: string
+  url: string
+  size: number
+}
+
 export interface NodeTemplate {
   id: string
   type: string
@@ -19,6 +40,7 @@ export interface NodeTemplate {
   properties?: Record<string, PropertyDefinition>
   propertyRules?: PropertyRules
   runtime?: RuntimeRequirements
+  display?: DisplayComponent
 }
 
 export interface Port {

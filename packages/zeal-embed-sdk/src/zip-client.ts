@@ -210,6 +210,24 @@ class TemplatesAPI {
       this.authToken
     )
   }
+
+  /**
+   * Upload a Web Component bundle for custom node rendering.
+   * Returns bundleId to reference in template.display.bundleId.
+   */
+  async uploadBundle(
+    namespace: string,
+    source: string
+  ): Promise<{ bundleId: string; namespace: string; url: string; size: number }> {
+    return ZIPClient.request(
+      `${this.baseUrl}/api/zip/components`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ namespace, source }),
+      },
+      this.authToken
+    )
+  }
 }
 
 /**

@@ -188,6 +188,30 @@ type RemoveGroupResponse struct {
 
 // === Template Types ===
 
+// DisplayComponent for Web Component-based node rendering
+type DisplayComponent struct {
+	Element      string   `json:"element"`
+	BundleID     *string  `json:"bundleId,omitempty"`
+	Source       *string  `json:"source,omitempty"`
+	Shadow       *bool    `json:"shadow,omitempty"`
+	ObservedProps []string `json:"observedProps,omitempty"`
+	Width        *string  `json:"width,omitempty"`
+}
+
+// UploadBundleRequest for uploading a Web Component bundle
+type UploadBundleRequest struct {
+	Namespace string `json:"namespace"`
+	Source    string `json:"source"`
+}
+
+// UploadBundleResponse from uploading a bundle
+type UploadBundleResponse struct {
+	BundleID  string `json:"bundleId"`
+	Namespace string `json:"namespace"`
+	URL       string `json:"url"`
+	Size      int    `json:"size"`
+}
+
 type NodeTemplate struct {
 	ID           string                        `json:"id"`
 	Type         string                        `json:"type"`
@@ -203,6 +227,7 @@ type NodeTemplate struct {
 	Ports        []Port                        `json:"ports"`
 	Properties   map[string]PropertyDefinition `json:"properties,omitempty"`
 	Runtime      *RuntimeRequirements          `json:"runtime,omitempty"`
+	Display      *DisplayComponent             `json:"display,omitempty"`
 }
 
 type Port struct {

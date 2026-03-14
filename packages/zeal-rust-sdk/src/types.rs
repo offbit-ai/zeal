@@ -6,6 +6,45 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Display component for Web Component-based node rendering
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisplayComponent {
+    /// Custom element tag name (must contain a hyphen)
+    pub element: String,
+    /// Reference to an uploaded bundle served by Zeal
+    #[serde(rename = "bundleId", skip_serializing_if = "Option::is_none")]
+    pub bundle_id: Option<String>,
+    /// Inline JS source for small components
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// Use Shadow DOM for style isolation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shadow: Option<bool>,
+    /// Property names forwarded as JS properties
+    #[serde(rename = "observedProps", skip_serializing_if = "Option::is_none")]
+    pub observed_props: Option<Vec<String>>,
+    /// Custom node width
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<String>,
+}
+
+/// Upload bundle request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UploadBundleRequest {
+    pub namespace: String,
+    pub source: String,
+}
+
+/// Upload bundle response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UploadBundleResponse {
+    #[serde(rename = "bundleId")]
+    pub bundle_id: String,
+    pub namespace: String,
+    pub url: String,
+    pub size: usize,
+}
+
 /// Node template definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeTemplate {
@@ -26,6 +65,9 @@ pub struct NodeTemplate {
     #[serde(rename = "propertyRules")]
     pub property_rules: Option<PropertyRules>,
     pub runtime: Option<RuntimeRequirements>,
+    /// Custom display component (Web Component)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display: Option<DisplayComponent>,
 }
 
 /// Node shape variants
@@ -533,6 +575,7 @@ mod tests {
             properties: None,
             property_rules: None,
             runtime: None,
+            display: None,
         };
 
         let json = serde_json::to_string(&template).unwrap();

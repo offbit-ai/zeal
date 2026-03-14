@@ -269,6 +269,36 @@ class RuntimeRequirements(BaseModel):
     timeout: Optional[int] = None
 
 
+class DisplayComponent(BaseModel):
+    """Web Component display configuration for custom node rendering."""
+    element: str
+    bundle_id: Optional[str] = Field(default=None, alias="bundleId")
+    source: Optional[str] = None
+    shadow: Optional[bool] = None
+    observed_props: Optional[List[str]] = Field(default=None, alias="observedProps")
+    width: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class UploadBundleRequest(BaseModel):
+    """Request to upload a Web Component bundle."""
+    namespace: str
+    source: str
+
+
+class UploadBundleResponse(BaseModel):
+    """Response from uploading a bundle."""
+    bundle_id: str = Field(alias="bundleId")
+    namespace: str
+    url: str
+    size: int
+
+    class Config:
+        populate_by_name = True
+
+
 class NodeTemplate(BaseModel):
     """Node template definition."""
     id: str
@@ -285,6 +315,7 @@ class NodeTemplate(BaseModel):
     ports: List[Port]
     properties: Optional[Dict[str, PropertyDefinition]] = None
     runtime: Optional[RuntimeRequirements] = None
+    display: Optional[DisplayComponent] = None
 
 
 class RegisterTemplatesRequest(BaseModel):

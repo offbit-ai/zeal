@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 public class TemplatesAPI {
     private final ZealClient client;
     private static final String BASE_PATH = "/api/zip/templates";
+    private static final String COMPONENTS_PATH = "/api/zip/components";
 
     public TemplatesAPI(ZealClient client) {
         this.client = client;
@@ -56,5 +57,26 @@ public class TemplatesAPI {
      */
     public void deleteTemplate(String templateId) throws ZealException {
         client.makeRequest("DELETE", BASE_PATH + "/" + templateId, null, Void.class);
+    }
+
+    /**
+     * Upload a Web Component bundle for custom node rendering.
+     * Returns bundle metadata including the bundleId to reference in template.display.
+     */
+    public Object uploadBundle(String namespace, String source) throws ZealException {
+        java.util.Map<String, String> body = new java.util.HashMap<>();
+        body.put("namespace", namespace);
+        body.put("source", source);
+        return client.makeRequest("POST", COMPONENTS_PATH, body, Object.class);
+    }
+
+    /**
+     * Upload a Web Component bundle asynchronously.
+     */
+    public CompletableFuture<Object> uploadBundleAsync(String namespace, String source) {
+        java.util.Map<String, String> body = new java.util.HashMap<>();
+        body.put("namespace", namespace);
+        body.put("source", source);
+        return client.makeRequestAsync("POST", COMPONENTS_PATH, body, Object.class);
     }
 }
