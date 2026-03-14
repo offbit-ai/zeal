@@ -696,7 +696,15 @@ class EventsAPI {
           resolve()
         }
 
+        this.socket.binaryType = 'arraybuffer'
+
         this.socket.onmessage = (event) => {
+          // Handle binary stream frames
+          if (event.data instanceof ArrayBuffer) {
+            this.handleBinaryFrame(event.data)
+            return
+          }
+
           try {
             const data = JSON.parse(event.data)
             this.handleMessage(data)
@@ -776,6 +784,51 @@ class EventsAPI {
     const wildcardHandlers = this.handlers.get('*')
     if (wildcardHandlers) {
       wildcardHandlers.forEach(handler => handler(data))
+    }
+  }
+
+  private handleBinaryFrame(data: ArrayBuffer): void {
+    if (data.byteLength < 9) return
+
+    const view = new DataView(data)
+    const frameType = view.getUint8(0)
+    const streamIdLow = view.getUint32(1, true)
+    const streamIdHigh = view.getUint32(5, true)
+    const streamId = streamIdLow + streamIdHigh * 0x100000000
+    const payload = new Uint8Array(data.slice(9))
+
+    const typeMap: Record<number, string> = {
+      0x01: 'begin',
+      0x02: 'data',
+      0x03: 'end',
+      0x04: 'error',
+    }
+    const type = typeMap[frameType] || 'data'
+
+    const frame = {
+      type,
+      streamId,
+      payload,
+      metadata: frameType === 0x01 ? JSON.parse(new TextDecoder().decode(payload)) : undefined,
+      message: frameType === 0x04 ? new TextDecoder().decode(payload) : undefined,
+    }
+
+    // Emit to stream.frame handlers
+    const frameHandlers = this.handlers.get('stream.frame')
+    if (frameHandlers) {
+      frameHandlers.forEach(handler => handler(frame))
+    }
+
+    // Emit to specific stream frame type handlers (e.g., 'stream.frame.data')
+    const specificHandlers = this.handlers.get(`stream.frame.${type}`)
+    if (specificHandlers) {
+      specificHandlers.forEach(handler => handler(frame))
+    }
+
+    // Emit to wildcard handlers
+    const wildcardHandlers = this.handlers.get('*')
+    if (wildcardHandlers) {
+      wildcardHandlers.forEach(handler => handler(frame))
     }
   }
 

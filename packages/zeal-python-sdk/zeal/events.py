@@ -243,6 +243,43 @@ class TraceEventData(ZipEventBase):
         populate_by_name = True
 
 
+# === Stream Events ===
+
+class StreamOpenedEvent(ZipEventBase):
+    """Stream opened event - a node is producing a binary stream."""
+    type: str = "stream.opened"
+    node_id: str = Field(alias="nodeId")
+    port: str
+    stream_id: int = Field(alias="streamId")
+    content_type: Optional[str] = Field(default=None, alias="contentType")
+    size_hint: Optional[int] = Field(default=None, alias="sizeHint")
+
+    class Config:
+        populate_by_name = True
+
+
+class StreamClosedEvent(ZipEventBase):
+    """Stream closed event - a stream terminated normally."""
+    type: str = "stream.closed"
+    node_id: str = Field(alias="nodeId")
+    stream_id: int = Field(alias="streamId")
+    total_bytes: int = Field(alias="totalBytes")
+
+    class Config:
+        populate_by_name = True
+
+
+class StreamErrorEvent(ZipEventBase):
+    """Stream error event - a stream terminated with an error."""
+    type: str = "stream.error"
+    node_id: str = Field(alias="nodeId")
+    stream_id: int = Field(alias="streamId")
+    error: str
+
+    class Config:
+        populate_by_name = True
+
+
 # === Control Events ===
 
 class SubscribeEvent(BaseModel):
@@ -325,18 +362,26 @@ ZipControlEvent = Union[
     PongEvent
 ]
 
+ZipStreamEvent = Union[
+    StreamOpenedEvent,
+    StreamClosedEvent,
+    StreamErrorEvent
+]
+
 ZipWebSocketEvent = Union[
     ZipExecutionEvent,
     ZipControlEvent,
     WorkflowUpdatedEvent,
     ConnectionStateEvent,
-    ZipCRDTEvent
+    ZipCRDTEvent,
+    ZipStreamEvent
 ]
 
 ZipWebhookEvent = Union[
     ZipExecutionEvent,
     ZipWorkflowEvent,
-    ZipCRDTEvent
+    ZipCRDTEvent,
+    ZipStreamEvent
 ]
 
 
@@ -393,6 +438,11 @@ def is_connection_crdt_event(event_type: str) -> bool:
 def is_template_event(event_type: str) -> bool:
     """Check if event type is a template-related event."""
     return event_type.startswith("template.")
+
+
+def is_stream_event(event_type: str) -> bool:
+    """Check if event type is a stream event."""
+    return event_type.startswith("stream.")
 
 
 # Event creation helpers
@@ -532,6 +582,99 @@ def create_connection_deleted_event(
     )
 
 
+def create_stream_opened_event(
+    workflow_id: str,
+    node_id: str,
+    port: str,
+    stream_id: int,
+    content_type: Optional[str] = None,
+    size_hint: Optional[int] = None,
+    graph_id: Optional[str] = None
+) -> StreamOpenedEvent:
+    """Create a stream opened event."""
+    return StreamOpenedEvent(
+        id=generate_event_id(),
+        timestamp=current_timestamp(),
+        workflow_id=workflow_id,
+        graph_id=graph_id,
+        node_id=node_id,
+        port=port,
+        stream_id=stream_id,
+        content_type=content_type,
+        size_hint=size_hint
+    )
+
+
+def create_stream_closed_event(
+    workflow_id: str,
+    node_id: str,
+    stream_id: int,
+    total_bytes: int,
+    graph_id: Optional[str] = None
+) -> StreamClosedEvent:
+    """Create a stream closed event."""
+    return StreamClosedEvent(
+        id=generate_event_id(),
+        timestamp=current_timestamp(),
+        workflow_id=workflow_id,
+        graph_id=graph_id,
+        node_id=node_id,
+        stream_id=stream_id,
+        total_bytes=total_bytes
+    )
+
+
+def create_stream_error_event(
+    workflow_id: str,
+    node_id: str,
+    stream_id: int,
+    error: str,
+    graph_id: Optional[str] = None
+) -> StreamErrorEvent:
+    """Create a stream error event."""
+    return StreamErrorEvent(
+        id=generate_event_id(),
+        timestamp=current_timestamp(),
+        workflow_id=workflow_id,
+        graph_id=graph_id,
+        node_id=node_id,
+        stream_id=stream_id,
+        error=error
+    )
+
+
+def parse_stream_frame(data: bytes) -> dict:
+    """Parse a binary stream frame.
+
+    Wire format: [1 byte: frame_type] [8 bytes: stream_id LE u64] [payload...]
+    """
+    import struct
+
+    if len(data) < 9:
+        raise ValueError(f"Stream frame too short: {len(data)} bytes")
+
+    frame_type = data[0]
+    stream_id = struct.unpack_from("<Q", data, 1)[0]
+    payload = data[9:]
+
+    type_map = {0x01: "begin", 0x02: "data", 0x03: "end", 0x04: "error"}
+    frame_type_str = type_map.get(frame_type, "data")
+
+    result: Dict[str, Any] = {
+        "type": frame_type_str,
+        "stream_id": stream_id,
+        "payload": payload,
+    }
+
+    if frame_type == 0x01:
+        import json as json_mod
+        result["metadata"] = json_mod.loads(payload.decode("utf-8"))
+    elif frame_type == 0x04:
+        result["message"] = payload.decode("utf-8")
+
+    return result
+
+
 # Event parsing
 EVENT_TYPE_MAP: Dict[str, Type[ZipWebhookEvent]] = {
     # Execution events
@@ -557,6 +700,10 @@ EVENT_TYPE_MAP: Dict[str, Type[ZipWebhookEvent]] = {
     "group.deleted": GroupDeletedEvent,
     "template.registered": TemplateRegisteredEvent,
     "trace.event": TraceEventData,
+    # Stream events
+    "stream.opened": StreamOpenedEvent,
+    "stream.closed": StreamClosedEvent,
+    "stream.error": StreamErrorEvent,
 }
 
 

@@ -220,6 +220,87 @@ export interface TraceEvent extends ZipEventBase {
 }
 
 /**
+ * Stream display events (from Reflow binary streaming infrastructure)
+ */
+export interface StreamOpenedEvent extends ZipEventBase {
+  type: 'stream.opened'
+  /** Node ID producing the stream */
+  nodeId: string
+  /** Output port name */
+  port: string
+  /** Process-local stream identifier */
+  streamId: number
+  /** MIME content type of the stream data */
+  contentType?: string
+  /** Expected total size in bytes */
+  sizeHint?: number
+}
+
+export interface StreamClosedEvent extends ZipEventBase {
+  type: 'stream.closed'
+  /** Node ID that produced the stream */
+  nodeId: string
+  /** Stream identifier */
+  streamId: number
+  /** Total bytes transferred */
+  totalBytes: number
+}
+
+export interface StreamErrorEvent extends ZipEventBase {
+  type: 'stream.error'
+  /** Node ID that produced the stream */
+  nodeId: string
+  /** Stream identifier */
+  streamId: number
+  /** Error description */
+  error: string
+}
+
+export type ZipStreamEvent =
+  | StreamOpenedEvent
+  | StreamClosedEvent
+  | StreamErrorEvent
+
+/**
+ * Type guard for stream events
+ */
+export function isStreamEvent(event: any): event is ZipStreamEvent {
+  return event?.type?.startsWith('stream.')
+}
+
+/**
+ * Parse a binary stream frame from an ArrayBuffer.
+ * Wire format: [1 byte: frame_type] [8 bytes: stream_id LE u64] [payload...]
+ */
+export function parseStreamFrame(data: ArrayBuffer): {
+  type: 'begin' | 'data' | 'end' | 'error'
+  streamId: number
+  payload: Uint8Array
+  metadata?: any
+  message?: string
+} {
+  const view = new DataView(data)
+  const frameType = view.getUint8(0)
+  const streamIdLow = view.getUint32(1, true)
+  const streamIdHigh = view.getUint32(5, true)
+  const streamId = streamIdLow + streamIdHigh * 0x100000000
+  const payload = new Uint8Array(data.slice(9))
+
+  switch (frameType) {
+    case 0x01:
+      return { type: 'begin', streamId, payload, metadata: JSON.parse(new TextDecoder().decode(payload)) }
+    case 0x02:
+      return { type: 'data', streamId, payload }
+    case 0x03:
+      return { type: 'end', streamId, payload }
+    case 0x04:
+      return { type: 'error', streamId, payload, message: new TextDecoder().decode(payload) }
+    default:
+      return { type: 'data', streamId, payload }
+  }
+}
+
+/**
  * WebSocket control events
  */
 export interface SubscribeEvent {
@@ -287,8 +368,8 @@ export interface ConnectionStateEvent extends ZipEventBase {
   targetNodeId: string
 }
 
-export type ZipWebSocketEvent = ZipExecutionEvent | ZipControlEvent | WorkflowUpdatedEvent | ConnectionStateEvent | ZipCRDTEvent
-export type ZipWebhookEvent = ZipExecutionEvent | ZipWorkflowEvent | ZipCRDTEvent
+export type ZipWebSocketEvent = ZipExecutionEvent | ZipControlEvent | WorkflowUpdatedEvent | ConnectionStateEvent | ZipCRDTEvent | ZipStreamEvent
+export type ZipWebhookEvent = ZipExecutionEvent | ZipWorkflowEvent | ZipCRDTEvent | ZipStreamEvent
 
 /**
  * Type guards
@@ -444,6 +525,82 @@ export function createExecutionFailedEvent(
     graphId: options?.graphId,
     sessionId,
     duration: options?.duration,
+    error,
+    metadata: options?.metadata,
+  }
+}
+
+/**
+ * Stream event creation helpers
+ */
+export function createStreamOpenedEvent(
+  workflowId: string,
+  nodeId: string,
+  port: string,
+  streamId: number,
+  options?: {
+    graphId?: string
+    contentType?: string
+    sizeHint?: number
+    metadata?: Record<string, any>
+  }
+): StreamOpenedEvent {
+  return {
+    id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    type: 'stream.opened',
+    timestamp: new Date().toISOString(),
+    workflowId,
+    graphId: options?.graphId,
+    nodeId,
+    port,
+    streamId,
+    contentType: options?.contentType,
+    sizeHint: options?.sizeHint,
+    metadata: options?.metadata,
+  }
+}
+
+export function createStreamClosedEvent(
+  workflowId: string,
+  nodeId: string,
+  streamId: number,
+  totalBytes: number,
+  options?: {
+    graphId?: string
+    metadata?: Record<string, any>
+  }
+): StreamClosedEvent {
+  return {
+    id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    type: 'stream.closed',
+    timestamp: new Date().toISOString(),
+    workflowId,
+    graphId: options?.graphId,
+    nodeId,
+    streamId,
+    totalBytes,
+    metadata: options?.metadata,
+  }
+}
+
+export function createStreamErrorEvent(
+  workflowId: string,
+  nodeId: string,
+  streamId: number,
+  error: string,
+  options?: {
+    graphId?: string
+    metadata?: Record<string, any>
+  }
+): StreamErrorEvent {
+  return {
+    id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    type: 'stream.error',
+    timestamp: new Date().toISOString(),
+    workflowId,
+    graphId: options?.graphId,
+    nodeId,
+    streamId,
     error,
     metadata: options?.metadata,
   }

@@ -35,7 +35,11 @@ import java.util.Map;
     @JsonSubTypes.Type(value = ConnectionDeletedEvent.class, name = "connection.deleted"),
     @JsonSubTypes.Type(value = GroupCreatedEvent.class, name = "group.created"),
     @JsonSubTypes.Type(value = GroupUpdatedEvent.class, name = "group.updated"),
-    @JsonSubTypes.Type(value = GroupDeletedEvent.class, name = "group.deleted")
+    @JsonSubTypes.Type(value = GroupDeletedEvent.class, name = "group.deleted"),
+    // Stream events
+    @JsonSubTypes.Type(value = StreamOpenedEvent.class, name = "stream.opened"),
+    @JsonSubTypes.Type(value = StreamClosedEvent.class, name = "stream.closed"),
+    @JsonSubTypes.Type(value = StreamErrorEvent.class, name = "stream.error")
 })
 public abstract class ZipEvent {
     @JsonProperty("id")
@@ -176,5 +180,12 @@ public abstract class ZipEvent {
      */
     public boolean isConnectionEvent() {
         return type != null && type.startsWith("connection.");
+    }
+
+    /**
+     * Check if this is a stream event.
+     */
+    public boolean isStreamEvent() {
+        return type != null && type.startsWith("stream.");
     }
 }

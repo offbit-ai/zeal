@@ -9,12 +9,18 @@ import {
   RuntimeEvent,
   RuntimeEventType,
   ZealClientConfig,
+  StreamOpenedEvent,
+  StreamClosedEvent,
+  StreamFrame,
 } from './types'
 
 export interface EventHandlers {
   onZealEvent?: (event: ZealEvent) => void
   onRuntimeEvent?: (event: RuntimeEvent) => void
   onVisualStateUpdate?: (update: any) => void
+  onStreamOpened?: (event: StreamOpenedEvent) => void
+  onStreamClosed?: (event: StreamClosedEvent) => void
+  onStreamFrame?: (streamId: number, frameType: string, payload: Uint8Array) => void
   onError?: (error: any) => void
   onConnected?: () => void
   onDisconnected?: () => void
@@ -103,6 +109,24 @@ export class EventsAPI {
         }
       })
       
+      // Handle stream lifecycle events
+      this.socket.on('zip.event', (event: any) => {
+        if (event?.type === 'stream.opened' && this.handlers.onStreamOpened) {
+          this.handlers.onStreamOpened(event as StreamOpenedEvent)
+        }
+        if (event?.type === 'stream.closed' && this.handlers.onStreamClosed) {
+          this.handlers.onStreamClosed(event as StreamClosedEvent)
+        }
+      })
+
+      // Handle binary stream frames
+      this.socket.on('stream.frame', (data: ArrayBuffer) => {
+        if (this.handlers.onStreamFrame) {
+          const parsed = parseStreamFrame(data)
+          this.handlers.onStreamFrame(parsed.streamId, parsed.type, parsed.payload)
+        }
+      })
+
       // Handle workflow state
       this.socket.on('workflow.state', (state: any) => {
         console.log('Received workflow state:', state)
@@ -194,7 +218,7 @@ export class EventsAPI {
       end: RuntimeEventType.CONNECTION_FLOW_END,
       error: RuntimeEventType.CONNECTION_FLOW_ERROR,
     }
-    
+
     this.emitRuntimeEvent({
       type: typeMap[status],
       workflowId,
@@ -204,5 +228,33 @@ export class EventsAPI {
         ...data,
       },
     })
+  }
+}
+
+/**
+ * Parse a binary stream frame from an ArrayBuffer.
+ * Wire format: [1 byte: frame_type] [8 bytes: stream_id LE u64] [payload...]
+ */
+function parseStreamFrame(data: ArrayBuffer): StreamFrame {
+  const view = new DataView(data)
+  const frameType = view.getUint8(0)
+  const streamIdLow = view.getUint32(1, true)
+  const streamIdHigh = view.getUint32(5, true)
+  const streamId = streamIdLow + streamIdHigh * 0x100000000
+  const payload = new Uint8Array(data.slice(9))
+
+  const typeMap: Record<number, StreamFrame['type']> = {
+    0x01: 'begin',
+    0x02: 'data',
+    0x03: 'end',
+    0x04: 'error',
+  }
+
+  return {
+    type: typeMap[frameType] || 'data',
+    streamId,
+    payload,
+    metadata: frameType === 0x01 ? JSON.parse(new TextDecoder().decode(payload)) : undefined,
+    message: frameType === 0x04 ? new TextDecoder().decode(payload) : undefined,
   }
 }

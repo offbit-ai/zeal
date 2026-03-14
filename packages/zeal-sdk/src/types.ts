@@ -195,7 +195,56 @@ export enum RuntimeEventType {
   CONNECTION_FLOW_ERROR = 'connection.flow.error',
   WORKFLOW_EXECUTION_START = 'workflow.execution.start',
   WORKFLOW_EXECUTION_COMPLETE = 'workflow.execution.complete',
-  WORKFLOW_EXECUTION_ERROR = 'workflow.execution.error'
+  WORKFLOW_EXECUTION_ERROR = 'workflow.execution.error',
+  // Stream lifecycle events
+  STREAM_OPENED = 'stream.opened',
+  STREAM_CLOSED = 'stream.closed',
+  STREAM_ERROR = 'stream.error',
+}
+
+/**
+ * Stream event interfaces
+ */
+export interface StreamOpenedEvent {
+  type: 'stream.opened'
+  workflowId: string
+  executionId?: string
+  nodeId: string
+  port: string
+  streamId: number
+  contentType?: string
+  sizeHint?: number
+}
+
+export interface StreamClosedEvent {
+  type: 'stream.closed'
+  workflowId: string
+  executionId?: string
+  nodeId: string
+  streamId: number
+  totalBytes: number
+}
+
+export interface StreamErrorEvent {
+  type: 'stream.error'
+  workflowId: string
+  executionId?: string
+  nodeId: string
+  streamId: number
+  error: string
+}
+
+export type StreamEvent = StreamOpenedEvent | StreamClosedEvent | StreamErrorEvent
+
+/**
+ * Parsed binary stream frame
+ */
+export interface StreamFrame {
+  type: 'begin' | 'data' | 'end' | 'error'
+  streamId: number
+  payload: Uint8Array
+  metadata?: any
+  message?: string
 }
 
 export interface RuntimeEvent {

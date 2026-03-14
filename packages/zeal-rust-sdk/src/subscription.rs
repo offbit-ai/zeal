@@ -401,6 +401,7 @@ impl WebhookSubscription {
                     ZipWebhookEvent::Execution(e) => e.event_type(),
                     ZipWebhookEvent::Workflow(e) => e.event_type(),
                     ZipWebhookEvent::CRDT(e) => e.event_type(),
+                    ZipWebhookEvent::Stream(e) => e.event_type(),
                 };
                 if event_types.contains(&event_type.to_string()) {
                     callback(event).await
@@ -428,6 +429,7 @@ impl WebhookSubscription {
                     ZipWebhookEvent::Execution(e) => e.workflow_id(),
                     ZipWebhookEvent::Workflow(e) => e.workflow_id(),
                     ZipWebhookEvent::CRDT(e) => e.workflow_id(),
+                    ZipWebhookEvent::Stream(e) => e.workflow_id(),
                 };
                 if sources.contains(&workflow_id.to_string()) {
                     callback(event).await

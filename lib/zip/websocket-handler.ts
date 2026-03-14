@@ -6,7 +6,7 @@
 import { Server as HTTPServer } from 'http'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { z } from 'zod'
-import { 
+import {
   ZipWebSocketEvent,
   WorkflowUpdatedEvent,
   createNodeExecutingEvent,
@@ -15,8 +15,13 @@ import {
   createExecutionStartedEvent,
   createExecutionCompletedEvent,
   createExecutionFailedEvent,
+  createStreamOpenedEvent,
+  createStreamClosedEvent,
+  createStreamErrorEvent,
   isExecutionEvent,
   isNodeEvent,
+  isStreamEvent,
+  parseStreamFrame,
 } from '@/types/zip-events'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 import { getZipWebhookOperations } from '@/lib/database-zip-operations'
@@ -42,6 +47,10 @@ const runtimeEventSchema = z.object({
     'execution.completed',
     'execution.failed',
     'connection.state',
+    // Stream lifecycle events
+    'stream.opened',
+    'stream.closed',
+    'stream.error',
   ]),
   workflowId: z.string(),
   timestamp: z.string(),
@@ -49,6 +58,13 @@ const runtimeEventSchema = z.object({
   graphId: z.string().optional(),
   data: z.any().optional(),
   metadata: z.any().optional(),
+  // Stream-specific optional fields
+  streamId: z.number().optional(),
+  port: z.string().optional(),
+  contentType: z.string().optional(),
+  sizeHint: z.number().optional(),
+  totalBytes: z.number().optional(),
+  error: z.string().optional(),
 })
 
 // Visual state update interface
@@ -124,6 +140,11 @@ export class ZipWebSocketHandler {
       // Handle runtime events
       socket.on('runtime.event', async (data) => {
         await this.handleRuntimeEvent(socket, data)
+      })
+
+      // Handle binary stream frames from Reflow
+      socket.on('stream.frame', (data: Buffer) => {
+        this.handleStreamFrame(socket, data)
       })
 
       // Handle visual state updates
@@ -298,6 +319,44 @@ export class ZipWebSocketHandler {
             }
           )
           break
+        case 'stream.opened':
+          typedEvent = createStreamOpenedEvent(
+            eventData.workflowId,
+            eventData.nodeId || '',
+            eventData.port || '',
+            eventData.streamId || 0,
+            {
+              graphId: eventData.graphId || 'main',
+              contentType: eventData.contentType,
+              sizeHint: eventData.sizeHint,
+              metadata: eventData.metadata,
+            }
+          )
+          break
+        case 'stream.closed':
+          typedEvent = createStreamClosedEvent(
+            eventData.workflowId,
+            eventData.nodeId || '',
+            eventData.streamId || 0,
+            eventData.totalBytes || 0,
+            {
+              graphId: eventData.graphId || 'main',
+              metadata: eventData.metadata,
+            }
+          )
+          break
+        case 'stream.error':
+          typedEvent = createStreamErrorEvent(
+            eventData.workflowId,
+            eventData.nodeId || '',
+            eventData.streamId || 0,
+            eventData.error || 'Unknown stream error',
+            {
+              graphId: eventData.graphId || 'main',
+              metadata: eventData.metadata,
+            }
+          )
+          break
       }
       
       if (typedEvent) {
@@ -359,6 +418,30 @@ export class ZipWebSocketHandler {
         code: 'UPDATE_ERROR',
         message: 'Failed to process visual state update',
       })
+    }
+  }
+
+  private handleStreamFrame(socket: Socket, data: Buffer) {
+    const client = this.clients.get(socket.id)
+    if (!client?.authenticated) return
+
+    try {
+      const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      const parsed = parseStreamFrame(arrayBuffer)
+
+      // Broadcast the binary frame to all browser clients in the workflow room
+      this.io.to(`workflow:${client.workflowId}`).emit('stream.frame', data)
+
+      // Also emit a parsed JSON version for clients that prefer structured data
+      this.io.to(`workflow:${client.workflowId}`).emit('stream.frame.parsed', {
+        streamId: parsed.streamId,
+        type: parsed.type,
+        metadata: parsed.metadata,
+        message: parsed.message,
+        payloadSize: parsed.payload.length,
+      })
+    } catch (error) {
+      console.error('Stream frame error:', error)
     }
   }
 

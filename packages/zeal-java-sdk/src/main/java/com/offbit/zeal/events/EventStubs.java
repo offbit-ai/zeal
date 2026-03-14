@@ -170,8 +170,68 @@ class GroupUpdatedEvent extends ZipEvent {
 class GroupDeletedEvent extends ZipEvent {
     @JsonProperty("data")
     private Map<String, Object> data;
-    
+
     public GroupDeletedEvent() { super("group.deleted"); }
     public Map<String, Object> getData() { return data; }
     public void setData(Map<String, Object> data) { this.data = data; }
+}
+
+// Stream events
+class StreamOpenedEvent extends ZipEvent {
+    @JsonProperty("nodeId")
+    private String nodeId;
+    @JsonProperty("port")
+    private String port;
+    @JsonProperty("streamId")
+    private Long streamId;
+    @JsonProperty("contentType")
+    private String contentType;
+    @JsonProperty("sizeHint")
+    private Long sizeHint;
+
+    public StreamOpenedEvent() { super("stream.opened"); }
+    public String getNodeId() { return nodeId; }
+    public void setNodeId(String nodeId) { this.nodeId = nodeId; }
+    public String getPort() { return port; }
+    public void setPort(String port) { this.port = port; }
+    public Long getStreamId() { return streamId; }
+    public void setStreamId(Long streamId) { this.streamId = streamId; }
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
+    public Long getSizeHint() { return sizeHint; }
+    public void setSizeHint(Long sizeHint) { this.sizeHint = sizeHint; }
+}
+
+class StreamClosedEvent extends ZipEvent {
+    @JsonProperty("nodeId")
+    private String nodeId;
+    @JsonProperty("streamId")
+    private Long streamId;
+    @JsonProperty("totalBytes")
+    private Long totalBytes;
+
+    public StreamClosedEvent() { super("stream.closed"); }
+    public String getNodeId() { return nodeId; }
+    public void setNodeId(String nodeId) { this.nodeId = nodeId; }
+    public Long getStreamId() { return streamId; }
+    public void setStreamId(Long streamId) { this.streamId = streamId; }
+    public Long getTotalBytes() { return totalBytes; }
+    public void setTotalBytes(Long totalBytes) { this.totalBytes = totalBytes; }
+}
+
+class StreamErrorEvent extends ZipEvent {
+    @JsonProperty("nodeId")
+    private String nodeId;
+    @JsonProperty("streamId")
+    private Long streamId;
+    @JsonProperty("error")
+    private String error;
+
+    public StreamErrorEvent() { super("stream.error"); }
+    public String getNodeId() { return nodeId; }
+    public void setNodeId(String nodeId) { this.nodeId = nodeId; }
+    public Long getStreamId() { return streamId; }
+    public void setStreamId(Long streamId) { this.streamId = streamId; }
+    public String getError() { return error; }
+    public void setError(String error) { this.error = error; }
 }

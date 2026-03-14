@@ -1,6 +1,7 @@
 package zeal
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -185,6 +186,78 @@ type TraceEventData struct {
 	SessionID string                 `json:"sessionId"`
 	NodeID    string                 `json:"nodeId"`
 	Data      map[string]interface{} `json:"data"`
+}
+
+// Stream display events (from Reflow binary streaming infrastructure)
+type StreamOpenedEvent struct {
+	ZipEventBase
+	Type        string  `json:"type"` // Always "stream.opened"
+	NodeID      string  `json:"nodeId"`
+	Port        string  `json:"port"`
+	StreamID    uint64  `json:"streamId"`
+	ContentType *string `json:"contentType,omitempty"`
+	SizeHint    *uint64 `json:"sizeHint,omitempty"`
+}
+
+type StreamClosedEvent struct {
+	ZipEventBase
+	Type       string `json:"type"` // Always "stream.closed"
+	NodeID     string `json:"nodeId"`
+	StreamID   uint64 `json:"streamId"`
+	TotalBytes uint64 `json:"totalBytes"`
+}
+
+type StreamErrorEvent struct {
+	ZipEventBase
+	Type     string `json:"type"` // Always "stream.error"
+	NodeID   string `json:"nodeId"`
+	StreamID uint64 `json:"streamId"`
+	Error    string `json:"error"`
+}
+
+// Implement ZipWebSocketEvent and ZipWebhookEvent interfaces for stream events
+func (e *StreamOpenedEvent) GetEventType() string  { return e.Type }
+func (e *StreamOpenedEvent) GetWorkflowID() string { return e.WorkflowID }
+
+func (e *StreamClosedEvent) GetEventType() string  { return e.Type }
+func (e *StreamClosedEvent) GetWorkflowID() string { return e.WorkflowID }
+
+func (e *StreamErrorEvent) GetEventType() string  { return e.Type }
+func (e *StreamErrorEvent) GetWorkflowID() string { return e.WorkflowID }
+
+// Binary stream frame types
+const (
+	StreamFrameBegin byte = 0x01
+	StreamFrameData  byte = 0x02
+	StreamFrameEnd   byte = 0x03
+	StreamFrameError byte = 0x04
+)
+
+// StreamFrame represents a parsed binary stream frame
+type StreamFrame struct {
+	FrameType byte
+	StreamID  uint64
+	Payload   []byte
+}
+
+// ParseStreamFrame parses a binary stream frame.
+// Wire format: [1 byte: frame_type] [8 bytes: stream_id LE u64] [payload...]
+func ParseStreamFrame(data []byte) (*StreamFrame, error) {
+	if len(data) < 9 {
+		return nil, fmt.Errorf("stream frame too short: %d bytes", len(data))
+	}
+	frameType := data[0]
+	if frameType < StreamFrameBegin || frameType > StreamFrameError {
+		return nil, fmt.Errorf("invalid stream frame type: 0x%02x", frameType)
+	}
+	streamID := binary.LittleEndian.Uint64(data[1:9])
+	payload := make([]byte, len(data)-9)
+	copy(payload, data[9:])
+	return &StreamFrame{
+		FrameType: frameType,
+		StreamID:  streamID,
+		Payload:   payload,
+	}, nil
 }
 
 // WebSocket control events
@@ -461,6 +534,14 @@ func IsTemplateEvent(eventType string) bool {
 	return false
 }
 
+func IsStreamEvent(eventType string) bool {
+	switch eventType {
+	case "stream.opened", "stream.closed", "stream.error":
+		return true
+	}
+	return false
+}
+
 // Event creation helpers
 func generateEventID() string {
 	timestamp := time.Now().UnixMilli()
@@ -589,6 +670,54 @@ func CreateConnectionDeletedEvent(workflowID string, data map[string]interface{}
 	}
 }
 
+// Stream event creation helpers
+func CreateStreamOpenedEvent(workflowID, nodeID, port string, streamID uint64, contentType *string, sizeHint *uint64, graphID *string) *StreamOpenedEvent {
+	return &StreamOpenedEvent{
+		ZipEventBase: ZipEventBase{
+			ID:         generateEventID(),
+			Timestamp:  currentTimestamp(),
+			WorkflowID: workflowID,
+			GraphID:    graphID,
+		},
+		Type:        "stream.opened",
+		NodeID:      nodeID,
+		Port:        port,
+		StreamID:    streamID,
+		ContentType: contentType,
+		SizeHint:    sizeHint,
+	}
+}
+
+func CreateStreamClosedEvent(workflowID, nodeID string, streamID, totalBytes uint64, graphID *string) *StreamClosedEvent {
+	return &StreamClosedEvent{
+		ZipEventBase: ZipEventBase{
+			ID:         generateEventID(),
+			Timestamp:  currentTimestamp(),
+			WorkflowID: workflowID,
+			GraphID:    graphID,
+		},
+		Type:       "stream.closed",
+		NodeID:     nodeID,
+		StreamID:   streamID,
+		TotalBytes: totalBytes,
+	}
+}
+
+func CreateStreamErrorEvent(workflowID, nodeID string, streamID uint64, errorMsg string, graphID *string) *StreamErrorEvent {
+	return &StreamErrorEvent{
+		ZipEventBase: ZipEventBase{
+			ID:         generateEventID(),
+			Timestamp:  currentTimestamp(),
+			WorkflowID: workflowID,
+			GraphID:    graphID,
+		},
+		Type:     "stream.error",
+		NodeID:   nodeID,
+		StreamID: streamID,
+		Error:    errorMsg,
+	}
+}
+
 // Event parsing from JSON
 func ParseZipWebhookEvent(data []byte) (ZipWebhookEvent, error) {
 	var eventType struct {
@@ -681,6 +810,19 @@ func ParseZipWebhookEvent(data []byte) (ZipWebhookEvent, error) {
 		return &event, err
 	case "trace.event":
 		var event TraceEventData
+		err := json.Unmarshal(data, &event)
+		return &event, err
+	// Stream events
+	case "stream.opened":
+		var event StreamOpenedEvent
+		err := json.Unmarshal(data, &event)
+		return &event, err
+	case "stream.closed":
+		var event StreamClosedEvent
+		err := json.Unmarshal(data, &event)
+		return &event, err
+	case "stream.error":
+		var event StreamErrorEvent
 		err := json.Unmarshal(data, &event)
 		return &event, err
 	default:

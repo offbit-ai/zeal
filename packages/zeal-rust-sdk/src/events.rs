@@ -390,6 +390,146 @@ pub struct TraceEventData {
     pub data: serde_json::Value,
 }
 
+/// Stream display events (from Reflow binary streaming infrastructure)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamOpenedEvent {
+    #[serde(flatten)]
+    pub base: ZipEventBase,
+    /// Event type
+    #[serde(rename = "type")]
+    pub event_type: String, // Always "stream.opened"
+    /// Node ID producing the stream
+    #[serde(rename = "nodeId")]
+    pub node_id: String,
+    /// Output port name
+    pub port: String,
+    /// Process-local stream identifier
+    #[serde(rename = "streamId")]
+    pub stream_id: u64,
+    /// MIME content type of the stream data
+    #[serde(rename = "contentType", skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+    /// Expected total size in bytes
+    #[serde(rename = "sizeHint", skip_serializing_if = "Option::is_none")]
+    pub size_hint: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamClosedEvent {
+    #[serde(flatten)]
+    pub base: ZipEventBase,
+    /// Event type
+    #[serde(rename = "type")]
+    pub event_type: String, // Always "stream.closed"
+    /// Node ID that produced the stream
+    #[serde(rename = "nodeId")]
+    pub node_id: String,
+    /// Stream identifier
+    #[serde(rename = "streamId")]
+    pub stream_id: u64,
+    /// Total bytes transferred
+    #[serde(rename = "totalBytes")]
+    pub total_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamErrorEvent {
+    #[serde(flatten)]
+    pub base: ZipEventBase,
+    /// Event type
+    #[serde(rename = "type")]
+    pub event_type: String, // Always "stream.error"
+    /// Node ID that produced the stream
+    #[serde(rename = "nodeId")]
+    pub node_id: String,
+    /// Stream identifier
+    #[serde(rename = "streamId")]
+    pub stream_id: u64,
+    /// Error description
+    pub error: String,
+}
+
+/// Union type for stream events
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ZipStreamEvent {
+    StreamOpened(StreamOpenedEvent),
+    StreamClosed(StreamClosedEvent),
+    StreamError(StreamErrorEvent),
+}
+
+impl ZipStreamEvent {
+    pub fn event_type(&self) -> &str {
+        match self {
+            Self::StreamOpened(e) => &e.event_type,
+            Self::StreamClosed(e) => &e.event_type,
+            Self::StreamError(e) => &e.event_type,
+        }
+    }
+
+    pub fn workflow_id(&self) -> &str {
+        match self {
+            Self::StreamOpened(e) => &e.base.workflow_id,
+            Self::StreamClosed(e) => &e.base.workflow_id,
+            Self::StreamError(e) => &e.base.workflow_id,
+        }
+    }
+
+    pub fn stream_id(&self) -> u64 {
+        match self {
+            Self::StreamOpened(e) => e.stream_id,
+            Self::StreamClosed(e) => e.stream_id,
+            Self::StreamError(e) => e.stream_id,
+        }
+    }
+}
+
+/// Binary stream frame types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum StreamFrameType {
+    Begin = 0x01,
+    Data = 0x02,
+    End = 0x03,
+    Error = 0x04,
+}
+
+impl StreamFrameType {
+    pub fn from_byte(byte: u8) -> Option<Self> {
+        match byte {
+            0x01 => Some(Self::Begin),
+            0x02 => Some(Self::Data),
+            0x03 => Some(Self::End),
+            0x04 => Some(Self::Error),
+            _ => None,
+        }
+    }
+}
+
+/// Parsed binary stream frame
+#[derive(Debug, Clone)]
+pub struct StreamFrame {
+    pub frame_type: StreamFrameType,
+    pub stream_id: u64,
+    pub payload: Vec<u8>,
+}
+
+/// Parse a binary stream frame.
+/// Wire format: [1 byte: frame_type] [8 bytes: stream_id LE u64] [payload...]
+pub fn parse_stream_frame(data: &[u8]) -> Option<StreamFrame> {
+    if data.len() < 9 {
+        return None;
+    }
+    let frame_type = StreamFrameType::from_byte(data[0])?;
+    let stream_id = u64::from_le_bytes(data[1..9].try_into().ok()?);
+    let payload = data[9..].to_vec();
+    Some(StreamFrame {
+        frame_type,
+        stream_id,
+        payload,
+    })
+}
+
 /// WebSocket control events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscribeEvent {
@@ -540,6 +680,7 @@ pub enum ZipWebSocketEvent {
     WorkflowUpdated(WorkflowUpdatedEvent),
     ConnectionState(ConnectionStateEvent),
     CRDT(ZipCRDTEvent),
+    Stream(ZipStreamEvent),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -548,6 +689,7 @@ pub enum ZipWebhookEvent {
     Execution(ZipExecutionEvent),
     Workflow(ZipWorkflowEvent),
     CRDT(ZipCRDTEvent),
+    Stream(ZipStreamEvent),
 }
 
 /// Type guards
@@ -703,6 +845,10 @@ pub fn is_connection_crdt_event(event_type: &str) -> bool {
 
 pub fn is_template_event(event_type: &str) -> bool {
     event_type.starts_with("template.")
+}
+
+pub fn is_stream_event(event_type: &str) -> bool {
+    event_type.starts_with("stream.")
 }
 
 /// Event creation helpers with auto-generated IDs and timestamps
@@ -1028,6 +1174,84 @@ pub fn create_trace_event_data(
     }
 }
 
+/// Stream event creation helpers
+pub fn create_stream_opened_event(
+    workflow_id: &str,
+    node_id: &str,
+    port: &str,
+    stream_id: u64,
+    options: Option<StreamOpenedOptions>,
+) -> StreamOpenedEvent {
+    let options = options.unwrap_or_default();
+    StreamOpenedEvent {
+        base: ZipEventBase {
+            id: generate_event_id(),
+            timestamp: current_timestamp(),
+            workflow_id: workflow_id.to_string(),
+            graph_id: options.graph_id,
+            metadata: options.metadata,
+        },
+        event_type: "stream.opened".to_string(),
+        node_id: node_id.to_string(),
+        port: port.to_string(),
+        stream_id,
+        content_type: options.content_type,
+        size_hint: options.size_hint,
+    }
+}
+
+pub fn create_stream_closed_event(
+    workflow_id: &str,
+    node_id: &str,
+    stream_id: u64,
+    total_bytes: u64,
+    graph_id: Option<String>,
+) -> StreamClosedEvent {
+    StreamClosedEvent {
+        base: ZipEventBase {
+            id: generate_event_id(),
+            timestamp: current_timestamp(),
+            workflow_id: workflow_id.to_string(),
+            graph_id,
+            metadata: None,
+        },
+        event_type: "stream.closed".to_string(),
+        node_id: node_id.to_string(),
+        stream_id,
+        total_bytes,
+    }
+}
+
+pub fn create_stream_error_event(
+    workflow_id: &str,
+    node_id: &str,
+    stream_id: u64,
+    error: &str,
+    graph_id: Option<String>,
+) -> StreamErrorEvent {
+    StreamErrorEvent {
+        base: ZipEventBase {
+            id: generate_event_id(),
+            timestamp: current_timestamp(),
+            workflow_id: workflow_id.to_string(),
+            graph_id,
+            metadata: None,
+        },
+        event_type: "stream.error".to_string(),
+        node_id: node_id.to_string(),
+        stream_id,
+        error: error.to_string(),
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StreamOpenedOptions {
+    pub graph_id: Option<String>,
+    pub content_type: Option<String>,
+    pub size_hint: Option<u64>,
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
 /// Options for event creation
 #[derive(Debug, Default)]
 pub struct NodeCompletedOptions {
@@ -1228,5 +1452,115 @@ mod tests {
         assert_ne!(id1, id2);
         assert!(id1.starts_with("evt_"));
         assert!(id2.starts_with("evt_"));
+    }
+
+    #[test]
+    fn test_stream_event_creation() {
+        let opened = create_stream_opened_event(
+            "workflow-123",
+            "node-456",
+            "ImageOut",
+            42,
+            Some(StreamOpenedOptions {
+                content_type: Some("image/raw-rgba".to_string()),
+                size_hint: Some(262144),
+                ..Default::default()
+            }),
+        );
+
+        assert_eq!(opened.event_type, "stream.opened");
+        assert_eq!(opened.base.workflow_id, "workflow-123");
+        assert_eq!(opened.node_id, "node-456");
+        assert_eq!(opened.port, "ImageOut");
+        assert_eq!(opened.stream_id, 42);
+        assert_eq!(opened.content_type, Some("image/raw-rgba".to_string()));
+        assert_eq!(opened.size_hint, Some(262144));
+
+        let closed = create_stream_closed_event("workflow-123", "node-456", 42, 262144, None);
+        assert_eq!(closed.event_type, "stream.closed");
+        assert_eq!(closed.total_bytes, 262144);
+
+        let error = create_stream_error_event(
+            "workflow-123",
+            "node-456",
+            42,
+            "upstream connection reset",
+            None,
+        );
+        assert_eq!(error.event_type, "stream.error");
+        assert_eq!(error.error, "upstream connection reset");
+    }
+
+    #[test]
+    fn test_stream_event_serialization() {
+        let event = create_stream_opened_event(
+            "workflow-123",
+            "node-456",
+            "ImageOut",
+            42,
+            Some(StreamOpenedOptions {
+                content_type: Some("image/raw-rgba".to_string()),
+                ..Default::default()
+            }),
+        );
+
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("stream.opened"));
+        assert!(json.contains("ImageOut"));
+        assert!(json.contains("\"streamId\":42"));
+
+        let deserialized: StreamOpenedEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.stream_id, 42);
+        assert_eq!(deserialized.port, "ImageOut");
+    }
+
+    #[test]
+    fn test_stream_type_guard() {
+        assert!(is_stream_event("stream.opened"));
+        assert!(is_stream_event("stream.closed"));
+        assert!(is_stream_event("stream.error"));
+        assert!(!is_stream_event("node.executing"));
+        assert!(!is_stream_event("execution.started"));
+    }
+
+    #[test]
+    fn test_zip_stream_event_methods() {
+        let event = ZipStreamEvent::StreamOpened(create_stream_opened_event(
+            "workflow-123",
+            "node-456",
+            "ImageOut",
+            42,
+            None,
+        ));
+
+        assert_eq!(event.event_type(), "stream.opened");
+        assert_eq!(event.workflow_id(), "workflow-123");
+        assert_eq!(event.stream_id(), 42);
+    }
+
+    #[test]
+    fn test_parse_stream_frame() {
+        // Build a Data frame: type=0x02, stream_id=42 (LE), payload="hello"
+        let mut frame_data = vec![0x02u8]; // frame type
+        frame_data.extend_from_slice(&42u64.to_le_bytes()); // stream_id
+        frame_data.extend_from_slice(b"hello"); // payload
+
+        let frame = parse_stream_frame(&frame_data).unwrap();
+        assert_eq!(frame.frame_type, StreamFrameType::Data);
+        assert_eq!(frame.stream_id, 42);
+        assert_eq!(frame.payload, b"hello");
+
+        // Test End frame (no payload)
+        let mut end_data = vec![0x03u8];
+        end_data.extend_from_slice(&42u64.to_le_bytes());
+        let end_frame = parse_stream_frame(&end_data).unwrap();
+        assert_eq!(end_frame.frame_type, StreamFrameType::End);
+        assert!(end_frame.payload.is_empty());
+
+        // Too short
+        assert!(parse_stream_frame(&[0x01, 0x00]).is_none());
+
+        // Invalid type
+        assert!(parse_stream_frame(&[0xFF, 0, 0, 0, 0, 0, 0, 0, 0]).is_none());
     }
 }
