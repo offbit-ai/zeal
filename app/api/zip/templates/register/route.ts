@@ -56,6 +56,15 @@ const nodeTemplateSchema = z.object({
     requiredEnvVars: z.array(z.string()).optional(),
     capabilities: z.array(z.string()).optional(),
   }).optional(),
+
+  display: z.object({
+    element: z.string().regex(/^[a-z][a-z0-9]*-[a-z0-9-]*$/, 'Custom element tag must contain a hyphen'),
+    bundleId: z.string().optional(),
+    source: z.string().optional(),
+    shadow: z.boolean().optional(),
+    observedProps: z.array(z.string()).optional(),
+    width: z.string().optional(),
+  }).optional(),
 })
 
 const registerTemplatesSchema = z.object({
@@ -130,8 +139,9 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
             runtime: template.runtime,
             webhookUrl,
           },
+          display: template.display,
         }
-        
+
         // Store template using template operations
         await templateOps.createTemplate({
           id: `${namespace}/${template.id}`,
@@ -176,6 +186,7 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
             runtime: template.runtime,
             webhookUrl,
           },
+          display: template.display,
           createdBy: getAuthenticatedUserId(request),
           updatedBy: getAuthenticatedUserId(request),
           createdAt: new Date(),

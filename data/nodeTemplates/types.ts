@@ -61,6 +61,25 @@ export interface PropertyRules {
   rules: PropertyRule[]
 }
 
+/**
+ * Custom display component for Web Component-based node rendering.
+ * Used by external plugins registered via the ZIP SDK.
+ */
+export interface DisplayComponent {
+  /** Custom element tag name (must contain a hyphen per Web Component spec). */
+  element: string
+  /** ID of a bundle uploaded to Zeal and served from /api/zip/components/. */
+  bundleId?: string
+  /** Inline JS source for lightweight components (alternative to bundleId). */
+  source?: string
+  /** Use Shadow DOM for style isolation. Default: true */
+  shadow?: boolean
+  /** Property names forwarded as JS properties to the custom element. */
+  observedProps?: string[]
+  /** Custom node width when this display is active. */
+  width?: string
+}
+
 export interface NodeTemplate {
   id: string
   type: string
@@ -80,4 +99,6 @@ export interface NodeTemplate {
   version: string
   isActive: boolean
   propertyRules?: PropertyRules
+  /** Optional Web Component-based custom display for node body rendering. */
+  display?: DisplayComponent
 }

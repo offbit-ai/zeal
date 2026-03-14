@@ -15,6 +15,7 @@
 
 import { type ComponentType, lazy } from 'react'
 import type { NodeMetadata } from '@/types/workflow'
+import type { DisplayComponent } from '@/data/nodeTemplates/types'
 
 // ---------------------------------------------------------------------------
 // Props contract — every renderer receives this, whether React or Web Component
@@ -38,6 +39,11 @@ type LazyComponent = ComponentType<NodeRendererProps>
 
 const registry = new Map<string, LazyComponent>()
 
+/** Lazy-loaded WebComponentHost — used for any template with a `display` field. */
+const WebComponentHostLazy = lazy(
+  () => import('@/components/node-renderers/WebComponentHost')
+)
+
 /**
  * Register a renderer for a node type.
  * For built-ins, pass a lazy(() => import('...')) component.
@@ -50,8 +56,19 @@ export function registerRenderer(nodeType: string, component: LazyComponent): vo
 /**
  * Look up the renderer for a node type. Returns undefined if the type
  * should fall through to the default node body.
+ *
+ * If the node's metadata has a `display` field (Web Component config),
+ * returns WebComponentHost regardless of whether the type is in the registry.
  */
-export function getNodeRenderer(nodeType: string): LazyComponent | undefined {
+export function getNodeRenderer(
+  nodeType: string,
+  metadata?: any
+): LazyComponent | undefined {
+  // Web Component display takes precedence
+  const display = metadata?.display as DisplayComponent | undefined
+  if (display?.element) {
+    return WebComponentHostLazy
+  }
   return registry.get(nodeType)
 }
 
@@ -64,16 +81,18 @@ export function hasCustomRenderer(nodeType: string): boolean {
 
 /**
  * Check whether a node type is one that needs wider layout
- * (script editors, media nodes, input controls).
+ * (script editors, media nodes, input controls, or Web Component display).
  */
-export function needsExpandedLayout(nodeType: string): boolean {
+export function needsExpandedLayout(nodeType: string, metadata?: any): boolean {
+  if (metadata?.display?.element) return true
   return expandedTypes.has(nodeType)
 }
 
 /**
  * Get the custom width for a node type, or undefined for default sizing.
  */
-export function getNodeWidth(nodeType: string): string | undefined {
+export function getNodeWidth(nodeType: string, metadata?: any): string | undefined {
+  if (metadata?.display?.width) return metadata.display.width
   return nodeWidths.get(nodeType)
 }
 

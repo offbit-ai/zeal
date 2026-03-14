@@ -289,9 +289,9 @@ export function WorkflowNode({
   const currentSize = sizeStyles[size]
 
   // --- Registry-based renderer lookup ---
-  const CustomRenderer = getNodeRenderer(metadata.type)
-  const hasExpanded = needsExpandedLayout(metadata.type)
-  const customWidth = getNodeWidth(metadata.type)
+  const CustomRenderer = getNodeRenderer(metadata.type, metadata)
+  const hasExpanded = needsExpandedLayout(metadata.type, metadata)
+  const customWidth = getNodeWidth(metadata.type, metadata)
   const actualPropertyValues = metadata.propertyValues || propertyValues || {}
 
   const rendererProps = {

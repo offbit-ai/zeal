@@ -18,7 +18,7 @@ export enum NodeShape {
 }
 
 export interface TemplateSource {
-  type: 'file' | 'api' | 'script' | 'manual' | 'generated'
+  type: 'file' | 'api' | 'script' | 'manual' | 'generated' | 'zip'
   location?: string
   schema?: any
   generatorVersion?: string
@@ -95,6 +95,9 @@ export interface NodeTemplate {
   properties: Record<string, PropertyDefinition>
   propertyRules?: PropertyRules
 
+  // Custom display component (Web Component for external plugins)
+  display?: DisplayComponent
+
   // Requirements
   requiredEnvVars?: string[]
   dependencies?: string[]
@@ -109,6 +112,26 @@ export interface NodeTemplate {
   updatedBy: string
   isActive: boolean
   tenantId?: string // For multi-tenant setups
+}
+
+/**
+ * Display component specification for custom node rendering.
+ * External templates registered via ZIP can ship a Web Component bundle
+ * that renders inside the node body.
+ */
+export interface DisplayComponent {
+  /** Custom element tag name (e.g. 'zeal-chart-node'). Must contain a hyphen per spec. */
+  element: string
+  /** Reference to an uploaded bundle served by Zeal (populated after upload). */
+  bundleId?: string
+  /** Inline JS source for small components (alternative to bundleId). */
+  source?: string
+  /** Use Shadow DOM for style isolation. Default: true */
+  shadow?: boolean
+  /** Property names forwarded to the Web Component as JS properties. */
+  observedProps?: string[]
+  /** Custom width override for the node when this display is active. */
+  width?: string
 }
 
 export interface TemplateEmbeddings {
