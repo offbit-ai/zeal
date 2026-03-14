@@ -210,18 +210,37 @@ class AcmeChart extends HTMLElement {
   /** Whether the node is selected on canvas */
   set isSelected(v)   { this._selected = v }
 
-  // --- Communicate back to Zeal ---
+  // --- Use the zeal API bridge ---
 
-  /** Update a property value in the workflow store */
-  emitPropertyChange(name, value) {
-    this.dispatchEvent(new CustomEvent('zeal:property-change', {
-      detail: { name, value },
-      bubbles: true,
-      composed: true,  // crosses shadow DOM boundary
-    }))
+  /** Called when element is added to DOM. this.zeal is already set. */
+  connectedCallback() {
+    // Subscribe to property changes from the side panel
+    this._unsubProps = this.zeal?.onPropertyChange((values) => {
+      this._chartType = values.chartType
+      this._colorScheme = values.colorScheme
+      this.render()
+    })
+
+    // Subscribe to stream data if this node receives binary input
+    this._unsubStream = this.zeal?.onStreamFrame((payload, meta) => {
+      // payload: Uint8Array of raw data
+      this.appendData(payload)
+    })
   }
 
-  /** Emit data to output ports */
+  disconnectedCallback() {
+    this._unsubProps?.()
+    this._unsubStream?.()
+  }
+
+  // --- Communicate back to Zeal ---
+
+  /** Update a property via the bridge (preferred) */
+  onUserSelectChartType(type) {
+    this.zeal.setProperty('chartType', type)
+  }
+
+  /** Or via CustomEvent (equivalent, works without bridge) */
   emitDataChange(data) {
     this.dispatchEvent(new CustomEvent('zeal:data-change', {
       detail: data,
@@ -232,7 +251,7 @@ class AcmeChart extends HTMLElement {
 
   render() {
     const canvas = this.shadowRoot.querySelector('canvas')
-    // ... draw chart using this._props, this._chartType, etc.
+    // ... draw chart using this._chartType, this._colorScheme, etc.
   }
 }
 
@@ -271,7 +290,64 @@ interface DisplayComponent {
 | `metadata` | `object` | Full node metadata |
 | `propertyValues` | `object` | Current property values |
 | `isSelected` | `boolean` | Whether the node is selected |
+| `zeal` | `ZealBridgeAPI` | API bridge for store access, streams, and subscriptions |
 | Each `observedProps` entry | `any` | Individual property value |
+
+### `element.zeal` API Bridge
+
+Every mounted Web Component receives a `zeal` property — a constrained API for interacting with Zeal's stores without direct Zustand access.
+
+```javascript
+// Inside your Web Component:
+connectedCallback() {
+  // Subscribe to property changes (from side panel, other nodes, etc.)
+  this._unsub = this.zeal.onPropertyChange((values) => {
+    this.render(values)
+  })
+}
+
+disconnectedCallback() {
+  this._unsub?.()
+}
+
+// Read/write properties
+const chartType = this.zeal.getProperty('chartType')
+this.zeal.setProperty('chartType', 'pie')
+
+// Get all properties at once
+const allProps = this.zeal.getProperties()
+
+// Stream data (binary frames delivered outside React render)
+this._unsubStream = this.zeal.onStreamFrame((payload, meta) => {
+  // payload: Uint8Array, meta: { nodeId, port, streamId, contentType, ... }
+  this.drawFrame(payload, meta)
+})
+
+// React to stream lifecycle changes
+this._unsubState = this.zeal.onStreamStateChange((state) => {
+  // state: { phase, meta, bytesReceived, error }
+  if (state.phase === 'complete') this.showDoneOverlay()
+})
+
+// Check stream state imperatively
+const stream = this.zeal.getStreamState()
+if (stream?.phase === 'streaming') { /* ... */ }
+```
+
+**Full `ZealBridgeAPI` reference:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `getProperty(name)` | `any` | Read a single property value |
+| `setProperty(name, value)` | `void` | Write a property to the workflow store |
+| `getProperties()` | `Record<string, any>` | Snapshot of all property values |
+| `getStreamState()` | `StreamState \| null` | Current stream state (`phase`, `bytesReceived`, `error`, `meta`) |
+| `onStreamFrame(sink)` | `() => void` | Register binary frame callback. Returns unsubscribe fn. |
+| `onStreamStateChange(cb)` | `() => void` | Subscribe to stream lifecycle changes. Returns unsubscribe fn. |
+| `onPropertyChange(cb)` | `() => void` | Subscribe to property value changes. Returns unsubscribe fn. |
+| `nodeId` | `string` | The node ID this bridge is bound to |
+
+All `on*` methods return unsubscribe functions. Call them in `disconnectedCallback()` to avoid leaks. The bridge also auto-cleans up when the node is removed from the canvas.
 
 ### Events Dispatched by the Custom Element
 
@@ -280,7 +356,7 @@ interface DisplayComponent {
 | `zeal:property-change` | `{ name: string, value: any }` | Update a property in the workflow store |
 | `zeal:data-change` | `any` | Emit data to output ports |
 
-Both events should use `bubbles: true, composed: true` to cross the Shadow DOM boundary.
+Both events should use `bubbles: true, composed: true` to cross the Shadow DOM boundary. You can also use `this.zeal.setProperty()` instead of dispatching `zeal:property-change` — they're equivalent.
 
 ### Inline Source (No Upload)
 
@@ -323,11 +399,12 @@ This creates a Blob URL at runtime — same-origin, no CORS, no upload needed.
 | File | Purpose |
 |------|---------|
 | `lib/node-renderer-registry.ts` | Registry mapping node types to lazy components |
-| `components/node-renderers/WebComponentHost.tsx` | React wrapper that mounts Web Components |
+| `lib/webcomponent-api-bridge.ts` | `ZealBridgeAPI` implementation (store access, streams, subscriptions) |
+| `components/node-renderers/WebComponentHost.tsx` | React wrapper that mounts Web Components and attaches bridge |
 | `components/node-renderers/*.tsx` | Built-in renderers (script, inputs, streams) |
 | `components/WorkflowNode.tsx` | Node shell that delegates to registry |
-| `app/api/zip/components/route.ts` | Bundle upload endpoint |
-| `app/api/zip/components/[namespace]/[bundleId]/route.ts` | Bundle serve endpoint |
+| `app/api/zip/components/route.ts` | Bundle upload endpoint (persistent cloud storage) |
+| `app/api/zip/components/[namespace]/[bundleId]/route.ts` | Bundle serve endpoint (same-origin proxy) |
 | `data/nodeTemplates/types.ts` | `DisplayComponent` type definition |
 | `services/node-template-repository/core/models.ts` | Server-side `DisplayComponent` type |
 | `app/api/zip/templates/register/route.ts` | Template registration (accepts `display` field) |

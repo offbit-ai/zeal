@@ -7,20 +7,23 @@
  * 3. Ensures customElements.define() is called exactly once per tag
  * 4. Renders the custom element inside a host div
  * 5. Forwards propertyValues as JS properties (not attributes)
- * 6. Listens for 'zeal:property-change' CustomEvents → onPropertyChange
- * 7. Listens for 'zeal:data-change' CustomEvents → onDataChange
+ * 6. Attaches `element.zeal` API bridge for store access + stream subscriptions
+ * 7. Listens for 'zeal:property-change' CustomEvents → onPropertyChange
+ * 8. Listens for 'zeal:data-change' CustomEvents → onDataChange
  *
  * The Web Component receives:
  *   - nodeId (string)
  *   - metadata (object)
  *   - propertyValues (object)
  *   - isSelected (boolean)
+ *   - zeal (ZealBridgeAPI) — read/write properties, stream sinks, subscriptions
  * as JS properties set imperatively.
  */
 
 import { useRef, useEffect, useState } from 'react'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 import type { DisplayComponent } from '@/data/nodeTemplates/types'
+import { createBridgeAPI, type BridgeInternal } from '@/lib/webcomponent-api-bridge'
 
 // Track which modules have been loaded and which tags have been defined
 const loadedModules = new Set<string>()
@@ -33,10 +36,8 @@ const pendingLoads = new Map<string, Promise<void>>()
 async function ensureComponentLoaded(display: DisplayComponent): Promise<void> {
   const key = display.element
 
-  // Already loaded
   if (loadedModules.has(key)) return
 
-  // Loading in progress — wait for existing promise
   if (pendingLoads.has(key)) {
     return pendingLoads.get(key)
   }
@@ -46,7 +47,6 @@ async function ensureComponentLoaded(display: DisplayComponent): Promise<void> {
       let moduleUrl: string
 
       if (display.bundleId) {
-        // Served same-origin from Zeal's API
         const namespace = display.bundleId.includes('/')
           ? display.bundleId.split('/')[0]
           : '_default'
@@ -55,7 +55,6 @@ async function ensureComponentLoaded(display: DisplayComponent): Promise<void> {
           : display.bundleId
         moduleUrl = `/api/zip/components/${namespace}/${id}`
       } else if (display.source) {
-        // Inline source — create a Blob URL (same-origin, no CORS)
         const blob = new Blob([display.source], { type: 'application/javascript' })
         moduleUrl = URL.createObjectURL(blob)
       } else {
@@ -63,10 +62,8 @@ async function ensureComponentLoaded(display: DisplayComponent): Promise<void> {
         return
       }
 
-      // Dynamic import — works with both real URLs and blob URLs
       await import(/* webpackIgnore: true */ moduleUrl)
 
-      // If the module didn't self-register (some authors forget), check
       if (!customElements.get(display.element)) {
         console.warn(
           `[WebComponentHost] Module loaded but <${display.element}> was not defined. ` +
@@ -95,6 +92,10 @@ export default function WebComponentHost({
 }: NodeRendererProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const elementRef = useRef<HTMLElement | null>(null)
+  const bridgeRef = useRef<BridgeInternal | null>(null)
+  const propertyValuesRef = useRef(propertyValues)
+  propertyValuesRef.current = propertyValues
+
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -109,15 +110,8 @@ export default function WebComponentHost({
     ensureComponentLoaded(display).then(() => {
       if (cancelled || !hostRef.current) return
 
-      // Create or re-use the custom element
       if (!elementRef.current) {
         const el = document.createElement(display.element)
-
-        if (display.shadow !== false) {
-          // The Web Component itself should attachShadow in its constructor.
-          // We just mount it — shadow DOM is the component author's responsibility.
-        }
-
         hostRef.current.appendChild(el)
         elementRef.current = el
       }
@@ -132,18 +126,36 @@ export default function WebComponentHost({
     }
   }, [display?.element, display?.bundleId, display?.source])
 
+  // Create and attach the zeal API bridge once the element is loaded
+  useEffect(() => {
+    const el = elementRef.current
+    if (!el || !loaded) return
+
+    const bridge = createBridgeAPI(
+      nodeId,
+      () => propertyValuesRef.current,
+      (name, value) => onPropertyChange?.(name, value),
+    ) as BridgeInternal
+
+    bridgeRef.current = bridge
+    ;(el as any).zeal = bridge
+
+    return () => {
+      bridge._destroy()
+      bridgeRef.current = null
+    }
+  }, [nodeId, loaded, onPropertyChange])
+
   // Forward props as JS properties whenever they change
   useEffect(() => {
     const el = elementRef.current
     if (!el || !loaded) return
 
-    // Set core properties
     ;(el as any).nodeId = nodeId
     ;(el as any).metadata = metadata
     ;(el as any).propertyValues = propertyValues
     ;(el as any).isSelected = isSelected
 
-    // Forward observed props individually for fine-grained reactivity
     if (display?.observedProps) {
       for (const prop of display.observedProps) {
         if (prop in propertyValues) {
@@ -151,6 +163,9 @@ export default function WebComponentHost({
         }
       }
     }
+
+    // Notify bridge subscribers
+    bridgeRef.current?._notifyPropertyChange(propertyValues)
   }, [nodeId, metadata, propertyValues, isSelected, loaded, display?.observedProps])
 
   // Listen for custom events from the Web Component
@@ -180,10 +195,12 @@ export default function WebComponentHost({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      bridgeRef.current?._destroy()
       if (elementRef.current && hostRef.current?.contains(elementRef.current)) {
         hostRef.current.removeChild(elementRef.current)
       }
       elementRef.current = null
+      bridgeRef.current = null
     }
   }, [])
 
