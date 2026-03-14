@@ -1,16 +1,14 @@
-import { NodeMetadata, NodeShape, NodeVariant, Port, PropertyDefinition } from '@/types/workflow'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { NodeMetadata, NodeShape, Port } from '@/types/workflow'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { Icon } from '@/lib/icons'
 import { getNodeStyles, getTextColor } from '@/utils/nodeColorVariants'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
 import { Info, Settings } from 'lucide-react'
-import { ResizableCodeEditor } from './ResizableCodeEditor'
-import { ImagePreview } from './MediaPreview'
-import { AudioPlayer } from './AudioPlayer'
-import { VideoPlayer } from './VideoPlayer'
-import { TextInputControl, NumberInputControl, RangeInputControl } from './UserInputControls'
-import { ImageStreamDisplay } from './ImageStreamDisplay'
-import { AudioStreamDisplay } from './AudioStreamDisplay'
+import {
+  getNodeRenderer,
+  needsExpandedLayout,
+  getNodeWidth,
+} from '@/lib/node-renderer-registry'
 
 interface WorkflowNodeProps {
   metadata: NodeMetadata
@@ -89,9 +87,6 @@ function PortComponent({
           return
         }
 
-        // Note: Group positioning is handled automatically since groups are positioned
-        // within the same coordinate system as individual nodes
-
         // Get bounding rects relative to the viewport
         const portRect = portElement.getBoundingClientRect()
         const contentRect = contentContainer.getBoundingClientRect()
@@ -100,10 +95,6 @@ function PortComponent({
         // Adjust for zoom since getBoundingClientRect returns screen coordinates
         let portCenterX = (portRect.left + portRect.width / 2 - contentRect.left) / zoom
         let portCenterY = (portRect.top + portRect.height / 2 - contentRect.top) / zoom
-
-        // If node is in a group, the port position is already correctly calculated
-        // relative to the content container since the group itself is positioned
-        // within the content container. No additional offset needed.
 
         // Report the coordinates in the transformed space
         onPortPositionUpdate(port.id, portCenterX, portCenterY, port.position)
@@ -124,13 +115,12 @@ function PortComponent({
       const handleNodePositionChanged = (e: Event) => {
         const customEvent = e as CustomEvent
         if (customEvent.detail?.nodeId === nodeId) {
-          requestAnimationFrame(measurePortPosition) // Use animation frame for smoother updates
+          requestAnimationFrame(measurePortPosition)
         }
       }
 
       // Listen for group position changes (only when drag ends)
       const handleGroupPositionChanged = () => {
-        // Re-measure port positions when group drag ends
         requestAnimationFrame(measurePortPosition)
       }
 
@@ -187,10 +177,10 @@ function PortComponent({
 
   // Label positioning - always on the same side as the port, centered
   const labelPositionStyles = {
-    top: 'bottom-full mb-1 left-1/2 -translate-x-1/2', // Label above the port, centered
-    right: 'left-full ml-2 top-1/2 -translate-y-1/2', // Label to the right of the port, centered
-    bottom: 'top-full mt-1 left-1/2 -translate-x-1/2', // Label below the port, centered
-    left: 'right-full mr-2 top-1/2 -translate-y-1/2', // Label to the left of the port, centered
+    top: 'bottom-full mb-1 left-1/2 -translate-x-1/2',
+    right: 'left-full ml-2 top-1/2 -translate-y-1/2',
+    bottom: 'top-full mt-1 left-1/2 -translate-x-1/2',
+    left: 'right-full mr-2 top-1/2 -translate-y-1/2',
   }
 
   return (
@@ -245,31 +235,12 @@ export function WorkflowNode({
 }: WorkflowNodeProps) {
   const { title, subtitle, icon, variant, shape, size = 'medium', ports = [] } = metadata
   const [isHovered, setIsHovered] = useState(false)
-  const [codeEditorHeight, setCodeEditorHeight] = useState(150)
-
-  // Notify parent when code editor resize is complete
-  const handleCodeEditorHeightChange = useCallback(
-    (height: number) => {
-      setCodeEditorHeight(height)
-      // Notify parent that size has changed
-      onSizeChange?.()
-    },
-    [onSizeChange]
-  )
-
-  // Debug: Log ports for this node
-  // // console.log removed`).join(', '))
 
   // Get the icon name (icon is now always a string from the API)
   const iconName = typeof icon === 'string' ? icon : 'box'
 
   // Check if node needs configuration
   const needsConfiguration = hasUnconfiguredDefaults(metadata)
-
-  // Debug metadata changes
-  // useEffect(() => {
-  //   // console.log removed
-  // }, [metadata.id, title, subtitle, iconName, variant])
 
   // Group ports by position for proper indexing
   const portsByPosition = ports.reduce(
@@ -317,204 +288,75 @@ export function WorkflowNode({
 
   const currentSize = sizeStyles[size]
 
-  // Check if this is a script node (has type 'script' and a code editor property)
-  const isScriptNode = metadata.type === 'script'
+  // --- Registry-based renderer lookup ---
+  const CustomRenderer = getNodeRenderer(metadata.type)
+  const hasExpanded = needsExpandedLayout(metadata.type)
+  const customWidth = getNodeWidth(metadata.type)
+  const actualPropertyValues = metadata.propertyValues || propertyValues || {}
 
-  // Check if this is a user input node
-  const isTextInput = metadata.type === 'text-input'
-  const isNumberInput = metadata.type === 'number-input'
-  const isRangeInput = metadata.type === 'range-input'
-  const isImageInput = metadata.type === 'image-input'
-  const isAudioInput = metadata.type === 'audio-input'
-  const isVideoInput = metadata.type === 'video-input'
-  const isImageStreamDisplay = metadata.type === 'image-stream-display'
-  const isAudioStreamDisplay = metadata.type === 'audio-stream-display'
-  const isStreamDisplay = isImageStreamDisplay || isAudioStreamDisplay
-  const isMediaNode = isImageInput || isAudioInput || isVideoInput || isStreamDisplay
-  const isInputNode = isTextInput || isNumberInput || isRangeInput || isMediaNode
-
-  // Handle both object and array formats for properties
-  // Find the code-editor property (could be 'script', 'query', etc.)
-  let codeEditorProperty: PropertyDefinition | undefined
-  let codeEditorPropertyName: string | undefined
-
-  if (metadata.properties) {
-    if (Array.isArray(metadata.properties)) {
-      // Array format: find the code-editor property
-      codeEditorProperty = metadata.properties.find(prop => prop.type === 'code-editor')
-      codeEditorPropertyName = codeEditorProperty?.id
-    } else {
-      // Object format: find the code-editor property
-      const entries = Object.entries(metadata.properties)
-      const codeEditorEntry = entries.find(
-        ([_, prop]: [string, any]) => prop.type === 'code-editor'
-      )
-      if (codeEditorEntry) {
-        codeEditorPropertyName = codeEditorEntry[0]
-        codeEditorProperty = codeEditorEntry[1]
-      }
-    }
+  const rendererProps = {
+    nodeId: metadata.id,
+    metadata,
+    propertyValues: actualPropertyValues,
+    isSelected,
+    onPropertyChange,
+    onDataChange: (data: any) => {
+      onPropertyChange?.('metadata', data.metadata)
+    },
+    onSizeChange,
   }
 
-  const hasCodeEditor = codeEditorProperty?.type === 'code-editor'
-  // Use metadata.propertyValues like PropertyPane does, with fallback to propertyValues prop
-  const actualPropertyValues = metadata.propertyValues || propertyValues || {}
-  const codeValue = codeEditorPropertyName
-    ? actualPropertyValues?.[codeEditorPropertyName] || ''
-    : ''
+  // Shared port rendering
+  const renderPorts = () =>
+    ports.map(port => {
+      const portsOnSameSide = portsByPosition[port.position] || []
+      const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
+      return (
+        <PortComponent
+          key={port.id}
+          port={port}
+          nodeShape={shape}
+          showLabel={isHovered}
+          nodeId={metadata.id}
+          onPortPositionUpdate={
+            onPortPositionUpdate
+              ? (portId, x, y, position) =>
+                  onPortPositionUpdate(metadata.id, portId, x, y, position)
+              : undefined
+          }
+          onPortDragStart={onPortDragStart}
+          onPortDragEnd={onPortDragEnd}
+          portIndex={portIndex}
+          totalPortsOnSide={portsOnSameSide.length}
+          zoom={zoom}
+        />
+      )
+    })
 
-  // Render media components - must be rendered regardless of shape to maintain hook consistency
-  const renderMediaComponents = () => {
-    // We need to render all media components to maintain consistent hook calls
-    // But we can hide them with display:none for non-rectangle shapes
-    const shouldShow = shape === 'rectangle'
+  const ringClasses = [
+    isDragging ? 'shadow-xl' : '',
+    isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : '',
+    isSelected ? 'ring-4 ring-blue-600' : '',
+    needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : '',
+  ].join(' ')
 
+  const configBadge = needsConfiguration && (
+    <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
+      <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
+    </div>
+  )
+
+  // Render the custom content area (only visible for rectangle shapes)
+  const renderCustomContent = () => {
+    if (!CustomRenderer) return null
     return (
-      <>
-        {isImageInput && (
-          <div
-            className="w-full mt-3"
-            style={{ display: shouldShow ? 'block' : 'none' }}
-            onClick={e => e.stopPropagation()}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <ImagePreview
-              source={actualPropertyValues.source || 'upload'}
-              url={
-                actualPropertyValues.source === 'upload'
-                  ? actualPropertyValues.imageFile
-                  : actualPropertyValues.url
-              }
-              displayMode={actualPropertyValues.displayMode || 'contain'}
-              previewHeight={actualPropertyValues.previewHeight || 200}
-              acceptedFormats={
-                actualPropertyValues.acceptedFormats || 'image/jpeg,image/png,image/gif,image/webp'
-              }
-              maxFileSize={actualPropertyValues.maxFileSize || 10}
-              pauseGifOnHover={actualPropertyValues.pauseGifOnHover}
-              nodeId={metadata.id}
-              onDataChange={data => {
-                if (actualPropertyValues.source === 'upload') {
-                  onPropertyChange?.('imageFile', data.url) // Update the file property
-                }
-                onPropertyChange?.('imageData', data.url) // Output port data
-                onPropertyChange?.('metadata', data.metadata)
-              }}
-            />
-          </div>
-        )}
-
-        {isAudioInput && (
-          <div
-            className="w-full mt-3"
-            style={{ display: shouldShow ? 'block' : 'none' }}
-            onClick={e => e.stopPropagation()}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <AudioPlayer
-              source={actualPropertyValues.source || 'upload'}
-              url={
-                actualPropertyValues.source === 'upload'
-                  ? actualPropertyValues.audioFile
-                  : actualPropertyValues.url
-              }
-              acceptedFormats={
-                actualPropertyValues.acceptedFormats || 'audio/mpeg,audio/wav,audio/ogg,audio/webm'
-              }
-              maxFileSize={actualPropertyValues.maxFileSize || 50}
-              showWaveform={actualPropertyValues.showWaveform !== false}
-              autoplay={actualPropertyValues.autoplay || false}
-              loop={actualPropertyValues.loop || false}
-              nodeId={metadata.id}
-              onDataChange={data => {
-                if (actualPropertyValues.source === 'upload') {
-                  onPropertyChange?.('audioFile', data.url) // Update the file property
-                }
-                onPropertyChange?.('audioData', data.url) // Output port data
-                onPropertyChange?.('metadata', data.metadata)
-              }}
-            />
-          </div>
-        )}
-
-        {isVideoInput && (
-          <div
-            className="w-full mt-3"
-            style={{ display: shouldShow ? 'block' : 'none' }}
-            onClick={e => e.stopPropagation()}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <VideoPlayer
-              source={actualPropertyValues.source || 'upload'}
-              url={
-                actualPropertyValues.source === 'upload'
-                  ? actualPropertyValues.videoFile
-                  : actualPropertyValues.url
-              }
-              acceptedFormats={
-                actualPropertyValues.acceptedFormats || 'video/mp4,video/webm,video/ogg'
-              }
-              maxFileSize={actualPropertyValues.maxFileSize || 100}
-              previewHeight={actualPropertyValues.previewHeight || 300}
-              showControls={actualPropertyValues.showControls !== false}
-              autoplay={actualPropertyValues.autoplay || false}
-              loop={actualPropertyValues.loop || false}
-              muted={actualPropertyValues.muted || false}
-              streamType={actualPropertyValues.streamType}
-              buffering={actualPropertyValues.buffering}
-              nodeId={metadata.id}
-              onDataChange={data => {
-                if (actualPropertyValues.source === 'upload') {
-                  onPropertyChange?.('videoFile', data.url) // Update the file property
-                }
-                onPropertyChange?.('videoData', data.url) // Output port data
-                onPropertyChange?.('metadata', data.metadata)
-              }}
-            />
-          </div>
-        )}
-
-        {isImageStreamDisplay && (
-          <div
-            className="w-full mt-3"
-            style={{ display: shouldShow ? 'block' : 'none' }}
-            onClick={e => e.stopPropagation()}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <ImageStreamDisplay
-              displayMode={actualPropertyValues.displayMode || 'contain'}
-              previewHeight={actualPropertyValues.previewHeight || 300}
-              nodeId={metadata.id}
-              onDataChange={data => {
-                onPropertyChange?.('metadata', data.metadata)
-              }}
-            />
-          </div>
-        )}
-
-        {isAudioStreamDisplay && (
-          <div
-            className="w-full mt-3"
-            style={{ display: shouldShow ? 'block' : 'none' }}
-            onClick={e => e.stopPropagation()}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <AudioStreamDisplay
-              autoplay={actualPropertyValues.autoplay || false}
-              loop={actualPropertyValues.loop || false}
-              showWaveform={actualPropertyValues.showWaveform !== false}
-              nodeId={metadata.id}
-              onDataChange={data => {
-                onPropertyChange?.('metadata', data.metadata)
-              }}
-            />
-          </div>
-        )}
-      </>
+      <Suspense fallback={null}>
+        <CustomRenderer {...rendererProps} />
+      </Suspense>
     )
   }
 
-  // Handle circle shape differently
+  // Handle circle shape
   if (shape === 'circle') {
     return (
       <div
@@ -523,7 +365,7 @@ export function WorkflowNode({
         onMouseLeave={() => setIsHovered(false)}
       >
         <div
-          className={`${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+          className={`${shapeStyles[shape]} w-16 h-16 flex items-center justify-center relative select-none ${ringClasses}`}
           style={nodeStyles}
         >
           <Icon
@@ -533,36 +375,8 @@ export function WorkflowNode({
             style={{ color: textColor }}
             strokeWidth={1.5}
           />
-          {needsConfiguration && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
-              <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
-            </div>
-          )}
-          {/* Render ports */}
-          {ports.map(port => {
-            const portsOnSameSide = portsByPosition[port.position] || []
-            const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
-            return (
-              <PortComponent
-                key={port.id}
-                port={port}
-                nodeShape={shape}
-                showLabel={isHovered}
-                nodeId={metadata.id}
-                onPortPositionUpdate={
-                  onPortPositionUpdate
-                    ? (portId, x, y, position) =>
-                        onPortPositionUpdate(metadata.id, portId, x, y, position)
-                    : undefined
-                }
-                onPortDragStart={onPortDragStart}
-                onPortDragEnd={onPortDragEnd}
-                portIndex={portIndex}
-                totalPortsOnSide={portsOnSameSide.length}
-                zoom={zoom}
-              />
-            )
-          })}
+          {configBadge}
+          {renderPorts()}
         </div>
         <div className="text-center mt-2">
           <div className={`font-medium ${currentSize.title}`} style={{ color: '#111827' }}>
@@ -574,12 +388,11 @@ export function WorkflowNode({
             </div>
           )}
         </div>
-        {renderMediaComponents()}
       </div>
     )
   }
 
-  // Handle diamond shape differently
+  // Handle diamond shape
   if (shape === 'diamond') {
     return (
       <div
@@ -588,7 +401,7 @@ export function WorkflowNode({
         onMouseLeave={() => setIsHovered(false)}
       >
         <div
-          className={`${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+          className={`${shapeStyles[shape]} w-12 h-12 flex items-center justify-center relative select-none ${ringClasses}`}
           style={nodeStyles}
         >
           <Icon
@@ -598,36 +411,8 @@ export function WorkflowNode({
             style={{ color: textColor }}
             strokeWidth={1.5}
           />
-          {needsConfiguration && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
-              <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
-            </div>
-          )}
-          {/* Render ports */}
-          {ports.map(port => {
-            const portsOnSameSide = portsByPosition[port.position] || []
-            const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
-            return (
-              <PortComponent
-                key={port.id}
-                port={port}
-                nodeShape={shape}
-                showLabel={isHovered}
-                nodeId={metadata.id}
-                onPortPositionUpdate={
-                  onPortPositionUpdate
-                    ? (portId, x, y, position) =>
-                        onPortPositionUpdate(metadata.id, portId, x, y, position)
-                    : undefined
-                }
-                onPortDragStart={onPortDragStart}
-                onPortDragEnd={onPortDragEnd}
-                portIndex={portIndex}
-                totalPortsOnSide={portsOnSameSide.length}
-                zoom={zoom}
-              />
-            )
-          })}
+          {configBadge}
+          {renderPorts()}
         </div>
         <div className="text-center mt-2">
           <div className={`font-medium ${currentSize.title}`} style={{ color: '#111827' }}>
@@ -639,7 +424,6 @@ export function WorkflowNode({
             </div>
           )}
         </div>
-        {renderMediaComponents()}
       </div>
     )
   }
@@ -647,19 +431,15 @@ export function WorkflowNode({
   // Default rectangle shape
   return (
     <div
-      className={`${isScriptNode || isInputNode ? 'flex-col' : 'flex-row'} ${currentSize.container} ${shapeStyles[shape]} flex gap-3 w-fit relative select-none ${isDragging ? 'shadow-xl' : ''} ${isHighlighted ? 'ring-4 ring-blue-500 animate-pulse' : ''} ${isSelected ? 'ring-4 ring-blue-600' : ''} ${needsConfiguration ? 'ring-2 ring-orange-400 ring-opacity-60 animate-shake' : ''}`}
+      className={`${hasExpanded ? 'flex-col' : 'flex-row'} ${currentSize.container} ${shapeStyles[shape]} flex gap-3 w-fit relative select-none ${ringClasses}`}
       style={{
         ...nodeStyles,
-        ...(isScriptNode ? { width: '400px', maxWidth: '400px' } : {}),
-        ...(isMediaNode ? { width: '350px', maxWidth: '350px' } : {}),
-        ...(isTextInput || isNumberInput || isRangeInput
-          ? { width: '280px', maxWidth: '280px' }
-          : {}),
+        ...(customWidth ? { width: customWidth, maxWidth: customWidth } : {}),
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`flex items-center gap-3 ${isScriptNode || isInputNode ? 'w-full' : ''}`}>
+      <div className={`flex items-center gap-3 ${hasExpanded ? 'w-full' : ''}`}>
         <div
           className={`${currentSize.icon} rounded-md flex items-center justify-center relative`}
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
@@ -671,13 +451,9 @@ export function WorkflowNode({
             style={{ color: textColor }}
             strokeWidth={1.5}
           />
-          {needsConfiguration && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full flex items-center justify-center">
-              <Info className="w-2.5 h-2.5 text-white" strokeWidth={2} />
-            </div>
-          )}
+          {configBadge}
         </div>
-        <div className={isScriptNode || isInputNode ? 'flex-1' : ''}>
+        <div className={hasExpanded ? 'flex-1' : ''}>
           <div className={`font-medium ${currentSize.title}`} style={{ color: textColor }}>
             {title}
           </div>
@@ -687,8 +463,8 @@ export function WorkflowNode({
             </div>
           )}
         </div>
-        {/* Settings icon for script and input nodes */}
-        {(isScriptNode || isInputNode) && onSettingsClick && (
+        {/* Settings icon for nodes with custom renderers */}
+        {hasExpanded && onSettingsClick && (
           <button
             onClick={e => {
               e.stopPropagation()
@@ -702,117 +478,11 @@ export function WorkflowNode({
         )}
       </div>
 
-      {/* Inline code editor for script nodes */}
-      {isScriptNode && (
-        <div
-          className="w-full mt-2"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <ResizableCodeEditor
-            value={codeValue}
-            onChange={value =>
-              codeEditorPropertyName && onPropertyChange?.(codeEditorPropertyName, value)
-            }
-            language={codeEditorProperty?.language || 'javascript'}
-            placeholder={codeEditorProperty?.placeholder || '// Enter your code here'}
-            defaultHeight={150}
-            minHeight={100}
-            maxHeight={400}
-            onHeightChange={handleCodeEditorHeightChange}
-            lineNumbers={true}
-            wordWrap={true}
-            theme="dark"
-          />
-        </div>
-      )}
-
-      {/* Text Input Control */}
-      {isTextInput && (
-        <div
-          className="w-full mt-3"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <TextInputControl
-            defaultValue={actualPropertyValues.defaultValue || ''}
-            placeholder={actualPropertyValues.placeholder || 'Enter text...'}
-            multiline={actualPropertyValues.multiline || false}
-            maxLength={actualPropertyValues.maxLength}
-            validation={actualPropertyValues.validation || 'none'}
-            validationPattern={actualPropertyValues.validationPattern}
-            onValueChange={value => onPropertyChange?.('value', value)}
-          />
-        </div>
-      )}
-
-      {/* Number Input Control */}
-      {isNumberInput && (
-        <div
-          className="w-full mt-3"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <NumberInputControl
-            defaultValue={actualPropertyValues.defaultValue || 0}
-            min={actualPropertyValues.min}
-            max={actualPropertyValues.max}
-            step={actualPropertyValues.step || 1}
-            format={actualPropertyValues.format || 'decimal'}
-            decimals={actualPropertyValues.decimals || 2}
-            onValueChange={value => onPropertyChange?.('value', value)}
-          />
-        </div>
-      )}
-
-      {/* Range Input Control */}
-      {isRangeInput && (
-        <div
-          className="w-full mt-3"
-          onClick={e => e.stopPropagation()}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <RangeInputControl
-            defaultValue={actualPropertyValues.defaultValue || 50}
-            min={actualPropertyValues.min || 0}
-            max={actualPropertyValues.max || 100}
-            step={actualPropertyValues.step || 1}
-            showValue={actualPropertyValues.showValue !== false}
-            showLabels={actualPropertyValues.showLabels !== false}
-            unit={actualPropertyValues.unit || ''}
-            onValueChange={value => onPropertyChange?.('value', value)}
-          />
-        </div>
-      )}
-
-      {/* Render media components */}
-      {renderMediaComponents()}
+      {/* Registry-resolved custom content */}
+      {renderCustomContent()}
 
       {/* Render ports */}
-      {ports.map(port => {
-        const portsOnSameSide = portsByPosition[port.position] || []
-        const portIndex = portsOnSameSide.findIndex(p => p.id === port.id)
-        return (
-          <PortComponent
-            key={port.id}
-            port={port}
-            nodeShape={shape}
-            showLabel={isHovered}
-            nodeId={metadata.id}
-            onPortPositionUpdate={
-              onPortPositionUpdate
-                ? (portId, x, y, position) =>
-                    onPortPositionUpdate(metadata.id, portId, x, y, position)
-                : undefined
-            }
-            onPortDragStart={onPortDragStart}
-            onPortDragEnd={onPortDragEnd}
-            portIndex={portIndex}
-            totalPortsOnSide={portsOnSameSide.length}
-            zoom={zoom}
-          />
-        )
-      })}
+      {renderPorts()}
     </div>
   )
 }
