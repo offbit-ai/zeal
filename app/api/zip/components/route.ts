@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
-import { uploadFile, getPublicUrl } from '@/lib/s3-client'
+import { uploadFile } from '@/lib/s3-client'
 import crypto from 'crypto'
 
 const MAX_BUNDLE_SIZE = 512 * 1024 // 512 KB
@@ -77,7 +77,6 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
       bundleId,
       namespace,
       url: `/api/zip/components/${namespace}/${bundleId}`,
-      storageUrl: getPublicUrl(storageKey),
       size: sourceBuffer.length,
     })
   } catch (error) {
