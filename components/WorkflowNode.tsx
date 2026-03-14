@@ -9,6 +9,8 @@ import { ImagePreview } from './MediaPreview'
 import { AudioPlayer } from './AudioPlayer'
 import { VideoPlayer } from './VideoPlayer'
 import { TextInputControl, NumberInputControl, RangeInputControl } from './UserInputControls'
+import { ImageStreamDisplay } from './ImageStreamDisplay'
+import { AudioStreamDisplay } from './AudioStreamDisplay'
 
 interface WorkflowNodeProps {
   metadata: NodeMetadata
@@ -325,7 +327,10 @@ export function WorkflowNode({
   const isImageInput = metadata.type === 'image-input'
   const isAudioInput = metadata.type === 'audio-input'
   const isVideoInput = metadata.type === 'video-input'
-  const isMediaNode = isImageInput || isAudioInput || isVideoInput
+  const isImageStreamDisplay = metadata.type === 'image-stream-display'
+  const isAudioStreamDisplay = metadata.type === 'audio-stream-display'
+  const isStreamDisplay = isImageStreamDisplay || isAudioStreamDisplay
+  const isMediaNode = isImageInput || isAudioInput || isVideoInput || isStreamDisplay
   const isInputNode = isTextInput || isNumberInput || isRangeInput || isMediaNode
 
   // Handle both object and array formats for properties
@@ -463,6 +468,43 @@ export function WorkflowNode({
                   onPropertyChange?.('videoFile', data.url) // Update the file property
                 }
                 onPropertyChange?.('videoData', data.url) // Output port data
+                onPropertyChange?.('metadata', data.metadata)
+              }}
+            />
+          </div>
+        )}
+
+        {isImageStreamDisplay && (
+          <div
+            className="w-full mt-3"
+            style={{ display: shouldShow ? 'block' : 'none' }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <ImageStreamDisplay
+              displayMode={actualPropertyValues.displayMode || 'contain'}
+              previewHeight={actualPropertyValues.previewHeight || 300}
+              nodeId={metadata.id}
+              onDataChange={data => {
+                onPropertyChange?.('metadata', data.metadata)
+              }}
+            />
+          </div>
+        )}
+
+        {isAudioStreamDisplay && (
+          <div
+            className="w-full mt-3"
+            style={{ display: shouldShow ? 'block' : 'none' }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <AudioStreamDisplay
+              autoplay={actualPropertyValues.autoplay || false}
+              loop={actualPropertyValues.loop || false}
+              showWaveform={actualPropertyValues.showWaveform !== false}
+              nodeId={metadata.id}
+              onDataChange={data => {
                 onPropertyChange?.('metadata', data.metadata)
               }}
             />

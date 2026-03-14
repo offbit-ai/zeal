@@ -15,6 +15,7 @@ import { dataProcessingTemplates } from './dataProcessing'
 import { serverNodeTemplates } from './serverNodes'
 import { graphIOTemplates } from './graphIO'
 import { userInputsTemplates } from './userInputs'
+import { streamDisplayTemplates } from './streamDisplay'
 
 // Re-export for convenience
 export { dataSourcesTemplates } from './dataSources'
@@ -28,6 +29,7 @@ export { dataProcessingTemplates } from './dataProcessing'
 export { serverNodeTemplates } from './serverNodes'
 export { graphIOTemplates } from './graphIO'
 export { userInputsTemplates } from './userInputs'
+export { streamDisplayTemplates } from './streamDisplay'
 
 export type { NodeTemplate, Port, PropertyDefinition, PropertyRule, PropertyRules } from './types'
 
@@ -44,4 +46,5 @@ export const allNodeTemplates = [
   ...serverNodeTemplates,
   ...graphIOTemplates,
   ...userInputsTemplates,
+  ...streamDisplayTemplates,
 ]
