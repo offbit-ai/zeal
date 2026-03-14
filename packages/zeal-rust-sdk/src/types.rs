@@ -202,6 +202,55 @@ pub struct ListCategoriesResponse {
     pub count: usize,
 }
 
+/// Register categories request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterCategoriesRequest {
+    pub categories: Vec<CategoryRegistration>,
+}
+
+/// Category to register
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryRegistration {
+    pub name: String,
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subcategories: Option<Vec<SubcategoryRegistration>>,
+}
+
+/// Subcategory to register
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubcategoryRegistration {
+    pub name: String,
+    #[serde(rename = "displayName")]
+    pub display_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// Register categories response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterCategoriesResponse {
+    pub registered: usize,
+    pub updated: usize,
+    pub categories: Vec<CategoryRegistrationResult>,
+}
+
+/// Result for each category registration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryRegistrationResult {
+    pub name: String,
+    pub status: String,
+    #[serde(rename = "subcategoriesAdded")]
+    pub subcategories_added: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 /// Register templates request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegisterTemplatesRequest {

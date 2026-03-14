@@ -103,6 +103,32 @@ export interface CategoryDefinition {
 export interface ListCategoriesResponse {
   categories: CategoryDefinition[]
   count: number
+  source?: 'database' | 'canonical'
+}
+
+export interface RegisterCategoriesRequest {
+  categories: Array<{
+    name: string
+    displayName: string
+    description?: string
+    icon?: string
+    subcategories?: Array<{
+      name: string
+      displayName: string
+      description?: string
+    }>
+  }>
+}
+
+export interface RegisterCategoriesResponse {
+  registered: number
+  updated: number
+  categories: Array<{
+    name: string
+    status: 'created' | 'exists' | 'updated' | 'error'
+    subcategoriesAdded: number
+    error?: string
+  }>
 }
 
 export interface RegisterTemplatesRequest {

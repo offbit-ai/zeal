@@ -160,6 +160,29 @@ class TemplatesAPI {
   }
 
   /**
+   * Register new categories and subcategories.
+   * Upserts by name — existing categories get new subcategories merged.
+   */
+  async registerCategories(request: {
+    categories: Array<{
+      name: string
+      displayName: string
+      description?: string
+      icon?: string
+      subcategories?: Array<{ name: string; displayName: string; description?: string }>
+    }>
+  }): Promise<{ registered: number; updated: number; categories: any[] }> {
+    return ZIPClient.request(
+      `${this.baseUrl}/api/zip/categories`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      },
+      this.authToken
+    )
+  }
+
+  /**
    * Register templates
    */
   async register(request: RegisterTemplatesRequest): Promise<RegisterTemplatesResponse> {

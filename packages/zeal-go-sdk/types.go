@@ -290,6 +290,42 @@ type ListCategoriesResponse struct {
 	Count      int                  `json:"count"`
 }
 
+// RegisterCategoriesRequest for registering new categories via ZIP
+type RegisterCategoriesRequest struct {
+	Categories []CategoryRegistration `json:"categories"`
+}
+
+// CategoryRegistration defines a category to register
+type CategoryRegistration struct {
+	Name          string                    `json:"name"`
+	DisplayName   string                    `json:"displayName"`
+	Description   *string                   `json:"description,omitempty"`
+	Icon          *string                   `json:"icon,omitempty"`
+	Subcategories []SubcategoryRegistration `json:"subcategories,omitempty"`
+}
+
+// SubcategoryRegistration defines a subcategory to register
+type SubcategoryRegistration struct {
+	Name        string  `json:"name"`
+	DisplayName string  `json:"displayName"`
+	Description *string `json:"description,omitempty"`
+}
+
+// RegisterCategoriesResponse from POST /api/zip/categories
+type RegisterCategoriesResponse struct {
+	Registered int                          `json:"registered"`
+	Updated    int                          `json:"updated"`
+	Categories []CategoryRegistrationResult `json:"categories"`
+}
+
+// CategoryRegistrationResult for each registered category
+type CategoryRegistrationResult struct {
+	Name               string  `json:"name"`
+	Status             string  `json:"status"`
+	SubcategoriesAdded int     `json:"subcategoriesAdded"`
+	Error              *string `json:"error,omitempty"`
+}
+
 type RegisterTemplatesRequest struct {
 	Namespace string         `json:"namespace"`
 	Templates []NodeTemplate `json:"templates"`

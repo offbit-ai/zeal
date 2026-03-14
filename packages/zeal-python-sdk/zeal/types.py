@@ -321,6 +321,40 @@ class ListCategoriesResponse(BaseModel):
     count: int
 
 
+class SubcategoryRegistration(BaseModel):
+    """Subcategory to register."""
+    name: str
+    display_name: str = Field(alias="displayName")
+    description: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class CategoryRegistration(BaseModel):
+    """Category to register."""
+    name: str
+    display_name: str = Field(alias="displayName")
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    subcategories: Optional[List[SubcategoryRegistration]] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class RegisterCategoriesRequest(BaseModel):
+    """Request to register new categories."""
+    categories: List[CategoryRegistration]
+
+
+class RegisterCategoriesResponse(BaseModel):
+    """Response from registering categories."""
+    registered: int
+    updated: int
+    categories: List[Dict[str, Any]]
+
+
 class NodeTemplate(BaseModel):
     """Node template definition."""
     id: str

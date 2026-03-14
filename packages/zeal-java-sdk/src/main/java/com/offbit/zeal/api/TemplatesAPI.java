@@ -24,6 +24,14 @@ public class TemplatesAPI {
     }
 
     /**
+     * Register new categories and subcategories.
+     * Upserts by name — existing categories get new subcategories merged.
+     */
+    public Object registerCategories(Object request) throws ZealException {
+        return client.makeRequest("POST", "/api/zip/categories", request, Object.class);
+    }
+
+    /**
      * Register node templates.
      */
     public Object register(Object request) throws ZealException {
