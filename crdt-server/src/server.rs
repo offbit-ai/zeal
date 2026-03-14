@@ -1,10 +1,9 @@
 /**
  * Socket.IO Compatible CRDT Server
- * 
+ *
  * This server implements the Socket.IO protocol to be fully compatible
  * with the existing JavaScript client.
  */
-
 use crate::config::ServerConfig;
 use crate::redis_manager::RedisManager;
 use crate::room::CRDTRoom;
@@ -32,7 +31,7 @@ impl CRDTServer {
     pub fn new(config: ServerConfig) -> Self {
         let redis = RedisManager::new(config.redis_url.clone(), config.enable_redis_persistence)
             .expect("Failed to create Redis manager");
-        
+
         Self {
             config,
             rooms: Arc::new(DashMap::new()),
@@ -43,7 +42,10 @@ impl CRDTServer {
     pub async fn start(self: Arc<Self>) -> Result<()> {
         // Connect to Redis if enabled
         if let Err(e) = self.redis.connect().await {
-            warn!("Failed to connect to Redis: {}, continuing without persistence", e);
+            warn!(
+                "Failed to connect to Redis: {}, continuing without persistence",
+                e
+            );
         }
 
         // Create Socket.IO layer with configuration
@@ -191,36 +193,55 @@ impl CRDTServer {
             .allow_credentials(true);
 
         let app = axum::Router::new()
-            .route("/", axum::routing::get(|| async { "Zeal CRDT Server Running" }))
-            .route("/health", axum::routing::get({
-                let server = self.clone();
-                move || {
-                    let server = server.clone();
-                    async move { server.health_check().await }
-                }
-            }))
-            .route("/stats", axum::routing::get({
-                let server = self.clone();
-                move || {
-                    let server = server.clone();
-                    async move { server.get_stats().await }
-                }
-            }))
+            .route(
+                "/",
+                axum::routing::get(|| async { "Zeal CRDT Server Running" }),
+            )
+            .route(
+                "/health",
+                axum::routing::get({
+                    let server = self.clone();
+                    move || {
+                        let server = server.clone();
+                        async move { server.health_check().await }
+                    }
+                }),
+            )
+            .route(
+                "/stats",
+                axum::routing::get({
+                    let server = self.clone();
+                    move || {
+                        let server = server.clone();
+                        async move { server.get_stats().await }
+                    }
+                }),
+            )
             .layer(
                 ServiceBuilder::new()
-                    .layer(TimeoutLayer::new(std::time::Duration::from_secs(5)))  // Add 5s timeout for HTTP requests
+                    .layer(TimeoutLayer::new(std::time::Duration::from_secs(5))) // Add 5s timeout for HTTP requests
                     .layer(cors)
                     .layer(layer),
             );
 
         // Start the server with connection limit
-        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.config.port)).await?;
-        info!("🚀 Socket.IO compatible CRDT server running on port {}", self.config.port);
-        info!("🔗 Connect clients to: ws://localhost:{}/socket.io/", self.config.port);
-        
+        let listener =
+            tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.config.port)).await?;
+        info!(
+            "🚀 Socket.IO compatible CRDT server running on port {}",
+            self.config.port
+        );
+        info!(
+            "🔗 Connect clients to: ws://localhost:{}/socket.io/",
+            self.config.port
+        );
+
         // Use axum's serve with a configured server
-        axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
-            .await?;
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await?;
 
         Ok(())
     }
@@ -231,9 +252,14 @@ impl CRDTServer {
         // Check room capacity
         if let Some(room) = self.rooms.get(room_name) {
             if room.client_count() >= self.config.max_clients_per_room {
-                socket.emit("crdt:error", json!({
-                    "error": "Room capacity reached"
-                })).ok();
+                socket
+                    .emit(
+                        "crdt:error",
+                        json!({
+                            "error": "Room capacity reached"
+                        }),
+                    )
+                    .ok();
                 return Ok(());
             }
         }
@@ -243,25 +269,28 @@ impl CRDTServer {
             existing_room.value().clone()
         } else {
             let new_room = CRDTRoom::with_redis(
-                room_name.to_string(), 
-                self.config.clone(), 
-                self.redis.clone()
+                room_name.to_string(),
+                self.config.clone(),
+                self.redis.clone(),
             );
-            
+
             // Always try to load existing state from Redis
             match new_room.load_from_redis().await {
                 Ok(loaded) => {
                     if loaded {
                         info!("Restored room {} from Redis persistence", room_name);
                     } else {
-                        info!("Created new room: {} (no existing state in Redis)", room_name);
+                        info!(
+                            "Created new room: {} (no existing state in Redis)",
+                            room_name
+                        );
                     }
                 }
                 Err(e) => {
                     warn!("Failed to load room {} from Redis: {}", room_name, e);
                 }
             }
-            
+
             self.rooms.insert(room_name.to_string(), new_room.clone());
             new_room
         };
@@ -273,25 +302,30 @@ impl CRDTServer {
         room.add_client(socket.id.to_string()).await?;
 
         // Send joined confirmation
-        socket.emit("crdt:joined", json!({
-            "roomName": room_name,
-            "clientId": socket.id.to_string()
-        })).ok();
+        socket
+            .emit(
+                "crdt:joined",
+                json!({
+                    "roomName": room_name,
+                    "clientId": socket.id.to_string()
+                }),
+            )
+            .ok();
 
         // Update client session in Redis with joined room
         if let Ok(Some(session_str)) = self.redis.get_client_session(&socket.id.to_string()).await {
             if let Ok(mut session) = serde_json::from_str::<serde_json::Value>(&session_str) {
                 // Check if this is a reconnection
-                let was_disconnected = session.get("disconnected_at").is_some() || 
-                                     session.get("is_connected").and_then(|v| v.as_bool()) == Some(false);
-                
+                let was_disconnected = session.get("disconnected_at").is_some()
+                    || session.get("is_connected").and_then(|v| v.as_bool()) == Some(false);
+
                 // Clear disconnection flags
                 session["is_connected"] = json!(true);
                 session.as_object_mut().map(|obj| {
                     obj.remove("disconnected_at");
                     obj.remove("pending_removal");
                 });
-                
+
                 if let Some(rooms) = session.get_mut("rooms").and_then(|r| r.as_array_mut()) {
                     if !rooms.iter().any(|r| r.as_str() == Some(room_name)) {
                         rooms.push(json!(room_name));
@@ -299,18 +333,24 @@ impl CRDTServer {
                 } else {
                     session["rooms"] = json!([room_name]);
                 }
-                
+
                 if let Ok(updated_session) = serde_json::to_string(&session) {
-                    let _ = self.redis.save_client_session(&socket.id.to_string(), &updated_session).await;
+                    let _ = self
+                        .redis
+                        .save_client_session(&socket.id.to_string(), &updated_session)
+                        .await;
                 }
-                
+
                 if was_disconnected {
                     info!("Client {} reconnected within grace period", socket.id);
                 }
             }
         }
 
-        info!("Client {} successfully joined room: {}", socket.id, room_name);
+        info!(
+            "Client {} successfully joined room: {}",
+            socket.id, room_name
+        );
         Ok(())
     }
 
@@ -322,87 +362,133 @@ impl CRDTServer {
 
         // Get message type for logging (don't log awareness spam)
         let message_type = data[0];
-        if message_type != 1 { // Not awareness
-            debug!("Received message type {} from client {} in room {}", message_type, socket.id, room_name);
+        if message_type != 1 {
+            // Not awareness
+            debug!(
+                "Received message type {} from client {} in room {}",
+                message_type, socket.id, room_name
+            );
         }
 
         if let Some(room) = self.rooms.get(room_name) {
             // Handle QUERY_AWARENESS messages specially
-            if message_type == 3 { // QUERY_AWARENESS
-                info!("Handling QUERY_AWARENESS from client {} in room {}", socket.id, room_name);
-                
+            if message_type == 3 {
+                // QUERY_AWARENESS
+                info!(
+                    "Handling QUERY_AWARENESS from client {} in room {}",
+                    socket.id, room_name
+                );
+
                 // Get all awareness states for this client
-                let awareness_messages = room.get_awareness_states_for_client(&socket.id.to_string());
-                
-                info!("Found {} awareness states to send to client {}", awareness_messages.len(), socket.id);
-                
+                let awareness_messages =
+                    room.get_awareness_states_for_client(&socket.id.to_string());
+
+                info!(
+                    "Found {} awareness states to send to client {}",
+                    awareness_messages.len(),
+                    socket.id
+                );
+
                 // Send each awareness state back to the requesting client
                 for (i, awareness_data) in awareness_messages.iter().enumerate() {
                     let data_array = serde_json::Value::Array(
-                        awareness_data.iter().map(|&b| serde_json::Value::Number(b.into())).collect()
+                        awareness_data
+                            .iter()
+                            .map(|&b| serde_json::Value::Number(b.into()))
+                            .collect(),
                     );
-                    
+
                     // Wrap in the same format as regular messages: [roomName, dataArray]
                     let message_payload = serde_json::Value::Array(vec![
                         serde_json::Value::String(room_name.to_string()),
-                        data_array
+                        data_array,
                     ]);
-                    
+
                     socket.emit("crdt:message", message_payload).ok();
                     info!("Sent awareness state {} to client {}", i + 1, socket.id);
                 }
-                
-                info!("Completed QUERY_AWARENESS response to client {} in room {}", socket.id, room_name);
+
+                info!(
+                    "Completed QUERY_AWARENESS response to client {} in room {}",
+                    socket.id, room_name
+                );
                 return Ok(());
             }
-            
+
             // Process the message in the room and get any response
             let response = room.handle_message(&socket.id.to_string(), data).await?;
 
             // If there's a response (e.g., sync step 2), send it back to the sender
             if !response.is_empty() {
-                debug!("Sending sync response to client {}, size: {} bytes", socket.id, response.len());
-                
-                let response_array = serde_json::Value::Array(
-                    response.iter().map(|&b| serde_json::Value::Number(b.into())).collect()
+                debug!(
+                    "Sending sync response to client {}, size: {} bytes",
+                    socket.id,
+                    response.len()
                 );
-                
+
+                let response_array = serde_json::Value::Array(
+                    response
+                        .iter()
+                        .map(|&b| serde_json::Value::Number(b.into()))
+                        .collect(),
+                );
+
                 let response_payload = serde_json::Value::Array(vec![
                     serde_json::Value::String(room_name.to_string()),
-                    response_array
+                    response_array,
                 ]);
-                
+
                 socket.emit("crdt:message", response_payload).ok();
             }
 
             // Check if this is a SYNC message type
             let message_type = if !data.is_empty() { data[0] } else { 255 };
-            
+
             // Only broadcast SYNC Update messages (type 0) and AWARENESS messages (type 1)
             // Don't broadcast AUTH (2), QUERY_AWARENESS (3), or other message types
             if message_type == 0 || message_type == 1 {
                 let data_vec: Vec<u8> = data.to_vec();
-                info!("Broadcasting {} message to room {} (excluding sender {}), data size: {} bytes", 
-                     if message_type == 0 { "SYNC" } else { "AWARENESS" },
-                     room_name, socket.id, data_vec.len());
-                
+                info!(
+                    "Broadcasting {} message to room {} (excluding sender {}), data size: {} bytes",
+                    if message_type == 0 {
+                        "SYNC"
+                    } else {
+                        "AWARENESS"
+                    },
+                    room_name,
+                    socket.id,
+                    data_vec.len()
+                );
+
                 // Convert Vec<u8> to a JSON array for socketioxide
                 let data_array = serde_json::Value::Array(
-                    data_vec.iter().map(|&b| serde_json::Value::Number(b.into())).collect()
+                    data_vec
+                        .iter()
+                        .map(|&b| serde_json::Value::Number(b.into()))
+                        .collect(),
                 );
-                
+
                 // Use consistent format: [roomName, dataArray] for all messages
                 let message_payload = serde_json::Value::Array(vec![
                     serde_json::Value::String(room_name.to_string()),
-                    data_array
+                    data_array,
                 ]);
-                
-                socket.to(room_name.to_string()).emit("crdt:message", message_payload).ok();
+
+                socket
+                    .to(room_name.to_string())
+                    .emit("crdt:message", message_payload)
+                    .ok();
             } else {
-                debug!("Not broadcasting message type {} to room {}", message_type, room_name);
+                debug!(
+                    "Not broadcasting message type {} to room {}",
+                    message_type, room_name
+                );
             }
         } else {
-            warn!("Client {} sent message to non-existent room: {}", socket.id, room_name);
+            warn!(
+                "Client {} sent message to non-existent room: {}",
+                socket.id, room_name
+            );
         }
 
         Ok(())
@@ -413,7 +499,7 @@ impl CRDTServer {
 
         // First leave the socket.io room to prevent further events
         socket.leave(room_name.to_string()).ok();
-        
+
         if let Some(room) = self.rooms.get(room_name) {
             // Only remove if client is actually in the room
             if room.has_client(&socket.id.to_string()).await {
@@ -423,7 +509,10 @@ impl CRDTServer {
                 if room.client_count() == 0 {
                     // Try to save state
                     if let Err(e) = room.save_to_redis().await {
-                        warn!("Failed to save room {} to Redis: {}. Keeping room in memory.", room_name, e);
+                        warn!(
+                            "Failed to save room {} to Redis: {}. Keeping room in memory.",
+                            room_name, e
+                        );
                         // Don't remove the room if we can't save state - keep it in memory
                     } else {
                         // Only remove if we successfully saved state
@@ -438,7 +527,7 @@ impl CRDTServer {
     async fn handle_disconnect(&self, socket: &SocketRef) {
         info!("Client disconnected: {}", socket.id);
         let socket_id = socket.id.to_string();
-        
+
         // Get client's rooms from Redis session
         let mut client_rooms = Vec::new();
         if let Ok(Some(session_str)) = self.redis.get_client_session(&socket_id).await {
@@ -446,7 +535,7 @@ impl CRDTServer {
                 // Mark as disconnected but keep session alive for reconnection
                 session["disconnected_at"] = json!(chrono::Utc::now().timestamp());
                 session["is_connected"] = json!(false);
-                
+
                 // Get rooms list
                 if let Some(rooms) = session.get("rooms").and_then(|r| r.as_array()) {
                     for room in rooms {
@@ -455,14 +544,17 @@ impl CRDTServer {
                         }
                     }
                 }
-                
+
                 // Keep session alive for 30 seconds to allow reconnection
                 if let Ok(updated_session) = serde_json::to_string(&session) {
-                    let _ = self.redis.save_client_session_with_ttl(&socket_id, &updated_session, 30).await;
+                    let _ = self
+                        .redis
+                        .save_client_session_with_ttl(&socket_id, &updated_session, 30)
+                        .await;
                 }
             }
         }
-        
+
         // Mark client as disconnected in rooms but don't remove them yet
         for room_name in &client_rooms {
             if let Some(room) = self.rooms.get(room_name) {
@@ -470,17 +562,27 @@ impl CRDTServer {
                 room.update_client_activity(&socket_id).await;
             }
         }
-        
-        info!("Client {} disconnected but keeping in rooms for 30s grace period", socket_id);
+
+        info!(
+            "Client {} disconnected but keeping in rooms for 30s grace period",
+            socket_id
+        );
     }
-    
+
     async fn cleanup_disconnected_client(&self, client_id: &str) {
         // Check if client reconnected during grace period
         if let Ok(Some(session_str)) = self.redis.get_client_session(client_id).await {
             if let Ok(session) = serde_json::from_str::<serde_json::Value>(&session_str) {
-                if session.get("pending_removal").and_then(|v| v.as_bool()).unwrap_or(false) {
-                    info!("Cleaning up disconnected client after grace period: {}", client_id);
-                    
+                if session
+                    .get("pending_removal")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
+                    info!(
+                        "Cleaning up disconnected client after grace period: {}",
+                        client_id
+                    );
+
                     // Get client's rooms
                     let mut client_rooms = Vec::new();
                     if let Some(rooms) = session.get("rooms").and_then(|r| r.as_array()) {
@@ -491,7 +593,6 @@ impl CRDTServer {
                         }
                     }
 
-                    
                     // Remove client from their rooms
                     let mut rooms_to_remove = Vec::new();
                     for room_name in client_rooms {
@@ -508,7 +609,10 @@ impl CRDTServer {
                         if let Some(room) = self.rooms.get(&room_name) {
                             // Save state to Redis before removal
                             if let Err(e) = room.save_to_redis().await {
-                                warn!("Failed to save room {} to Redis before removal: {}", room_name, e);
+                                warn!(
+                                    "Failed to save room {} to Redis before removal: {}",
+                                    room_name, e
+                                );
                             }
                         }
                         self.rooms.remove(&room_name);
@@ -520,14 +624,19 @@ impl CRDTServer {
                         warn!("Failed to delete client session from Redis: {}", e);
                     }
                 } else {
-                    info!("Client {} reconnected during grace period, skipping cleanup", client_id);
+                    info!(
+                        "Client {} reconnected during grace period, skipping cleanup",
+                        client_id
+                    );
                 }
             }
         }
     }
 
     pub async fn get_stats(&self) -> axum::Json<serde_json::Value> {
-        let total_clients: usize = self.rooms.iter()
+        let total_clients: usize = self
+            .rooms
+            .iter()
             .map(|entry| entry.value().client_count())
             .sum();
 

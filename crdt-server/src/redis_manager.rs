@@ -1,7 +1,7 @@
 use anyhow::Result;
 use redis::{aio::ConnectionManager, Client};
 use std::sync::Arc;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Clone)]
 pub struct RedisManager {
@@ -86,7 +86,7 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("room:{}:state", room_id);
-        
+
         // Check if this is a workflow room (starts with "wf_")
         if room_id.starts_with("wf_") {
             // No TTL for workflow rooms - they persist forever
@@ -106,7 +106,7 @@ impl RedisManager {
                 .query_async::<_, ()>(&mut conn)
                 .await?;
         }
-        
+
         Ok(())
     }
 
@@ -117,12 +117,9 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("room:{}:state", room_id);
-        
-        let state: Option<Vec<u8>> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await?;
-        
+
+        let state: Option<Vec<u8>> = redis::cmd("GET").arg(&key).query_async(&mut conn).await?;
+
         Ok(state)
     }
 
@@ -133,30 +130,40 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("room:{}:state", room_id);
-        
+
         redis::cmd("DEL")
             .arg(&key)
             .query_async::<_, ()>(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
     pub async fn save_client_session(&self, client_id: &str, session_data: &str) -> Result<()> {
-        self.save_client_session_with_ttl(client_id, session_data, 3600).await
+        self.save_client_session_with_ttl(client_id, session_data, 3600)
+            .await
     }
-    
-    pub async fn save_client_session_with_ttl(&self, client_id: &str, session_data: &str, ttl_seconds: u64) -> Result<()> {
+
+    pub async fn save_client_session_with_ttl(
+        &self,
+        client_id: &str,
+        session_data: &str,
+        ttl_seconds: u64,
+    ) -> Result<()> {
         if !self.enabled {
             return Ok(());
         }
 
         let mut conn = self.get_connection().await?;
         let key = format!("session:{}", client_id);
-        
+
         // Use longer TTL for client sessions (minimum 7 days)
-        let actual_ttl = if ttl_seconds < 604800 { 604800 } else { ttl_seconds };
-        
+        let actual_ttl = if ttl_seconds < 604800 {
+            604800
+        } else {
+            ttl_seconds
+        };
+
         redis::cmd("SET")
             .arg(&key)
             .arg(session_data)
@@ -164,7 +171,7 @@ impl RedisManager {
             .arg(actual_ttl)
             .query_async::<_, ()>(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
@@ -175,12 +182,9 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("session:{}", client_id);
-        
-        let session: Option<String> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await?;
-        
+
+        let session: Option<String> = redis::cmd("GET").arg(&key).query_async(&mut conn).await?;
+
         Ok(session)
     }
 
@@ -191,13 +195,13 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("session:{}", client_id);
-        
+
         redis::cmd("EXPIRE")
             .arg(&key)
             .arg(604800) // Reset to 7 days
             .query_async::<_, ()>(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
@@ -208,12 +212,12 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("session:{}", client_id);
-        
+
         redis::cmd("DEL")
             .arg(&key)
             .query_async::<_, ()>(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
@@ -224,7 +228,7 @@ impl RedisManager {
 
         let mut conn = self.get_connection().await?;
         let key = format!("room:{}:state", room_id);
-        
+
         // Only refresh TTL for non-workflow rooms
         if !room_id.starts_with("wf_") {
             redis::cmd("EXPIRE")
@@ -233,7 +237,7 @@ impl RedisManager {
                 .query_async::<_, ()>(&mut conn)
                 .await?;
         }
-        
+
         Ok(())
     }
 
@@ -244,9 +248,7 @@ impl RedisManager {
 
         match self.get_connection().await {
             Ok(mut conn) => {
-                let pong: String = redis::cmd("PING")
-                    .query_async(&mut conn)
-                    .await?;
+                let pong: String = redis::cmd("PING").query_async(&mut conn).await?;
                 Ok(pong == "PONG")
             }
             Err(_) => Ok(false),

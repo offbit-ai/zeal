@@ -1,10 +1,9 @@
 /**
  * Rust CRDT Server with Socket.IO Compatibility
- * 
+ *
  * This server provides Socket.IO compatibility for the existing
  * JavaScript client while using Rust for better performance.
  */
-
 use clap::Parser;
 use std::sync::Arc;
 use tracing::{info, Level};
@@ -55,7 +54,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut args = Args::parse();
-    
+
     // Override with environment variables if present
     if let Ok(redis_url) = std::env::var("REDIS_URL") {
         args.redis_url = redis_url;
@@ -65,7 +64,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Initialize tracing
-    let level = if args.verbose { Level::DEBUG } else { Level::INFO };
+    let level = if args.verbose {
+        Level::DEBUG
+    } else {
+        Level::INFO
+    };
     tracing_subscriber::fmt()
         .with_max_level(level)
         .with_target(false)
@@ -76,7 +79,14 @@ async fn main() -> anyhow::Result<()> {
     info!("🔧 Max clients per room: {}", args.max_clients_per_room);
     info!("⏰ Client timeout: {} minutes", args.client_timeout_minutes);
     info!("🌐 CORS origin: {}", args.cors_origin);
-    info!("🗄️  Redis persistence: {}", if args.disable_redis_persistence { "disabled" } else { "enabled" });
+    info!(
+        "🗄️  Redis persistence: {}",
+        if args.disable_redis_persistence {
+            "disabled"
+        } else {
+            "enabled"
+        }
+    );
 
     // Create server config
     let config = ServerConfig {

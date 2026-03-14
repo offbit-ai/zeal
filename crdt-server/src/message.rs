@@ -62,14 +62,13 @@ pub struct JoinedResponse {
 /// Generate a color for a user based on their ID
 pub fn generate_user_color(user_id: &str) -> String {
     let colors = [
-        "#ef4444", "#f59e0b", "#10b981", "#3b82f6",
-        "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
+        "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
     ];
-    
+
     let mut hash: u32 = 0;
     for byte in user_id.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u32);
     }
-    
+
     colors[(hash as usize) % colors.len()].to_string()
 }
