@@ -175,6 +175,21 @@ embed.off('eventName', handler)
 Full access to ZIP protocol APIs:
 
 ```javascript
+// Categories — list and register
+const { categories } = await client.templates.listCategories()
+await client.templates.registerCategories({
+  categories: [{
+    name: 'machine-vision',
+    displayName: 'Machine Vision',
+    icon: 'eye',
+    subcategories: [
+      { name: 'detection', displayName: 'Object Detection' },
+    ],
+  }],
+})
+```
+
+```javascript
 const { client } = embed
 
 // Templates API

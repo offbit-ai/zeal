@@ -110,6 +110,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Templates API
 
+#### Categories
+
+```rust
+// List available categories
+let categories = client.templates().list_categories().await?;
+
+// Register custom categories
+let result = client.templates().register_categories(RegisterCategoriesRequest {
+    categories: vec![CategoryRegistration {
+        name: "machine-vision".to_string(),
+        display_name: "Machine Vision".to_string(),
+        description: Some("Computer vision nodes".to_string()),
+        icon: Some("eye".to_string()),
+        subcategories: Some(vec![
+            SubcategoryRegistration {
+                name: "detection".to_string(),
+                display_name: "Object Detection".to_string(),
+                description: None,
+            },
+        ]),
+    }],
+}).await?;
+// Upserts by name — existing categories get new subcategories merged
+```
+
+#### Templates
+
 Register and manage node templates:
 
 ```rust

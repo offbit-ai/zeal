@@ -182,6 +182,34 @@ err = client.Orchestrator().RemoveGroup(ctx, zeal.RemoveGroupRequest{
 
 ### Templates API
 
+#### Categories
+
+List and register node template categories:
+
+```go
+// List available categories
+categories, err := client.Templates().ListCategories(ctx)
+
+// Register custom categories with subcategories
+result, err := client.Templates().RegisterCategories(ctx, zeal.RegisterCategoriesRequest{
+    Categories: []zeal.CategoryRegistration{
+        {
+            Name:        "machine-vision",
+            DisplayName: "Machine Vision",
+            Description: stringPtr("Computer vision nodes"),
+            Icon:        stringPtr("eye"),
+            Subcategories: []zeal.SubcategoryRegistration{
+                {Name: "detection", DisplayName: "Object Detection"},
+                {Name: "segmentation", DisplayName: "Segmentation"},
+            },
+        },
+    },
+})
+// Upserts by name — existing categories get new subcategories merged
+```
+
+#### Templates
+
 Register and manage node templates:
 
 ```go

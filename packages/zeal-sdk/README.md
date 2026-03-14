@@ -139,6 +139,36 @@ subscription.onEventSource('crdt', (event) => {
 
 ### Templates API
 
+#### Categories
+
+List and register node template categories so nodes appear in the correct palette section:
+
+```typescript
+// List all available categories (from DB, with canonical fallback)
+const { categories } = await fetch('/api/zip/categories').then(r => r.json())
+
+// Register custom categories with subcategories
+const result = await fetch('/api/zip/categories', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    categories: [{
+      name: 'machine-vision',
+      displayName: 'Machine Vision',
+      description: 'Computer vision nodes',
+      icon: 'eye',
+      subcategories: [
+        { name: 'detection', displayName: 'Object Detection' },
+        { name: 'segmentation', displayName: 'Segmentation' },
+      ],
+    }],
+  }),
+})
+// Upserts by name — existing categories get new subcategories merged
+```
+
+#### Templates
+
 Register and manage node templates:
 
 ```typescript

@@ -121,6 +121,31 @@ var group = client.orchestrator()
 
 ### Templates API
 
+#### Categories
+
+```java
+// List available categories
+var categories = client.templates().listCategories();
+
+// Register custom categories with subcategories
+var request = Map.of("categories", List.of(
+    Map.of(
+        "name", "machine-vision",
+        "displayName", "Machine Vision",
+        "description", "Computer vision nodes",
+        "icon", "eye",
+        "subcategories", List.of(
+            Map.of("name", "detection", "displayName", "Object Detection"),
+            Map.of("name", "segmentation", "displayName", "Segmentation")
+        )
+    )
+));
+var result = client.templates().registerCategories(request);
+// Upserts by name — existing categories get new subcategories merged
+```
+
+#### Templates
+
 ```java
 // Register templates
 var result = client.templates()

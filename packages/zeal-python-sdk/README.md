@@ -131,6 +131,36 @@ await client.orchestrator.remove_group(
 
 ### Templates API
 
+#### Categories
+
+```python
+from zeal.types import RegisterCategoriesRequest, CategoryRegistration, SubcategoryRegistration
+
+# List available categories
+categories = await client.templates.list_categories()
+
+# Register custom categories
+result = await client.templates.register_categories(
+    RegisterCategoriesRequest(
+        categories=[
+            CategoryRegistration(
+                name="machine-vision",
+                display_name="Machine Vision",
+                description="Computer vision nodes",
+                icon="eye",
+                subcategories=[
+                    SubcategoryRegistration(name="detection", display_name="Object Detection"),
+                    SubcategoryRegistration(name="segmentation", display_name="Segmentation"),
+                ],
+            )
+        ]
+    )
+)
+# Upserts by name — existing categories get new subcategories merged
+```
+
+#### Templates
+
 ```python
 # Register templates
 response = await client.templates.register(
