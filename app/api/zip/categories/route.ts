@@ -93,6 +93,7 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
       try {
         // Check if category already exists
         let existing = await ops.getCategoryByName(cat.name)
+        const wasCreated = !existing
 
         if (!existing) {
           // Create new category
@@ -107,7 +108,7 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
           })
         }
 
-        // Add new subcategories (skip existing ones)
+        // Add new subcategories (skip existing ones via duplicate constraint)
         let subcategoriesAdded = 0
         if (cat.subcategories.length > 0 && existing.id) {
           for (const sub of cat.subcategories) {
@@ -119,14 +120,14 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
               })
               subcategoriesAdded++
             } catch {
-              // Likely duplicate — skip silently
+              // Duplicate subcategory name — skip
             }
           }
         }
 
         results.push({
           name: cat.name,
-          status: existing ? (subcategoriesAdded > 0 ? 'updated' : 'exists') : 'created',
+          status: wasCreated ? 'created' : (subcategoriesAdded > 0 ? 'updated' : 'exists'),
           subcategoriesAdded,
         })
       } catch (error) {
