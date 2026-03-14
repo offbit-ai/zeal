@@ -1,16 +1,13 @@
 /**
  * GET /api/zip/components/[namespace]/[bundleId] — Serve a Web Component bundle
  *
- * Returns the JS bundle with proper Content-Type and cache headers.
- * Same-origin serving eliminates all CORS/CSP issues.
+ * Fetches the bundle from persistent cloud storage and returns it with
+ * proper Content-Type and cache headers. Same-origin serving eliminates
+ * all CORS/CSP issues for dynamic imports.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile } from 'fs/promises'
-import { existsSync } from 'fs'
-import { join } from 'path'
-
-const BUNDLE_DIR = join(process.cwd(), '.zeal', 'component-bundles')
+import { getPresignedDownloadUrl } from '@/lib/s3-client'
 
 export async function GET(
   _request: NextRequest,
@@ -29,19 +26,23 @@ export async function GET(
     )
   }
 
-  const bundlePath = join(BUNDLE_DIR, namespace, bundleId)
-
-  if (!existsSync(bundlePath)) {
-    return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: 'Bundle not found' } },
-      { status: 404 }
-    )
-  }
+  const storageKey = `zip-components/${namespace}/${bundleId}`
 
   try {
-    const source = await readFile(bundlePath, 'utf-8')
+    // Get a presigned download URL and proxy the content
+    const downloadUrl = await getPresignedDownloadUrl(storageKey, 60)
+    const upstream = await fetch(downloadUrl)
 
-    return new NextResponse(source, {
+    if (!upstream.ok) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Bundle not found' } },
+        { status: 404 }
+      )
+    }
+
+    const body = await upstream.arrayBuffer()
+
+    return new NextResponse(body, {
       headers: {
         'Content-Type': 'application/javascript; charset=utf-8',
         'Cache-Control': 'public, max-age=31536000, immutable',
@@ -51,8 +52,8 @@ export async function GET(
   } catch (error) {
     console.error('Error serving component bundle:', error)
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Failed to serve bundle' } },
-      { status: 500 }
+      { error: { code: 'NOT_FOUND', message: 'Bundle not found' } },
+      { status: 404 }
     )
   }
 }

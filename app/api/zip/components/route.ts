@@ -1,19 +1,17 @@
 /**
  * POST /api/zip/components — Upload a Web Component bundle
  *
- * Accepts a JS bundle (multipart or raw body) and stores it on disk.
- * Returns a bundleId that can be referenced in template.display.bundleId.
- * The bundle is served same-origin at /api/zip/components/[namespace]/[bundleId].
+ * Stores the JS bundle in persistent cloud storage (S3/Azure/GCS/MinIO)
+ * using a content-addressed key. Returns a bundleId that templates
+ * reference in display.bundleId. The bundle is served same-origin
+ * via GET /api/zip/components/[namespace]/[bundleId].
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { withZIPAuthorization, getAuthenticatedUserId } from '@/lib/auth/zip-middleware'
-import { writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
+import { uploadFile, getPublicUrl } from '@/lib/s3-client'
 import crypto from 'crypto'
 
-const BUNDLE_DIR = join(process.cwd(), '.zeal', 'component-bundles')
 const MAX_BUNDLE_SIZE = 512 * 1024 // 512 KB
 
 export const POST = withZIPAuthorization(async (request: NextRequest) => {
@@ -49,8 +47,8 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
     }
 
     // Validate size
-    const sizeBytes = new TextEncoder().encode(source).length
-    if (sizeBytes > MAX_BUNDLE_SIZE) {
+    const sourceBuffer = Buffer.from(source, 'utf-8')
+    if (sourceBuffer.length > MAX_BUNDLE_SIZE) {
       return NextResponse.json(
         { error: { code: 'PAYLOAD_TOO_LARGE', message: `Bundle exceeds ${MAX_BUNDLE_SIZE / 1024}KB limit` } },
         { status: 413 }
@@ -65,25 +63,22 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
       )
     }
 
-    // Generate content-addressable bundleId
+    // Content-addressed bundleId
     const hash = crypto.createHash('sha256').update(source).digest('hex').slice(0, 16)
     const bundleId = `${hash}.js`
 
-    // Ensure directory exists
-    const nsDir = join(BUNDLE_DIR, namespace)
-    if (!existsSync(nsDir)) {
-      await mkdir(nsDir, { recursive: true })
-    }
+    // Storage key under a dedicated prefix
+    const storageKey = `zip-components/${namespace}/${bundleId}`
 
-    // Write bundle to disk
-    const bundlePath = join(nsDir, bundleId)
-    await writeFile(bundlePath, source, 'utf-8')
+    // Upload to persistent storage (file, key, contentType)
+    await uploadFile(sourceBuffer, storageKey, 'application/javascript')
 
     return NextResponse.json({
       bundleId,
       namespace,
       url: `/api/zip/components/${namespace}/${bundleId}`,
-      size: sizeBytes,
+      storageUrl: getPublicUrl(storageKey),
+      size: sourceBuffer.length,
     })
   } catch (error) {
     console.error('Error uploading component bundle:', error)
