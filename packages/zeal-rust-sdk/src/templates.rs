@@ -180,6 +180,104 @@ impl TemplatesAPI {
         Ok(delete_response)
     }
 
+    /// List available node template categories
+    pub async fn list_categories(&self) -> Result<ListCategoriesResponse> {
+        let url = format!(
+            "{}/api/zip/categories",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(ZealError::api_error(
+                status.as_u16(),
+                format!("Failed to list categories: {}", status),
+                Some(error_text),
+            ));
+        }
+
+        let categories_response = response.json::<ListCategoriesResponse>().await?;
+        Ok(categories_response)
+    }
+
+    /// Register new categories and subcategories.
+    /// Upserts by name — existing categories get new subcategories merged.
+    pub async fn register_categories(
+        &self,
+        request: RegisterCategoriesRequest,
+    ) -> Result<RegisterCategoriesResponse> {
+        let url = format!(
+            "{}/api/zip/categories",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(ZealError::api_error(
+                status.as_u16(),
+                format!("Failed to register categories: {}", status),
+                Some(error_text),
+            ));
+        }
+
+        let registration_response = response.json::<RegisterCategoriesResponse>().await?;
+        Ok(registration_response)
+    }
+
+    /// Upload a Web Component bundle for custom node rendering.
+    /// Returns bundle metadata including the bundleId for template.display.
+    pub async fn upload_bundle(
+        &self,
+        request: UploadBundleRequest,
+    ) -> Result<UploadBundleResponse> {
+        let url = format!(
+            "{}/api/zip/components",
+            self.base_url.trim_end_matches('/')
+        );
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(ZealError::api_error(
+                status.as_u16(),
+                format!("Failed to upload bundle: {}", status),
+                Some(error_text),
+            ));
+        }
+
+        let upload_response = response.json::<UploadBundleResponse>().await?;
+        Ok(upload_response)
+    }
+
     /// Get a specific template (convenience method)
     pub async fn get(&self, namespace: &str, template_id: &str) -> Result<NodeTemplate> {
         let templates = self.list(namespace).await?;

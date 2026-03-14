@@ -321,6 +321,29 @@ func (api *TemplatesAPI) Update(ctx context.Context, namespace, templateID strin
 	return &result, err
 }
 
+// ListCategories lists available node template categories
+func (api *TemplatesAPI) ListCategories(ctx context.Context) (*ListCategoriesResponse, error) {
+	var result ListCategoriesResponse
+	err := api.client.makeRequest(ctx, "GET", "/api/zip/categories", nil, &result)
+	return &result, err
+}
+
+// RegisterCategories registers new categories and subcategories.
+// Upserts by name — existing categories get new subcategories merged.
+func (api *TemplatesAPI) RegisterCategories(ctx context.Context, req RegisterCategoriesRequest) (*RegisterCategoriesResponse, error) {
+	var result RegisterCategoriesResponse
+	err := api.client.makeRequest(ctx, "POST", "/api/zip/categories", req, &result)
+	return &result, err
+}
+
+// UploadBundle uploads a Web Component bundle for custom node rendering.
+// Returns bundle metadata including the BundleID for template.Display.
+func (api *TemplatesAPI) UploadBundle(ctx context.Context, req UploadBundleRequest) (*UploadBundleResponse, error) {
+	var result UploadBundleResponse
+	err := api.client.makeRequest(ctx, "POST", "/api/zip/components", req, &result)
+	return &result, err
+}
+
 // Delete deletes a template
 func (api *TemplatesAPI) Delete(ctx context.Context, namespace, templateID string) (*DeleteTemplateResponse, error) {
 	path := fmt.Sprintf("/api/zip/templates/delete?namespace=%s&templateId=%s", namespace, templateID)
