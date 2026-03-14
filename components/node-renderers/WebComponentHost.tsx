@@ -112,6 +112,10 @@ export default function WebComponentHost({
 
       if (!elementRef.current) {
         const el = document.createElement(display.element)
+        // Ensure the custom element participates in flex layout
+        el.style.display = 'block'
+        el.style.width = '100%'
+        el.style.minHeight = '0'
         hostRef.current.appendChild(el)
         elementRef.current = el
       }
