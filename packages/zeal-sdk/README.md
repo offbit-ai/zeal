@@ -149,11 +149,58 @@ await client.templates.register({
   templates: [...],
 })
 
+// Register with custom display (Web Component)
+await client.templates.register({
+  namespace: 'my-integration',
+  templates: [{
+    ...templateDef,
+    display: {
+      element: 'my-chart-node',
+      bundleId: 'my-integration/a1b2c3d4.js',
+      shadow: true,
+      observedProps: ['chartType', 'data'],
+      width: '400px',
+    },
+  }],
+})
+
 // List templates
 const templates = await client.templates.list('my-integration')
 
 // Get template by ID
 const template = await client.templates.get('template-id')
+```
+
+#### Component Bundles
+
+Upload Web Component bundles for custom node rendering:
+
+```typescript
+// Upload a component bundle (returns bundleId for use in display.bundleId)
+const response = await fetch('/api/zip/components', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    namespace: 'my-integration',
+    source: 'class MyNode extends HTMLElement { ... } customElements.define("my-chart-node", MyNode)',
+  }),
+})
+const { bundleId, url } = await response.json()
+// bundleId: "a1b2c3d4.js", url: "/api/zip/components/my-integration/a1b2c3d4.js"
+```
+
+#### Stream Events
+
+```typescript
+// Stream lifecycle events
+client.events.on('stream.opened', (event) => { /* stream started */ })
+client.events.on('stream.closed', (event) => { /* stream ended */ })
+client.events.on('stream.error', (event) => { /* stream failed */ })
+
+// Binary stream frames
+client.events.on('stream.frame', (frame) => {
+  // frame: { type, streamId, payload: Uint8Array }
+})
 ```
 
 ### Orchestrator API

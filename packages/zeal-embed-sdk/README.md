@@ -183,6 +183,24 @@ await client.templates.list('namespace')
 await client.templates.update('namespace', 'templateId', updates)
 await client.templates.delete('namespace', 'templateId')
 
+// Component Bundles — upload Web Component JS for custom node rendering
+const { bundleId } = await client.templates.uploadBundle('my-ns', 'class MyEl extends HTMLElement { ... }')
+
+// Register template with DisplayComponent for custom rendering
+await client.templates.register({
+  namespace: 'custom',
+  templates: [{
+    ...templateDef,
+    display: {
+      element: 'my-custom-node',
+      bundleId: `my-ns/${bundleId}`,
+      shadow: true,
+      observedProps: ['chartType'],
+      width: '400px',
+    },
+  }],
+})
+
 // Orchestrator API
 await client.orchestrator.createWorkflow({ name: 'New Workflow' })
 await client.orchestrator.listWorkflows({ limit: 10 })
@@ -214,6 +232,14 @@ The SDK emits various events for workflow interactions:
 - `execution.started` - Workflow execution started
 - `execution.completed` - Workflow execution completed
 - `execution.failed` - Workflow execution failed
+
+### Stream Events
+- `stream.opened` - Binary stream started from a node
+- `stream.closed` - Stream completed normally
+- `stream.error` - Stream terminated with error
+- `stream.frame` - Binary data frame (parsed: `{ type, streamId, payload }`)
+- `stream.frame.data` - Data frames only
+- `stream.frame.begin` / `stream.frame.end` - Lifecycle frames
 
 ### Editor Events
 - `ready` - Editor fully loaded

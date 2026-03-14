@@ -122,11 +122,50 @@ let result = client.templates().register(
     Some("http://my-server.com/webhook".to_string())
 ).await?;
 
+// Upload component bundle for custom node rendering
+let bundle = client.components().upload(UploadBundleRequest {
+    namespace: "my-ns".to_string(),
+    source: r#"class MyEl extends HTMLElement { ... }
+               customElements.define("my-chart-node", MyEl)"#.to_string(),
+}).await?;
+// bundle.bundle_id -> use in template.display.bundle_id
+
+// Register with custom display component
+let mut template = NodeTemplate { /* ... */ };
+template.display = Some(DisplayComponent {
+    element: "my-chart-node".to_string(),
+    bundle_id: Some(format!("my-ns/{}", bundle.bundle_id)),
+    shadow: Some(true),
+    observed_props: Some(vec!["chartType".to_string()]),
+    ..Default::default()
+});
+
 // List templates
 let templates = client.templates().list("my-integration").await?;
 
 // Get specific template
 let template = client.templates().get("template-id").await?;
+```
+
+#### Stream Events
+
+```rust
+use zeal_sdk::events::*;
+
+// Type guard
+assert!(is_stream_event("stream.opened"));
+
+// Create stream events
+let opened = create_stream_opened_event("wf-1", "node-1", "ImageOut", 42, None);
+let closed = create_stream_closed_event("wf-1", "node-1", 42, 262144, None);
+
+// Parse binary stream frames
+let frame = parse_stream_frame(&data).unwrap();
+match frame.frame_type {
+    StreamFrameType::Data => { /* process payload */ },
+    StreamFrameType::End => { /* stream complete */ },
+    _ => {}
+}
 ```
 
 ### Orchestrator API

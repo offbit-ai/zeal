@@ -126,9 +126,48 @@ var group = client.orchestrator()
 var result = client.templates()
     .register(templatesRequest);
 
+// Register with custom display component
+var display = new DisplayComponent("my-chart-node");
+display.setBundleId("my-ns/a1b2c3d4.js");
+display.setShadow(true);
+display.setObservedProps(List.of("chartType", "data"));
+// Set display on template before registering
+
+// Upload component bundle
+var bundle = client.templates()
+    .uploadBundle("my-ns", "class MyEl extends HTMLElement { ... }");
+// Use returned bundleId in DisplayComponent.setBundleId()
+
 // List templates
 var templates = client.templates()
     .list("namespace");
+```
+
+#### Stream Events
+
+```java
+import com.offbit.zeal.events.*;
+
+// Stream event types
+StreamOpenedEvent opened = new StreamOpenedEvent();
+opened.setNodeId("node-1");
+opened.setPort("ImageOut");
+opened.setStreamId(42L);
+opened.setContentType("image/raw-rgba");
+
+StreamClosedEvent closed = new StreamClosedEvent();
+closed.setNodeId("node-1");
+closed.setStreamId(42L);
+closed.setTotalBytes(262144L);
+
+StreamErrorEvent error = new StreamErrorEvent();
+error.setNodeId("node-1");
+error.setStreamId(42L);
+error.setError("upstream connection reset");
+
+// Type checking
+event.isStreamEvent()  // true for stream.opened/closed/error
+event.isExecutionEvent()  // false
 ```
 
 ### Traces API
@@ -267,6 +306,11 @@ ConnectionDeletedEvent
 GroupCreatedEvent
 GroupUpdatedEvent
 GroupDeletedEvent
+
+// Stream events
+StreamOpenedEvent   // stream.opened - binary stream started
+StreamClosedEvent   // stream.closed - stream completed normally
+StreamErrorEvent    // stream.error  - stream terminated with error
 ```
 
 ## Error Handling

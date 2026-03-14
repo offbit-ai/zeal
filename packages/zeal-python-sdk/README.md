@@ -140,8 +140,53 @@ response = await client.templates.register(
     )
 )
 
+# Upload a component bundle for custom node rendering
+from zeal.types import UploadBundleRequest
+bundle = await client.components.upload(UploadBundleRequest(
+    namespace="my-ns",
+    source='class MyEl extends HTMLElement { ... } customElements.define("my-el", MyEl)'
+))
+# bundle.bundle_id -> use in display.bundle_id
+
+# Register with custom display component
+from zeal.types import DisplayComponent
+
+response = await client.templates.register(
+    RegisterTemplatesRequest(
+        namespace="my-templates",
+        templates=[NodeTemplate(
+            # ...fields...
+            display=DisplayComponent(
+                element="my-chart-node",
+                bundle_id=f"my-ns/{bundle.bundle_id}",
+                shadow=True,
+                observed_props=["chartType"],
+            ),
+        )]
+    )
+)
+
 # List templates
 templates = await client.templates.list("my-templates")
+```
+
+#### Stream Events
+
+```python
+from zeal.events import (
+    is_stream_event,
+    create_stream_opened_event,
+    parse_stream_frame,
+)
+
+# Type guard
+assert is_stream_event("stream.opened")
+
+# Create events
+event = create_stream_opened_event("wf-1", "node-1", "ImageOut", 42)
+
+# Parse binary frames
+frame = parse_stream_frame(data)  # {"type": "data", "stream_id": 42, "payload": b"..."}
 ```
 
 ### Traces API
