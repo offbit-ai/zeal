@@ -4,8 +4,13 @@ import { ApiError, WorkflowExecutionRequest, WorkflowExecutionResponse } from '@
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
+import { emitZipEvent, broadcastExecutionControl } from '@/lib/zip/websocket-server'
+import {
+  createExecutionStartedEvent,
+  createNodeExecutingEvent,
+} from '@/types/zip-events'
 
-// Mock execution store
+// Execution store (in-memory for now — will be backed by DB)
 let executionsStore: WorkflowExecutionResponse[] = []
 
 // POST /api/workflows/[id]/execute - Execute workflow
@@ -26,72 +31,109 @@ export const POST = withAuth(
       if (!workflow) {
         throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
       }
-      
+
       // Check tenant access
       if (!validateTenantAccess(workflow, req as NextRequest)) {
         return createTenantViolationError()
       }
-      
+
       // Check ownership for legacy workflows without tenantId
       if (!workflow.tenantId && workflow.userId !== userId) {
         throw new ApiError('FORBIDDEN', 'Not authorized to execute this workflow', 403)
       }
 
-      // Create execution record with tenant context
+      // Create execution record
+      const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+      const sessionId = `trace_${Date.now()}`
+
       const execution: WorkflowExecutionResponse = {
-        id: `exec_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-        workflowId: body.workflowId,
+        id: executionId,
+        workflowId,
         status: 'queued',
         startTime: new Date().toISOString(),
         input: body.input,
+        traceSessionId: sessionId,
         metadata: {
           triggeredBy: userId,
           configuration: body.configuration,
           executionMode: 'manual',
         },
-        ...(req as any).authContext?.subject?.tenantId && { 
-          tenantId: (req as any).authContext?.subject?.tenantId 
-        }
+        ...((req as any).authContext?.subject?.tenantId && {
+          tenantId: (req as any).authContext?.subject?.tenantId,
+        }),
       }
 
-    executionsStore.push(execution)
+      executionsStore.push(execution)
 
-    // In real implementation, this would:
-    // 1. Validate workflow is published
-    // 2. Check environment variables are configured
-    // 3. Queue execution in execution engine
-    // 4. Return execution ID for status tracking
+      // --- Emit ZIP execution.started event ---
+      // This signals all connected SDK clients and browser editors
+      // that an execution has begun. External runtimes listening via
+      // WebSocket will receive this and can begin executing nodes.
+      const startedEvent = createExecutionStartedEvent(
+        workflowId,
+        sessionId,
+        workflow.name || `Workflow ${workflowId}`,
+        {
+          graphId: 'main',
+          trigger: { type: 'manual', source: userId },
+          metadata: {
+            executionId,
+            input: body.input,
+            configuration: body.configuration,
+          },
+        }
+      )
 
-    // Simulate async execution
-    setTimeout(() => {
-      const execIndex = executionsStore.findIndex(e => e.id === execution.id)
+      emitZipEvent(workflowId, startedEvent)
+
+      // Broadcast execution control event for UI state
+      broadcastExecutionControl(workflowId, 'execution.start', {
+        executionId,
+        sessionId,
+        workflowId,
+        triggeredBy: userId,
+      })
+
+      // Update status to running
+      const execIndex = executionsStore.findIndex(e => e.id === executionId)
       if (execIndex !== -1) {
         executionsStore[execIndex] = {
           ...executionsStore[execIndex],
           status: 'running',
-          traceSessionId: `trace_${Date.now()}`,
         }
+      }
 
-        // Simulate completion after 5 seconds
-        setTimeout(() => {
-          const finalExecIndex = executionsStore.findIndex(e => e.id === execution.id)
-          if (finalExecIndex !== -1) {
-            executionsStore[finalExecIndex] = {
-              ...executionsStore[finalExecIndex],
-              status: 'completed',
-              endTime: new Date().toISOString(),
-              output: {
-                result: 'success',
-                processedRecords: 42,
-                executionTime: '5.2s',
-              },
+      // Get workflow nodes to emit per-node execution events
+      try {
+        const { versions } = await WorkflowDatabase.getWorkflowVersions(workflowId, { limit: 1 })
+        const latestVersion = versions[0]
+        if (latestVersion?.graphs) {
+          const graphs = latestVersion.graphs as any
+          const mainGraph = graphs?.main || graphs?.[Object.keys(graphs)[0]]
+          const nodes = mainGraph?.nodes
+          if (nodes && typeof nodes === 'object') {
+            // Emit node.executing for each node so connected runtimes
+            // know which nodes need to be executed
+            const nodeEntries = Array.isArray(nodes) ? nodes : Object.values(nodes)
+            for (const node of nodeEntries) {
+              const nodeId = (node as any)?.id || (node as any)?.metadata?.id
+              if (nodeId) {
+                const nodeEvent = createNodeExecutingEvent(
+                  workflowId,
+                  nodeId,
+                  [], // input connections resolved by runtime
+                  'main'
+                )
+                emitZipEvent(workflowId, nodeEvent)
+              }
             }
           }
-        }, 5000)
+        }
+      } catch {
+        // Non-fatal — execution still proceeds, just no per-node events
       }
-    }, 1000)
 
-    return NextResponse.json(createSuccessResponse(execution), { status: 202 })
+      return NextResponse.json(createSuccessResponse(execution), { status: 202 })
     }
   ),
   {
@@ -109,31 +151,29 @@ export const GET = withAuth(
         return NextResponse.json(createSuccessResponse([]), { status: 400 })
       }
 
-      const userId = req.auth?.subject?.id || extractUserId(req)
       const { id: workflowId } = context.params
-      
+
       // Validate workflow exists and check tenant access
       const workflow = await WorkflowDatabase.getWorkflow(workflowId)
       if (!workflow) {
         throw new ApiError('WORKFLOW_NOT_FOUND', 'Workflow not found', 404)
       }
-      
+
       // Check tenant access
       if (!validateTenantAccess(workflow, req as NextRequest)) {
         return createTenantViolationError()
       }
-    const { searchParams } = new URL(req.url)
 
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
-    const offset = parseInt(searchParams.get('offset') || '0')
+      const { searchParams } = new URL((req as any).url)
+      const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
+      const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Filter executions for this workflow
-    const workflowExecutions = executionsStore
-      .filter(exec => exec.workflowId === workflowId)
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-      .slice(offset, offset + limit)
+      const workflowExecutions = executionsStore
+        .filter(exec => exec.workflowId === workflowId)
+        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+        .slice(offset, offset + limit)
 
-    return NextResponse.json(createSuccessResponse(workflowExecutions))
+      return NextResponse.json(createSuccessResponse(workflowExecutions))
     }
   ),
   {
