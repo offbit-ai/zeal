@@ -229,6 +229,8 @@ export enum ZealEventType {
   WORKFLOW_CREATED = 'workflow.created',
   WORKFLOW_UPDATED = 'workflow.updated',
   WORKFLOW_DELETED = 'workflow.deleted',
+  WORKFLOW_PUBLISHED = 'workflow.published',
+  WORKFLOW_UNPUBLISHED = 'workflow.unpublished',
   NODE_ADDED = 'node.added',
   NODE_UPDATED = 'node.updated',
   NODE_DELETED = 'node.deleted',

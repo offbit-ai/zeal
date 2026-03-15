@@ -27,6 +27,8 @@ import java.util.Map;
     @JsonSubTypes.Type(value = WorkflowCreatedEvent.class, name = "workflow.created"),
     @JsonSubTypes.Type(value = WorkflowUpdatedEvent.class, name = "workflow.updated"),
     @JsonSubTypes.Type(value = WorkflowDeletedEvent.class, name = "workflow.deleted"),
+    @JsonSubTypes.Type(value = WorkflowPublishedEvent.class, name = "workflow.published"),
+    @JsonSubTypes.Type(value = WorkflowUnpublishedEvent.class, name = "workflow.unpublished"),
     // CRDT events
     @JsonSubTypes.Type(value = NodeAddedEvent.class, name = "node.added"),
     @JsonSubTypes.Type(value = NodeUpdatedEvent.class, name = "node.updated"),

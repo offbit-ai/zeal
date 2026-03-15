@@ -165,6 +165,29 @@ class WorkflowDeletedEvent(ZipEventBase):
         populate_by_name = True
 
 
+class WorkflowPublishedEvent(ZipEventBase):
+    """Workflow published event — version is ready for execution."""
+    type: str = "workflow.published"
+    workflow_name: str = Field(alias="workflowName")
+    version: int
+    version_id: str = Field(alias="versionId")
+    user_id: Optional[str] = Field(default=None, alias="userId")
+    graphs: Optional[Any] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class WorkflowUnpublishedEvent(ZipEventBase):
+    """Workflow unpublished event — removed from execution."""
+    type: str = "workflow.unpublished"
+    workflow_name: Optional[str] = Field(default=None, alias="workflowName")
+    user_id: Optional[str] = Field(default=None, alias="userId")
+
+    class Config:
+        populate_by_name = True
+
+
 # === CRDT Events ===
 
 class NodeAddedEvent(ZipEventBase):
@@ -339,7 +362,9 @@ ZipExecutionEvent = Union[
 ZipWorkflowEvent = Union[
     WorkflowCreatedEvent,
     WorkflowUpdatedEvent,
-    WorkflowDeletedEvent
+    WorkflowDeletedEvent,
+    WorkflowPublishedEvent,
+    WorkflowUnpublishedEvent
 ]
 
 ZipCRDTEvent = Union[
@@ -689,6 +714,8 @@ EVENT_TYPE_MAP: Dict[str, Type[ZipWebhookEvent]] = {
     "workflow.created": WorkflowCreatedEvent,
     "workflow.updated": WorkflowUpdatedEvent,
     "workflow.deleted": WorkflowDeletedEvent,
+    "workflow.published": WorkflowPublishedEvent,
+    "workflow.unpublished": WorkflowUnpublishedEvent,
     # CRDT events
     "node.added": NodeAddedEvent,
     "node.updated": NodeUpdatedEvent,

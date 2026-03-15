@@ -47,6 +47,9 @@ const runtimeEventSchema = z.object({
     'execution.completed',
     'execution.failed',
     'connection.state',
+    // Workflow publish events
+    'workflow.published',
+    'workflow.unpublished',
     // Stream lifecycle events
     'stream.opened',
     'stream.closed',

@@ -266,6 +266,35 @@ pub struct WorkflowChanges {
     pub properties: Option<bool>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowPublishedEvent {
+    #[serde(flatten)]
+    pub base: ZipEventBase,
+    #[serde(rename = "type")]
+    pub event_type: String, // Always "workflow.published"
+    #[serde(rename = "workflowName")]
+    pub workflow_name: String,
+    pub version: u32,
+    #[serde(rename = "versionId")]
+    pub version_id: String,
+    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graphs: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowUnpublishedEvent {
+    #[serde(flatten)]
+    pub base: ZipEventBase,
+    #[serde(rename = "type")]
+    pub event_type: String, // Always "workflow.unpublished"
+    #[serde(rename = "workflowName", skip_serializing_if = "Option::is_none")]
+    pub workflow_name: Option<String>,
+    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+}
+
 /// CRDT events for real-time collaboration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeAddedEvent {
@@ -646,6 +675,8 @@ pub enum ZipWorkflowEvent {
     WorkflowCreated(WorkflowCreatedEvent),
     WorkflowUpdated(WorkflowUpdatedEvent),
     WorkflowDeleted(WorkflowDeletedEvent),
+    WorkflowPublished(WorkflowPublishedEvent),
+    WorkflowUnpublished(WorkflowUnpublishedEvent),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -733,6 +764,8 @@ impl ZipWorkflowEvent {
             Self::WorkflowCreated(e) => &e.event_type,
             Self::WorkflowUpdated(e) => &e.event_type,
             Self::WorkflowDeleted(e) => &e.event_type,
+            Self::WorkflowPublished(e) => &e.event_type,
+            Self::WorkflowUnpublished(e) => &e.event_type,
         }
     }
 
@@ -741,6 +774,8 @@ impl ZipWorkflowEvent {
             Self::WorkflowCreated(e) => &e.base.workflow_id,
             Self::WorkflowUpdated(e) => &e.base.workflow_id,
             Self::WorkflowDeleted(e) => &e.base.workflow_id,
+            Self::WorkflowPublished(e) => &e.base.workflow_id,
+            Self::WorkflowUnpublished(e) => &e.base.workflow_id,
         }
     }
 }

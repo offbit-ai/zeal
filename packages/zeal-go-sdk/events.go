@@ -123,6 +123,28 @@ type WorkflowDeletedEvent struct {
 	WorkflowName *string `json:"workflowName,omitempty"`
 }
 
+type WorkflowPublishedEvent struct {
+	ZipEventBase
+	Type         string      `json:"type"` // Always "workflow.published"
+	WorkflowName string      `json:"workflowName"`
+	Version      int         `json:"version"`
+	VersionID    string      `json:"versionId"`
+	UserID       *string     `json:"userId,omitempty"`
+	Graphs       interface{} `json:"graphs,omitempty"`
+}
+
+type WorkflowUnpublishedEvent struct {
+	ZipEventBase
+	Type         string  `json:"type"` // Always "workflow.unpublished"
+	WorkflowName *string `json:"workflowName,omitempty"`
+	UserID       *string `json:"userId,omitempty"`
+}
+
+func (e *WorkflowPublishedEvent) GetEventType() string    { return e.Type }
+func (e *WorkflowPublishedEvent) GetWorkflowID() string   { return e.WorkflowID }
+func (e *WorkflowUnpublishedEvent) GetEventType() string  { return e.Type }
+func (e *WorkflowUnpublishedEvent) GetWorkflowID() string { return e.WorkflowID }
+
 // CRDT events for real-time collaboration
 type NodeAddedEvent struct {
 	ZipEventBase
@@ -769,6 +791,14 @@ func ParseZipWebhookEvent(data []byte) (ZipWebhookEvent, error) {
 		return &event, err
 	case "workflow.deleted":
 		var event WorkflowDeletedEvent
+		err := json.Unmarshal(data, &event)
+		return &event, err
+	case "workflow.published":
+		var event WorkflowPublishedEvent
+		err := json.Unmarshal(data, &event)
+		return &event, err
+	case "workflow.unpublished":
+		var event WorkflowUnpublishedEvent
 		err := json.Unmarshal(data, &event)
 		return &event, err
 	// CRDT events

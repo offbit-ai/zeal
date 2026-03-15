@@ -4,6 +4,11 @@ import { ApiError } from '@/types/api'
 import { WorkflowDatabase } from '@/services/workflowDatabase'
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth/middleware'
 import { validateTenantAccess, createTenantViolationError } from '@/lib/auth/tenant-utils'
+import { emitZipEvent } from '@/lib/zip/websocket-server'
+import {
+  createWorkflowPublishedEvent,
+  createWorkflowUnpublishedEvent,
+} from '@/types/zip-events'
 
 // POST /api/workflows/[id]/publish - Publish workflow
 export const POST = withAuth(
@@ -112,7 +117,20 @@ export const POST = withAuth(
         lastModifiedBy: publishedVersion.userId,
       }
 
-      // In real implementation, this would trigger deployment to execution engine
+      // Emit workflow.published to all connected SDK clients / executors
+      const publishedEvent = createWorkflowPublishedEvent(
+        id,
+        updatedWorkflow.name || `Workflow ${id}`,
+        publishedVersion.version,
+        targetVersionId,
+        {
+          userId,
+          graphs: publishedVersion.graphs,
+          metadata: publishedVersion.metadata,
+        }
+      )
+      emitZipEvent(id, publishedEvent)
+
       return NextResponse.json(createSuccessResponse(response))
     }
   ),
@@ -194,7 +212,13 @@ export const DELETE = withAuth(
         lastModifiedBy: latestVersion.userId,
       }
 
-      // In real implementation, this would remove from execution engine
+      // Emit workflow.unpublished to all connected SDK clients / executors
+      const unpublishedEvent = createWorkflowUnpublishedEvent(id, {
+        workflowName: updatedWorkflow.name,
+        userId,
+      })
+      emitZipEvent(id, unpublishedEvent)
+
       return NextResponse.json(createSuccessResponse(response))
     }
   ),

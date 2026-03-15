@@ -148,6 +148,28 @@ export interface WorkflowDeletedEvent extends ZipEventBase {
   workflowName?: string
 }
 
+export interface WorkflowPublishedEvent extends ZipEventBase {
+  type: 'workflow.published'
+  /** Workflow name */
+  workflowName: string
+  /** Published version number */
+  version: number
+  /** Published version ID */
+  versionId: string
+  /** User who published */
+  userId?: string
+  /** Full graph data for the executor to cache */
+  graphs?: any
+}
+
+export interface WorkflowUnpublishedEvent extends ZipEventBase {
+  type: 'workflow.unpublished'
+  /** Workflow name */
+  workflowName?: string
+  /** User who unpublished */
+  userId?: string
+}
+
 /**
  * CRDT events for real-time collaboration
  */
@@ -340,6 +362,8 @@ export type ZipWorkflowEvent =
   | WorkflowCreatedEvent
   | WorkflowUpdatedEvent
   | WorkflowDeletedEvent
+  | WorkflowPublishedEvent
+  | WorkflowUnpublishedEvent
 
 export type ZipCRDTEvent =
   | NodeAddedEvent
@@ -526,6 +550,57 @@ export function createExecutionFailedEvent(
     sessionId,
     duration: options?.duration,
     error,
+    metadata: options?.metadata,
+  }
+}
+
+/**
+ * Workflow publish event creation helpers
+ */
+export function createWorkflowPublishedEvent(
+  workflowId: string,
+  workflowName: string,
+  version: number,
+  versionId: string,
+  options?: {
+    graphId?: string
+    userId?: string
+    graphs?: any
+    metadata?: Record<string, any>
+  }
+): WorkflowPublishedEvent {
+  return {
+    id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    type: 'workflow.published',
+    timestamp: new Date().toISOString(),
+    workflowId,
+    graphId: options?.graphId,
+    workflowName,
+    version,
+    versionId,
+    userId: options?.userId,
+    graphs: options?.graphs,
+    metadata: options?.metadata,
+  }
+}
+
+export function createWorkflowUnpublishedEvent(
+  workflowId: string,
+  options?: {
+    graphId?: string
+    workflowName?: string
+    userId?: string
+    metadata?: Record<string, any>
+  }
+): WorkflowUnpublishedEvent {
+  return {
+    id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+    type: 'workflow.unpublished',
+    timestamp: new Date().toISOString(),
+    workflowId,
+    graphId: options?.graphId,
+    workflowName: options?.workflowName,
+    userId: options?.userId,
     metadata: options?.metadata,
   }
 }

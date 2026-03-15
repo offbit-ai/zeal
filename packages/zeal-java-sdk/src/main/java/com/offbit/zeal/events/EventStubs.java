@@ -129,6 +129,45 @@ class WorkflowDeletedEvent extends ZipEvent {
     public void setWorkflowName(String workflowName) { this.workflowName = workflowName; }
 }
 
+// Workflow publish events
+class WorkflowPublishedEvent extends ZipEvent {
+    @JsonProperty("workflowName")
+    private String workflowName;
+    @JsonProperty("version")
+    private Integer version;
+    @JsonProperty("versionId")
+    private String versionId;
+    @JsonProperty("userId")
+    private String userId;
+    @JsonProperty("graphs")
+    private Object graphs;
+
+    public WorkflowPublishedEvent() { super("workflow.published"); }
+    public String getWorkflowName() { return workflowName; }
+    public void setWorkflowName(String workflowName) { this.workflowName = workflowName; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public String getVersionId() { return versionId; }
+    public void setVersionId(String versionId) { this.versionId = versionId; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+    public Object getGraphs() { return graphs; }
+    public void setGraphs(Object graphs) { this.graphs = graphs; }
+}
+
+class WorkflowUnpublishedEvent extends ZipEvent {
+    @JsonProperty("workflowName")
+    private String workflowName;
+    @JsonProperty("userId")
+    private String userId;
+
+    public WorkflowUnpublishedEvent() { super("workflow.unpublished"); }
+    public String getWorkflowName() { return workflowName; }
+    public void setWorkflowName(String workflowName) { this.workflowName = workflowName; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+}
+
 // Connection events
 class ConnectionAddedEvent extends ZipEvent {
     @JsonProperty("data")
