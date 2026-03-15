@@ -4,6 +4,8 @@ import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { ConnectNodesResponse } from '@/types/zip'
 import { v4 as uuidv4 } from 'uuid'
 import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
+import { emitZipEvent } from '@/lib/zip/websocket-server'
+import { createConnectionAddedEvent, createConnectionDeletedEvent } from '@/types/zip-events'
 
 const connectNodesSchema = z.object({
   workflowId: z.string(),
@@ -25,7 +27,7 @@ const removeConnectionSchema = z.object({
 })
 
 // DELETE /api/zip/orchestrator/connections - Remove connection
-export const DELETE = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
+export const DELETE = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
 
@@ -44,11 +46,12 @@ export const DELETE = withZIPAuthorization(async (request: NextRequest, context?
     const { workflowId, graphId, connectionId } = validation.data
 
     // Use CRDT operations to remove connection
-    await ServerCRDTOperations.removeConnection(
-      workflowId,
-      graphId || 'main',
-      connectionId
-    )
+    await ServerCRDTOperations.removeConnection(workflowId, graphId || 'main', connectionId)
+
+    // Emit connection.deleted ZIP event
+    emitZipEvent(workflowId, createConnectionDeletedEvent(
+      workflowId, { connectionId } as any, graphId || 'main'
+    ))
 
     return NextResponse.json({
       success: true,
@@ -70,7 +73,7 @@ export const DELETE = withZIPAuthorization(async (request: NextRequest, context?
 })
 
 // POST /api/zip/orchestrator/connections - Connect nodes
-export const POST = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
+export const POST = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
 
@@ -101,6 +104,13 @@ export const POST = withZIPAuthorization(async (request: NextRequest, context?: 
       }
     )
 
+    // Emit connection.added ZIP event
+    emitZipEvent(workflowId, createConnectionAddedEvent(
+      workflowId,
+      { connectionId, source, target, ...connectionData } as any,
+      graphId || 'main'
+    ))
+
     const response: ConnectNodesResponse = {
       connectionId,
       connection: connectionData,
@@ -116,7 +126,6 @@ export const POST = withZIPAuthorization(async (request: NextRequest, context?: 
         traceId: `trace_${Date.now()}`,
       }
     }, { status: 500 })
-
   }
 }, {
   resourceType: 'workflow',

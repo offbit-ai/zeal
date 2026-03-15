@@ -3,6 +3,12 @@ import { z } from 'zod'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { v4 as uuidv4 } from 'uuid'
 import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
+import { emitZipEvent } from '@/lib/zip/websocket-server'
+import {
+  createGroupCreatedEvent,
+  createGroupUpdatedEvent,
+  createGroupDeletedEvent,
+} from '@/types/zip-events'
 
 const createGroupSchema = z.object({
   workflowId: z.string(),
@@ -30,11 +36,10 @@ const updateGroupSchema = z.object({
 })
 
 // DELETE /api/zip/orchestrator/groups - Remove group
-export const DELETE = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
+export const DELETE = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
 
-    // Validate request
     const validation = removeGroupSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json({
@@ -48,12 +53,12 @@ export const DELETE = withZIPAuthorization(async (request: NextRequest, context?
 
     const { workflowId, graphId, groupId } = validation.data
 
-    // Use CRDT operations to remove group
-    await ServerCRDTOperations.removeGroup(
-      workflowId,
-      graphId || 'main',
-      groupId
-    )
+    await ServerCRDTOperations.removeGroup(workflowId, graphId || 'main', groupId)
+
+    // Emit group.deleted ZIP event
+    emitZipEvent(workflowId, createGroupDeletedEvent(
+      workflowId, { groupId } as any, graphId || 'main'
+    ))
 
     return NextResponse.json({
       success: true,
@@ -75,11 +80,10 @@ export const DELETE = withZIPAuthorization(async (request: NextRequest, context?
 })
 
 // PATCH /api/zip/orchestrator/groups - Update group properties
-export const PATCH = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
+export const PATCH = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
 
-    // Validate request
     const validation = updateGroupSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json({
@@ -93,13 +97,14 @@ export const PATCH = withZIPAuthorization(async (request: NextRequest, context?:
 
     const { workflowId, graphId, groupId, ...updates } = validation.data
 
-    // Use CRDT operations to update group
     const updatedGroup = await ServerCRDTOperations.updateGroupProperties(
-      workflowId,
-      graphId || 'main',
-      groupId,
-      updates
+      workflowId, graphId || 'main', groupId, updates
     )
+
+    // Emit group.updated ZIP event
+    emitZipEvent(workflowId, createGroupUpdatedEvent(
+      workflowId, { groupId, ...updates, ...updatedGroup } as any, graphId || 'main'
+    ))
 
     return NextResponse.json({
       success: true,
@@ -121,11 +126,10 @@ export const PATCH = withZIPAuthorization(async (request: NextRequest, context?:
 })
 
 // POST /api/zip/orchestrator/groups - Create node group
-export const POST = withZIPAuthorization(async (request: NextRequest, context?: { params: any }) => {
+export const POST = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
 
-    // Validate request
     const validation = createGroupSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json({
@@ -140,10 +144,8 @@ export const POST = withZIPAuthorization(async (request: NextRequest, context?: 
     const { workflowId, graphId, title, nodeIds, color, description } = validation.data
     const groupId = uuidv4()
 
-    // Use CRDT operations to add group
     const groupData = await ServerCRDTOperations.createNodeGroup(
-      workflowId,
-      graphId || 'main',
+      workflowId, graphId || 'main',
       {
         title,
         description: description || '',
@@ -151,6 +153,11 @@ export const POST = withZIPAuthorization(async (request: NextRequest, context?: 
         color: color || '#6B7280',
       }
     )
+
+    // Emit group.created ZIP event
+    emitZipEvent(workflowId, createGroupCreatedEvent(
+      workflowId, { groupId, title, nodeIds, color, ...groupData } as any, graphId || 'main'
+    ))
 
     return NextResponse.json({
       success: true,

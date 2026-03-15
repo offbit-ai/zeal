@@ -4,6 +4,8 @@ import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { AddNodeResponse } from '@/types/zip'
 import { v4 as uuidv4 } from 'uuid'
 import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
+import { emitZipEvent } from '@/lib/zip/websocket-server'
+import { createNodeAddedEvent } from '@/types/zip-events'
 
 const addNodeSchema = z.object({
   workflowId: z.string(),
@@ -20,7 +22,7 @@ const addNodeSchema = z.object({
 export const POST = withZIPAuthorization(async (request: NextRequest) => {
   try {
     const body = await request.json()
-    
+
     // Validate request
     const validation = addNodeSchema.safeParse(body)
     if (!validation.success) {
@@ -32,16 +34,14 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, templateId, position, propertyValues } = validation.data
     const nodeId = uuidv4()
-    
+
     // Get template details
     const [namespace, ...templateParts] = templateId.split('/')
     const templateIdOnly = templateParts.join('/')
-    
-    // Fetch template metadata (if exists)
-    // For now, we'll create a basic node structure
+
     const nodeData = {
       id: nodeId,
       type: templateId,
@@ -65,10 +65,15 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
       },
       position,
     }
-    
+
     // Use CRDT operations to add node
     await ServerCRDTOperations.addNode(workflowId, graphId || 'main', nodeData)
-    
+
+    // Emit node.added ZIP event for WebSocket SDK clients
+    emitZipEvent(workflowId, createNodeAddedEvent(
+      workflowId, nodeId, nodeData as any, graphId || 'main'
+    ))
+
     const response: AddNodeResponse = {
       nodeId,
       node: {
@@ -78,7 +83,7 @@ export const POST = withZIPAuthorization(async (request: NextRequest) => {
         metadata: nodeData.metadata,
       },
     }
-    
+
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error adding node:', error)

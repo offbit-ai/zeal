@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ServerCRDTOperations } from '@/lib/crdt/server-operations'
 import { withZIPAuthorization } from '@/lib/auth/zip-middleware'
+import { emitZipEvent } from '@/lib/zip/websocket-server'
+import { createNodeUpdatedEvent, createNodeDeletedEvent } from '@/types/zip-events'
 
 const updateNodeSchema = z.object({
   workflowId: z.string(),
@@ -26,7 +28,7 @@ export const PATCH = withZIPAuthorization(async (
     }
     const { nodeId } = context.params
     const body = await request.json()
-    
+
     // Validate request
     const validation = updateNodeSchema.safeParse(body)
     if (!validation.success) {
@@ -38,18 +40,26 @@ export const PATCH = withZIPAuthorization(async (
         }
       }, { status: 400 })
     }
-    
+
     const { workflowId, graphId, properties, position } = validation.data
-    
+
     // Use CRDT operations to update node
     if (properties) {
       await ServerCRDTOperations.updateNodeProperties(workflowId, graphId || 'main', nodeId, properties)
     }
-    
+
     if (position) {
       await ServerCRDTOperations.updateNodePosition(workflowId, graphId || 'main', nodeId, position)
     }
-    
+
+    // Emit node.updated ZIP event for WebSocket SDK clients
+    emitZipEvent(workflowId, createNodeUpdatedEvent(
+      workflowId,
+      nodeId,
+      { properties, position } as any,
+      graphId || 'main'
+    ))
+
     return NextResponse.json({
       success: true,
       nodeId,
@@ -88,7 +98,7 @@ export const DELETE = withZIPAuthorization(async (
     const { searchParams } = new URL(request.url)
     const workflowId = searchParams.get('workflowId')
     const graphId = searchParams.get('graphId') || 'main'
-    
+
     if (!workflowId) {
       return NextResponse.json({
         error: {
@@ -97,10 +107,15 @@ export const DELETE = withZIPAuthorization(async (
         }
       }, { status: 400 })
     }
-    
+
     // Use CRDT operations to delete node
     await ServerCRDTOperations.removeNode(workflowId, graphId, nodeId)
-    
+
+    // Emit node.deleted ZIP event for WebSocket SDK clients
+    emitZipEvent(workflowId, createNodeDeletedEvent(
+      workflowId, nodeId, graphId
+    ))
+
     return NextResponse.json({
       success: true,
       message: `Node ${nodeId} deleted`,
