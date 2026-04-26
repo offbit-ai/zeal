@@ -23,6 +23,7 @@ import { WorkflowModalsLayer } from './_components/WorkflowModalsLayer'
 import { WorkflowFloatingPanels } from './_components/WorkflowFloatingPanels'
 import { WorkflowPropertyPane } from './_components/WorkflowPropertyPane'
 import { WorkflowHeader } from './_components/WorkflowHeader'
+import { WorkflowNodeBrowser } from './_components/WorkflowNodeBrowser'
 import { DragConnectionLine } from '@/components/canvas/DragConnectionLine'
 import { NodeGroupContainer } from '@/components/node/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/canvas/SelectionRectangle'
@@ -121,62 +122,37 @@ export default function Home({
   // Page-level UI state (modals, panels, selection, viewport) is held in a
   // dedicated zustand store so other parts of the app can read/write it
   // without prop drilling. See store/workflow-ui-store.ts.
-  const isSidebarCollapsed = useWorkflowUIStore(s => s.isSidebarCollapsed)
-  const setIsSidebarCollapsed = useWorkflowUIStore(s => s.setIsSidebarCollapsed)
-  const isSearchOpen = useWorkflowUIStore(s => s.isSearchOpen)
   const setIsSearchOpen = useWorkflowUIStore(s => s.setIsSearchOpen)
   const isNodeBrowserOpen = useWorkflowUIStore(s => s.isNodeBrowserOpen)
   const setIsNodeBrowserOpen = useWorkflowUIStore(s => s.setIsNodeBrowserOpen)
-  const isHistoryBrowserOpen = useWorkflowUIStore(s => s.isHistoryBrowserOpen)
-  const setIsHistoryBrowserOpen = useWorkflowUIStore(s => s.setIsHistoryBrowserOpen)
-  const isFlowTracerOpen = useWorkflowUIStore(s => s.isFlowTracerOpen)
-  const setIsFlowTracerOpen = useWorkflowUIStore(s => s.setIsFlowTracerOpen)
-  const isConfigOpen = useWorkflowUIStore(s => s.isConfigOpen)
   const setIsConfigOpen = useWorkflowUIStore(s => s.setIsConfigOpen)
-  const showEnvVarWarning = useWorkflowUIStore(s => s.showEnvVarWarning)
   const setShowEnvVarWarning = useWorkflowUIStore(s => s.setShowEnvVarWarning)
   const missingEnvVars = useEnvVarStore(state => state.missingVars)
-  const selectedCategory = useWorkflowUIStore(s => s.selectedCategory)
   const setSelectedCategory = useWorkflowUIStore(s => s.setSelectedCategory)
-  const searchModalInitialTab = useWorkflowUIStore(s => s.searchModalInitialTab)
-  const setSearchModalInitialTab = useWorkflowUIStore(s => s.setSearchModalInitialTab)
   const autosaveEnabled = useWorkflowUIStore(s => s.autosaveEnabled)
   const setAutosaveEnabled = useWorkflowUIStore(s => s.setAutosaveEnabled)
   const isLoading = useWorkflowUIStore(s => s.isLoading)
   const setIsLoading = useWorkflowUIStore(s => s.setIsLoading)
-  const userName = useWorkflowUIStore(s => s.userName)
   const setUserName = useWorkflowUIStore(s => s.setUserName)
   const loadingMessage = useWorkflowUIStore(s => s.loadingMessage)
   const setLoadingMessage = useWorkflowUIStore(s => s.setLoadingMessage)
-  const selectedNodeId = useWorkflowUIStore(s => s.selectedNodeId)
   const setSelectedNodeId = useWorkflowUIStore(s => s.setSelectedNodeId)
   const highlightedNodeId = useWorkflowUIStore(s => s.highlightedNodeId)
   const setHighlightedNodeId = useWorkflowUIStore(s => s.setHighlightedNodeId)
-  const isPropertyPaneOpen = useWorkflowUIStore(s => s.isPropertyPaneOpen)
   const setIsPropertyPaneOpen = useWorkflowUIStore(s => s.setIsPropertyPaneOpen)
-  const isPropertyPaneVisible = useWorkflowUIStore(s => s.isPropertyPaneVisible)
   const setIsPropertyPaneVisible = useWorkflowUIStore(s => s.setIsPropertyPaneVisible)
-  const isPropertyPaneClosing = useWorkflowUIStore(s => s.isPropertyPaneClosing)
   const setIsPropertyPaneClosing = useWorkflowUIStore(s => s.setIsPropertyPaneClosing)
   const configurationToastNodeId = useWorkflowUIStore(s => s.configurationToastNodeId)
   const setConfigurationToastNodeId = useWorkflowUIStore(s => s.setConfigurationToastNodeId)
-  const isGroupCreationModalOpen = useWorkflowUIStore(s => s.isGroupCreationModalOpen)
   const setIsGroupCreationModalOpen = useWorkflowUIStore(s => s.setIsGroupCreationModalOpen)
-  const isEmptyGroupModalOpen = useWorkflowUIStore(s => s.isEmptyGroupModalOpen)
   const setIsEmptyGroupModalOpen = useWorkflowUIStore(s => s.setIsEmptyGroupModalOpen)
-  const isUserSettingsOpen = useWorkflowUIStore(s => s.isUserSettingsOpen)
-  const setIsUserSettingsOpen = useWorkflowUIStore(s => s.setIsUserSettingsOpen)
-  const emptyGroupPosition = useWorkflowUIStore(s => s.emptyGroupPosition)
   const setEmptyGroupPosition = useWorkflowUIStore(s => s.setEmptyGroupPosition)
   const nodeHoveringGroupId = useWorkflowUIStore(s => s.nodeHoveringGroupId)
   const setNodeHoveringGroupId = useWorkflowUIStore(s => s.setNodeHoveringGroupId)
   const draggingNodeIdsRef = useRef<Set<string>>(new Set())
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const selectionContextMenu = useWorkflowUIStore(s => s.selectionContextMenu)
   const setSelectionContextMenu = useWorkflowUIStore(s => s.setSelectionContextMenu)
-  const editingGroupId = useWorkflowUIStore(s => s.editingGroupId)
   const setEditingGroupId = useWorkflowUIStore(s => s.setEditingGroupId)
-  const deletingGroupId = useWorkflowUIStore(s => s.deletingGroupId)
   const setDeletingGroupId = useWorkflowUIStore(s => s.setDeletingGroupId)
   const canvasOffset = useWorkflowUIStore(s => s.canvasOffset)
   const setCanvasOffset = useWorkflowUIStore(s => s.setCanvasOffset)
@@ -2906,18 +2882,12 @@ export default function Home({
           />
         </div>
 
-        {/* Node Browser Panel */}
-        {isNodeBrowserOpen && (
-          <div className="fixed inset-0 z-10" onClick={handleNodeBrowserToggle} />
-        )}
-        {!embedMode ? (
-          <NodeBrowserPanel
-            isExpanded={isNodeBrowserOpen}
-            onNodeSelect={handleNodeSelectFromBrowser}
-            onNodeAdded={handleNodeAdded}
-            onGroupCreationRequest={() => setIsGroupCreationModalOpen(true)}
-          />
-        ) : null}
+        <WorkflowNodeBrowser
+          embedMode={embedMode}
+          handleNodeBrowserToggle={handleNodeBrowserToggle}
+          handleNodeSelectFromBrowser={handleNodeSelectFromBrowser}
+          handleNodeAdded={handleNodeAdded}
+        />
 
         <WorkflowPropertyPane handlePropertyPaneClose={handlePropertyPaneClose} />
       </div>
