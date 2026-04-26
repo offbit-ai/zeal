@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { X, Search, ArrowRight, ArrowLeft, Link } from 'lucide-react'
 import { useWorkflowStore } from '@/store/workflow-store'
 import { Icon } from '@/lib/icons'
-import { ModalPortal } from './ModalPortal'
+import { ModalPortal } from './modals/ModalPortal'
 import type { WorkflowGraph } from '@/types/snapshot'
 
 interface SubgraphPortSelectorProps {

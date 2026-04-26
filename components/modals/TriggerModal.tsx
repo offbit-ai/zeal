@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { X, Globe, Cable, Clock, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react'
 import { ModalPortal } from './ModalPortal'
-import { CodeEditor } from './CodeEditor'
+import { CodeEditor } from '../CodeEditor'
 
 interface TriggerModalProps {
   isOpen: boolean

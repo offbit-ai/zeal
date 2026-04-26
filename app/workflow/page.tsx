@@ -9,7 +9,7 @@ import { SearchButton } from '@/components/SearchButton'
 import { NodeBrowserButton } from '@/components/NodeBrowserButton'
 import { TriggerManager } from '@/components/TriggerManager'
 import { UndoRedoButtons } from '@/components/UndoRedoButtons'
-import { SearchModal } from '@/components/SearchModal'
+import { SearchModal } from '@/components/modals/SearchModal'
 import { NodeBrowserPanel } from '@/components/NodeBrowserPanel'
 import { HistoryBrowser } from '@/components/HistoryBrowser'
 import { FlowTracer } from '@/components/FlowTracer'
@@ -36,17 +36,17 @@ import { getNodeId } from './_utils/node-id'
 import { GroupNodes } from './_components/GroupNodes'
 import { UngroupedNodes } from './_components/UngroupedNodes'
 import { DragConnectionLine } from '@/components/DragConnectionLine'
-import { DeleteConnectionDialog } from '@/components/DeleteConnectionDialog'
+import { DeleteConnectionDialog } from '@/components/modals/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/PropertyPane'
-import { ModalPortal } from '@/components/ModalPortal'
+import { ModalPortal } from '@/components/modals/ModalPortal'
 import { ConfigurationToast } from '@/components/ConfigurationToast'
 import { NodeGroupContainer } from '@/components/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/SelectionRectangle'
 import { SelectionContextMenu } from '@/components/SelectionContextMenu'
-import { GroupCreationModal } from '@/components/GroupCreationModal'
-import { EmptyGroupCreationModal } from '@/components/EmptyGroupCreationModal'
-import { GroupEditModal } from '@/components/GroupEditModal'
-import { GroupDeleteModal } from '@/components/GroupDeleteModal'
+import { GroupCreationModal } from '@/components/modals/GroupCreationModal'
+import { EmptyGroupCreationModal } from '@/components/modals/EmptyGroupCreationModal'
+import { GroupEditModal } from '@/components/modals/GroupEditModal'
+import { GroupDeleteModal } from '@/components/modals/GroupDeleteModal'
 import {
   useWorkflowStore,
   usePresence,
@@ -64,7 +64,7 @@ import {
   restoreGraphFromSerialized,
 } from '@/utils/workflowSerializer'
 import { LoadingOverlay } from '@/components/LoadingOverlay'
-import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
+import { UnsavedChangesDialog } from '@/components/modals/UnsavedChangesDialog'
 import { SaveGraphButton } from '@/components/SaveGraphButton'
 import { toast } from '@/lib/toast'
 import {
@@ -78,7 +78,7 @@ const PresenceDropdown = dynamic(
     loading: () => null,
   }
 )
-import { UserSettingsModal } from '@/components/UserSettingsModal'
+import { UserSettingsModal } from '@/components/modals/UserSettingsModal'
 import { CollaborativeCursors } from '@/components/CollaborativeCursors'
 // const CRDTFeatureIndicator = dynamic(
 //   () => import('@/components/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),

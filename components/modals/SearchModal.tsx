@@ -29,7 +29,7 @@ import { useNodeRepositoryStore } from '@/store/nodeRepositoryStore'
 import { updateDynamicNodeMetadata } from '@/utils/dynamicNodeMetadata'
 import { Icon } from '@/lib/icons'
 import { NodeCreatorModal } from './NodeCreatorModal'
-import { SubgraphPortSelector } from './SubgraphPortSelector'
+import { SubgraphPortSelector } from '../SubgraphPortSelector'
 import type { SubgraphNodeMetadata } from '@/types/workflow'
 import { findEmptyArea, calculatePanToCenter, animateCanvasPan } from '@/utils/findEmptyArea'
 

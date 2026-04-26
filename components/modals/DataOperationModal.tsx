@@ -1,32 +1,29 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Settings } from 'lucide-react'
-import { RuleSet } from '@/types/workflow'
-import { RuleBuilder } from './RuleBuilder'
+import { X } from 'lucide-react'
+import { DataOperationSet } from '@/types/workflow'
+import { DataOperationBuilder } from '../DataOperationBuilder'
 
-interface RuleEditorModalProps {
+interface DataOperationModalProps {
   isOpen: boolean
   onClose: () => void
   title: string
-  value: RuleSet[]
-  onChange: (value: RuleSet[]) => void
-  availableFields?: string[]
-  availableOperators?: any[]
+  value: DataOperationSet[]
+  onChange: (value: DataOperationSet[]) => void
   description?: string
+  availableFields?: string[]
 }
 
-export function RuleEditorModal({
+export function DataOperationModal({
   isOpen,
   onClose,
   title,
   value,
   onChange,
-  availableFields = [],
-  availableOperators,
   description,
-}: RuleEditorModalProps) {
-  const [localValue, setLocalValue] = useState<RuleSet[]>(value)
+}: DataOperationModalProps) {
+  const [localValue, setLocalValue] = useState<DataOperationSet[]>(value)
 
   // Update local state when value changes
   useEffect(() => {
@@ -34,7 +31,7 @@ export function RuleEditorModal({
   }, [value])
 
   // Handle changes and auto-save
-  const handleChange = (newValue: RuleSet[]) => {
+  const handleChange = (newValue: DataOperationSet[]) => {
     setLocalValue(newValue)
     onChange(newValue)
   }
@@ -51,15 +48,18 @@ export function RuleEditorModal({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
+  // Calculate total operations count
+  const totalOperations = localValue.reduce((total, set) => total + set.operations.length, 0)
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-start p-20">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
@@ -73,26 +73,14 @@ export function RuleEditorModal({
 
         {/* Content */}
         <div className="flex-1 p-6 overflow-y-auto">
-          {availableFields.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-500">
-              <Settings className="w-8 h-8 mb-2 text-gray-400" />
-              <div className="text-sm">No fields available</div>
-              <div className="text-xs mt-1">Configure available fields to start building rules</div>
-            </div>
-          ) : (
-            <RuleBuilder
-              value={localValue}
-              onChange={handleChange}
-              availableFields={availableFields}
-              availableOperators={availableOperators}
-            />
-          )}
+          <DataOperationBuilder value={localValue} onChange={handleChange} />
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <div className="text-xs text-gray-500">
-            {localValue.length} rule set{localValue.length !== 1 ? 's' : ''} configured
+            {localValue.length} pipeline{localValue.length !== 1 ? 's' : ''} • {totalOperations}{' '}
+            operation{totalOperations !== 1 ? 's' : ''}
           </div>
           <div className="flex gap-3">
             <button

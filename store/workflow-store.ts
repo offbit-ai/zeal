@@ -27,7 +27,7 @@ import type {
   SerializedGroup,
 } from '@/types/snapshot'
 import { WorkflowNodeData, Connection } from '@/types/workflow'
-import type { TriggerConfig } from '@/components/TriggerModal'
+import type { TriggerConfig } from '@/components/modals/TriggerModal'
 import { roomKeeper } from '@/lib/services/room-keeper'
 
 // Graph information

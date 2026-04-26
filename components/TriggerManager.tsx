@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react'
 import { Zap, Edit2, Trash2, AlertCircle, Globe, Cable, Clock, Lock } from 'lucide-react'
-import { TriggerModal, TriggerConfig } from './TriggerModal'
+import { TriggerModal, TriggerConfig } from './modals/TriggerModal'
 import { useWorkflowStore } from '@/store/workflow-store'
-import { ModalPortal } from './ModalPortal'
+import { ModalPortal } from './modals/ModalPortal'
 import { useGraphStore } from '@/store/graphStore'
 
 export function TriggerManager() {
