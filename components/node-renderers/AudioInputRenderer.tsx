@@ -1,4 +1,4 @@
-import { AudioPlayer } from '@/components/AudioPlayer'
+import { AudioPlayer } from '@/components/media/AudioPlayer'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function AudioInputRenderer({

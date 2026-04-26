@@ -1,4 +1,4 @@
-import { ImageStreamDisplay } from '@/components/ImageStreamDisplay'
+import { ImageStreamDisplay } from '@/components/media/ImageStreamDisplay'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function ImageStreamRenderer({

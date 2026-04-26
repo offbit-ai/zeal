@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../Tooltip'
 
 interface MinimapProps {
   canvasOffset: { x: number; y: number }

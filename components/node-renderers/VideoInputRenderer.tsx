@@ -1,4 +1,4 @@
-import { VideoPlayer } from '@/components/VideoPlayer'
+import { VideoPlayer } from '@/components/media/VideoPlayer'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function VideoInputRenderer({

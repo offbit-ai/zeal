@@ -1,4 +1,4 @@
-import { AudioStreamDisplay } from '@/components/AudioStreamDisplay'
+import { AudioStreamDisplay } from '@/components/media/AudioStreamDisplay'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function AudioStreamRenderer({

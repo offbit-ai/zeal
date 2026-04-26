@@ -1,4 +1,4 @@
-import { ImagePreview } from '@/components/MediaPreview'
+import { ImagePreview } from '@/components/media/MediaPreview'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function ImageInputRenderer({
