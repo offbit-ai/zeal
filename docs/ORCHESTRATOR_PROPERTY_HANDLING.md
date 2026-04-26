@@ -209,9 +209,9 @@ properties: {
 
 ## Testing
 
-A test script (`test-property-propagation.js`) is available to verify:
+A test script (`tests/scratch/test-property-propagation.js`) is available to verify:
 - Property updates via orchestrator API
 - CRDT broadcast of updates
 - Proper polling and application of updates
 
-Run with: `node test-property-propagation.js`
+Run with: `node tests/scratch/test-property-propagation.js`
