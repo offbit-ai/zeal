@@ -35,6 +35,7 @@ import { ConnectionLines } from '@/components/canvas/ConnectionLines'
 import { getNodeId } from './_utils/node-id'
 import { GroupNodes } from './_components/GroupNodes'
 import { UngroupedNodes } from './_components/UngroupedNodes'
+import { WorkflowModalsLayer } from './_components/WorkflowModalsLayer'
 import { DragConnectionLine } from '@/components/canvas/DragConnectionLine'
 import { DeleteConnectionDialog } from '@/components/modals/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/property-pane/PropertyPane'
@@ -3259,193 +3260,37 @@ export default function Home({
         )}
       </div>
 
-      {/* Search Modal */}
-      <ModalPortal isOpen={isSearchOpen}>
-        <SearchModal
-          isOpen={isSearchOpen}
-          onClose={() => {
-            setIsSearchOpen(false)
-            setSelectedCategory(null) // Reset category selection
-            setSearchModalInitialTab(undefined) // Reset tab selection
-          }}
-          initialCategory={selectedCategory}
-          initialTab={searchModalInitialTab}
-          onNodeAdded={handleNodeAdded}
-          canvasOffset={canvasOffset}
-          canvasZoom={canvasZoom}
-          viewportSize={viewportSize}
-          onCanvasOffsetChange={setCanvasOffset}
-          onHighlightNode={setHighlightedNodeId}
-        />
-      </ModalPortal>
-
-      {/* Delete Connection Dialog */}
-      <ModalPortal isOpen={deleteDialogOpen}>
-        <DeleteConnectionDialog
-          isOpen={deleteDialogOpen}
-          onConfirm={handleDeleteConnection}
-          onCancel={handleCancelDelete}
-        />
-      </ModalPortal>
-
-      {/* Unsaved Changes Dialog */}
-      <UnsavedChangesDialog
-        isOpen={unsavedChangesDialog.isOpen}
-        onSave={handleUnsavedChangesSave}
-        onDiscard={handleUnsavedChangesDiscard}
-        onCancel={handleUnsavedChangesCancel}
-        graphName={unsavedChangesDialog.graphName}
+      <WorkflowModalsLayer
+        deleteDialogOpen={deleteDialogOpen}
+        unsavedChangesDialog={unsavedChangesDialog}
+        viewportSize={viewportSize}
+        selection={selection}
+        storeNodes={storeNodes}
+        groups={groups}
+        workflowId={workflowId}
+        isCollaborative={isCollaborative}
+        handleNodeAdded={handleNodeAdded}
+        handleDeleteConnection={handleDeleteConnection}
+        handleCancelDelete={handleCancelDelete}
+        handleUnsavedChangesSave={handleUnsavedChangesSave}
+        handleUnsavedChangesDiscard={handleUnsavedChangesDiscard}
+        handleUnsavedChangesCancel={handleUnsavedChangesCancel}
+        handleLoadWorkflow={handleLoadWorkflow}
+        handleVariableConfigured={handleVariableConfigured}
+        handleDismissEnvVarWarning={handleDismissEnvVarWarning}
+        handleOpenConfigFromWarning={handleOpenConfigFromWarning}
+        handleNodeSelect={handleNodeSelect}
+        handleGroupCreationConfirm={handleGroupCreationConfirm}
+        handleGroupCreationCancel={handleGroupCreationCancel}
+        handleEmptyGroupCreationConfirm={handleEmptyGroupCreationConfirm}
+        handleEmptyGroupCreationCancel={handleEmptyGroupCreationCancel}
+        handleContextMenuCreateGroup={handleContextMenuCreateGroup}
+        handleSelectionContextMenuClose={handleSelectionContextMenuClose}
+        handleGroupEditConfirm={handleGroupEditConfirm}
+        handleGroupEditCancel={handleGroupEditCancel}
+        handleGroupDeleteConfirm={handleGroupDeleteConfirm}
+        handleGroupDeleteCancel={handleGroupDeleteCancel}
       />
-
-      {/* History Browser */}
-      <HistoryBrowser
-        isOpen={isHistoryBrowserOpen}
-        onClose={() => setIsHistoryBrowserOpen(false)}
-        onSelectWorkflow={handleLoadWorkflow}
-        onViewFlowTrace={workflowId => {
-          setIsHistoryBrowserOpen(false)
-          setIsFlowTracerOpen(true)
-          // In production, you would load flow traces for the specific workflow
-          ToastManager.info(`Viewing flow traces for workflow ${workflowId}`)
-        }}
-        currentWorkflowId={workflowId}
-      />
-
-      {/* Flow Tracer */}
-      <FlowTracer isOpen={isFlowTracerOpen} onClose={() => setIsFlowTracerOpen(false)} />
-
-      {/* Configuration */}
-      <Configuration
-        isOpen={isConfigOpen}
-        onClose={() => setIsConfigOpen(false)}
-        onVariableConfigured={handleVariableConfigured}
-      />
-
-      {/* Missing Environment Variables Warning */}
-      {showEnvVarWarning && missingEnvVars.length > 0 && (
-        <MissingEnvVarWarning
-          missingVars={missingEnvVars}
-          onDismiss={handleDismissEnvVarWarning}
-          onOpenConfig={handleOpenConfigFromWarning}
-        />
-      )}
-
-      {/* Configuration Toast */}
-      {configurationToastNodeId &&
-        (() => {
-          const node = storeNodes.find(
-            (n: any) => (n.id || n.metadata.id) === configurationToastNodeId
-          )
-          return node ? (
-            <ConfigurationToast
-              nodeMetadata={node.metadata}
-              onConfigure={() => {
-                setConfigurationToastNodeId(null)
-                handleNodeSelect(configurationToastNodeId)
-              }}
-              onDismiss={() => setConfigurationToastNodeId(null)}
-            />
-          ) : null
-        })()}
-
-      {/* Group Creation Modal */}
-      <GroupCreationModal
-        isOpen={isGroupCreationModalOpen}
-        selectedNodeCount={selection.selectedNodeIds.length}
-        selectedNodeNames={selection.selectedNodeIds.map((id: any) => {
-          const node = storeNodes.find((n: any) => (n.id || n.metadata.id) === id)
-          return node ? node.metadata.title : 'Unknown'
-        })}
-        onConfirm={handleGroupCreationConfirm}
-        onCancel={handleGroupCreationCancel}
-      />
-
-      {/* Empty Group Creation Modal */}
-      <EmptyGroupCreationModal
-        isOpen={isEmptyGroupModalOpen}
-        position={emptyGroupPosition}
-        onConfirm={handleEmptyGroupCreationConfirm}
-        onCancel={handleEmptyGroupCreationCancel}
-      />
-
-      {/* Selection Context Menu */}
-      <SelectionContextMenu
-        isVisible={selectionContextMenu.isVisible}
-        position={selectionContextMenu.position}
-        selectedNodeCount={selection.selectedNodeIds.length}
-        onCreateGroup={handleContextMenuCreateGroup}
-        onClose={handleSelectionContextMenuClose}
-      />
-
-      {/* Group Edit Modal */}
-      {editingGroupId &&
-        (() => {
-          const editingGroup = groups.find((g: any) => g.id === editingGroupId)
-          if (!editingGroup) return null
-
-          return (
-            <GroupEditModal
-              isOpen={true}
-              groupId={editingGroupId}
-              currentTitle={editingGroup.title}
-              currentDescription={editingGroup.description || ''}
-              onConfirm={handleGroupEditConfirm}
-              onCancel={handleGroupEditCancel}
-            />
-          )
-        })()}
-
-      {/* Group Delete Modal */}
-      {deletingGroupId &&
-        (() => {
-          const deletingGroup = groups.find((g: any) => g.id === deletingGroupId)
-          if (!deletingGroup) return null
-
-          return (
-            <GroupDeleteModal
-              isOpen={true}
-              groupId={deletingGroupId}
-              groupTitle={deletingGroup.title}
-              nodeCount={deletingGroup.nodeIds.length}
-              onConfirm={handleGroupDeleteConfirm}
-              onCancel={handleGroupDeleteCancel}
-            />
-          )
-        })()}
-
-      {/* User Settings Modal */}
-      <UserSettingsModal
-        isOpen={isUserSettingsOpen}
-        onClose={() => setIsUserSettingsOpen(false)}
-        onSave={(newUserName, userColor) => {
-          // Update the user button display
-          setUserName(newUserName)
-          setIsUserSettingsOpen(false)
-
-          const store = (window as any).__zealStore
-          if (store && typeof store === 'function') {
-            const state = store()
-
-            // Update presence if in collaborative mode
-            if (isCollaborative && store.updatePresence) {
-              store.updatePresence({
-                userId: sessionStorage.getItem('userId') || 'anonymous',
-                userName: userName,
-                userColor: userColor,
-              })
-            }
-          }
-        }}
-      />
-
-      {/* Notification Panel - only show in collaborative mode */}
-      {isCollaborative && <NotificationPanel />}
-
-      {/* Test Notifications - Temporary for debugging */}
-      {/* {isCollaborative && <TestNotifications />} */}
-
-      {/* Debug Panel - Temporary for debugging graph issues */}
-      {/* <GraphDebugPanel /> */}
     </main>
   )
 }
