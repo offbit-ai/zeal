@@ -105,8 +105,8 @@ const nodeWidths = new Map<string, string>([
   ['image-input', '350px'],
   ['audio-input', '350px'],
   ['video-input', '350px'],
-  ['image-stream-display', '350px'],
-  ['audio-stream-display', '350px'],
+  ['tpl_image_stream_display', '350px'],
+  ['tpl_audio_stream_display', '350px'],
   ['text-input', '280px'],
   ['number-input', '280px'],
   ['range-input', '280px'],
@@ -154,11 +154,11 @@ registerRenderer(
 )
 
 registerRenderer(
-  'image-stream-display',
+  'tpl_image_stream_display',
   lazy(() => import('@/components/node-renderers/ImageStreamRenderer'))
 )
 
 registerRenderer(
-  'audio-stream-display',
+  'tpl_audio_stream_display',
   lazy(() => import('@/components/node-renderers/AudioStreamRenderer'))
 )

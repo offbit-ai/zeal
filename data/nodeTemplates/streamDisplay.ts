@@ -7,7 +7,7 @@ import { NodeTemplate } from './types'
 
 const imageStreamDisplayNode: NodeTemplate = {
   id: 'tpl_image_stream_display',
-  type: 'image-stream-display',
+  type: 'tpl_image_stream_display',
   title: 'Image Stream',
   subtitle: 'Live Image Display',
   category: 'media',
@@ -59,7 +59,7 @@ const imageStreamDisplayNode: NodeTemplate = {
 
 const audioStreamDisplayNode: NodeTemplate = {
   id: 'tpl_audio_stream_display',
-  type: 'audio-stream-display',
+  type: 'tpl_audio_stream_display',
   title: 'Audio Stream',
   subtitle: 'Live Audio Display',
   category: 'media',
