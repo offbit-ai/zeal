@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X, Settings } from 'lucide-react'
 import { RuleSet } from '@/types/workflow'
-import { RuleBuilder } from '../RuleBuilder'
+import { RuleBuilder } from '../property-pane/RuleBuilder'
 
 interface RuleEditorModalProps {
   isOpen: boolean

@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../ui/Tooltip'
 
 interface SearchButtonProps {
   onClick?: () => void

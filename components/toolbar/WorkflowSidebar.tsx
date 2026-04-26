@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useWorkflowStore } from '@/store/workflow-store'
 import { useNodeRepositoryStore } from '@/store/nodeRepositoryStore'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../ui/Tooltip'
 import {
   Plus,
   Database,

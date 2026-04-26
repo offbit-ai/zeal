@@ -1,4 +1,4 @@
-import { RangeInputControl } from '@/components/UserInputControls'
+import { RangeInputControl } from '@/components/property-pane/UserInputControls'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function RangeInputRenderer({

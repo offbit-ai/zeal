@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { X, Plus, Star } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../ui/Tooltip'
 
 interface Tab {
   id: string

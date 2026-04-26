@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { DataOperationSet } from '@/types/workflow'
-import { DataOperationBuilder } from '../DataOperationBuilder'
+import { DataOperationBuilder } from '../property-pane/DataOperationBuilder'
 
 interface DataOperationModalProps {
   isOpen: boolean

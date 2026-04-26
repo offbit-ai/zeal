@@ -1,5 +1,5 @@
 import { History, ListRestart, KeyRound, Grid2x2Plus, GitBranch } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../ui/Tooltip'
 
 interface WorkflowBottomToolbarProps {
   onHistoryClick?: () => void

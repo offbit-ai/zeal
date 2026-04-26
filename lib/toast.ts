@@ -1,4 +1,4 @@
-import { ToastManager } from '@/components/Toast'
+import { ToastManager } from '@/components/ui/Toast'
 
 // Toast service wrapper for consistent error/success messaging
 export const toast = {

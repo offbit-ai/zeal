@@ -1,4 +1,4 @@
-import { TextInputControl } from '@/components/UserInputControls'
+import { TextInputControl } from '@/components/property-pane/UserInputControls'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function TextInputRenderer({ propertyValues, onPropertyChange }: NodeRendererProps) {

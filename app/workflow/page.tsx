@@ -3,25 +3,25 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import * as Y from 'yjs'
 import { InteractiveCanvas } from '@/components/canvas/InteractiveCanvas'
-import { WorkflowSidebar } from '@/components/WorkflowSidebar'
-import { WorkflowBottomToolbar } from '@/components/WorkflowBottomToolbar'
-import { SearchButton } from '@/components/SearchButton'
-import { NodeBrowserButton } from '@/components/NodeBrowserButton'
+import { WorkflowSidebar } from '@/components/toolbar/WorkflowSidebar'
+import { WorkflowBottomToolbar } from '@/components/toolbar/WorkflowBottomToolbar'
+import { SearchButton } from '@/components/toolbar/SearchButton'
+import { NodeBrowserButton } from '@/components/toolbar/NodeBrowserButton'
 import { TriggerManager } from '@/components/TriggerManager'
-import { UndoRedoButtons } from '@/components/UndoRedoButtons'
+import { UndoRedoButtons } from '@/components/toolbar/UndoRedoButtons'
 import { SearchModal } from '@/components/modals/SearchModal'
-import { NodeBrowserPanel } from '@/components/NodeBrowserPanel'
-import { HistoryBrowser } from '@/components/HistoryBrowser'
-import { FlowTracer } from '@/components/FlowTracer'
-import { Configuration } from '@/components/Configuration'
-import { MissingEnvVarWarning } from '@/components/MissingEnvVarWarning'
+import { NodeBrowserPanel } from '@/components/panels/NodeBrowserPanel'
+import { HistoryBrowser } from '@/components/trace/HistoryBrowser'
+import { FlowTracer } from '@/components/trace/FlowTracer'
+import { Configuration } from '@/components/panels/Configuration'
+import { MissingEnvVarWarning } from '@/components/property-pane/MissingEnvVarWarning'
 import { EnvVarService } from '@/services/envVarService'
 import { useEnvVarStore } from '@/store/envVarStore'
 import { DraggableNode } from '@/components/node/DraggableNode'
 import { Minimap } from '@/components/canvas/Minimap'
 import { ZoomControls } from '@/components/canvas/ZoomControls'
 import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } from 'lucide-react'
-import { ToastManager } from '@/components/Toast'
+import { ToastManager } from '@/components/ui/Toast'
 import dynamic from 'next/dynamic'
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import { calculatePanToCenter, animateCanvasPan } from '@/utils/findEmptyArea'
@@ -37,9 +37,9 @@ import { GroupNodes } from './_components/GroupNodes'
 import { UngroupedNodes } from './_components/UngroupedNodes'
 import { DragConnectionLine } from '@/components/canvas/DragConnectionLine'
 import { DeleteConnectionDialog } from '@/components/modals/DeleteConnectionDialog'
-import { PropertyPane } from '@/components/PropertyPane'
+import { PropertyPane } from '@/components/property-pane/PropertyPane'
 import { ModalPortal } from '@/components/modals/ModalPortal'
-import { ConfigurationToast } from '@/components/ConfigurationToast'
+import { ConfigurationToast } from '@/components/ui/ConfigurationToast'
 import { NodeGroupContainer } from '@/components/node/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/canvas/SelectionRectangle'
 import { SelectionContextMenu } from '@/components/canvas/SelectionContextMenu'
@@ -55,7 +55,7 @@ import {
 } from '@/store/workflow-store'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
-import { TabBar } from '@/components/TabBar'
+import { TabBar } from '@/components/toolbar/TabBar'
 import { SubgraphNode } from '@/components/node/SubgraphNode'
 import {
   createWorkflowSnapshot,
@@ -63,16 +63,16 @@ import {
   restoreWorkflowFromSnapshot,
   restoreGraphFromSerialized,
 } from '@/utils/workflowSerializer'
-import { LoadingOverlay } from '@/components/LoadingOverlay'
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { UnsavedChangesDialog } from '@/components/modals/UnsavedChangesDialog'
-import { SaveGraphButton } from '@/components/SaveGraphButton'
+import { SaveGraphButton } from '@/components/toolbar/SaveGraphButton'
 import { toast } from '@/lib/toast'
 import {
   cleanupWorkflowLocalStorage,
   hasLocalStorageBeenCleaned,
 } from '@/utils/cleanupLocalStorage'
 const PresenceDropdown = dynamic(
-  () => import('@/components/PresenceDropdown').then(mod => mod.PresenceDropdown),
+  () => import('@/components/presence/PresenceDropdown').then(mod => mod.PresenceDropdown),
   {
     ssr: false,
     loading: () => null,
@@ -81,16 +81,16 @@ const PresenceDropdown = dynamic(
 import { UserSettingsModal } from '@/components/modals/UserSettingsModal'
 import { CollaborativeCursors } from '@/components/canvas/CollaborativeCursors'
 // const CRDTFeatureIndicator = dynamic(
-//   () => import('@/components/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),
+//   () => import('@/components/presence/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),
 //   {
 //     ssr: false,
 //     loading: () => null,
 //   }
 // )
-// import { GraphDebugPanel } from '@/components/GraphDebugPanel'
+// import { GraphDebugPanel } from '@/components/panels/GraphDebugPanel'
 import { UserPreferencesService } from '@/services/userPreferences'
-import { NotificationButton } from '@/components/NotificationButton'
-import { NotificationPanel } from '@/components/NotificationPanel'
+import { NotificationButton } from '@/components/toolbar/NotificationButton'
+import { NotificationPanel } from '@/components/panels/NotificationPanel'
 // import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/node/CollapsedGroupPortHandler'
 

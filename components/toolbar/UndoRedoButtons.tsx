@@ -1,5 +1,5 @@
 import { Undo2, Redo2 } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../ui/Tooltip'
 
 interface UndoRedoButtonsProps {
   onUndo?: () => void

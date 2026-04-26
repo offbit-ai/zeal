@@ -16,7 +16,7 @@ import {
   FileUp,
 } from 'lucide-react'
 import { NodeMetadata, PropertyType } from '@/types/workflow'
-import { CodeEditor } from '../CodeEditor'
+import { CodeEditor } from '../property-pane/CodeEditor'
 import { Icon, useIconLibrary } from '@/lib/icons'
 import { BrandIcons } from '@/lib/icons/brand-icons'
 import { ModalPortal } from './ModalPortal'

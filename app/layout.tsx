@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { ToastProvider } from '@/components/Toast'
-import { ConsoleOverride } from '@/components/ConsoleOverride'
+import { ToastProvider } from '@/components/ui/Toast'
+import { ConsoleOverride } from '@/components/ui/ConsoleOverride'
 
 const inter = Inter({ subsets: ['latin'] })
 

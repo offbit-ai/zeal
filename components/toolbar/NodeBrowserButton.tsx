@@ -1,7 +1,7 @@
 'use client'
 
 import { LayoutGrid } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../ui/Tooltip'
 
 interface NodeBrowserButtonProps {
   onClick: () => void

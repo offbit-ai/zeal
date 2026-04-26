@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Key, Copy, Trash2, Plus, Eye, EyeOff } from 'lucide-react'
-import { ToastManager } from '@/components/Toast'
+import { ToastManager } from '@/components/ui/Toast'
 
 interface ApiKey {
   id: string

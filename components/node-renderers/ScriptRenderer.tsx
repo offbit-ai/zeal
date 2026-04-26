@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { ResizableCodeEditor } from '@/components/ResizableCodeEditor'
+import { ResizableCodeEditor } from '@/components/property-pane/ResizableCodeEditor'
 import type { NodeRendererProps } from '@/lib/node-renderer-registry'
 
 export default function ScriptRenderer({
