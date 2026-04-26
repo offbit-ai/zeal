@@ -7,13 +7,10 @@ import { NodeBrowserPanel } from '@/components/panels/NodeBrowserPanel'
 import { EnvVarService } from '@/services/envVarService'
 import { useEnvVarStore } from '@/store/envVarStore'
 import { DraggableNode } from '@/components/node/DraggableNode'
-import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } from 'lucide-react'
 import { ToastManager } from '@/components/ui/Toast'
-import dynamic from 'next/dynamic'
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import { calculatePanToCenter, animateCanvasPan } from '@/utils/findEmptyArea'
 import type { NodeMetadata, Connection } from '@/types/workflow'
-import { Database, Code, Bot, Cloud, Zap, GitBranch, Shuffle } from 'lucide-react'
 import { useNodeBounds } from '@/hooks/useNodeBounds'
 import { useCRDTPolling } from '@/hooks/useCRDTPolling'
 import { usePortPositions } from '@/hooks/usePortPositions'
@@ -24,8 +21,9 @@ import { GroupNodes } from './_components/GroupNodes'
 import { UngroupedNodes } from './_components/UngroupedNodes'
 import { WorkflowModalsLayer } from './_components/WorkflowModalsLayer'
 import { WorkflowFloatingPanels } from './_components/WorkflowFloatingPanels'
+import { WorkflowPropertyPane } from './_components/WorkflowPropertyPane'
+import { WorkflowHeader } from './_components/WorkflowHeader'
 import { DragConnectionLine } from '@/components/canvas/DragConnectionLine'
-import { PropertyPane } from '@/components/property-pane/PropertyPane'
 import { NodeGroupContainer } from '@/components/node/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/canvas/SelectionRectangle'
 import {
@@ -37,7 +35,6 @@ import {
 import { useWorkflowUIStore } from '@/store/workflow-ui-store'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
-import { TabBar } from '@/components/toolbar/TabBar'
 import { SubgraphNode } from '@/components/node/SubgraphNode'
 import {
   createWorkflowSnapshot,
@@ -51,13 +48,6 @@ import {
   cleanupWorkflowLocalStorage,
   hasLocalStorageBeenCleaned,
 } from '@/utils/cleanupLocalStorage'
-const PresenceDropdown = dynamic(
-  () => import('@/components/presence/PresenceDropdown').then(mod => mod.PresenceDropdown),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-)
 import { CollaborativeCursors } from '@/components/canvas/CollaborativeCursors'
 // const CRDTFeatureIndicator = dynamic(
 //   () => import('@/components/presence/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),
@@ -68,7 +58,6 @@ import { CollaborativeCursors } from '@/components/canvas/CollaborativeCursors'
 // )
 // import { GraphDebugPanel } from '@/components/panels/GraphDebugPanel'
 import { UserPreferencesService } from '@/services/userPreferences'
-import { NotificationButton } from '@/components/toolbar/NotificationButton'
 // import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/node/CollapsedGroupPortHandler'
 
@@ -2650,230 +2639,33 @@ export default function Home({
       {/* Loading Overlay */}
       {isLoading && <LoadingOverlay message={loadingMessage} />}
 
-      {/* Header - Hide in embed mode */}
-      {!embedMode && (
-        <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shadow-sm relative z-50">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg font-medium text-gray-900">Zeal</h1>
-            <div className="flex items-center gap-2">
-              {isEditingWorkflowName ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editedWorkflowName}
-                    onChange={e => setEditedWorkflowName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        setWorkflowName(editedWorkflowName)
-                        setIsEditingWorkflowName(false)
-                      } else if (e.key === 'Escape') {
-                        setIsEditingWorkflowName(false)
-                        setEditedWorkflowName(workflowName)
-                      }
-                    }}
-                    className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => {
-                      setWorkflowName(editedWorkflowName)
-                      setIsEditingWorkflowName(false)
-                    }}
-                    className="p-1 text-green-600 hover:bg-green-50 rounded"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingWorkflowName(false)
-                      setEditedWorkflowName(workflowName)
-                    }}
-                    className="p-1 text-gray-600 hover:bg-gray-50 rounded"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 group">
-                  <span className="text-sm text-gray-700 font-medium">{workflowName}</span>
-                  <button
-                    onClick={() => {
-                      setIsEditingWorkflowName(true)
-                      setEditedWorkflowName(workflowName)
-                    }}
-                    className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-              {workflowId && (
-                <span className="text-xs text-gray-400">ID: {workflowId.slice(0, 8)}...</span>
-              )}
-              {workflowTrigger && getCurrentGraph()?.isMain && (
-                <button
-                  onClick={() => {
-                    // Find and click the trigger manager button to open the modal
-                    const triggerButton = document.querySelector(
-                      '[title="Edit Trigger"]'
-                    ) as HTMLButtonElement
-                    if (triggerButton) triggerButton.click()
-                  }}
-                  className="flex items-center gap-2 px-3 py-1 bg-purple-100 hover:bg-purple-200 rounded-full transition-colors group"
-                  title={`${workflowTrigger.name}: ${
-                    workflowTrigger.description || 'Click to edit trigger'
-                  }`}
-                >
-                  <span className="text-xs font-medium text-gray-600">Trigger</span>
-                  <div className="w-px h-4 bg-purple-300"></div>
-                  <div className="flex items-center gap-1.5">
-                    {workflowTrigger.type === 'rest' ? (
-                      <Globe className="w-3 h-3 text-blue-600" />
-                    ) : workflowTrigger.type === 'websocket' ? (
-                      <Cable className="w-3 h-3 text-green-600" />
-                    ) : (
-                      <Clock className="w-3 h-3 text-purple-600" />
-                    )}
-                    <span className="text-xs font-medium text-gray-700">
-                      {workflowTrigger.type === 'rest'
-                        ? 'HTTP'
-                        : workflowTrigger.type === 'websocket'
-                          ? 'WebSocket'
-                          : workflowTrigger.type === 'scheduler'
-                            ? (workflowTrigger.config as any).isOneTime
-                              ? 'Once'
-                              : (workflowTrigger.config as any).interval
-                                ? `Every ${
-                                    (workflowTrigger.config as any).interval.value
-                                  } ${(workflowTrigger.config as any).interval.unit}`
-                                : 'Cron'
-                            : 'Active'}
-                    </span>
-                    <Edit2 className="w-3 h-3 text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Autosave Indicator and Save Button */}
-            <div className="flex items-center gap-2">
-              {/* Show save button only when autosave is disabled */}
-              {!autosaveEnabled && (
-                <button
-                  onClick={handleSaveWorkflow}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors cursor-pointer"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Save
-                </button>
-              )}
-
-              {/* Autosave Toggle */}
-              <button
-                onClick={() => !isCollaborative && setAutosaveEnabled(!autosaveEnabled)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border rounded-md ${
-                  isCollaborative ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
-                } ${
-                  autosaveEnabled
-                    ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
-                }`}
-                title={
-                  isCollaborative
-                    ? 'Autosave is required in collaborative mode'
-                    : autosaveEnabled
-                      ? 'Autosave: ON - Click to disable'
-                      : 'Autosave: OFF - Click to enable'
-                }
-                disabled={isCollaborative}
-              >
-                <RotateCcw className={`w-3 h-3 ${autosaveEnabled ? 'animate-spin' : ''}`} />
-                {autosaveEnabled ? 'Autosave' : 'Manual'}
-                {/* {isCollaborative && <span className="ml-1 text-[10px]">(Required)</span>} */}
-              </button>
-            </div>
-            <button
-              onClick={handlePublishWorkflow}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Publish
-            </button>
-            <button
-              onClick={handleRunSimulation}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
-            >
-              <Play className="w-3.5 h-3.5" />
-              Run
-            </button>
-
-            {/* Notification Button - only show in collaborative mode */}
-            {isCollaborative && <NotificationButton />}
-
-            {/* Share and User Settings moved to Presence Dropdown */}
-
-            {/* Presence Dropdown */}
-            {isCollaborative && (
-              <PresenceDropdown
-                presence={presence}
-                isCollaborative={isCollaborative}
-                isOptimized={isOptimized}
-                localClientId={localClientId}
-                workflowId={workflowId}
-                onShare={async () => {
-                  const shareUrl = workflowId
-                    ? `${window.location.origin}/workflow?id=${workflowId}`
-                    : ''
-
-                  if (!shareUrl) return
-
-                  try {
-                    await navigator.clipboard.writeText(shareUrl)
-                    toast.success('Share link copied to clipboard!')
-                  } catch (error) {
-                    // Fallback for older browsers
-                    const textArea = document.createElement('textarea')
-                    textArea.value = shareUrl
-                    textArea.style.position = 'fixed'
-                    textArea.style.opacity = '0'
-                    document.body.appendChild(textArea)
-                    textArea.select()
-
-                    try {
-                      document.execCommand('copy')
-                      toast.success('Share link copied to clipboard!')
-                    } catch (err) {
-                      toast.error('Failed to copy link')
-                    }
-
-                    document.body.removeChild(textArea)
-                  }
-                }}
-                onUserSettings={() => setIsUserSettingsOpen(true)}
-              />
-            )}
-          </div>
-        </header>
-      )}
-
-      {/* Tab Bar - Show only if enabled in embed mode */}
-      {(!embedMode || embedSettings.showSubgraphTabs) && (
-        <TabBar
-          tabs={graphs.map(g => ({
-            id: g.id,
-            name: g.name,
-            isMain: g.isMain,
-            isDirty: g.isDirty || false, // Default to false if not set
-          }))}
-          activeTabId={currentGraphId}
-          onTabSelect={handleTabSelect}
-          onTabClose={handleTabClose}
-          onTabAdd={handleTabAdd}
-          onTabRename={handleTabRename}
-          onSetMainTab={handleSetMainTab}
-        />
-      )}
+      <WorkflowHeader
+        embedMode={embedMode}
+        embedSettings={embedSettings}
+        workflowName={workflowName}
+        setWorkflowName={setWorkflowName}
+        workflowId={workflowId}
+        isCollaborative={isCollaborative}
+        presence={presence}
+        isOptimized={isOptimized}
+        localClientId={localClientId}
+        graphs={graphs}
+        currentGraphId={currentGraphId}
+        isEditingWorkflowName={isEditingWorkflowName}
+        setIsEditingWorkflowName={setIsEditingWorkflowName}
+        editedWorkflowName={editedWorkflowName}
+        setEditedWorkflowName={setEditedWorkflowName}
+        workflowTrigger={workflowTrigger}
+        getCurrentGraph={getCurrentGraph}
+        handleSaveWorkflow={handleSaveWorkflow}
+        handlePublishWorkflow={handlePublishWorkflow}
+        handleRunSimulation={handleRunSimulation}
+        handleTabSelect={handleTabSelect}
+        handleTabClose={handleTabClose}
+        handleTabAdd={handleTabAdd}
+        handleTabRename={handleTabRename}
+        handleSetMainTab={handleSetMainTab}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex relative overflow-hidden">
@@ -3127,26 +2919,7 @@ export default function Home({
           />
         ) : null}
 
-        {/* Property Pane */}
-        {isPropertyPaneVisible && (
-          <>
-            {/* Backdrop */}
-            <div
-              className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-300 ${
-                isPropertyPaneClosing ? 'opacity-0' : 'opacity-100'
-              }`}
-              onClick={handlePropertyPaneClose}
-            />
-            {/* Property Pane */}
-            <div className="fixed right-0 top-0 h-full z-55">
-              <PropertyPane
-                selectedNodeId={selectedNodeId}
-                onClose={handlePropertyPaneClose}
-                isClosing={isPropertyPaneClosing}
-              />
-            </div>
-          </>
-        )}
+        <WorkflowPropertyPane handlePropertyPaneClose={handlePropertyPaneClose} />
       </div>
 
       <WorkflowModalsLayer
