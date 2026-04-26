@@ -182,10 +182,7 @@ impl TemplatesAPI {
 
     /// List available node template categories
     pub async fn list_categories(&self) -> Result<ListCategoriesResponse> {
-        let url = format!(
-            "{}/api/zip/categories",
-            self.base_url.trim_end_matches('/')
-        );
+        let url = format!("{}/api/zip/categories", self.base_url.trim_end_matches('/'));
 
         let response = self.client.get(&url).send().await?;
 
@@ -212,10 +209,7 @@ impl TemplatesAPI {
         &self,
         request: RegisterCategoriesRequest,
     ) -> Result<RegisterCategoriesResponse> {
-        let url = format!(
-            "{}/api/zip/categories",
-            self.base_url.trim_end_matches('/')
-        );
+        let url = format!("{}/api/zip/categories", self.base_url.trim_end_matches('/'));
 
         let response = self
             .client
@@ -248,10 +242,7 @@ impl TemplatesAPI {
         &self,
         request: UploadBundleRequest,
     ) -> Result<UploadBundleResponse> {
-        let url = format!(
-            "{}/api/zip/components",
-            self.base_url.trim_end_matches('/')
-        );
+        let url = format!("{}/api/zip/components", self.base_url.trim_end_matches('/'));
 
         let response = self
             .client
