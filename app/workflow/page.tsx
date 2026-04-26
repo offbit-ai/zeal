@@ -1,12 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import * as Y from 'yjs'
 import { InteractiveCanvas } from '@/components/canvas/InteractiveCanvas'
 import { NodeBrowserPanel } from '@/components/panels/NodeBrowserPanel'
 import { EnvVarService } from '@/services/envVarService'
 import { useEnvVarStore } from '@/store/envVarStore'
-import { DraggableNode } from '@/components/node/DraggableNode'
 import { ToastManager } from '@/components/ui/Toast'
 import { simulatePublishedWorkflows } from '@/utils/simulatePublishedWorkflows'
 import { calculatePanToCenter, animateCanvasPan } from '@/utils/findEmptyArea'
@@ -36,7 +34,6 @@ import {
 import { useWorkflowUIStore } from '@/store/workflow-ui-store'
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
-import { SubgraphNode } from '@/components/node/SubgraphNode'
 import {
   createWorkflowSnapshot,
   createWorkflowGraph,
@@ -45,10 +42,6 @@ import {
 } from '@/utils/workflowSerializer'
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { toast } from '@/lib/toast'
-import {
-  cleanupWorkflowLocalStorage,
-  hasLocalStorageBeenCleaned,
-} from '@/utils/cleanupLocalStorage'
 import { CollaborativeCursors } from '@/components/canvas/CollaborativeCursors'
 // const CRDTFeatureIndicator = dynamic(
 //   () => import('@/components/presence/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),
