@@ -116,8 +116,6 @@ export default function Home({
     }
   }, [])
 
-  const canvasRef = useRef<HTMLDivElement>(null)
-  const creatingWorkflow = useRef(false)
 
   // Page-level UI state (modals, panels, selection, viewport) is held in a
   // dedicated zustand store so other parts of the app can read/write it
