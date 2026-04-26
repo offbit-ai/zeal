@@ -3,23 +3,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import * as Y from 'yjs'
 import { InteractiveCanvas } from '@/components/canvas/InteractiveCanvas'
-import { WorkflowSidebar } from '@/components/toolbar/WorkflowSidebar'
-import { WorkflowBottomToolbar } from '@/components/toolbar/WorkflowBottomToolbar'
-import { SearchButton } from '@/components/toolbar/SearchButton'
-import { NodeBrowserButton } from '@/components/toolbar/NodeBrowserButton'
-import { TriggerManager } from '@/components/TriggerManager'
-import { UndoRedoButtons } from '@/components/toolbar/UndoRedoButtons'
-import { SearchModal } from '@/components/modals/SearchModal'
 import { NodeBrowserPanel } from '@/components/panels/NodeBrowserPanel'
-import { HistoryBrowser } from '@/components/trace/HistoryBrowser'
-import { FlowTracer } from '@/components/trace/FlowTracer'
-import { Configuration } from '@/components/panels/Configuration'
-import { MissingEnvVarWarning } from '@/components/property-pane/MissingEnvVarWarning'
 import { EnvVarService } from '@/services/envVarService'
 import { useEnvVarStore } from '@/store/envVarStore'
 import { DraggableNode } from '@/components/node/DraggableNode'
-import { Minimap } from '@/components/canvas/Minimap'
-import { ZoomControls } from '@/components/canvas/ZoomControls'
 import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } from 'lucide-react'
 import { ToastManager } from '@/components/ui/Toast'
 import dynamic from 'next/dynamic'
@@ -36,18 +23,11 @@ import { getNodeId } from './_utils/node-id'
 import { GroupNodes } from './_components/GroupNodes'
 import { UngroupedNodes } from './_components/UngroupedNodes'
 import { WorkflowModalsLayer } from './_components/WorkflowModalsLayer'
+import { WorkflowFloatingPanels } from './_components/WorkflowFloatingPanels'
 import { DragConnectionLine } from '@/components/canvas/DragConnectionLine'
-import { DeleteConnectionDialog } from '@/components/modals/DeleteConnectionDialog'
 import { PropertyPane } from '@/components/property-pane/PropertyPane'
-import { ModalPortal } from '@/components/modals/ModalPortal'
-import { ConfigurationToast } from '@/components/ui/ConfigurationToast'
 import { NodeGroupContainer } from '@/components/node/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/canvas/SelectionRectangle'
-import { SelectionContextMenu } from '@/components/canvas/SelectionContextMenu'
-import { GroupCreationModal } from '@/components/modals/GroupCreationModal'
-import { EmptyGroupCreationModal } from '@/components/modals/EmptyGroupCreationModal'
-import { GroupEditModal } from '@/components/modals/GroupEditModal'
-import { GroupDeleteModal } from '@/components/modals/GroupDeleteModal'
 import {
   useWorkflowStore,
   usePresence,
@@ -66,8 +46,6 @@ import {
   restoreGraphFromSerialized,
 } from '@/utils/workflowSerializer'
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
-import { UnsavedChangesDialog } from '@/components/modals/UnsavedChangesDialog'
-import { SaveGraphButton } from '@/components/toolbar/SaveGraphButton'
 import { toast } from '@/lib/toast'
 import {
   cleanupWorkflowLocalStorage,
@@ -80,7 +58,6 @@ const PresenceDropdown = dynamic(
     loading: () => null,
   }
 )
-import { UserSettingsModal } from '@/components/modals/UserSettingsModal'
 import { CollaborativeCursors } from '@/components/canvas/CollaborativeCursors'
 // const CRDTFeatureIndicator = dynamic(
 //   () => import('@/components/presence/CRDTFeatureIndicator').then(mod => mod.CRDTFeatureIndicator),
@@ -92,7 +69,6 @@ import { CollaborativeCursors } from '@/components/canvas/CollaborativeCursors'
 // import { GraphDebugPanel } from '@/components/panels/GraphDebugPanel'
 import { UserPreferencesService } from '@/services/userPreferences'
 import { NotificationButton } from '@/components/toolbar/NotificationButton'
-import { NotificationPanel } from '@/components/panels/NotificationPanel'
 // import { TestNotifications } from '@/components/TestNotifications'
 import { CollapsedGroupPortHandler } from '@/components/node/CollapsedGroupPortHandler'
 
@@ -3117,112 +3093,25 @@ export default function Home({
             )}
           </InteractiveCanvas>
 
-          {/* Floating UI Components */}
-          {!embedMode ? (
-            <WorkflowSidebar
-              isCollapsed={isSidebarCollapsed}
-              onCategoryClick={handleCategoryClick}
-              // onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            />
-          ) : null}
-
-          {!embedMode ? <SearchButton onClick={() => setIsSearchOpen(true)} /> : null}
-          {!embedMode ? (
-            <NodeBrowserButton onClick={handleNodeBrowserToggle} isActive={isNodeBrowserOpen} />
-          ) : null}
-          {!embedMode ? <TriggerManager /> : null}
-          <UndoRedoButtons onUndo={() => {}} onRedo={() => {}} canUndo={false} canRedo={false} />
-          {!embedMode ? (
-            <WorkflowBottomToolbar
-              onHistoryClick={() => setIsHistoryBrowserOpen(true)}
-              onDebuggerClick={() => setIsFlowTracerOpen(true)}
-              onCreateEmptyGroupClick={() => {
-                // Calculate center of viewport in canvas coordinates
-                const centerX = (-canvasOffset.x + viewportSize.width / 2) / canvasZoom
-                const centerY = (-canvasOffset.y + viewportSize.height / 2) / canvasZoom
-                handleCreateEmptyGroup({ x: centerX, y: centerY })
-              }}
-              onConfigClick={async () => {
-                // Fetch env vars when opening configuration
-                await updateConfiguredEnvVars()
-                setIsConfigOpen(true)
-              }}
-              onAddSubgraphClick={() => {
-                setSelectedCategory(null) // Reset category
-                setSearchModalInitialTab('subgraphs') // Open to subgraphs tab
-                setIsSearchOpen(true)
-              }}
-            />
-          ) : null}
-
-          {(!embedMode || embedSettings.showMinimap) && (
-            <Minimap
-              canvasOffset={canvasOffset}
-              nodes={(() => {
-                const minimapNodes = storeNodes.map((node: any) => {
-                  const nodeId = getNodeId(node)
-
-                  // Check if node is in a group
-                  const parentGroup = groups.find((g: { nodeIds: string | string[] }) =>
-                    g.nodeIds?.includes(nodeId)
-                  )
-
-                  let visualPosition = node.position || { x: 0, y: 0 }
-
-                  // If node is in a group and we have a local position stored, calculate the absolute visual position
-                  if (parentGroup && groupNodePositions[parentGroup.id]?.[nodeId]) {
-                    const localPos = groupNodePositions[parentGroup.id][nodeId]
-                    const headerOffset = parentGroup.description ? 100 : 32
-                    visualPosition = {
-                      x: parentGroup.position.x + localPos.x,
-                      y: parentGroup.position.y + localPos.y + headerOffset,
-                    }
-                  }
-
-                  return {
-                    id: nodeId,
-                    position: visualPosition,
-                    size: { width: 200, height: 80 }, // Default node size
-                  }
-                })
-
-                return minimapNodes
-              })()}
-              groups={groups.map((group: any) => ({
-                id: group.id,
-                position: group.position,
-                size: group.size,
-                color: group.color,
-                collapsed: localGroupCollapseState[group.id] || false,
-                title: group.title,
-                nodeIds: group.nodeIds,
-              }))}
-              viewportSize={viewportSize}
-              onViewportChange={setCanvasOffset}
-            />
-          )}
-
-          {(!embedMode || embedSettings.showZoomControls) && (
-            <ZoomControls
-              zoom={canvasZoom}
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onZoomReset={handleZoomReset}
-            />
-          )}
-
-          {/* Save Graph Button - Hide in embed mode */}
-          {!embedMode && (
-            <SaveGraphButton
-              isVisible={getCurrentGraph()?.isDirty || false}
-              graphName={getCurrentGraph()?.name || ''}
-              onSave={handleSaveGraph}
-              isSaving={isSavingGraph}
-            />
-          )}
-
-          {/* CRDT Feature Indicator */}
-          {/* <CRDTFeatureIndicator isCollaborative={isCollaborative} /> */}
+          <WorkflowFloatingPanels
+            embedMode={embedMode}
+            embedSettings={embedSettings}
+            viewportSize={viewportSize}
+            storeNodes={storeNodes}
+            groups={groups}
+            groupNodePositions={groupNodePositions}
+            localGroupCollapseState={localGroupCollapseState}
+            isSavingGraph={isSavingGraph}
+            handleCategoryClick={handleCategoryClick}
+            handleNodeBrowserToggle={handleNodeBrowserToggle}
+            handleCreateEmptyGroup={handleCreateEmptyGroup}
+            updateConfiguredEnvVars={updateConfiguredEnvVars}
+            handleZoomIn={handleZoomIn}
+            handleZoomOut={handleZoomOut}
+            handleZoomReset={handleZoomReset}
+            handleSaveGraph={handleSaveGraph}
+            getCurrentGraph={getCurrentGraph}
+          />
         </div>
 
         {/* Node Browser Panel */}
