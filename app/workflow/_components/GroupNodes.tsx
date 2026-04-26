@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import { DraggableNode } from '@/components/DraggableNode'
-import { SubgraphNode } from '@/components/SubgraphNode'
+import { DraggableNode } from '@/components/node/DraggableNode'
+import { SubgraphNode } from '@/components/node/SubgraphNode'
 
 interface GroupNodesProps {
   group: any

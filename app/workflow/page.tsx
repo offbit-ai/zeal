@@ -17,7 +17,7 @@ import { Configuration } from '@/components/Configuration'
 import { MissingEnvVarWarning } from '@/components/MissingEnvVarWarning'
 import { EnvVarService } from '@/services/envVarService'
 import { useEnvVarStore } from '@/store/envVarStore'
-import { DraggableNode } from '@/components/DraggableNode'
+import { DraggableNode } from '@/components/node/DraggableNode'
 import { Minimap } from '@/components/canvas/Minimap'
 import { ZoomControls } from '@/components/canvas/ZoomControls'
 import { Save, Upload, Play, Edit2, Check, X, Clock, Globe, Cable, RotateCcw } from 'lucide-react'
@@ -40,7 +40,7 @@ import { DeleteConnectionDialog } from '@/components/modals/DeleteConnectionDial
 import { PropertyPane } from '@/components/PropertyPane'
 import { ModalPortal } from '@/components/modals/ModalPortal'
 import { ConfigurationToast } from '@/components/ConfigurationToast'
-import { NodeGroupContainer } from '@/components/NodeGroupContainer'
+import { NodeGroupContainer } from '@/components/node/NodeGroupContainer'
 import { SelectionRectangle } from '@/components/canvas/SelectionRectangle'
 import { SelectionContextMenu } from '@/components/canvas/SelectionContextMenu'
 import { GroupCreationModal } from '@/components/modals/GroupCreationModal'
@@ -56,7 +56,7 @@ import {
 import { WorkflowStorageService } from '@/services/workflowStorage'
 import { hasUnconfiguredDefaults } from '@/utils/nodeConfigurationStatus'
 import { TabBar } from '@/components/TabBar'
-import { SubgraphNode } from '@/components/SubgraphNode'
+import { SubgraphNode } from '@/components/node/SubgraphNode'
 import {
   createWorkflowSnapshot,
   createWorkflowGraph,
@@ -92,7 +92,7 @@ import { UserPreferencesService } from '@/services/userPreferences'
 import { NotificationButton } from '@/components/NotificationButton'
 import { NotificationPanel } from '@/components/NotificationPanel'
 // import { TestNotifications } from '@/components/TestNotifications'
-import { CollapsedGroupPortHandler } from '@/components/CollapsedGroupPortHandler'
+import { CollapsedGroupPortHandler } from '@/components/node/CollapsedGroupPortHandler'
 
 
 interface HomeProps {
